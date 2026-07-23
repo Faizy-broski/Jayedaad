@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx -y supabase link --project-ref penavqszyhbcatopspqc)"
+    ]
+  }
+}

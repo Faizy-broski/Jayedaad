@@ -1,0 +1,13 @@
+# Postgres is Supabase-hosted now (see supabase/migrations/ + .env
+# SUPABASE_*), so only Redis (caching / real-time counters) runs locally.
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - jayedaad_redis_data:/data
+
+volumes:
+  jayedaad_redis_data:

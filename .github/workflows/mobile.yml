@@ -1,0 +1,27 @@
+name: mobile
+
+on:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "packages/**"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+
+jobs:
+  lint-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @jayedaad/mobile typecheck
+      - run: pnpm --filter @jayedaad/mobile lint
+      # EAS Build (TestFlight / Play Internal Testing) runs as a separate,
+      # manually-triggered pipeline once an Expo/EAS account + credentials exist.

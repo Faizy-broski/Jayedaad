@@ -1,0 +1,26 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "axios",
+            "message": "apps/web must not call axios directly — business logic and API calls live in @jayedaad/core (viewmodels/services). See Jayedaad_Architectural_Blueprint.md §2."
+          },
+          {
+            "name": "@supabase/supabase-js",
+            "message": "apps/web must not use the plain Supabase client directly — use useAuthViewModel() from @jayedaad/core. @supabase/ssr (a different package, not restricted here) is the sanctioned exception in middleware.ts and providers.tsx, since only it produces a cookie-backed session middleware can read."
+          }
+        ],
+        "patterns": [
+          {
+            "group": ["@jayedaad/core/services/*", "@jayedaad/core/viewmodels/*", "@jayedaad/core/models/*", "@jayedaad/core/state/*"],
+            "message": "Import from '@jayedaad/core' (the package root) instead of its internal files — only the public barrel export is a stable contract."
+          }
+        ]
+      }
+    ]
+  }
+}
