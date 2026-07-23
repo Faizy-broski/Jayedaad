@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens — standard shadcn/ui CSS-variable convention (HSL triples,
+   consumed via hsl(var(--x)) in tailwind.config.ts so Tailwind opacity
+   modifiers like bg-primary/50 keep working). Values are the confirmed
+   brand colors (converted hex -> HSL) — every component built against the
+   `primary`/`brand-dark`/`highlight`/etc. token names picks up any future
+   change automatically, no component code to touch.
+
+   Source hex, for reference when these need touching up:
+     --primary            #07533E  Primary Green — "Search"/primary CTA buttons
+     --brand-dark         #011B14  Deep Forest/near-black green — dark sections, CTA banners
+     --highlight           #F9AD3E  Warm orange (range #F9AD3E - #E88742) — "Super" title accent
+     white / cards/nav/base backgrounds -> --background, --secondary, --primary-foreground
+
+   Dark mode follows tailwind.config.ts's `darkMode: 'media'` (OS
+   preference) — there's no light/dark toggle wired up yet, so this uses
+   `prefers-color-scheme` rather than shadcn's usual `.dark` class
+   selector. If a manual toggle is added later, switch to a `.dark` class
+   selector here and drive it from a small theme store (Zustand, matching
+   the rest of this app's local-state convention). Brand hues
+   (primary/brand-dark/highlight) stay the same family across light/dark;
+   --primary's lightness is bumped up in dark mode purely for contrast
+   against the dark background (18% on 11% would be nearly invisible) —
+   structural background/foreground/muted/accent/border tokens flip fully. */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+
+  --primary: 163 84% 18%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+
+  /* "Super" title / promo accent — the confirmed warm-orange range
+     (#F9AD3E - #E88742). Use sparingly (badges, highlighted text, promo
+     callouts), not as a general interactive-state color like --accent. */
+  --highlight: 36 94% 61%;
+  --highlight-foreground: 222 47% 11%;
+
+  /* Deep Forest/near-black green — dark CTA banners and "Where we live"-
+     style sections spliced into an otherwise light page. Distinct from
+     --background's own dark-mode value below (that's the whole page going
+     dark on OS preference; this is a deliberate dark SECTION on a light page). */
+  --brand-dark: 164 93% 5%;
+  --brand-dark-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 163 84% 18%;
+
+  --radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --primary: 163 70% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --highlight: 36 94% 61%;
+    --highlight-foreground: 222 47% 11%;
+
+    --brand-dark: 164 93% 5%;
+    --brand-dark-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 163 70% 32%;
+  }
+}

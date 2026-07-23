@@ -1,0 +1,11 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@jayedaad/core": ["../../packages/core/src"],
+      "@jayedaad/ui-native": ["../../packages/ui-native/src"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

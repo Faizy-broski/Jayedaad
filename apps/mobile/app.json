@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Jayedaad",
+    "slug": "jayedaad",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jayedaad.app"
+    },
+    "android": {
+      "package": "com.jayedaad.app"
+    },
+    "plugins": []
+  }
+}
