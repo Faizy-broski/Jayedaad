@@ -4,16 +4,24 @@
 
 /* Design tokens — standard shadcn/ui CSS-variable convention (HSL triples,
    consumed via hsl(var(--x)) in tailwind.config.ts so Tailwind opacity
-   modifiers like bg-primary/50 keep working). Values are the confirmed
-   brand colors (converted hex -> HSL) — every component built against the
-   `primary`/`brand-dark`/`highlight`/etc. token names picks up any future
-   change automatically, no component code to touch.
+   modifiers like bg-primary/50 keep working).
+
+   --background is plain white. Most pages (`<body className="bg-background">`)
+   should read as a clean white canvas, NOT the brand green — --primary stays
+   reserved for buttons/links/icons, and --brand-dark stays reserved for the
+   deliberate dark sections (hero overlay text area, "Where we live", the
+   "Your next home in your pocket" CTA banner) that are spliced into that
+   white page on purpose. --card is white too; elevated surfaces (listing
+   cards, the floating hero search bar) differentiate from the page via
+   shadow/border rather than a background-color difference, since there's no
+   longer a warm-ivory base to contrast against.
 
    Source hex, for reference when these need touching up:
      --primary            #07533E  Primary Green — "Search"/primary CTA buttons
      --brand-dark         #011B14  Deep Forest/near-black green — dark sections, CTA banners
      --highlight           #F9AD3E  Warm orange (range #F9AD3E - #E88742) — "Super" title accent
-     white / cards/nav/base backgrounds -> --background, --secondary, --primary-foreground
+     --background           white  — base page background, most routes
+     --card                 white  — elevated surfaces (listing/category cards)
 
    Dark mode follows tailwind.config.ts's `darkMode: 'media'` (OS
    preference) — there's no light/dark toggle wired up yet, so this uses
@@ -24,31 +32,39 @@
    (primary/brand-dark/highlight) stay the same family across light/dark;
    --primary's lightness is bumped up in dark mode purely for contrast
    against the dark background (18% on 11% would be nearly invisible) —
-   structural background/foreground/muted/accent/border tokens flip fully. */
+   structural background/foreground/card/muted/accent/border tokens flip
+   fully, staying in the same warm/forest hue family rather than jumping to
+   a cool neutral. */
 :root {
   --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
+  --foreground: 164 30% 9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 164 30% 9%;
 
   --primary: 163 84% 18%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
+  /* Still a warm-tinted off-white, not gray — used for section backgrounds
+     that want to sit just slightly off the pure-white page (e.g. "Browse by
+     category"), not for the page base itself. */
+  --secondary: 40 28% 96%;
+  --secondary-foreground: 164 30% 9%;
 
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 40 22% 95%;
+  --muted-foreground: 165 12% 42%;
 
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 40 28% 96%;
+  --accent-foreground: 164 30% 9%;
 
   /* "Super" title / promo accent — the confirmed warm-orange range
      (#F9AD3E - #E88742). Use sparingly (badges, highlighted text, promo
-     callouts), not as a general interactive-state color like --accent. */
+     callouts, star ratings), not as a general interactive-state color like --accent. */
   --highlight: 36 94% 61%;
-  --highlight-foreground: 222 47% 11%;
+  --highlight-foreground: 164 30% 9%;
 
   /* Deep Forest/near-black green — dark CTA banners and "Where we live"-
-     style sections spliced into an otherwise light page. Distinct from
+     style sections spliced into an otherwise white page. Distinct from
      --background's own dark-mode value below (that's the whole page going
      dark on OS preference; this is a deliberate dark SECTION on a light page). */
   --brand-dark: 164 93% 5%;
@@ -57,32 +73,35 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
+  --border: 40 16% 88%;
+  --input: 40 16% 88%;
   --ring: 163 84% 18%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 164 35% 6%;
+    --foreground: 40 20% 95%;
+
+    --card: 164 28% 9%;
+    --card-foreground: 40 20% 95%;
 
     --primary: 163 70% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 164 20% 14%;
+    --secondary-foreground: 40 20% 95%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 164 20% 14%;
+    --muted-foreground: 165 12% 65%;
 
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 164 20% 14%;
+    --accent-foreground: 40 20% 95%;
 
     --highlight: 36 94% 61%;
-    --highlight-foreground: 222 47% 11%;
+    --highlight-foreground: 164 30% 9%;
 
     --brand-dark: 164 93% 5%;
     --brand-dark-foreground: 0 0% 100%;
@@ -90,8 +109,8 @@
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
+    --border: 164 18% 17%;
+    --input: 164 18% 17%;
     --ring: 163 70% 32%;
   }
 }

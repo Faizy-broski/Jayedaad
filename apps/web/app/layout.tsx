@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Providers } from './providers';
-import { ReachOutToExperts } from '../components/ReachOutToExperts';
+import { Header } from '../components/layout/Header';
 import './globals.css';
+import { SiteFooter } from '@/components/layout/Footer';
 
 export const metadata: Metadata = {
   title: 'Jayedaad — Building Trust in Real Estate',
@@ -11,10 +12,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+      <body className="min-h-screen bg-white text-foreground">
         <Providers>
+          <Header />
           {children}
-          <ReachOutToExperts />
+          <SiteFooter />
         </Providers>
       </body>
     </html>
