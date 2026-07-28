@@ -5,6 +5,7 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PropertyCard } from '@/components/landing/features/PropertyCard';
 import type { Property } from '@/lib/types';
+import { Reveal } from '@/components/Reveal';
 
 interface NewlyStagedProps {
   properties: Property[];
@@ -49,14 +50,14 @@ export function NewlyStaged({ properties }: NewlyStagedProps) {
     <section className="py-16 sm:py-16">
       <div className="mx-auto max-w-6xl px-4">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-highlight">Featured</span>
-            <h2 className="mt-2 text-3xl font-bold text-brand-dark sm:text-4xl">Newly Staged</h2>
+          <Reveal>
+            <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">Featured</span>
+            <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Newly Staged</h2>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
               A curated selection of Pakistan&apos;s most desirable homes — verified, photographed, and ready to
               move in.
             </p>
-          </div>
+          </Reveal>
 
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             <button
@@ -82,12 +83,14 @@ export function NewlyStaged({ properties }: NewlyStagedProps) {
 
         <div className="mt-8 overflow-hidden" ref={emblaRef}>
           <div className="-ml-5 flex">
-            {properties.map((property) => (
+            {properties.map((property, index) => (
               <div
                 key={property.id}
                 className="min-w-0 shrink-0 grow-0 basis-[85%] pl-5 py-6 xs:basis-[70%] sm:basis-1/2 lg:basis-1/4"
               >
-                <PropertyCard property={property} />
+                <Reveal delay={(index % 4) * 0.08}>
+                  <PropertyCard property={property} />
+                </Reveal>
               </div>
             ))}
           </div>

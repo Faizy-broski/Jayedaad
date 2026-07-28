@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { StatItem } from '@/components/landing/about/StatItems';
 import { ABOUT_STATS } from '@/data/stats';
+import { Reveal } from '@/components/Reveal';
 
 export function AboutSection() {
   return (
@@ -17,7 +18,7 @@ export function AboutSection() {
         </div>
       {/* Top half — house photo with floating testimonial card + copy */}
       <div className="relative z-10 mx-auto grid max-w-6xl gap-12 px-4 lg:grid-cols-2 lg:items-center lg:gap-16">
-        <div className="relative">
+        <Reveal className="relative">
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl">
             <Image
               src="/images/about-house-image.png"
@@ -43,17 +44,20 @@ export function AboutSection() {
               &ldquo;Jayedaad made our first home purchase feel effortless.&rdquo;
             </p>
           </div>
-        </div>
+        </Reveal>
 
-        <div className="lg:pt-4">
-          <span className="text-xs font-semibold uppercase tracking-widest text-highlight">About Jayedaad</span>
+        <Reveal className="lg:pt-4" delay={0.15}>
+          <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">About Jayedaad</span>
 
           <p className="mt-4 text-lg font-medium leading-relaxed text-brand-dark sm:text-xl">
             Pakistan&apos;s modern real estate platform built to simplify buying, selling, &amp; investing. We
             combine verified listings, local expertise to help you make confident property decisions.
           </p>
 
-          <h2 className="mt-8 text-4xl font-black leading-[1.05] text-primary sm:text-5xl">Jayedaad Housing</h2>
+          <h2 className="text-heading-gradient mt-8 flex flex-col text-5xl font-bold uppercase leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
+            <span className="self-end">Jayedaad</span>
+            <span className="self-start">Housing</span>
+          </h2>
 
           <div className="mt-8 flex items-start gap-5">
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
@@ -72,24 +76,26 @@ export function AboutSection() {
               />
             </div>
           </div>
-        </div>
+        </Reveal>
       </div>
 
       {/* Bottom half — stat strip sitting on the faded building watermark */}
       <div className="relative mt-28 sm:mt-32">
 
         <div className="relative z-10 mx-auto flex-col items-center max-w-6xl px-4">
-          <div className='flex justify-between items-center'>
-            <span className="text-xs font-semibold uppercase tracking-widest text-highlight">By the Numbers</span>
+          <Reveal className='flex justify-between items-center'>
+            <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">By the Numbers</span>
           <p className="max-w-sm text-right text-sm leading-relaxed text-muted-foreground">
             Trusted by thousands across Pakistan, we&apos;re redefining the way people discover, buy, sell, and
             invest in real estate.
           </p>
-          </div>
+          </Reveal>
 
           <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4 sm:gap-x-12">
             {ABOUT_STATS.map((stat, index) => (
-              <StatItem key={stat.id} stat={stat} index={index} />
+              <Reveal key={stat.id} delay={index * 0.1}>
+                <StatItem stat={stat} index={index} />
+              </Reveal>
             ))}
           </div>
         </div>

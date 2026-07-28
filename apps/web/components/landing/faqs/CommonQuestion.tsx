@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { FAQAccordion } from "./FaqAccordion";
 import { FAQS } from "@/data/faqs";
+import { Reveal } from "@/components/Reveal";
 
 export function CommonQuestions() {
   return (
@@ -19,16 +20,20 @@ export function CommonQuestions() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-2xl px-4 text-center">
-        <span className="text-xs font-semibold uppercase tracking-widest text-highlight">
-          FAQ
-        </span>
-        <h2 className="mt-2 text-3xl font-bold text-brand-dark sm:text-4xl">
-          Common questions
-        </h2>
+        <Reveal>
+          <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">
+            FAQ
+          </span>
+          <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">
+            Common questions
+          </h2>
+        </Reveal>
       </div>
 
       <div className="relative z-10 mx-auto mt-10 max-w-2xl px-4">
-        <FAQAccordion faqs={FAQS} />
+        <Reveal delay={0.15}>
+          <FAQAccordion faqs={FAQS} />
+        </Reveal>
       </div>
     </section>
   );

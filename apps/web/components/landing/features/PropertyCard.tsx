@@ -52,7 +52,7 @@ export function PropertyCard({ property }: { property: Property }) {
         </div>
 
         <div className="absolute left-2.5 bottom-2.5 flex gap-1.5">
-          <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
+          <span className="rounded-full bg-heading-gradient px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
             {listingType === "sale" ? "For Sale" : "For Rent"}
           </span>
         </div>

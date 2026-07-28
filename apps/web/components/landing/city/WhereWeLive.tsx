@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CityCard } from './CityCard';
 import type { City } from '@/lib/types';
+import { Reveal } from '@/components/Reveal';
 
 interface WhereWeLiveProps {
   cities: City[];
@@ -19,13 +20,13 @@ export function WhereWeLive({ cities }: WhereWeLiveProps) {
 
       <div className="relative z-10 mx-auto max-w-6xl px-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-highlight">Explore</span>
+          <Reveal>
+            <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">Explore</span>
             <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Where we live</h2>
             <p className="mt-2 max-w-md text-sm text-white/60">
               From investment plots to seafront penthouses — find what fits your life.
             </p>
-          </div>
+          </Reveal>
 
           <Link
             href="/search"
@@ -36,8 +37,10 @@ export function WhereWeLive({ cities }: WhereWeLiveProps) {
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {cities.map((city) => (
-            <CityCard key={city.id} city={city} />
+          {cities.map((city, index) => (
+            <Reveal key={city.id} delay={(index % 3) * 0.08}>
+              <CityCard city={city} />
+            </Reveal>
           ))}
         </div>
       </div>

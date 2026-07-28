@@ -12,7 +12,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-white text-foreground">
+      {/* overflow-x-hidden guards against the classic `w-screen`/`100vw`
+          full-bleed bug (see OfficeShowCase.tsx) — 100vw includes the
+          scrollbar's own width on browsers with a classic (non-overlay)
+          scrollbar, so a `w-screen` element sits a few px wider than the
+          visible viewport and forces a horizontal scrollbar site-wide. */}
+      <body className="min-h-screen overflow-x-hidden bg-white text-foreground">
         <Providers>
           <Header />
           {children}

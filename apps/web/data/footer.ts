@@ -14,11 +14,11 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     title: 'Company',
     links: [
-      { label: 'About', href: '/about' },
+      { label: 'About', href: '/about-us' },
       { label: 'Careers', href: '/careers' },
       { label: 'Blog', href: '/blog' },
       { label: 'Press', href: '/press' },
-      { label: 'Contact', href: '/contact' },
+      { label: 'Contact', href: '/contact-us' },
     ],
   },
   {
@@ -35,7 +35,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { label: 'Help center', href: '/help' },
       { label: 'Trust & safety', href: '/trust-safety' },
-      { label: 'Contact us', href: '/contact' },
+      { label: 'Contact us', href: '/contact-us' },
     ],
   },
 ];

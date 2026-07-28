@@ -1,5 +1,6 @@
 import { ServiceCard } from '@/components/landing/services/ServiceCards';
 import type { Service } from '@/lib/types';
+import { Reveal } from '@/components/Reveal';
 
 interface EverythingUnderOneRoofProps {
   services: Service[];
@@ -16,25 +17,31 @@ export function EverythingUnderOneRoof({ services }: EverythingUnderOneRoofProps
   return (
     <section className="relative z-10 py-4">
       <div className="mx-auto max-w-6xl px-4">
-        <span className="text-xs font-semibold uppercase tracking-widest text-highlight">Services</span>
-        <h2 className="mt-2 text-3xl font-bold text-brand-dark sm:text-4xl">Everything under one roof</h2>
+        <Reveal>
+          <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">Services</span>
+          <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Everything under one roof</h2>
+        </Reveal>
 
         <div className="mt-8 grid gap-4 lg:grid-cols-4">
-          <div className="lg:col-span-2">
+          <Reveal className="lg:col-span-2">
             <ServiceCard service={featured} />
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2">
-            {sideItems.map((service) => (
-              <ServiceCard key={service.id} service={service} />
+            {sideItems.map((service, index) => (
+              <Reveal key={service.id} delay={0.1 + (index % 2) * 0.08}>
+                <ServiceCard service={service} />
+              </Reveal>
             ))}
           </div>
         </div>
 
         {bottomItems.length > 0 && (
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {bottomItems.map((service) => (
-              <ServiceCard key={service.id} service={service} />
+            {bottomItems.map((service, index) => (
+              <Reveal key={service.id} delay={(index % 4) * 0.08}>
+                <ServiceCard service={service} />
+              </Reveal>
             ))}
           </div>
         )}

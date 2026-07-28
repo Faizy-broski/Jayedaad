@@ -34,74 +34,83 @@ export function Hero() {
 
   return (
     <section className="relative mb-16">
-      <div className="relative h-[560px] w-full overflow-hidden sm:h-[620px] md:h-[680px]">
-        <Image
-          src="/images/belowest-hero-image.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
-        />
-
-        <div className="absolute inset-0 flex justify-center pt-8 shrink-0 sm:pt-[150px]">
+      {/* On mobile/md the Header is `fixed` at the very top from the start
+          (it only floats-over-hero as `absolute` at the `lg` breakpoint —
+          see Header.tsx). A fixed header is removed from layout flow, so
+          without this offset the Jayedaad wordmark below would render
+          directly underneath it. pt-16/pt-[68px] roughly match the header's
+          real rendered height (logo h-10/h-11 + py-3) at each breakpoint;
+          lg:pt-0 restores the original overlap-by-design floating look. */}
+      <div className="pt-16 sm:pt-[68px] lg:pt-0">
+        <div className="relative h-[480px] w-full overflow-hidden sm:h-[620px] md:h-[680px]">
           <Image
-            src="/images/jayedaad-text.png"
-            alt="Jayedaad"
-            width={1200}
-            height={168}
+            src="/images/belowest-hero-image.png"
+            alt=""
+            fill
             priority
-            className="h-36 w-full max-w-5xl select-none opacity-90"
+            sizes="100vw"
+            className="object-cover object-center"
           />
-        </div>
 
-        <Image
-          src="/images/top-hero-image.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
-        />
+          <div className="absolute inset-0 flex justify-center pt-6 shrink-0 sm:pt-[150px]">
+            <Image
+              src="/images/jayedaad-text.png"
+              alt="Jayedaad"
+              width={1200}
+              height={168}
+              priority
+              className="h-16 w-full max-w-5xl select-none opacity-90 sm:h-36"
+            />
+          </div>
 
-        <motion.div
-          variants={textGroup}
-          initial="hidden"
-          animate="show"
-          className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col pb-20 pt-44 sm:pt-[300px] md:pb-28"
-        >
-          <motion.p
-            variants={textItem}
-            className="max-w-xs text-left text-sm leading-relaxed text-white/90 sm:text-base"
-          >
-            Pakistan&apos;s smartest real estate platform for buying, selling and renting verified properties.
-          </motion.p>
+          <Image
+            src="/images/top-hero-image.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
 
           <motion.div
-            variants={textItem}
-            className="pointer-events-auto mt-[200px] inline-flex items-center gap-1 self-center rounded-full border border-white/25 bg-white/10 p-1 backdrop-blur-md"
+            variants={textGroup}
+            initial="hidden"
+            animate="show"
+            className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col pb-20 pt-28 sm:pt-[300px] md:pb-28"
           >
-            {PURPOSE_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setPurpose(tab.value)}
-                className="relative rounded-full px-6 py-2 text-sm font-medium transition-colors"
-              >
-                {purpose === tab.value && (
-                  <motion.span
-                    layoutId="purpose-pill"
-                    className="absolute inset-0 rounded-full bg-white shadow-sm"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <span className={`relative z-10 ${purpose === tab.value ? 'text-brand-dark' : 'text-white'}`}>
-                  {tab.label}
-                </span>
-              </button>
-            ))}
+            <motion.p
+              variants={textItem}
+              className="max-w-xs text-left text-sm leading-relaxed text-white/90 sm:text-base"
+            >
+              Pakistan&apos;s smartest real estate platform for buying, selling and renting verified properties.
+            </motion.p>
+
+            <motion.div
+              variants={textItem}
+              className="pointer-events-auto mt-12 inline-flex items-center gap-1 self-center rounded-full border border-white/25 bg-white/10 p-1 backdrop-blur-md sm:mt-[200px]"
+            >
+              {PURPOSE_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setPurpose(tab.value)}
+                  className="relative rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-6 sm:py-2 sm:text-sm"
+                >
+                  {purpose === tab.value && (
+                    <motion.span
+                      layoutId="purpose-pill"
+                      className="absolute inset-0 rounded-full bg-white shadow-sm"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className={`relative z-10 whitespace-nowrap ${purpose === tab.value ? 'text-brand-dark' : 'text-white'}`}>
+                    {tab.label}
+                  </span>
+                </button>
+              ))}
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Search bar — single white pill on sm+, stacked rounded card on mobile.
@@ -117,10 +126,7 @@ export function Hero() {
       >
         <input type="hidden" name="purpose" value={purpose} />
 
-        {/* Divider only lives between these four fields — wrapping them
-            separately from the Search button keeps divide-x from also
-            drawing a line right before the button. */}
-        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:divide-x sm:divide-slate-200">
+        <div className="flex flex-1 flex-col divide-y divide-slate-100 sm:flex-row sm:items-center sm:divide-y-0 sm:divide-x sm:divide-slate-200 sm:gap-0">
           <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2 text-left sm:rounded-none sm:px-5">
             <MapPin className="h-4 w-4 shrink-0 text-primary" />
             <span className="flex min-w-0 flex-col">
@@ -185,7 +191,7 @@ export function Hero() {
         <div className="flex items-center justify-center px-1 sm:pl-2">
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-7 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-7 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
           >
             <SearchIcon className="h-4 w-4" />
             Search

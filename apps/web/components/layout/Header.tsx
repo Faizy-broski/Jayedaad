@@ -1,28 +1,56 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const LIST_A_HOME_CLASSES =
-  'rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90';
+  'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90';
 
 const NAV_LINKS = [
   { label: 'Buy & Sell', href: '/search?purpose=sale' },
   { label: 'Rent', href: '/search?purpose=rent' },
-  { label: 'About', href: '#' },
+  { label: 'About', href: '/about-us' },
   { label: 'Commercial', href: '/search?type=commercial' },
   { label: 'Agents', href: '#' },
-  { label: 'Services', href: '#' },
-  { label: 'Contact', href: '#' },
+  { label: 'Services', href: '/services' },
+  { label: 'Contact', href: '/contact-us' },
 ];
+
+// Matches a nav link against the current URL — pathname must match exactly,
+// and if the link carries query params (the /search variants), every one of
+// those must also match the current search params, so "Buy & Sell" and
+// "Rent" don't both light up just because they share a pathname.
+function useIsLinkActive() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  return (href: string) => {
+    if (href === '#') return false;
+    const [linkPath, linkQuery] = href.split('?');
+    if (linkPath !== pathname) return false;
+    if (!linkQuery) return !searchParams.toString();
+    const linkParams = new URLSearchParams(linkQuery);
+    for (const [key, value] of linkParams) {
+      if (searchParams.get(key) !== value) return false;
+    }
+    return true;
+  };
+}
 
 // On the homepage the navbar floats over the hero (absolute, margin, rounded,
 // capped width) and snaps to a flush fixed bar once the user scrolls past it.
 // Every other route keeps the plain in-flow sticky bar — those pages have no
 // hero for it to float over, so overlapping would just hide their content.
+//
+// The floating effect is desktop-only (lg+). Below that there's no room for
+// a pill-shaped bar with margins to look right, and mobile heroes are short
+// enough that a floating bar reads as glitchy rather than premium — so on
+// mobile/md the header is always the flush, attached bar, regardless of
+// scroll position.
+//
 // Centered with inset-x-0 + mx-auto rather than the left-1/2 -translate-x-1/2
 // trick — framer-motion drives this element's `transform` inline for the
 // mount fade-in, and an inline style always wins over Tailwind's transform
@@ -43,10 +71,24 @@ const ATTACHED_CLASSES =
   'fixed inset-x-0 top-0 z-50 w-full rounded-none border-b border-slate-200 bg-white shadow-sm';
 const STATIC_CLASSES = 'sticky top-0 z-50 w-full rounded-none border-b border-slate-200 bg-white';
 
+// Tailwind's lg breakpoint (1024px) — kept in sync with the lg: prefixes
+// used elsewhere in this file for the nav/menu switch.
+const DESKTOP_QUERY = '(min-width: 1024px)';
+
 export function Header() {
+  return (
+    <Suspense fallback={<div className={`${STATIC_CLASSES} h-[68px] sm:h-[76px]`} />}>
+      <HeaderInner />
+    </Suspense>
+  );
+}
+
+function HeaderInner() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
+  const isLinkActive = useIsLinkActive();
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -57,18 +99,31 @@ export function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [isHome]);
 
+  useEffect(() => {
+    const mql = window.matchMedia(DESKTOP_QUERY);
+    const onChange = () => setIsDesktop(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  // Floating only ever applies on desktop, on the homepage, before scrolling.
+  const isFloating = isHome && isDesktop && !scrolled;
+
+  const headerClasses = !isHome ? STATIC_CLASSES : isFloating ? FLOATING_CLASSES : ATTACHED_CLASSES;
+
   return (
     <motion.header
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className={`transition-[top,margin,border-radius,box-shadow] duration-300 ${
-        isHome ? (scrolled ? ATTACHED_CLASSES : FLOATING_CLASSES) : STATIC_CLASSES
-      } ${isHome && !scrolled ? (mobileOpen ? 'rounded-3xl' : 'rounded-full') : ''}`}
+      className={`transition-[top,margin,border-radius,box-shadow] duration-300 ${headerClasses} ${
+        isFloating ? (mobileOpen ? 'rounded-3xl' : 'rounded-full') : ''
+      }`}
     >
       <div
         className={`flex items-center justify-between px-4 py-3 sm:px-6 ${
-          isHome && !scrolled ? 'w-full' : 'mx-auto w-full max-w-7xl'
+          isFloating ? 'w-full' : 'mx-auto w-full max-w-7xl'
         }`}
       >
         <Link href="/" className="flex shrink-0 items-center">
@@ -83,19 +138,30 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-5 xl:gap-7 lg:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              className="text-sm font-medium text-slate-600 transition-all hover:scale-110 hover:text-slate-900"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const active = isLinkActive(link.href);
+            return (
+              <Link
+                key={link.label}
+                href={link.href}
+                aria-current={active ? 'page' : undefined}
+                className={`group relative py-1 text-sm font-medium transition-colors duration-200 hover:text-slate-900 ${
+                  active ? 'text-heading-gradient font-semibold' : 'text-slate-600'
+                }`}
+              >
+                {link.label}
+                <span
+                  className={`absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-heading-gradient transition-transform duration-300 ease-out ${
+                    active ? 'scale-x-100' : 'group-hover:scale-x-100'
+                  }`}
+                />
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+          <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900">
             Sign in
           </Link>
           <Link href="/submit" className={LIST_A_HOME_CLASSES}>
@@ -108,7 +174,7 @@ export function Header() {
           aria-label="Toggle menu"
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((open) => !open)}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-slate-700 lg:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-slate-700 transition-colors duration-200 hover:bg-slate-100 lg:hidden"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-6 w-6">
             {mobileOpen ? (
@@ -130,18 +196,31 @@ export function Header() {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col gap-1 overflow-hidden border-t border-slate-200 px-4 py-3 lg:hidden"
           >
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="rounded-md px-2 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map((link, index) => {
+              const active = isLinkActive(link.href);
+              return (
+                <motion.div
+                  key={link.label}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.25, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <Link
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors duration-200 ${
+                      active ? 'bg-primary/10 text-heading-gradient font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-heading-gradient" />}
+                    {link.label}
+                  </Link>
+                </motion.div>
+              );
+            })}
             <div className="mt-2 flex items-center gap-3 border-t border-slate-200 px-2 pt-3">
-              <Link href="/login" className="text-sm font-medium text-slate-600" onClick={() => setMobileOpen(false)}>
+              <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900" onClick={() => setMobileOpen(false)}>
                 Sign in
               </Link>
               <Link

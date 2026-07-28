@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { HOW_IT_WORKS_STEPS } from '@/data/howItWorks';
 import { StepCard } from './StepCard';
+import { Reveal } from '@/components/Reveal';
 
 // Card positions are hand-placed (not derived from a grid) since each one
 // anchors to a specific spot around the house photo, matching the reference
@@ -41,8 +42,10 @@ export function HowItWorks() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-4">
-        <span className="text-xs font-semibold uppercase tracking-widest text-highlight">How It Works</span>
-        <h2 className="mt-2 text-3xl font-bold text-brand-dark sm:text-4xl">Four steps to your keys</h2>
+        <Reveal>
+          <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">How It Works</span>
+          <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Four steps to your keys</h2>
+        </Reveal>
 
         {/* Desktop / tablet: house centered with 4 cards + connecting arc
             positioned absolutely around it. Below lg, this collapses to a
@@ -61,16 +64,24 @@ export function HowItWorks() {
           </div>
 
           <div className="absolute left-0 bottom-16 xl:left-8">
-            <StepCard step={stepById.search} />
+            <Reveal delay={0}>
+              <StepCard step={stepById.search} />
+            </Reveal>
           </div>
           <div className="absolute left-4 top-0 xl:left-36">
-            <StepCard step={stepById.visit} />
+            <Reveal delay={0.1}>
+              <StepCard step={stepById.visit} />
+            </Reveal>
           </div>
           <div className="absolute right-4 top-0 xl:right-36">
-            <StepCard step={stepById.verify} />
+            <Reveal delay={0.2}>
+              <StepCard step={stepById.verify} />
+            </Reveal>
           </div>
           <div className="absolute right-0 bottom-16 xl:right-8">
-            <StepCard step={stepById.own} />
+            <Reveal delay={0.3}>
+              <StepCard step={stepById.own} />
+            </Reveal>
           </div>
         </div>
 
@@ -87,8 +98,10 @@ export function HowItWorks() {
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {HOW_IT_WORKS_STEPS.map((step) => (
-              <StepCard key={step.id} step={step} />
+            {HOW_IT_WORKS_STEPS.map((step, index) => (
+              <Reveal key={step.id} delay={(index % 2) * 0.08}>
+                <StepCard step={step} />
+              </Reveal>
             ))}
           </div>
         </div>

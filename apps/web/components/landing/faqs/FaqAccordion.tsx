@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Plus, Minus } from 'lucide-react';
 import type { FAQ } from '@/lib/types';
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 interface FAQAccordionProps {
   faqs: FAQ[];
@@ -18,11 +21,17 @@ export function FAQAccordion({ faqs }: FAQAccordionProps) {
 
   return (
     <div className="divide-y divide-slate-200 border-t border-slate-200">
-      {faqs.map((faq) => {
+      {faqs.map((faq, index) => {
         const isOpen = openId === faq.id;
 
         return (
-          <div key={faq.id}>
+          <motion.div
+            key={faq.id}
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.5, ease: EASE, delay: index * 0.05 }}
+          >
             <button
               type="button"
               onClick={() => toggle(faq.id)}
@@ -47,7 +56,7 @@ export function FAQAccordion({ faqs }: FAQAccordionProps) {
                 <p className="max-w-2xl pb-5 text-sm leading-relaxed text-slate-500">{faq.answer}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>

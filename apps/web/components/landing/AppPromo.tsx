@@ -1,5 +1,6 @@
 import Image from 'next/image';
-import { Apple, PlayCircle } from 'lucide-react';
+import { Apple, PlayCircle, Sparkles } from 'lucide-react';
+import { Reveal } from '@/components/Reveal';
 
 export function AppPromo() {
   return (
@@ -11,7 +12,7 @@ export function AppPromo() {
           <div className="pointer-events-none absolute right-0 top-1/2 h-[140%] w-[60%] -translate-y-1/2 rounded-full bg-primary/20 blur-[100px]" />
 
           <div className="relative z-10 grid gap-10 px-6 py-14 sm:px-10 sm:py-16 lg:grid-cols-2 lg:items-center lg:gap-6 lg:px-14">
-            <div>
+            <Reveal>
               <span className="text-xs font-semibold uppercase tracking-widest text-white/50">Jayedaad App</span>
 
               <h2 className="mt-4 text-4xl font-bold leading-[1.1] text-white sm:text-5xl">
@@ -62,9 +63,9 @@ export function AppPromo() {
                   Available on iOS and Android.
                 </p>
               </div>
-            </div>
+            </Reveal>
 
-            <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+            <Reveal className="relative mx-auto w-full max-w-md lg:max-w-none" delay={0.15}>
               <div className="relative aspect-[4/3] w-full">
                 <Image
                   src="/images/mobile-image.png"
@@ -73,9 +74,13 @@ export function AppPromo() {
                   sizes="(min-width: 1024px) 50vw, 90vw"
                   className="object-contain object-center lg:object-right"
                 />
-                
+
+                <div className="absolute bottom-[8%] right-[6%] flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 shadow-lg">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-medium text-slate-900">AI recommends</span>
+                </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </div>
       </div>

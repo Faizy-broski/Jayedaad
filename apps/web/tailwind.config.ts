@@ -32,9 +32,10 @@ const config: Config = {
           DEFAULT: 'hsl(var(--accent) / <alpha-value>)',
           foreground: 'hsl(var(--accent-foreground) / <alpha-value>)',
         },
-        // Confirmed brand colors — bg-highlight for the "Super" title/promo
-        // accent, bg-brand-dark for dark CTA banners/"Where we live"-style
-        // sections spliced into an otherwise light page.
+        // Confirmed brand colors — bg-highlight for eyebrow labels/star
+        // ratings (muted sage green), bg-brand-dark for dark CTA
+        // banners/"Where we live"-style sections spliced into an otherwise
+        // light page, bg-brand-emerald for vivid numeric stat call-outs.
         highlight: {
           DEFAULT: 'hsl(var(--highlight) / <alpha-value>)',
           foreground: 'hsl(var(--highlight-foreground) / <alpha-value>)',
@@ -42,6 +43,10 @@ const config: Config = {
         'brand-dark': {
           DEFAULT: 'hsl(var(--brand-dark) / <alpha-value>)',
           foreground: 'hsl(var(--brand-dark-foreground) / <alpha-value>)',
+        },
+        'brand-emerald': {
+          DEFAULT: 'hsl(var(--brand-emerald) / <alpha-value>)',
+          foreground: 'hsl(var(--brand-emerald-foreground) / <alpha-value>)',
         },
         destructive: {
           DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',

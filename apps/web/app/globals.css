@@ -19,9 +19,23 @@
    Source hex, for reference when these need touching up:
      --primary            #07533E  Primary Green — "Search"/primary CTA buttons
      --brand-dark         #011B14  Deep Forest/near-black green — dark sections, CTA banners
-     --highlight           #F9AD3E  Warm orange (range #F9AD3E - #E88742) — "Super" title accent
+     --brand-emerald      #14A672  Vivid emerald — stat call-outs (150K+/50K+/99%), gradient endpoint
+     --highlight          #3E8F73  Muted sage green — every "01 — EYEBROW" label + star ratings
      --background           white  — base page background, most routes
      --card                 white  — elevated surfaces (listing/category cards)
+
+   `--highlight` was previously a warm orange reserved for a "Super" promo
+   accent, but nothing in the app actually uses it that way — every current
+   consumer (`text-highlight`) is an uppercase eyebrow label above a heading,
+   or the filled-star color on testimonial cards, both of which read as a
+   muted sage/forest green in the reference design, not orange. Redefined
+   here (rather than adding a parallel token) so every existing eyebrow/star
+   usage across the site picks up the correct color automatically.
+
+   `--brand-emerald` is new: a brighter, more saturated green than --primary
+   (which stays reserved for buttons/CTAs), used for numeric stat call-outs
+   (StatItem, "Jayedaad Housing" style numbers) and as the far end of the
+   `.text-gradient-*` heading utilities defined below.
 
    Dark mode follows tailwind.config.ts's `darkMode: 'media'` (OS
    preference) — there's no light/dark toggle wired up yet, so this uses
@@ -29,18 +43,18 @@
    selector. If a manual toggle is added later, switch to a `.dark` class
    selector here and drive it from a small theme store (Zustand, matching
    the rest of this app's local-state convention). Brand hues
-   (primary/brand-dark/highlight) stay the same family across light/dark;
-   --primary's lightness is bumped up in dark mode purely for contrast
-   against the dark background (18% on 11% would be nearly invisible) —
-   structural background/foreground/card/muted/accent/border tokens flip
-   fully, staying in the same warm/forest hue family rather than jumping to
-   a cool neutral. */
+   (primary/brand-dark/brand-emerald/highlight) stay the same family across
+   light/dark; --primary's lightness is bumped up in dark mode purely for
+   contrast against the dark background (18% on 11% would be nearly
+   invisible) — structural background/foreground/card/muted/accent/border
+   tokens flip fully, staying in the same warm/forest hue family rather than
+   jumping to a cool neutral. */
 :root {
   --background: 0 0% 100%;
-  --foreground: 164 30% 9%;
+  --foreground: 164 45% 8%;
 
   --card: 0 0% 100%;
-  --card-foreground: 164 30% 9%;
+  --card-foreground: 164 45% 8%;
 
   --primary: 163 84% 18%;
   --primary-foreground: 0 0% 100%;
@@ -49,19 +63,23 @@
      that want to sit just slightly off the pure-white page (e.g. "Browse by
      category"), not for the page base itself. */
   --secondary: 40 28% 96%;
-  --secondary-foreground: 164 30% 9%;
+  --secondary-foreground: 164 45% 8%;
 
   --muted: 40 22% 95%;
   --muted-foreground: 165 12% 42%;
 
   --accent: 40 28% 96%;
-  --accent-foreground: 164 30% 9%;
+  --accent-foreground: 164 45% 8%;
 
-  /* "Super" title / promo accent — the confirmed warm-orange range
-     (#F9AD3E - #E88742). Use sparingly (badges, highlighted text, promo
-     callouts, star ratings), not as a general interactive-state color like --accent. */
-  --highlight: 36 94% 61%;
-  --highlight-foreground: 164 30% 9%;
+  /* Solid fallback for the eyebrow/gold accent — used where a gradient can't
+     apply (star-rating icons: `fill="currentColor"` reads the computed
+     `color`, and a gradient's `color: transparent` trick would make those
+     fills invisible). Uppercase eyebrow labels themselves use the
+     `.text-eyebrow-gradient` utility below, not this variable directly.
+     Solid value is the midpoint of that gradient's two stops
+     (#EBBD57 → #AD7B3D). */
+  --highlight: 38 55% 54%;
+  --highlight-foreground: 0 0% 100%;
 
   /* Deep Forest/near-black green — dark CTA banners and "Where we live"-
      style sections spliced into an otherwise white page. Distinct from
@@ -69,6 +87,12 @@
      dark on OS preference; this is a deliberate dark SECTION on a light page). */
   --brand-dark: 164 93% 5%;
   --brand-dark-foreground: 0 0% 100%;
+
+  /* Vivid emerald accent — numeric stat call-outs and the bright end of the
+     .text-gradient-* utilities. Distinct from --primary (buttons/CTAs stay
+     the deeper forest green) and from --highlight (muted labels/stars). */
+  --brand-emerald: 160 70% 40%;
+  --brand-emerald-foreground: 0 0% 100%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
@@ -100,11 +124,14 @@
     --accent: 164 20% 14%;
     --accent-foreground: 40 20% 95%;
 
-    --highlight: 36 94% 61%;
-    --highlight-foreground: 164 30% 9%;
+    --highlight: 38 60% 65%;
+    --highlight-foreground: 164 45% 8%;
 
     --brand-dark: 164 93% 5%;
     --brand-dark-foreground: 0 0% 100%;
+
+    --brand-emerald: 160 60% 50%;
+    --brand-emerald-foreground: 164 45% 8%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 100%;
@@ -112,5 +139,45 @@
     --border: 164 18% 17%;
     --input: 164 18% 17%;
     --ring: 163 70% 32%;
+  }
+}
+
+@layer utilities {
+  /* Section heading gradient (e.g. "Featured properties", "Browse by
+     category") — exact stops from design handoff. Replaces flat
+     text-brand-dark on every section <h2>. */
+  .text-heading-gradient {
+    background: linear-gradient(90deg, #0d634b 0%, #034b37 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  /* Same stops as .text-heading-gradient, applied as an actual background
+     (not text-clipped) — for filled surfaces like the social icon buttons
+     in "Follow Our Journey" that want the same green as the headings. */
+  .bg-heading-gradient {
+    background: linear-gradient(90deg, #0d634b 0%, #034b37 100%);
+  }
+
+  /* Uppercase eyebrow label gradient (e.g. "HANDPICKED", "HOW IT WORKS") —
+     exact stops from design handoff. Replaces flat text-highlight on every
+     eyebrow span; star-rating icons keep using solid `text-highlight`
+     since `fill="currentColor"` can't read a gradient. */
+  .text-eyebrow-gradient {
+    background: linear-gradient(111.53deg, #ebbd57 0%, #ad7b3d 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  /* Flatter, brighter numeric call-out gradient (StatItem values) — kept
+     distinct from .text-heading-gradient's darker range so big numbers pop
+     against body copy. */
+  .text-gradient-emerald {
+    background-image: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--brand-emerald)) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
   }
 }

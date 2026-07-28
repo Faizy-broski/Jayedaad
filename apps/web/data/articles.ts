@@ -6,7 +6,7 @@ export const ARTICLES: Article[] = [
     category: 'Market',
     title: "Pakistan's 2026 real estate outlook",
     readTime: '6 min read',
-    image: '/images/articles/pakistan-2026-outlook.jpg',
+    image: '/images/articles/market.jpg',
     href: '/blog/pakistan-2026-real-estate-outlook',
   },
   {
@@ -14,7 +14,7 @@ export const ARTICLES: Article[] = [
     category: 'Investment',
     title: 'Best areas to invest in Islamabad',
     readTime: '4 min read',
-    image: '/images/articles/best-areas-islamabad.jpg',
+    image: '/images/articles/investment.jpg',
     href: '/blog/best-areas-to-invest-in-islamabad',
   },
   {
@@ -22,7 +22,7 @@ export const ARTICLES: Article[] = [
     category: 'Guide',
     title: "First-time buyer's checklist",
     readTime: '8 min read',
-    image: '/images/articles/first-time-buyer-checklist.jpg',
+    image: '/images/articles/guide.jpg',
     href: '/blog/first-time-buyers-checklist',
   },
 ];
