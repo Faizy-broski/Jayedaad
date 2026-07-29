@@ -26,7 +26,7 @@ export function PropertyCard({ property }: { property: Property }) {
   } = property;
 
   return (
-    <article className="w-72 shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg sm:w-full">
+    <article className="w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         <Image
           src={image}
@@ -87,7 +87,7 @@ export function PropertyCard({ property }: { property: Property }) {
 
         <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">
           <Link
-            href={`/properties/${id}`}
+            href={`/listings/${id}`}
             className="mr-auto flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
             View Details

@@ -40,10 +40,11 @@ function useIsLinkActive() {
   };
 }
 
-// On the homepage the navbar floats over the hero (absolute, margin, rounded,
-// capped width) and snaps to a flush fixed bar once the user scrolls past it.
-// Every other route keeps the plain in-flow sticky bar — those pages have no
-// hero for it to float over, so overlapping would just hide their content.
+// On pages with a hero (home, about-us, contact-us, services, listings) the
+// navbar floats over it (absolute, margin, rounded, capped width) and snaps
+// to a flush fixed bar once the user scrolls past it. Routes without a hero
+// (auth, dashboards, etc.) keep the plain in-flow sticky bar — there's
+// nothing for it to float over there, so overlapping would just hide content.
 //
 // The floating effect is desktop-only (lg+). Below that there's no room for
 // a pill-shaped bar with margins to look right, and mobile heroes are short
@@ -75,6 +76,11 @@ const STATIC_CLASSES = 'sticky top-0 z-50 w-full rounded-none border-b border-sl
 // used elsewhere in this file for the nav/menu switch.
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
+// Routes whose first section is a full-bleed hero (Hero/PageHero/SearchHero)
+// for the floating bar to overlap. Everything else (auth, dashboards, etc.)
+// keeps the plain in-flow sticky bar.
+const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings']);
+
 export function Header() {
   return (
     <Suspense fallback={<div className={`${STATIC_CLASSES} h-[68px] sm:h-[76px]`} />}>
@@ -89,15 +95,15 @@ function HeaderInner() {
   const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
   const isLinkActive = useIsLinkActive();
-  const isHome = pathname === '/';
+  const hasHero = HERO_ROUTES.has(pathname);
 
   useEffect(() => {
-    if (!isHome) return;
+    if (!hasHero) return;
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [isHome]);
+  }, [hasHero]);
 
   useEffect(() => {
     const mql = window.matchMedia(DESKTOP_QUERY);
@@ -107,10 +113,10 @@ function HeaderInner() {
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  // Floating only ever applies on desktop, on the homepage, before scrolling.
-  const isFloating = isHome && isDesktop && !scrolled;
+  // Floating only ever applies on desktop, on hero routes, before scrolling.
+  const isFloating = hasHero && isDesktop && !scrolled;
 
-  const headerClasses = !isHome ? STATIC_CLASSES : isFloating ? FLOATING_CLASSES : ATTACHED_CLASSES;
+  const headerClasses = !hasHero ? STATIC_CLASSES : isFloating ? FLOATING_CLASSES : ATTACHED_CLASSES;
 
   return (
     <motion.header

@@ -15,6 +15,33 @@ export interface Property {
   areaSqft: number;
 }
 
+export type PropertyTypeOption = 'Villa' | 'Apartment' | 'Penthouse' | 'Townhouse' | 'House' | 'Bungalow';
+
+export type AmenityOption = 'Swimming Pool' | 'Parking' | 'Garden' | 'Gym' | 'Security' | 'Elevator';
+
+export interface ListingProperty extends Property {
+  propertyType: PropertyTypeOption;
+  /** Numeric PKR value backing `price`, used for range filtering/sorting. */
+  priceValue: number;
+  furnished: boolean;
+  newProject: boolean;
+  readyToMove: boolean;
+  amenities: AmenityOption[];
+  lat: number;
+  lng: number;
+  /** Everything below is only used by the /listings/[slug] detail page. */
+  description: string;
+  yearBuilt: number;
+  parkingSpots: number;
+  ownership: 'Freehold' | 'Leasehold';
+  agent: {
+    name: string;
+    role: string;
+    avatar: string;
+    phone: string;
+  };
+}
+
 export interface Category {
   id: string;
   label: string;

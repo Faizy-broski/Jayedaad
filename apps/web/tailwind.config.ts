@@ -1,10 +1,17 @@
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', '../../packages/ui-web/src/**/*.{ts,tsx}'],
   darkMode: 'media', // both light and dark modes required [Spec §8]
   theme: {
     extend: {
+      // --font-sans is set by next/font/google in app/layout.tsx (Plus
+      // Jakarta Sans) — falls back to the default stack if it's ever
+      // unavailable (e.g. font failed to load).
+      fontFamily: {
+        sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
+      },
       // Maps the CSS-variable tokens defined in app/globals.css — standard
       // shadcn/ui convention. `hsl(var(--x) / <alpha-value>)` (rather than
       // plain `hsl(var(--x))`) is what lets Tailwind's opacity modifiers

@@ -2,37 +2,46 @@ $ next build
   ▲ Next.js 14.2.35
 
    Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (106kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (253kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
  ✓ Compiled successfully
    Linting and checking validity of types ...
    Collecting page data ...
-   Generating static pages (0/15) ...
-   Generating static pages (3/15) 
-   Generating static pages (7/15) 
-   Generating static pages (11/15) 
- ✓ Generating static pages (15/15)
+   Generating static pages (0/24) ...
+   Generating static pages (6/24) 
+   Generating static pages (12/24) 
+   Generating static pages (18/24) 
+ ✓ Generating static pages (24/24)
    Finalizing page optimization ...
    Collecting build traces ...
 
 Route (app)                              Size     First Load JS
-┌ ○ /                                    13.8 kB         156 kB
+┌ ○ /                                    14.1 kB         156 kB
 ├ ○ /_not-found                          138 B          87.5 kB
 ├ ○ /about-us                            415 B           142 kB
 ├ ○ /apple-icon.png                      0 B                0 B
 ├ ○ /contact-us                          3.11 kB         145 kB
 ├ ○ /crm                                 1.53 kB         188 kB
 ├ ○ /icon.png                            0 B                0 B
+├ ○ /listings                            7.75 kB         182 kB
+├ ● /listings/[slug]                     11.7 kB         186 kB
+├   ├ /listings/sky-view-villa-1
+├   ├ /listings/penthouse-clifton-1
+├   ├ /listings/gulberg-residence-1
+├   └ [+5 more paths]
 ├ ○ /login                               1.9 kB          188 kB
 ├ ○ /search                              1.99 kB         180 kB
 ├ ○ /services                            415 B           142 kB
 ├ ○ /submit                              2.96 kB         189 kB
 └ ○ /verification                        1.52 kB         188 kB
 + First Load JS shared by all            87.3 kB
-  ├ chunks/976-2fa2e367b4767b0a.js       31.7 kB
-  ├ chunks/a0b5ddc1-d2e81a96ab6e1d37.js  53.6 kB
+  ├ chunks/976-530ecf4458fd61bf.js       31.7 kB
+  ├ chunks/a0b5ddc1-44f45c91cf650d6e.js  53.6 kB
   └ other shared chunks (total)          1.95 kB
 
 
 ƒ Middleware                             83.3 kB
 
 ○  (Static)  prerendered as static content
+●  (SSG)     prerendered as static HTML (uses getStaticProps)
 

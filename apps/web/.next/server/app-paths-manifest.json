@@ -1,15 +1,17 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
   "/(admin)/verification/page": "app/(admin)/verification/page.js",
   "/(agent)/crm/page": "app/(agent)/crm/page.js",
-  "/(buyer)/search/page": "app/(buyer)/search/page.js",
-  "/(public)/about-us/page": "app/(public)/about-us/page.js",
-  "/(public)/contact-us/page": "app/(public)/contact-us/page.js",
-  "/(public)/services/page": "app/(public)/services/page.js",
-  "/(owner)/submit/page": "app/(owner)/submit/page.js",
-  "/apple-icon.png/route": "app/apple-icon.png/route.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/icon.png/route": "app/icon.png/route.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(owner)/submit/page": "app/(owner)/submit/page.js",
+  "/(public)/listings/page": "app/(public)/listings/page.js",
+  "/(buyer)/search/page": "app/(buyer)/search/page.js",
+  "/(public)/contact-us/page": "app/(public)/contact-us/page.js",
+  "/(public)/about-us/page": "app/(public)/about-us/page.js",
+  "/(public)/services/page": "app/(public)/services/page.js",
+  "/apple-icon.png/route": "app/apple-icon.png/route.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/page": "app/page.js"
+  "/icon.png/route": "app/icon.png/route.js",
+  "/page": "app/page.js",
+  "/(public)/listings/[slug]/page": "app/(public)/listings/[slug]/page.js"
 }
