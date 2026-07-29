@@ -12,7 +12,9 @@ export declare class TaxonomyController {
         slug: any;
         label: any;
         category: any;
+        valueType: any;
         valueUnit: any;
+        options: any;
         propertyTypeCategories: any;
         sortOrder: any;
     }[]>;
@@ -27,7 +29,9 @@ export declare class TaxonomyController {
         slug: any;
         label: any;
         category: any;
+        valueType: any;
         valueUnit: any;
+        options: any;
         propertyTypeCategories: any;
         sortOrder: any;
     }>;
@@ -36,7 +40,9 @@ export declare class TaxonomyController {
         slug: any;
         label: any;
         category: any;
+        valueType: any;
         valueUnit: any;
+        options: any;
         propertyTypeCategories: any;
         sortOrder: any;
     }>;

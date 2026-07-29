@@ -10,11 +10,14 @@ exports.AuthModule = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const jwt_auth_guard_1 = require("./jwt-auth.guard");
+const otp_module_1 = require("./otp/otp.module");
+const password_reset_module_1 = require("./password-reset/password-reset.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
+        imports: [otp_module_1.OtpModule, password_reset_module_1.PasswordResetModule],
         providers: [
             {
                 // Applied globally: every route is authenticated by default,

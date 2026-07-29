@@ -10,6 +10,7 @@ export type Role = 'super_admin' | 'verification_staff' | 'agent' | 'buyer' | 'o
 // exact semantics couldn't be confirmed from a UI screenshot alone (see
 // supabase/migrations/0001_init.sql for the inferred interpretation).
 export type ListingStatus =
+  | 'draft'
   | 'pending_verification'
   | 'verified'
   | 'rejected'
@@ -70,12 +71,21 @@ export interface PropertyType {
 // Room on a Plot). `valueUnit` is set when this amenity carries a number on
 // a listing (e.g. "spaces", "kms" — "Parking Spaces: 2", "Distance From
 // Airport (kms)"); null means a plain boolean tag.
+// valueType drives how the "Add Amenities" modal renders this field:
+// 'boolean' -> a checkbox, 'number' -> a number input (labeled with
+// valueUnit, e.g. "Distance From Airport (kms)"), 'text' -> a free-text
+// input, 'select' -> a dropdown of `options` (e.g. Flooring -> Tiles/
+// Marble/Wooden/Chip/Cement/Other).
+export type AmenityValueType = 'boolean' | 'number' | 'text' | 'select';
+
 export interface Amenity {
   id: string;
   slug: string;
   label: string;
   category: AmenityCategory;
+  valueType: AmenityValueType;
   valueUnit: string | null;
+  options: string[] | null;
   propertyTypeCategories: PropertyTypeCategorySummary[];
 }
 
@@ -112,7 +122,9 @@ export interface CreateAmenityInput {
   slug: string;
   label: string;
   category: AmenityCategory;
+  valueType?: AmenityValueType;
   valueUnit?: string;
+  options?: string[];
   propertyTypeCategoryIds?: string[];
   sortOrder?: number;
 }
@@ -121,7 +133,9 @@ export interface UpdateAmenityInput {
   slug?: string;
   label?: string;
   category?: AmenityCategory;
+  valueType?: AmenityValueType;
   valueUnit?: string;
+  options?: string[];
   propertyTypeCategoryIds?: string[];
   sortOrder?: number;
 }
@@ -137,6 +151,7 @@ export interface PropertyTypeSummary {
 
 export interface ListingMediaItem {
   url: string;
+  type: 'image' | 'video';
   compressedUrl: string | null;
   isCover: boolean;
   sortOrder: number;
@@ -166,15 +181,26 @@ export interface AmenitySummary {
 
 // What a listing embeds inline — same idea as AmenitySummary, plus the
 // value fields listing_amenities does carry. `value` is this listing's
-// actual figure (e.g. 2 for Parking Spaces); `valueUnit` comes from the
-// catalog. Both null for a plain boolean-tag amenity.
+// actual number (e.g. 2 for Parking Spaces, distance in km for Distance
+// From Airport); `textValue` is this listing's free text or chosen select
+// option (e.g. "Mountain View", or "Tiles" for Flooring); `valueUnit`/
+// `valueType`/`options` come from the catalog. All null/unset for a plain
+// boolean-tag amenity.
 export interface ListingAmenity extends AmenitySummary {
+  valueType: AmenityValueType;
   valueUnit: string | null;
+  options: string[] | null;
   value: number | null;
+  textValue: string | null;
 }
 
 export interface Listing {
   id: string;
+  // Real short/sequential reference number (Postgres identity column) — the
+  // human-facing "Listing ID" shown/searched throughout the app. `id` (the
+  // UUID) stays the real primary key for internal use (edit links, delete,
+  // engagement tracking); this is what a person actually reads/types.
+  listingNumber: number;
   title: string;
   description: string | null;
   price: string; // numeric serialized as string over the wire
@@ -199,6 +225,17 @@ export interface Listing {
   // Both confirmed real on the live Profolio form: two toggles under Price and Area.
   installmentAvailable: boolean;
   readyForPossession: boolean;
+  advanceAmount: number | null;
+  numberOfInstallments: number | null;
+  monthlyInstallment: number | null;
+  balloonPaymentAvailable: boolean;
+  balloonPaymentAmount: number | null;
+  ballotingFeeApplicable: boolean;
+  ballotingFeeAmount: number | null;
+  possessionFeeApplicable: boolean;
+  possessionFeeAmount: number | null;
+  developmentFeeApplicable: boolean;
+  developmentFeeAmount: number | null;
   status: ListingStatus;
   createdAt: string;
   media: ListingMediaItem[];
@@ -554,10 +591,21 @@ export interface AgentReview {
 
 // --- Favorites & Saved Searches (mirrors 0007_favorites_and_saved_searches.sql) ---
 
+// listing is the joined summary FavoritesRepository.list() actually selects
+// (id/title/price/city/area/status) — nullable since a favorited listing
+// could theoretically be deleted out from under the favorite row.
 export interface Favorite {
   id: string;
   listingId: string;
   createdAt: string;
+  listing: {
+    id: string;
+    title: string;
+    price: number;
+    city: string;
+    area: string;
+    status: ListingStatus;
+  } | null;
 }
 
 export type AlertFrequency = 'instant' | 'daily' | 'weekly' | 'off';

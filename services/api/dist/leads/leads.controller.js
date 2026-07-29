@@ -33,8 +33,8 @@ let LeadsController = class LeadsController {
     create(body) {
         return this.leads.create(body);
     }
-    list(req, status, listingId) {
-        return this.leads.list(req.user, { status, listingId });
+    list(req, status, listingId, agentId) {
+        return this.leads.list(req.user, { status, listingId, agentId });
     }
     addNote(req, id, body) {
         return this.leads.addNote(req.user, id, body);
@@ -64,8 +64,9 @@ __decorate([
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('status')),
     __param(2, (0, common_1.Query)('listingId')),
+    __param(3, (0, common_1.Query)('agentId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object, String]),
+    __metadata("design:paramtypes", [Object, Object, String, String]),
     __metadata("design:returntype", void 0)
 ], LeadsController.prototype, "list", null);
 __decorate([

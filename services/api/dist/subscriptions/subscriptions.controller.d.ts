@@ -9,5 +9,7 @@ export declare class SubscriptionsController {
         used: number;
         quota: number;
     }>;
+    me(req: any): Promise<any>;
+    select(req: any, body: AssignSubscriptionDto): Promise<any>;
     assign(agentId: string, body: AssignSubscriptionDto): Promise<any>;
 }

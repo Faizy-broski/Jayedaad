@@ -29,6 +29,9 @@ let LeadsRepository = class LeadsRepository {
         if (scope.role !== 'super_admin') {
             query = query.eq('agent_id', scope.agentId);
         }
+        else if (filters.agentId) {
+            query = query.eq('agent_id', filters.agentId);
+        }
         if (filters.status)
             query = query.eq('status', filters.status);
         if (filters.listingId)

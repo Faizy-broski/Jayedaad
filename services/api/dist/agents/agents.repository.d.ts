@@ -8,9 +8,10 @@ export declare class AgentsRepository {
     private readonly supabase;
     private readonly documents;
     constructor(supabase: SupabaseService, documents: DocumentsService);
+    private mapProfileRow;
     findProfile(agentId: string): Promise<{
         id: any;
-        display_name: any;
+        displayName: any;
         title: any;
         bio: any;
         phone: any;
@@ -18,18 +19,13 @@ export declare class AgentsRepository {
         landline: any;
         city: any;
         address: any;
-        photo_url: any;
-        verification_status: any;
-        agencies: {
-            id: any;
-            name: any;
-            slug: any;
-            logo_url: any;
-        }[];
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
     }>;
     updateProfile(agentId: string, input: UpdateAgentProfileDto): Promise<{
         id: any;
-        display_name: any;
+        displayName: any;
         title: any;
         bio: any;
         phone: any;
@@ -37,14 +33,23 @@ export declare class AgentsRepository {
         landline: any;
         city: any;
         address: any;
-        photo_url: any;
-        verification_status: any;
-        agencies: {
-            id: any;
-            name: any;
-            slug: any;
-            logo_url: any;
-        }[];
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
+    }>;
+    updatePhoto(agentId: string, photoUrl: string): Promise<{
+        id: any;
+        displayName: any;
+        title: any;
+        bio: any;
+        phone: any;
+        whatsapp: any;
+        landline: any;
+        city: any;
+        address: any;
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
     }>;
     getStats(agentId: string): Promise<{
         forSaleCount: number;
@@ -111,7 +116,7 @@ export declare class AgentsRepository {
     }>;
     setVerificationStatus(agentId: string, status: 'verified' | 'rejected'): Promise<{
         id: any;
-        display_name: any;
+        displayName: any;
         title: any;
         bio: any;
         phone: any;
@@ -119,13 +124,8 @@ export declare class AgentsRepository {
         landline: any;
         city: any;
         address: any;
-        photo_url: any;
-        verification_status: any;
-        agencies: {
-            id: any;
-            name: any;
-            slug: any;
-            logo_url: any;
-        }[];
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
     }>;
 }

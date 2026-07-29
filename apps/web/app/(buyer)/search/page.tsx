@@ -1,7 +1,69 @@
 'use client';
 
 import { useState } from 'react';
-import { AreaUnit, ListingPurpose, useListingSearchViewModel, useTaxonomyViewModel } from '@jayedaad/core';
+import {
+  AreaUnit,
+  Listing,
+  ListingPurpose,
+  formatPrice,
+  listingsRepository,
+  useListingSearchViewModel,
+  usePreferencesViewModel,
+  useTaxonomyViewModel,
+} from '@jayedaad/core';
+import { getViewerSessionId } from '@/lib/viewerSession';
+
+// Fires the real engagement-tracking event (backs the agent dashboard's
+// Calls/WhatsApp/SMS analytics, which were previously always 0 — nothing
+// anywhere called this endpoint) then performs the real native action.
+// Fire-and-forget: a failed track shouldn't block the actual call/message.
+function trackAndOpen(listingId: string, type: 'call' | 'whatsapp' | 'sms', url: string) {
+  listingsRepository
+    .trackEngagement(listingId, { type, platform: 'web', viewerSessionId: getViewerSessionId() })
+    .catch(() => {});
+  window.location.href = url;
+}
+
+function ContactActions({ listing }: { listing: Listing }) {
+  const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
+  const landline = listing.contactNumbers.find((c) => c.type === 'landline');
+  const callContact = mobile ?? landline;
+  if (!callContact) return null;
+
+  const callNumber = `${callContact.countryCode}${callContact.number}`;
+  const whatsappDigits = mobile ? `${mobile.countryCode}${mobile.number}`.replace(/\D/g, '') : undefined;
+  const smsNumber = mobile ? `${mobile.countryCode}${mobile.number}` : undefined;
+
+  return (
+    <div className="mt-2 flex gap-2 text-xs">
+      <button
+        type="button"
+        onClick={() => trackAndOpen(listing.id, 'call', `tel:${callNumber}`)}
+        className="rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground"
+      >
+        Call
+      </button>
+      {whatsappDigits && (
+        <button
+          type="button"
+          onClick={() => trackAndOpen(listing.id, 'whatsapp', `https://wa.me/${whatsappDigits}`)}
+          className="rounded-md border border-slate-300 px-2 py-1 font-medium"
+        >
+          WhatsApp
+        </button>
+      )}
+      {smsNumber && (
+        <button
+          type="button"
+          onClick={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)}
+          className="rounded-md border border-slate-300 px-2 py-1 font-medium"
+        >
+          SMS
+        </button>
+      )}
+    </div>
+  );
+}
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 
@@ -11,7 +73,9 @@ const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre']
 // Zameen.com/Zillow: property type, purpose, bedrooms/bathrooms, area range.
 export default function SearchPage() {
   const { propertyTypes } = useTaxonomyViewModel();
+  const { preferences } = usePreferencesViewModel();
 
+  const [listingNumber, setListingNumber] = useState('');
   const [city, setCity] = useState('');
   const [propertyTypeSlug, setPropertyTypeSlug] = useState('');
   const [purpose, setPurpose] = useState<ListingPurpose | ''>('');
@@ -22,6 +86,7 @@ export default function SearchPage() {
   const [areaUnit, setAreaUnit] = useState<AreaUnit>('marla');
 
   const { listings, isLoading } = useListingSearchViewModel({
+    listingNumber: listingNumber ? Number(listingNumber.replace(/\D/g, '')) : undefined,
     city: city || undefined,
     propertyTypeSlug: propertyTypeSlug || undefined,
     purpose: purpose || undefined,
@@ -37,6 +102,12 @@ export default function SearchPage() {
       <h1 className="mb-6 text-2xl font-semibold">Search Verified Properties</h1>
 
       <div className="mb-6 grid gap-2 sm:grid-cols-3">
+        <input
+          value={listingNumber}
+          onChange={(e) => setListingNumber(e.target.value)}
+          placeholder="Search by Listing ID (e.g. JYD-00001)"
+          className="rounded-md border border-slate-300 px-3 py-2 dark:bg-slate-900"
+        />
         <input
           value={city}
           onChange={(e) => setCity(e.target.value)}
@@ -118,11 +189,13 @@ export default function SearchPage() {
           <li key={listing.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
             <h2 className="font-medium">{listing.title}</h2>
             <p className="text-sm text-slate-500">
-              {listing.propertyType?.label} · {listing.area}, {listing.city} — PKR {listing.price}
+              {listing.propertyType?.label} · {listing.area}, {listing.city} —{' '}
+              {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
             </p>
             <p className="text-xs text-slate-400">
               {listing.bedrooms ?? '–'} bed · {listing.bathrooms ?? '–'} bath · {listing.areaValue} {listing.areaUnit}
             </p>
+            <ContactActions listing={listing} />
           </li>
         ))}
         {!isLoading && listings.length === 0 && <p className="text-slate-500">No verified listings yet.</p>}

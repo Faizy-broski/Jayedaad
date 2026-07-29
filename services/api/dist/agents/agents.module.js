@@ -10,6 +10,7 @@ exports.AgentsModule = void 0;
 const common_1 = require("@nestjs/common");
 const agents_controller_1 = require("./agents.controller");
 const agents_repository_1 = require("./agents.repository");
+const avatar_media_service_1 = require("./avatar-media.service");
 const documents_module_1 = require("../documents/documents.module");
 let AgentsModule = class AgentsModule {
 };
@@ -18,6 +19,6 @@ exports.AgentsModule = AgentsModule = __decorate([
     (0, common_1.Module)({
         imports: [documents_module_1.DocumentsModule],
         controllers: [agents_controller_1.AgentsController],
-        providers: [agents_repository_1.AgentsRepository],
+        providers: [agents_repository_1.AgentsRepository, avatar_media_service_1.AvatarMediaService],
     })
 ], AgentsModule);

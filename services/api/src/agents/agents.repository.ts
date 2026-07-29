@@ -16,6 +16,31 @@ export class AgentsRepository {
     private readonly documents: DocumentsService,
   ) {}
 
+  // Supabase's implicit-join select returns raw snake_case (display_name,
+  // photo_url, agencies) — packages/core's AgentProfileSummary expects
+  // camelCase (displayName, photoUrl, agency). This was missing entirely:
+  // phone/whatsapp/landline/city/address/bio happen to be spelled the same
+  // in both cases so they "worked", but displayName/photoUrl/agency were
+  // always undefined on the client — the exact cause of "Name doesn't save"
+  // (the form's useEffect kept resetting to '' since profile.displayName
+  // never actually held the saved value).
+  private mapProfileRow(row: any) {
+    return {
+      id: row.id,
+      displayName: row.display_name,
+      title: row.title,
+      bio: row.bio,
+      phone: row.phone,
+      whatsapp: row.whatsapp,
+      landline: row.landline,
+      city: row.city,
+      address: row.address,
+      photoUrl: row.photo_url,
+      verificationStatus: row.verification_status,
+      agency: row.agencies ?? null,
+    };
+  }
+
   async findProfile(agentId: string) {
     const { data, error } = await this.supabase.client
       .from('agent_profiles')
@@ -23,7 +48,7 @@ export class AgentsRepository {
       .eq('id', agentId)
       .single();
     if (error) throw error;
-    return data;
+    return this.mapProfileRow(data);
   }
 
   // The Profolio "User Settings" page's actual save action. Ownership is
@@ -47,7 +72,20 @@ export class AgentsRepository {
       .select(PROFILE_COLUMNS)
       .single();
     if (error) throw error;
-    return data;
+    return this.mapProfileRow(data);
+  }
+
+  // The write side of "Upload a picture" — separate from updateProfile()
+  // since it's driven by a file upload, not the rest of the form fields.
+  async updatePhoto(agentId: string, photoUrl: string) {
+    const { data, error } = await this.supabase.client
+      .from('agent_profiles')
+      .update({ photo_url: photoUrl })
+      .eq('id', agentId)
+      .select(PROFILE_COLUMNS)
+      .single();
+    if (error) throw error;
+    return this.mapProfileRow(data);
   }
 
   // Property inventory broken down by purpose + type, scoped to one agent —
@@ -295,6 +333,6 @@ export class AgentsRepository {
       .select(PROFILE_COLUMNS)
       .single();
     if (error) throw error;
-    return data;
+    return this.mapProfileRow(data);
   }
 }

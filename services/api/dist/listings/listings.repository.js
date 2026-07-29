@@ -47,13 +47,19 @@ function sanitizeKeyword(keyword) {
     return keyword.replace(/[,()%]/g, ' ').trim();
 }
 const PUBLIC_LISTING_COLUMNS = `
-  id, title, description, price, purpose, city, area, society, sub_area,
+  id, listing_number, title, description, price, purpose, city, area, society, sub_area,
   latitude, longitude, bedrooms, bathrooms, kitchens, floors, area_value,
   area_unit, year_built, floor_level, furnishing_status, boost_tier,
-  installment_available, ready_for_possession, status, created_at,
+  installment_available, ready_for_possession,
+  advance_amount, number_of_installments, monthly_installment,
+  balloon_payment_available, balloon_payment_amount,
+  balloting_fee_applicable, balloting_fee_amount,
+  possession_fee_applicable, possession_fee_amount,
+  development_fee_applicable, development_fee_amount,
+  status, created_at,
   property_types!inner (slug, label, property_type_categories (slug, label)),
-  listing_media (url, compressed_url, is_cover, sort_order),
-  listing_amenities (value, amenities (slug, label, category, value_unit)),
+  listing_media (url, type, compressed_url, is_cover, sort_order),
+  listing_amenities (value, text_value, amenities (slug, label, category, value_type, value_unit, options)),
   listing_contact_numbers (type, country_code, number),
   agent_profiles (
     id, display_name, photo_url,
@@ -124,6 +130,10 @@ let ListingsRepository = class ListingsRepository {
             .from('listings')
             .select(PUBLIC_LISTING_COLUMNS, { count: 'exact' })
             .eq('status', 'verified');
+        if (filters.listingId)
+            query = query.eq('id', filters.listingId);
+        if (filters.listingNumber)
+            query = query.eq('listing_number', filters.listingNumber);
         if (filters.city)
             query = query.eq('city', filters.city);
         if (filters.area)
@@ -219,7 +229,9 @@ let ListingsRepository = class ListingsRepository {
     }
     // status is always forced to pending_verification here — the DTO has no
     // status field, so there is no code path where a submission could arrive
-    // pre-verified [Spec §7].
+    // pre-verified [Spec §7]. The one narrow exception is `status: 'draft'`,
+    // only ever passed by ListingsController's dedicated POST /listings/draft
+    // path — never reachable from the public create() endpoint's DTO.
     async create(input) {
         const { data: listing, error } = await this.supabase.client
             .from('listings')
@@ -246,7 +258,18 @@ let ListingsRepository = class ListingsRepository {
             furnishing_status: input.furnishingStatus,
             installment_available: input.installmentAvailable ?? false,
             ready_for_possession: input.readyForPossession ?? false,
-            status: 'pending_verification',
+            advance_amount: input.advanceAmount,
+            number_of_installments: input.numberOfInstallments,
+            monthly_installment: input.monthlyInstallment,
+            balloon_payment_available: input.balloonPaymentAvailable ?? false,
+            balloon_payment_amount: input.balloonPaymentAmount,
+            balloting_fee_applicable: input.ballotingFeeApplicable ?? false,
+            balloting_fee_amount: input.ballotingFeeAmount,
+            possession_fee_applicable: input.possessionFeeApplicable ?? false,
+            possession_fee_amount: input.possessionFeeAmount,
+            development_fee_applicable: input.developmentFeeApplicable ?? false,
+            development_fee_amount: input.developmentFeeAmount,
+            status: input.status ?? 'pending_verification',
             // boost_tier omitted — defaults to 'basic' in the DB; it's a paid
             // promotion, never client-settable at submission time.
         })
@@ -267,7 +290,137 @@ let ListingsRepository = class ListingsRepository {
         if (input.amenities?.length) {
             await this.addListingAmenities(listing.id, input.propertyTypeId, input.amenities);
         }
+        if (input.media?.length) {
+            // Exactly one cover: if the client didn't mark one, the first item
+            // wins — mirrors how the submit form defaults cover to the first
+            // uploaded photo.
+            const hasCover = input.media.some((m) => m.isCover);
+            const { error: mediaError } = await this.supabase.client.from('listing_media').insert(input.media.map((m, index) => ({
+                listing_id: listing.id,
+                url: m.url,
+                type: m.type,
+                is_cover: m.isCover ?? (!hasCover && index === 0),
+                sort_order: m.sortOrder ?? index,
+            })));
+            if (mediaError)
+                throw mediaError;
+        }
         return listing;
+    }
+    // The write path that never existed until now — an agent could create a
+    // listing but never edit or self-delete it afterward. Ownership is
+    // enforced at the controller (mirrors create()/documents' discipline);
+    // this trusts its caller. Business rule: editing a listing that was
+    // already reviewed (verified/rejected) resets it to pending_verification
+    // — content changes need re-review, same as any real moderation platform.
+    // A listing still pending stays pending. amenities/media/contactNumbers
+    // are replace-in-full when provided (delete-then-reinsert), same approach
+    // create() uses for the initial insert.
+    async update(listingId, input) {
+        const { data: existing, error: existingError } = await this.supabase.client
+            .from('listings')
+            .select('status, property_type_id')
+            .eq('id', listingId)
+            .single();
+        if (existingError)
+            throw existingError;
+        const nextStatus = existing.status === 'verified' || existing.status === 'rejected' ? 'pending_verification' : existing.status;
+        const updatePayload = { status: nextStatus };
+        const fieldMap = {
+            property_type_id: input.propertyTypeId,
+            purpose: input.purpose,
+            title: input.title,
+            description: input.description,
+            price: input.price,
+            city: input.city,
+            area: input.area,
+            society: input.society,
+            sub_area: input.subArea,
+            bedrooms: input.bedrooms,
+            bathrooms: input.bathrooms,
+            kitchens: input.kitchens,
+            floors: input.floors,
+            area_value: input.areaValue,
+            area_unit: input.areaUnit,
+            year_built: input.yearBuilt,
+            floor_level: input.floorLevel,
+            furnishing_status: input.furnishingStatus,
+            installment_available: input.installmentAvailable,
+            ready_for_possession: input.readyForPossession,
+            advance_amount: input.advanceAmount,
+            number_of_installments: input.numberOfInstallments,
+            monthly_installment: input.monthlyInstallment,
+            balloon_payment_available: input.balloonPaymentAvailable,
+            balloon_payment_amount: input.balloonPaymentAmount,
+            balloting_fee_applicable: input.ballotingFeeApplicable,
+            balloting_fee_amount: input.ballotingFeeAmount,
+            possession_fee_applicable: input.possessionFeeApplicable,
+            possession_fee_amount: input.possessionFeeAmount,
+            development_fee_applicable: input.developmentFeeApplicable,
+            development_fee_amount: input.developmentFeeAmount,
+        };
+        for (const [column, value] of Object.entries(fieldMap)) {
+            if (value !== undefined)
+                updatePayload[column] = value;
+        }
+        const { error: updateError } = await this.supabase.client.from('listings').update(updatePayload).eq('id', listingId);
+        if (updateError)
+            throw updateError;
+        if (input.contactNumbers) {
+            const { error: deleteContactsError } = await this.supabase.client
+                .from('listing_contact_numbers')
+                .delete()
+                .eq('listing_id', listingId);
+            if (deleteContactsError)
+                throw deleteContactsError;
+            if (input.contactNumbers.length) {
+                const { error: contactError } = await this.supabase.client.from('listing_contact_numbers').insert(input.contactNumbers.map((contact) => ({
+                    listing_id: listingId,
+                    type: contact.type,
+                    country_code: contact.countryCode ?? '+92',
+                    number: contact.number,
+                })));
+                if (contactError)
+                    throw contactError;
+            }
+        }
+        if (input.amenities) {
+            const { error: deleteAmenitiesError } = await this.supabase.client
+                .from('listing_amenities')
+                .delete()
+                .eq('listing_id', listingId);
+            if (deleteAmenitiesError)
+                throw deleteAmenitiesError;
+            if (input.amenities.length) {
+                const propertyTypeId = input.propertyTypeId ?? existing.property_type_id;
+                await this.addListingAmenities(listingId, propertyTypeId, input.amenities);
+            }
+        }
+        if (input.media) {
+            const { error: deleteMediaError } = await this.supabase.client.from('listing_media').delete().eq('listing_id', listingId);
+            if (deleteMediaError)
+                throw deleteMediaError;
+            if (input.media.length) {
+                const hasCover = input.media.some((m) => m.isCover);
+                const { error: mediaError } = await this.supabase.client.from('listing_media').insert(input.media.map((m, index) => ({
+                    listing_id: listingId,
+                    url: m.url,
+                    type: m.type,
+                    is_cover: m.isCover ?? (!hasCover && index === 0),
+                    sort_order: m.sortOrder ?? index,
+                })));
+                if (mediaError)
+                    throw mediaError;
+            }
+        }
+        const { data: updated, error: refetchError } = await this.supabase.client
+            .from('listings')
+            .select(PUBLIC_LISTING_COLUMNS)
+            .eq('id', listingId)
+            .single();
+        if (refetchError)
+            throw refetchError;
+        return mapPublicListingRow(updated);
     }
     // Hard gate — only amenities linked to this listing's property-type
     // category (via amenity_property_type_categories) are accepted, e.g. a
@@ -304,6 +457,7 @@ let ListingsRepository = class ListingsRepository {
             listing_id: listingId,
             amenity_id: amenityBySlug.get(a.slug).id,
             value: a.value,
+            text_value: a.textValue,
         })));
         if (linkError)
             throw linkError;
@@ -405,6 +559,12 @@ let ListingsRepository = class ListingsRepository {
             query = query.eq('purpose', filters.purpose);
         if (filters.listingId)
             query = query.eq('id', filters.listingId);
+        if (filters.listingNumber)
+            query = query.eq('listing_number', filters.listingNumber);
+        if (filters.city)
+            query = query.eq('city', filters.city);
+        if (filters.area)
+            query = query.ilike('area', `%${filters.area}%`);
         if (filters.minPrice)
             query = query.gte('price', filters.minPrice);
         if (filters.maxPrice)
@@ -560,6 +720,7 @@ exports.ListingsRepository = ListingsRepository = __decorate([
 function mapPublicListingRow(row) {
     return {
         id: row.id,
+        listingNumber: row.listing_number,
         title: row.title,
         description: row.description,
         price: row.price,
@@ -587,23 +748,40 @@ function mapPublicListingRow(row) {
         boostTier: row.boost_tier,
         installmentAvailable: row.installment_available,
         readyForPossession: row.ready_for_possession,
+        advanceAmount: row.advance_amount,
+        numberOfInstallments: row.number_of_installments,
+        monthlyInstallment: row.monthly_installment,
+        balloonPaymentAvailable: row.balloon_payment_available,
+        balloonPaymentAmount: row.balloon_payment_amount,
+        ballotingFeeApplicable: row.balloting_fee_applicable,
+        ballotingFeeAmount: row.balloting_fee_amount,
+        possessionFeeApplicable: row.possession_fee_applicable,
+        possessionFeeAmount: row.possession_fee_amount,
+        developmentFeeApplicable: row.development_fee_applicable,
+        developmentFeeAmount: row.development_fee_amount,
         status: row.status,
         createdAt: row.created_at,
         media: (row.listing_media ?? []).map((m) => ({
             url: m.url,
+            type: m.type,
             compressedUrl: m.compressed_url,
             isCover: m.is_cover,
             sortOrder: m.sort_order,
         })),
-        // value/valueUnit: confirmed real on a scraped Zameen detail page —
-        // some amenities carry a number, not just presence (e.g. "Parking
-        // Spaces: 2"). valueUnit comes from the catalog, value from this listing's row.
+        // value/textValue: confirmed real on a scraped Zameen detail page —
+        // some amenities carry a number, free text, or a chosen dropdown option,
+        // not just presence (e.g. "Parking Spaces: 2", "View: Mountain View",
+        // "Flooring: Tiles"). valueType/valueUnit/options come from the
+        // catalog, value/textValue from this listing's row.
         amenities: (row.listing_amenities ?? []).map((la) => ({
             slug: la.amenities.slug,
             label: la.amenities.label,
             category: la.amenities.category,
+            valueType: la.amenities.value_type,
             valueUnit: la.amenities.value_unit,
+            options: la.amenities.options,
             value: la.value,
+            textValue: la.text_value,
         })),
         contactNumbers: (row.listing_contact_numbers ?? []).map((c) => ({
             type: c.type,

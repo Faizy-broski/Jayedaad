@@ -24,10 +24,13 @@ const update_profile_dto_1 = require("./dto/update-profile.dto");
 const grant_credits_dto_1 = require("./dto/grant-credits.dto");
 const upload_document_dto_1 = require("./dto/upload-document.dto");
 const set_verification_status_dto_1 = require("./dto/set-verification-status.dto");
+const avatar_media_service_1 = require("./avatar-media.service");
 let AgentsController = class AgentsController {
     agents;
-    constructor(agents) {
+    avatarMedia;
+    constructor(agents, avatarMedia) {
         this.agents = agents;
+        this.avatarMedia = avatarMedia;
     }
     findProfile(id) {
         return this.agents.findProfile(id);
@@ -65,6 +68,14 @@ let AgentsController = class AgentsController {
     updateProfile(req, id, body) {
         this.assertOwnAgentOrAdmin(req, id);
         return this.agents.updateProfile(id, body);
+    }
+    // Profile picture — own dedicated "avatars" bucket (see
+    // avatar-media.service.ts), separate from listing-media. Same ownership
+    // discipline as updateProfile above.
+    async uploadPhoto(req, id, file) {
+        this.assertOwnAgentOrAdmin(req, id);
+        const url = await this.avatarMedia.upload(id, file);
+        return this.agents.updatePhoto(id, url);
     }
     assertOwnAgentOrAdmin(req, agentId) {
         if (req.user.role === 'super_admin')
@@ -170,6 +181,18 @@ __decorate([
 ], AgentsController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.UseGuards)(scope_guard_1.ScopeGuard),
+    (0, roles_decorator_1.Roles)('agent', 'super_admin'),
+    (0, common_1.Post)(':id/photo'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], AgentsController.prototype, "uploadPhoto", null);
+__decorate([
+    (0, common_1.UseGuards)(scope_guard_1.ScopeGuard),
     (0, common_1.Post)(':id/reviews'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -213,5 +236,6 @@ __decorate([
 ], AgentsController.prototype, "setVerificationStatus", null);
 exports.AgentsController = AgentsController = __decorate([
     (0, common_1.Controller)('agents'),
-    __metadata("design:paramtypes", [agents_repository_1.AgentsRepository])
+    __metadata("design:paramtypes", [agents_repository_1.AgentsRepository,
+        avatar_media_service_1.AvatarMediaService])
 ], AgentsController);

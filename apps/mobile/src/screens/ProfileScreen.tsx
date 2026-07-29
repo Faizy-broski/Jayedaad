@@ -1,0 +1,434 @@
+import { Alert, Image, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
+import { Card, CardContent, theme } from '@jayedaad/ui-native';
+import { RootStackParamList } from '../navigation/RootNavigator';
+import { BottomTabParamList } from '../navigation/BottomTabNavigator';
+
+type QuickAction = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  route?: keyof RootStackParamList;
+  params?: RootStackParamList['Favorites'] | RootStackParamList['MyProperties'];
+  agentOnly?: boolean;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Profile Settings', icon: 'settings-outline', route: 'ProfileSettings' },
+  { label: 'My Saved Searches', icon: 'search-outline', route: 'Favorites', params: { initialTab: 'saved' } },
+  { label: 'My Favourites', icon: 'heart-outline', route: 'Favorites', params: { initialTab: 'favorites' } },
+  { label: 'My Properties', icon: 'home-outline', route: 'MyProperties' },
+  { label: 'Dashboard', icon: 'stats-chart-outline', route: 'AgentDashboard', agentOnly: true },
+  { label: 'Inbox', icon: 'mail-unread-outline', route: 'AgentCRM', agentOnly: true },
+  { label: 'Drafts', icon: 'document-text-outline', route: 'MyProperties', params: { initialTab: 'drafts' } },
+  { label: 'Plan', icon: 'card-outline', route: 'Plan', agentOnly: true },
+];
+
+// No premium/basic concept exists on user accounts anywhere in the data
+// model — role is the only real distinguishing field.
+const ROLE_LABELS: Record<string, string> = {
+  agent: 'AGENT',
+  owner: 'OWNER',
+  buyer: 'BUYER',
+  super_admin: 'ADMIN',
+  verification_staff: 'STAFF',
+};
+
+const APP_VERSION = '0.1.0';
+const DESTRUCTIVE_COLOR = theme.colors.danger;
+
+export function ProfileScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
+  const { user, role, signOut } = useAuthViewModel();
+  // Only agent accounts have a real profile photo today (agent_profiles.photo_url,
+  // same field web's Profolio layout reads) — enabled: !!agentId internally,
+  // so this is a no-op for buyer/owner accounts.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  const isAgent = role === 'agent' || role === 'super_admin';
+
+  const email = user?.email || '';
+  const rawName = user?.user_metadata?.display_name as string | undefined;
+  const displayName = rawName || (email ? email.split('@')[0] : 'Guest');
+  const roleLabel = role ? ROLE_LABELS[role] : undefined;
+
+  function handleLogOut() {
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: () => signOut.mutate() },
+    ]);
+  }
+
+  return (
+    <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+            {!!email && <Text style={styles.email} numberOfLines={1}>{email}</Text>}
+            
+            {roleLabel && (
+              <LinearGradient
+                colors={theme.gradients.gold.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.badgeGradient}
+              >
+                <Text style={styles.badgeTextWhite}>{roleLabel}</Text>
+              </LinearGradient>
+            )}
+          </View>
+          <View style={styles.avatar}>
+            {agentProfile?.photoUrl ? (
+              <Image source={{ uri: agentProfile.photoUrl }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person-outline" size={24} color={theme.colors.primary} />
+            )}
+          </View>
+        </View>
+
+        {/* Quick Actions Grid */}
+        <View style={styles.grid}>
+          {QUICK_ACTIONS.filter((action) => !action.agentOnly || isAgent).map((action) => (
+            <Pressable
+              key={action.label}
+              disabled={!action.route}
+              onPress={action.route ? () => navigation.navigate(action.route as any, action.params as any) : undefined}
+              style={({ pressed }) => [
+                styles.gridCard,
+                pressed && styles.gridCardPressed,
+              ]}
+            >
+              {/* Changed icon color from gray to theme.colors.primary */}
+              <Ionicons name={action.icon} size={28} color={theme.colors.primary} />
+              <Text style={styles.gridLabel}>{action.label}</Text>
+            </Pressable>
+          ))}
+          <View style={styles.gridSpacer} />
+        </View>
+
+        {/* Premium Promo Banner */}
+        <LinearGradient
+          // Mixed Primary color with Secondary (Gold)
+          colors={[theme.colors.primary, theme.gradients.gold.colors[0]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.promoGradientCard}
+        >
+          <CardContent style={styles.promoContent}>
+            <Ionicons name="business" size={42} color={theme.colors.bg} style={styles.promoIcon} />
+            <Text style={styles.promoTextWhite}>Looking to sell or rent out your property?</Text>
+            <Pressable
+              style={({ pressed }) => [styles.promoButtonWhite, pressed && { opacity: 0.85 }]}
+              onPress={() => navigation.navigate('PostListing', undefined)}
+            >
+              <Text style={styles.promoButtonTextPrimary}>Post an Ad</Text>
+            </Pressable>
+          </CardContent>
+        </LinearGradient>
+
+        {/* General Settings List */}
+        <Card style={styles.listCard}>
+          <CardContent style={styles.listContent}>
+            
+            <ListRow
+              icon="chatbubble-ellipses-outline"
+              label="Contact Us"
+              onPress={() => navigation.navigate('Contact')}
+            />
+            <ListRow
+              icon="document-outline"
+              label="Terms and Privacy Policy"
+              onPress={() => navigation.navigate('Terms')}
+              isLast
+            />
+          </CardContent>
+        </Card>
+
+        {/* Account Actions List */}
+        <Card style={[styles.listCard, styles.lastListCard]}>
+          <CardContent style={styles.listContent}>
+            <Pressable 
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} 
+              onPress={handleLogOut}
+            >
+              <Ionicons name="log-out-outline" size={22} color={DESTRUCTIVE_COLOR} />
+              <View style={styles.rowTextWrap}>
+                <Text style={[styles.rowLabel, styles.logOutLabel]}>Log Out</Text>
+              </View>
+            </Pressable>
+            <View style={[styles.row, styles.rowLast]}>
+              <Ionicons name="information-circle-outline" size={22} color={theme.colors.muted} />
+              <View style={styles.rowTextWrap}>
+                <Text style={styles.versionLabel}>App Version</Text>
+                <Text style={styles.versionValue}>{APP_VERSION}</Text>
+              </View>
+            </View>
+          </CardContent>
+        </Card>
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// --- Helper Components ---
+
+function ListRow({
+  icon,
+  label,
+  value,
+  onPress,
+  disabled,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  isLast?: boolean;
+}) {
+  return (
+    <Pressable 
+      style={({ pressed }) => [
+        styles.row, 
+        isLast && styles.rowLast,
+        pressed && !disabled && styles.rowPressed
+      ]} 
+      onPress={onPress} 
+      disabled={disabled || !onPress}
+    >
+      <Ionicons name={icon} size={22} color={theme.colors.muted} />
+      <View style={styles.rowTextWrap}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {value && <Text style={styles.rowValue}>{value}</Text>}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
+    </Pressable>
+  );
+}
+
+// --- Styles ---
+
+const styles = StyleSheet.create({
+  root: { 
+    flex: 1, 
+    backgroundColor: theme.colors.bg
+  },
+  content: { 
+    paddingHorizontal: 20, 
+    paddingTop: 12, 
+    paddingBottom: 40 
+  },
+  
+  // Header
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  headerTextContainer: { 
+    flex: 1, 
+    paddingRight: 16,
+    justifyContent: 'center',
+  },
+  name: { 
+    fontSize: 22, 
+    fontWeight: '700', 
+    color: theme.colors.text,
+    textTransform: 'capitalize',
+  },
+  email: {
+    fontSize: 14,
+    color: theme.colors.muted,
+    marginTop: 2,
+  },
+  badgeGradient: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 8,
+    shadowColor: theme.gradients.gold.colors[1],
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  badgeTextWhite: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: theme.colors.bg, 
+    letterSpacing: 1,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.bg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+  },
+
+  // Grid
+  grid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between',
+    rowGap: 16,
+    marginBottom: 12,
+  },
+  gridCard: {
+    width: '31%',
+    aspectRatio: 1,
+    backgroundColor: theme.colors.bg,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceAlt,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  gridCardPressed: {
+    backgroundColor: theme.colors.surface,
+  },
+  gridLabel: { 
+    fontSize: 12, 
+    fontWeight: '600', 
+    color: theme.colors.text, 
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  gridSpacer: {
+    width: '31%',
+  },
+
+  // Premium Promo Card
+  promoGradientCard: { 
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: '#09573D', 
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  promoContent: { 
+    alignItems: 'center', 
+    padding: 20, 
+  },
+  promoIcon: {
+    marginBottom: 12,
+  },
+  promoTextWhite: { 
+    fontSize: 17, 
+    fontWeight: '800', 
+    color: theme.colors.bg, 
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  promoButtonWhite: {
+    backgroundColor: theme.colors.bg,
+    borderRadius: 8,
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  promoButtonTextPrimary: { 
+    color: theme.colors.primary, 
+    fontWeight: '800',
+    fontSize: 15,
+  },
+
+  // Lists
+  listCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceAlt,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
+    marginBottom: 12,
+  },
+  lastListCard: {
+    marginBottom: 24,
+  },
+  listContent: { 
+    padding: 0 
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.bg,
+  },
+  rowPressed: {
+    backgroundColor: theme.colors.surface,
+  },
+  rowLast: { 
+    borderBottomWidth: 0 
+  },
+  rowTextWrap: { 
+    flex: 1,
+    marginLeft: 16,
+  },
+  rowLabel: { 
+    fontSize: 15, 
+    fontWeight: '600', 
+    color: theme.colors.text 
+  },
+  rowValue: { 
+    fontSize: 12, 
+    color: theme.colors.primary, 
+    fontWeight: '600', 
+    marginTop: 2 
+  },
+  
+  // Specific Elements
+  logOutLabel: { 
+    color: DESTRUCTIVE_COLOR 
+  },
+  versionLabel: { 
+    fontSize: 15, 
+    fontWeight: '600', 
+    color: theme.colors.text,
+  },
+  versionValue: { 
+    fontSize: 13, 
+    color: theme.colors.muted, 
+    marginTop: 2 
+  },
+});

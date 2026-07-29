@@ -64,6 +64,15 @@ let TaxonomyRepository = class TaxonomyRepository {
             throw error;
     }
     // --- Property types ---------------------------------------------------------
+    // Supabase's implicit-join syntax nests the related row under the TABLE
+    // name (property_type_categories), not the `category` key packages/core's
+    // PropertyType model expects — every caller below was silently shipping
+    // `category: undefined` until something actually read `.category` (the
+    // web submit page's category tabs, which is what surfaced this).
+    mapPropertyTypeRow(row) {
+        const { property_type_categories, ...rest } = row;
+        return { ...rest, category: property_type_categories };
+    }
     async listPropertyTypes() {
         const { data, error } = await this.supabase.client
             .from('property_types')
@@ -71,7 +80,7 @@ let TaxonomyRepository = class TaxonomyRepository {
             .order('sort_order', { ascending: true });
         if (error)
             throw error;
-        return data;
+        return data.map((row) => this.mapPropertyTypeRow(row));
     }
     async createPropertyType(input) {
         const { data, error } = await this.supabase.client
@@ -86,7 +95,7 @@ let TaxonomyRepository = class TaxonomyRepository {
             .single();
         if (error)
             throw error;
-        return data;
+        return this.mapPropertyTypeRow(data);
     }
     async updatePropertyType(id, input) {
         const { data, error } = await this.supabase.client
@@ -102,7 +111,7 @@ let TaxonomyRepository = class TaxonomyRepository {
             .single();
         if (error)
             throw error;
-        return data;
+        return this.mapPropertyTypeRow(data);
     }
     async removePropertyType(id) {
         const { error } = await this.supabase.client.from('property_types').delete().eq('id', id);
@@ -155,7 +164,9 @@ let TaxonomyRepository = class TaxonomyRepository {
             slug: input.slug,
             label: input.label,
             category: input.category,
+            value_type: input.valueType,
             value_unit: input.valueUnit,
+            options: input.options,
             sort_order: input.sortOrder ?? 0,
         })
             .select('id')
@@ -172,7 +183,9 @@ let TaxonomyRepository = class TaxonomyRepository {
             slug: input.slug,
             label: input.label,
             category: input.category,
+            value_type: input.valueType,
             value_unit: input.valueUnit,
+            options: input.options,
             sort_order: input.sortOrder,
         })
             .eq('id', id);
@@ -225,7 +238,9 @@ function mapAmenityRow(row) {
         slug: row.slug,
         label: row.label,
         category: row.category,
+        valueType: row.value_type,
         valueUnit: row.value_unit,
+        options: row.options,
         propertyTypeCategories: (row.amenity_property_type_categories ?? []).map((link) => link.property_type_categories),
         sortOrder: row.sort_order,
     };

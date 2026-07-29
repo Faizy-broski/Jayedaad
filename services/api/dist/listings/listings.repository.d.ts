@@ -1,16 +1,20 @@
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateListingDto } from './dto/create-listing.dto';
+import { UpdateListingDto } from './dto/update-listing.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { Role } from '../common/types';
 import { DocumentsService } from '../documents/documents.service';
 export type ListingDocumentType = 'id_card_front' | 'id_card_back' | 'ownership_proof' | 'utility_bill';
 export declare const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[];
 export interface MyListingsFilters {
-    status?: 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive';
+    status?: 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive';
     propertyTypeCategory?: string;
     propertyTypeSlug?: string;
     purpose?: 'sale' | 'rent';
     listingId?: string;
+    listingNumber?: number;
+    city?: string;
+    area?: string;
     minPrice?: number;
     maxPrice?: number;
     minAreaValue?: number;
@@ -27,6 +31,8 @@ export interface MyListingsScope {
     agentId?: string;
 }
 export interface ListingSearchFilters {
+    listingId?: string;
+    listingNumber?: number;
     city?: string;
     area?: string;
     propertyTypeSlug?: string;
@@ -64,10 +70,11 @@ export declare class ListingsRepository {
     create(input: CreateListingDto & {
         ownerId: string;
         agentId?: string;
+        status?: 'draft' | 'pending_verification';
     }): Promise<any>;
-    private addListingAmenities;
-    findById(listingId: string): Promise<{
+    update(listingId: string, input: UpdateListingDto): Promise<{
         id: any;
+        listingNumber: any;
         title: any;
         description: any;
         price: any;
@@ -91,6 +98,62 @@ export declare class ListingsRepository {
         boostTier: any;
         installmentAvailable: any;
         readyForPossession: any;
+        advanceAmount: any;
+        numberOfInstallments: any;
+        monthlyInstallment: any;
+        balloonPaymentAvailable: any;
+        balloonPaymentAmount: any;
+        ballotingFeeApplicable: any;
+        ballotingFeeAmount: any;
+        possessionFeeApplicable: any;
+        possessionFeeAmount: any;
+        developmentFeeApplicable: any;
+        developmentFeeAmount: any;
+        status: any;
+        createdAt: any;
+        media: any;
+        amenities: any;
+        contactNumbers: any;
+        agent: any;
+    }>;
+    private addListingAmenities;
+    findById(listingId: string): Promise<{
+        id: any;
+        listingNumber: any;
+        title: any;
+        description: any;
+        price: any;
+        purpose: any;
+        city: any;
+        area: any;
+        society: any;
+        subArea: any;
+        latitude: any;
+        longitude: any;
+        propertyType: any;
+        bedrooms: any;
+        bathrooms: any;
+        kitchens: any;
+        floors: any;
+        areaValue: any;
+        areaUnit: any;
+        yearBuilt: any;
+        floorLevel: any;
+        furnishingStatus: any;
+        boostTier: any;
+        installmentAvailable: any;
+        readyForPossession: any;
+        advanceAmount: any;
+        numberOfInstallments: any;
+        monthlyInstallment: any;
+        balloonPaymentAvailable: any;
+        balloonPaymentAmount: any;
+        ballotingFeeApplicable: any;
+        ballotingFeeAmount: any;
+        possessionFeeApplicable: any;
+        possessionFeeAmount: any;
+        developmentFeeApplicable: any;
+        developmentFeeAmount: any;
         status: any;
         createdAt: any;
         media: any;
@@ -100,6 +163,7 @@ export declare class ListingsRepository {
     }>;
     findSimilar(listingId: string, limit?: number): Promise<{
         id: any;
+        listingNumber: any;
         title: any;
         description: any;
         price: any;
@@ -123,6 +187,17 @@ export declare class ListingsRepository {
         boostTier: any;
         installmentAvailable: any;
         readyForPossession: any;
+        advanceAmount: any;
+        numberOfInstallments: any;
+        monthlyInstallment: any;
+        balloonPaymentAvailable: any;
+        balloonPaymentAmount: any;
+        ballotingFeeApplicable: any;
+        ballotingFeeAmount: any;
+        possessionFeeApplicable: any;
+        possessionFeeAmount: any;
+        developmentFeeApplicable: any;
+        developmentFeeAmount: any;
         status: any;
         createdAt: any;
         media: any;
@@ -135,6 +210,7 @@ export declare class ListingsRepository {
     findPendingForVerification(): Promise<any[]>;
     setStatus(listingId: string, status: string): Promise<{
         id: any;
+        listingNumber: any;
         title: any;
         description: any;
         price: any;
@@ -158,6 +234,17 @@ export declare class ListingsRepository {
         boostTier: any;
         installmentAvailable: any;
         readyForPossession: any;
+        advanceAmount: any;
+        numberOfInstallments: any;
+        monthlyInstallment: any;
+        balloonPaymentAvailable: any;
+        balloonPaymentAmount: any;
+        ballotingFeeApplicable: any;
+        ballotingFeeAmount: any;
+        possessionFeeApplicable: any;
+        possessionFeeAmount: any;
+        developmentFeeApplicable: any;
+        developmentFeeAmount: any;
         status: any;
         createdAt: any;
         media: any;
@@ -190,6 +277,7 @@ export declare class ListingsRepository {
 }
 declare function mapPublicListingRow(row: any): {
     id: any;
+    listingNumber: any;
     title: any;
     description: any;
     price: any;
@@ -213,6 +301,17 @@ declare function mapPublicListingRow(row: any): {
     boostTier: any;
     installmentAvailable: any;
     readyForPossession: any;
+    advanceAmount: any;
+    numberOfInstallments: any;
+    monthlyInstallment: any;
+    balloonPaymentAvailable: any;
+    balloonPaymentAmount: any;
+    ballotingFeeApplicable: any;
+    ballotingFeeAmount: any;
+    possessionFeeApplicable: any;
+    possessionFeeAmount: any;
+    developmentFeeApplicable: any;
+    developmentFeeAmount: any;
     status: any;
     createdAt: any;
     media: any;
