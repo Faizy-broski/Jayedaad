@@ -3,11 +3,12 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateAgentProfileDto } from './dto/update-profile.dto';
 import { GrantCreditsDto } from './dto/grant-credits.dto';
+import { ApplyAsAgentDto } from './dto/apply-as-agent.dto';
 import { DocumentsService } from '../documents/documents.service';
 import { OnboardingDocumentType, REQUIRED_ONBOARDING_DOCUMENT_TYPES } from '../agencies/agencies.repository';
 
 const PROFILE_COLUMNS =
-  'id, display_name, title, bio, phone, whatsapp, landline, city, address, photo_url, verification_status, agencies (id, name, slug, logo_url)';
+  'id, display_name, title, bio, phone, whatsapp, landline, city, address, photo_url, verification_status, is_agency_admin, agencies (id, name, slug, logo_url)';
 
 @Injectable()
 export class AgentsRepository {
@@ -16,6 +17,32 @@ export class AgentsRepository {
     private readonly documents: DocumentsService,
   ) {}
 
+  // Supabase's implicit-join select returns raw snake_case (display_name,
+  // photo_url, agencies) — packages/core's AgentProfileSummary expects
+  // camelCase (displayName, photoUrl, agency). This was missing entirely:
+  // phone/whatsapp/landline/city/address/bio happen to be spelled the same
+  // in both cases so they "worked", but displayName/photoUrl/agency were
+  // always undefined on the client — the exact cause of "Name doesn't save"
+  // (the form's useEffect kept resetting to '' since profile.displayName
+  // never actually held the saved value).
+  private mapProfileRow(row: any) {
+    return {
+      id: row.id,
+      displayName: row.display_name,
+      title: row.title,
+      bio: row.bio,
+      phone: row.phone,
+      whatsapp: row.whatsapp,
+      landline: row.landline,
+      city: row.city,
+      address: row.address,
+      photoUrl: row.photo_url,
+      verificationStatus: row.verification_status,
+      isAgencyAdmin: row.is_agency_admin,
+      agency: row.agencies ?? null,
+    };
+  }
+
   async findProfile(agentId: string) {
     const { data, error } = await this.supabase.client
       .from('agent_profiles')
@@ -23,7 +50,67 @@ export class AgentsRepository {
       .eq('id', agentId)
       .single();
     if (error) throw error;
-    return data;
+    return this.mapProfileRow(data);
+  }
+
+  // Staff review queue — every agent_profiles row still 'pending', with
+  // document completeness inlined so a reviewer doesn't need a second
+  // request per row before deciding.
+  async listPendingVerification() {
+    const { data, error } = await this.supabase.client
+      .from('agent_profiles')
+      .select(PROFILE_COLUMNS)
+      .eq('verification_status', 'pending')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+
+    return Promise.all(
+      (data ?? []).map(async (row: any) => ({
+        ...this.mapProfileRow(row),
+        documents: await this.getDocumentCompleteness(row.id),
+      })),
+    );
+  }
+
+  // Self-service "Apply to become an agent" — same two-step pattern as
+  // UsersRepository.create()'s agent branch (insert agent_profiles, then
+  // sync app_metadata.role + profiles.role), just triggered by the buyer
+  // themselves instead of super_admin. verification_status defaults to
+  // 'pending' in the DB — the applicant lands in the same review queue a
+  // super_admin-created agent would.
+  async applyAsAgent(userId: string, input: ApplyAsAgentDto) {
+    const { data: agentProfile, error: insertError } = await this.supabase.client
+      .from('agent_profiles')
+      .insert({ user_id: userId, display_name: input.displayName, phone: input.phone, city: input.city })
+      .select('id')
+      .single();
+    if (insertError) throw insertError;
+
+    // If the metadata/profile sync below fails, agent_profiles.user_id's
+    // unique constraint would otherwise block every retry (same orphaned-
+    // row class of bug as AgenciesRepository.registerSelfService — see its
+    // comment). Compensate by deleting the just-created row before
+    // re-throwing.
+    try {
+      const { data: existing, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
+      if (getError) throw getError;
+
+      const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
+        app_metadata: { ...existing.user.app_metadata, role: 'agent', agent_id: agentProfile.id },
+      });
+      if (metadataError) throw metadataError;
+
+      const { error: profileError } = await this.supabase.client
+        .from('profiles')
+        .update({ role: 'agent', agent_id: agentProfile.id })
+        .eq('id', userId);
+      if (profileError) throw profileError;
+
+      return this.findProfile(agentProfile.id);
+    } catch (err) {
+      await this.supabase.client.from('agent_profiles').delete().eq('id', agentProfile.id);
+      throw err;
+    }
   }
 
   // The Profolio "User Settings" page's actual save action. Ownership is
@@ -47,7 +134,20 @@ export class AgentsRepository {
       .select(PROFILE_COLUMNS)
       .single();
     if (error) throw error;
-    return data;
+    return this.mapProfileRow(data);
+  }
+
+  // The write side of "Upload a picture" — separate from updateProfile()
+  // since it's driven by a file upload, not the rest of the form fields.
+  async updatePhoto(agentId: string, photoUrl: string) {
+    const { data, error } = await this.supabase.client
+      .from('agent_profiles')
+      .update({ photo_url: photoUrl })
+      .eq('id', agentId)
+      .select(PROFILE_COLUMNS)
+      .single();
+    if (error) throw error;
+    return this.mapProfileRow(data);
   }
 
   // Property inventory broken down by purpose + type, scoped to one agent —
@@ -295,6 +395,6 @@ export class AgentsRepository {
       .select(PROFILE_COLUMNS)
       .single();
     if (error) throw error;
-    return data;
+    return this.mapProfileRow(data);
   }
 }

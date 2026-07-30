@@ -2,7 +2,10 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', '../../packages/ui-web/src/**/*.{ts,tsx}'],
-  darkMode: 'media', // both light and dark modes required [Spec §8]
+  // 'class' (not 'media') — a manual toggle now drives dark mode (see
+  // apps/web/components/ThemeProvider.tsx), not just OS preference. The
+  // .dark class is stamped on <html> by that provider.
+  darkMode: 'class',
   theme: {
     extend: {
       // Maps the CSS-variable tokens defined in app/globals.css — standard
@@ -51,6 +54,15 @@ const config: Config = {
         DEFAULT: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      // Real gradient backgrounds — not expressible via the CSS-variable
+      // `hsl(var(--x) / <alpha-value>)` mechanism above (a gradient isn't a
+      // single color), so these are a separate backgroundImage utility,
+      // applied only where a background-image is valid (buttons), while
+      // --primary/--ring etc. stay solid colors for text/border/focus-ring use.
+      backgroundImage: {
+        'brand-gradient': 'linear-gradient(90deg, #0D634B 0%, #034B37 100%)',
+        'gold-gradient': 'linear-gradient(111.53deg, #EBBD57 0%, #AD7B3D 100%)',
       },
     },
   },

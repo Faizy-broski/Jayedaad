@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateAgencyDto } from './dto/create-agency.dto';
 import { UpdateAgencyDto } from './dto/update-agency.dto';
+import { RegisterAgencyDto } from './dto/register-agency.dto';
 import { DocumentsService } from '../documents/documents.service';
 
 const AGENCY_COLUMNS =
@@ -234,5 +235,170 @@ export class AgenciesRepository {
     if (missing.length > 0) {
       throw new BadRequestException(`Cannot verify agency — missing required documents: ${missing.join(', ')}`);
     }
+  }
+
+  // --- Agency self-management ("Agency Staff") ---------------------------
+  // An agency admin is still role 'agent' everywhere else in the system —
+  // see supabase/migrations/0023_agency_admin_flag.sql. These methods trust
+  // their caller (ownership/admin-flag checks happen in the controller, same
+  // discipline as assertOwnAgentOrAdmin in agents.controller.ts).
+
+  // Used by the controller to authorize every staff-management endpoint:
+  // resolves the calling agent's own agency_id + admin flag in one query.
+  async getStaffScope(agentId: string): Promise<{ agencyId: string | null; isAgencyAdmin: boolean }> {
+    const { data, error } = await this.supabase.client
+      .from('agent_profiles')
+      .select('agency_id, is_agency_admin')
+      .eq('id', agentId)
+      .single();
+    if (error) throw error;
+    return { agencyId: data.agency_id, isAgencyAdmin: data.is_agency_admin };
+  }
+
+  async listStaff(agencyId: string) {
+    const { data, error } = await this.supabase.client
+      .from('agent_profiles')
+      .select('id, display_name, phone, city, verification_status, is_agency_admin')
+      .eq('agency_id', agencyId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      displayName: row.display_name,
+      phone: row.phone,
+      city: row.city,
+      verificationStatus: row.verification_status,
+      isAgencyAdmin: row.is_agency_admin,
+    }));
+  }
+
+  // Self-service agency registration (signup's "Agency" account type) — the
+  // registering buyer becomes the new agency's admin. Same sync pattern as
+  // AgentsRepository.applyAsAgent() (insert profile row(s), then merge
+  // app_metadata + profiles.role), just with an agency row inserted first
+  // and is_agency_admin forced true on the resulting agent_profiles row.
+  // Both rows start 'pending' — a real agency admin still has to upload the
+  // 3 onboarding documents and wait for super_admin review, same as any
+  // other self-service path.
+  async registerSelfService(userId: string, input: RegisterAgencyDto) {
+    const { data: agency, error: agencyError } = await this.supabase.client
+      .from('agencies')
+      .insert({
+        name: input.agencyName,
+        slug: input.agencySlug,
+        phone: input.agencyPhone,
+        city: input.agencyCity,
+        verification_status: 'pending',
+      })
+      .select(AGENCY_COLUMNS)
+      .single();
+    if (agencyError) throw agencyError;
+
+    // Everything past this point can fail independently (agent_profiles
+    // insert, auth metadata sync, profiles sync) — PostgREST has no
+    // multi-table transaction, so a failure here previously left the
+    // agency row above permanently orphaned, blocking every retry on a
+    // slug uniqueness violation. Compensate by deleting whatever was
+    // created before re-throwing, so a failed attempt is always cleanly
+    // retryable — agent_profiles first (it FKs to agencies, so the agency
+    // delete would otherwise fail with a foreign-key violation and mask
+    // the original error).
+    let agentProfileId: string | undefined;
+    try {
+      const { data: agentProfile, error: agentError } = await this.supabase.client
+        .from('agent_profiles')
+        .insert({
+          user_id: userId,
+          display_name: input.displayName,
+          phone: input.agentPhone,
+          agency_id: agency.id,
+          is_agency_admin: true,
+        })
+        .select('id')
+        .single();
+      if (agentError) throw agentError;
+      agentProfileId = agentProfile.id;
+
+      const { data: existing, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
+      if (getError) throw getError;
+
+      const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
+        app_metadata: { ...existing.user.app_metadata, role: 'agent', agent_id: agentProfile.id },
+      });
+      if (metadataError) throw metadataError;
+
+      const { error: profileError } = await this.supabase.client
+        .from('profiles')
+        .update({ role: 'agent', agent_id: agentProfile.id })
+        .eq('id', userId);
+      if (profileError) throw profileError;
+
+      return { agency, agentId: agentProfile.id };
+    } catch (err) {
+      if (agentProfileId) await this.supabase.client.from('agent_profiles').delete().eq('id', agentProfileId);
+      await this.supabase.client.from('agencies').delete().eq('id', agency.id);
+      throw err;
+    }
+  }
+
+  // Same two-step create-user pattern as UsersRepository.create()'s agent
+  // branch, duplicated rather than cross-imported (UsersRepository lives in
+  // a separate Nest module) — agencyId is always forced from the route
+  // param, never client-supplied, unlike CreateUserDto's optional agencyId.
+  async addStaff(agencyId: string, input: { email: string; password: string; displayName?: string }) {
+    const { data: created, error: createError } = await this.supabase.client.auth.admin.createUser({
+      email: input.email,
+      password: input.password,
+      email_confirm: true,
+      app_metadata: { role: 'agent', display_name: input.displayName },
+    });
+    if (createError) throw createError;
+    const userId = created.user.id;
+
+    const { data: agentProfile, error: agentError } = await this.supabase.client
+      .from('agent_profiles')
+      .insert({ user_id: userId, display_name: input.displayName, agency_id: agencyId })
+      .select('id')
+      .single();
+    if (agentError) throw agentError;
+
+    const { error: backfillError } = await this.supabase.client.auth.admin.updateUserById(userId, {
+      app_metadata: { role: 'agent', agent_id: agentProfile.id, display_name: input.displayName },
+    });
+    if (backfillError) throw backfillError;
+
+    const { error: profileError } = await this.supabase.client
+      .from('profiles')
+      .update({ role: 'agent', agent_id: agentProfile.id })
+      .eq('id', userId);
+    if (profileError) throw profileError;
+
+    return agentProfile;
+  }
+
+  // WHERE agency_id also scopes this — targeting an agent from a different
+  // agency silently affects 0 rows rather than needing a separate lookup.
+  async setStaffAdmin(agencyId: string, agentId: string, isAgencyAdmin: boolean) {
+    const { data, error } = await this.supabase.client
+      .from('agent_profiles')
+      .update({ is_agency_admin: isAgencyAdmin })
+      .eq('id', agentId)
+      .eq('agency_id', agencyId)
+      .select('id, is_agency_admin')
+      .single();
+    if (error) throw error;
+    return { id: data.id, isAgencyAdmin: data.is_agency_admin };
+  }
+
+  // Unlinks, not a hard delete — the agent account itself (and their
+  // listings) survives, just no longer affiliated with this agency.
+  async removeStaff(agencyId: string, agentId: string) {
+    const { error } = await this.supabase.client
+      .from('agent_profiles')
+      .update({ agency_id: null, is_agency_admin: false })
+      .eq('id', agentId)
+      .eq('agency_id', agencyId);
+    if (error) throw error;
+    return { id: agentId };
   }
 }

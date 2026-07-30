@@ -4,6 +4,9 @@ import { Lead, LeadInquirerType, LeadSource, LeadStatus } from '../models';
 export interface LeadListFilters {
   status?: LeadStatus;
   listingId?: string;
+  // Super Admin-only — filters the otherwise-unscoped cross-agent result set
+  // GET /crm/leads returns for super_admin down to one agent at a time.
+  agentId?: string;
 }
 
 // Mirrors services/api/src/leads/dto/create-lead.dto.ts — the public
@@ -38,5 +41,10 @@ export const leadsRepository = {
   updateStatus: async ({ leadId, status }: { leadId: string; status: LeadStatus }) => {
     const { data } = await httpClient.patch(`/crm/leads/${leadId}/status`, { status });
     return data;
+  },
+
+  // Super Admin-only — reassigns a lead to a different agent.
+  assign: async (leadId: string, agentId: string): Promise<void> => {
+    await httpClient.patch(`/crm/leads/${leadId}/assign`, { agentId });
   },
 };

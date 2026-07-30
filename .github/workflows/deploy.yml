@@ -1,0 +1,71 @@
+name: deploy
+
+# Builds and pushes Docker images to GHCR on every push to main — the VPS
+# (Phase B, see the deployment plan) never builds images itself, it only
+# runs `docker compose pull && docker compose up -d --remove-orphans`.
+# Image builds are heavy (Next.js + Nest, workspace-wide pnpm install) and
+# the VPS is a modest KVM2 box — building on every deploy there risks OOM-
+# killing the currently-running containers mid-redeploy.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   NEXT_PUBLIC_API_BASE_URL, NEXT_PUBLIC_SUPABASE_URL,
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+# (these aren't secret in the security sense — Next inlines them into the
+# public client bundle regardless — Actions secrets are just the easiest
+# place to store build-time config; repo Variables would work identically.)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/api:latest
+            ghcr.io/${{ github.repository_owner }}/api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-and-push-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/web:latest
+            ghcr.io/${{ github.repository_owner }}/web:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

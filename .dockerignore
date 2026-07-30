@@ -1,0 +1,36 @@
+# Dependencies (installed fresh inside the build, never copied in)
+**/node_modules/
+.pnpm-store/
+
+# Build outputs (regenerated inside the build)
+**/.next/
+**/dist/
+**/build/
+.turbo/
+**/.expo/
+**/.expo-shared/
+
+# Env files — never bake secrets into an image layer. Runtime config is
+# injected via docker-compose.yml's env_file/environment, build-time
+# NEXT_PUBLIC_* vars via --build-arg (see apps/web/Dockerfile).
+.env
+.env.*
+**/.env
+**/.env.*
+
+# VCS / editor / OS
+.git/
+.github/
+.vscode/
+.idea/
+.DS_Store
+
+# Test/coverage artifacts
+coverage/
+playwright-report/
+test-results/
+**/*.tsbuildinfo
+
+# Mobile-only, irrelevant to web/api images
+apps/mobile/ios/
+apps/mobile/android/

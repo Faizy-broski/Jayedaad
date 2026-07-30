@@ -10,6 +10,7 @@ export type Role = 'super_admin' | 'verification_staff' | 'agent' | 'buyer' | 'o
 // exact semantics couldn't be confirmed from a UI screenshot alone (see
 // supabase/migrations/0001_init.sql for the inferred interpretation).
 export type ListingStatus =
+  | 'draft'
   | 'pending_verification'
   | 'verified'
   | 'rejected'
@@ -70,12 +71,21 @@ export interface PropertyType {
 // Room on a Plot). `valueUnit` is set when this amenity carries a number on
 // a listing (e.g. "spaces", "kms" — "Parking Spaces: 2", "Distance From
 // Airport (kms)"); null means a plain boolean tag.
+// valueType drives how the "Add Amenities" modal renders this field:
+// 'boolean' -> a checkbox, 'number' -> a number input (labeled with
+// valueUnit, e.g. "Distance From Airport (kms)"), 'text' -> a free-text
+// input, 'select' -> a dropdown of `options` (e.g. Flooring -> Tiles/
+// Marble/Wooden/Chip/Cement/Other).
+export type AmenityValueType = 'boolean' | 'number' | 'text' | 'select';
+
 export interface Amenity {
   id: string;
   slug: string;
   label: string;
   category: AmenityCategory;
+  valueType: AmenityValueType;
   valueUnit: string | null;
+  options: string[] | null;
   propertyTypeCategories: PropertyTypeCategorySummary[];
 }
 
@@ -112,7 +122,9 @@ export interface CreateAmenityInput {
   slug: string;
   label: string;
   category: AmenityCategory;
+  valueType?: AmenityValueType;
   valueUnit?: string;
+  options?: string[];
   propertyTypeCategoryIds?: string[];
   sortOrder?: number;
 }
@@ -121,7 +133,9 @@ export interface UpdateAmenityInput {
   slug?: string;
   label?: string;
   category?: AmenityCategory;
+  valueType?: AmenityValueType;
   valueUnit?: string;
+  options?: string[];
   propertyTypeCategoryIds?: string[];
   sortOrder?: number;
 }
@@ -137,6 +151,7 @@ export interface PropertyTypeSummary {
 
 export interface ListingMediaItem {
   url: string;
+  type: 'image' | 'video';
   compressedUrl: string | null;
   isCover: boolean;
   sortOrder: number;
@@ -166,15 +181,26 @@ export interface AmenitySummary {
 
 // What a listing embeds inline — same idea as AmenitySummary, plus the
 // value fields listing_amenities does carry. `value` is this listing's
-// actual figure (e.g. 2 for Parking Spaces); `valueUnit` comes from the
-// catalog. Both null for a plain boolean-tag amenity.
+// actual number (e.g. 2 for Parking Spaces, distance in km for Distance
+// From Airport); `textValue` is this listing's free text or chosen select
+// option (e.g. "Mountain View", or "Tiles" for Flooring); `valueUnit`/
+// `valueType`/`options` come from the catalog. All null/unset for a plain
+// boolean-tag amenity.
 export interface ListingAmenity extends AmenitySummary {
+  valueType: AmenityValueType;
   valueUnit: string | null;
+  options: string[] | null;
   value: number | null;
+  textValue: string | null;
 }
 
 export interface Listing {
   id: string;
+  // Real short/sequential reference number (Postgres identity column) — the
+  // human-facing "Listing ID" shown/searched throughout the app. `id` (the
+  // UUID) stays the real primary key for internal use (edit links, delete,
+  // engagement tracking); this is what a person actually reads/types.
+  listingNumber: number;
   title: string;
   description: string | null;
   price: string; // numeric serialized as string over the wire
@@ -199,6 +225,17 @@ export interface Listing {
   // Both confirmed real on the live Profolio form: two toggles under Price and Area.
   installmentAvailable: boolean;
   readyForPossession: boolean;
+  advanceAmount: number | null;
+  numberOfInstallments: number | null;
+  monthlyInstallment: number | null;
+  balloonPaymentAvailable: boolean;
+  balloonPaymentAmount: number | null;
+  ballotingFeeApplicable: boolean;
+  ballotingFeeAmount: number | null;
+  possessionFeeApplicable: boolean;
+  possessionFeeAmount: number | null;
+  developmentFeeApplicable: boolean;
+  developmentFeeAmount: number | null;
   status: ListingStatus;
   createdAt: string;
   media: ListingMediaItem[];
@@ -468,6 +505,37 @@ export interface SetAgencyVerificationStatusInput {
   status: 'verified' | 'rejected';
 }
 
+// --- Agency self-management ("Agency Staff") --------------------------------
+// An agency admin is still role 'agent' everywhere else — see
+// AgentProfileSummary.isAgencyAdmin above and
+// supabase/migrations/0023_agency_admin_flag.sql.
+
+export interface AgencyStaffMember {
+  id: string;
+  displayName: string | null;
+  phone: string | null;
+  city: string | null;
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+  isAgencyAdmin: boolean;
+}
+
+export interface CreateAgencyStaffInput {
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+// Self-service agency registration (signup's "Agency" account type) —
+// mirrors services/api/src/agencies/dto/register-agency.dto.ts exactly.
+export interface RegisterAgencyInput {
+  agencyName: string;
+  agencySlug: string;
+  agencyPhone?: string;
+  agencyCity?: string;
+  displayName?: string;
+  agentPhone?: string;
+}
+
 // Property inventory by type/purpose shown on a real Zameen agency page —
 // computed at query time server-side, never a stored figure. byBoostTier
 // confirmed real on the Profolio agent dashboard's Listings card (Active/
@@ -494,6 +562,22 @@ export interface AgentProfileSummary {
   address: string | null;
   photoUrl: string | null;
   agency: Agency | null;
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+  // Agency-scoped staff-management flag — an agency admin is still role
+  // 'agent' everywhere else in the system (see agencyStaffRepository.ts).
+  isAgencyAdmin: boolean;
+}
+
+export interface ApplyAsAgentInput {
+  displayName?: string;
+  phone?: string;
+  city?: string;
+}
+
+// One agent_profiles row plus its document-completeness, as returned by the
+// staff review queue (GET /agents/pending-verification).
+export interface PendingAgentApplication extends AgentProfileSummary {
+  documents: { required: string[]; uploaded: string[]; missing: string[] };
 }
 
 // Confirmed real on the Profolio "Preferences" page — didn't exist
@@ -554,10 +638,21 @@ export interface AgentReview {
 
 // --- Favorites & Saved Searches (mirrors 0007_favorites_and_saved_searches.sql) ---
 
+// listing is the joined summary FavoritesRepository.list() actually selects
+// (id/title/price/city/area/status) — nullable since a favorited listing
+// could theoretically be deleted out from under the favorite row.
 export interface Favorite {
   id: string;
   listingId: string;
   createdAt: string;
+  listing: {
+    id: string;
+    title: string;
+    price: number;
+    city: string;
+    area: string;
+    status: ListingStatus;
+  } | null;
 }
 
 export type AlertFrequency = 'instant' | 'daily' | 'weekly' | 'off';
@@ -814,6 +909,17 @@ export type OnboardingDocumentType = 'company_registration' | 'owner_id_card' | 
 export interface ListingDocument {
   id: string;
   documentType: ListingDocumentType;
+  url: string;
+  uploadedAt: string;
+}
+
+// Onboarding documents (company registration, owner's ID card, tax
+// certificate) — used by both agencies and independent agents (agents
+// stand in as their own "company"), distinct from ListingDocument above
+// (a different document-type set, for property verification).
+export interface OnboardingDocument {
+  id: string;
+  documentType: OnboardingDocumentType;
   url: string;
   uploadedAt: string;
 }

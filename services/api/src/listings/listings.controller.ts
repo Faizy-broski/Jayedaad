@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -17,14 +18,19 @@ import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ScopeGuard } from '../common/guards/scope.guard';
 import { ListingsRepository } from './listings.repository';
+import { ListingMediaService } from './listing-media.service';
 import { CreateListingDto } from './dto/create-listing.dto';
+import { UpdateListingDto } from './dto/update-listing.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { SetListingStatusDto } from './dto/set-status.dto';
 import { UploadListingDocumentDto } from './dto/upload-document.dto';
 
 @Controller('listings')
 export class ListingsController {
-  constructor(private readonly listings: ListingsRepository) {}
+  constructor(
+    private readonly listings: ListingsRepository,
+    private readonly listingMedia: ListingMediaService,
+  ) {}
 
   // Public, unauthenticated — verified-only, identical response whether called
   // from Web, Mobile, Agent Portal, or Admin Panel [Spec §9]. Filters mirror
@@ -35,6 +41,8 @@ export class ListingsController {
   @Get()
   findPublic(
     @Req() req: any,
+    @Query('listingId') listingId?: string,
+    @Query('listingNumber') listingNumber?: string,
     @Query('city') city?: string,
     @Query('area') area?: string,
     @Query('propertyTypeSlug') propertyTypeSlug?: string,
@@ -56,6 +64,8 @@ export class ListingsController {
   ) {
     return this.listings.findPublic(
       {
+        listingId,
+        listingNumber: listingNumber ? Number(listingNumber) : undefined,
         city,
         area,
         propertyTypeSlug,
@@ -121,11 +131,14 @@ export class ListingsController {
   findMine(
     @Req() req: any,
     @Query('status')
-    status?: 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive',
+    status?: 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive',
     @Query('propertyTypeCategory') propertyTypeCategory?: string,
     @Query('propertyTypeSlug') propertyTypeSlug?: string,
     @Query('purpose') purpose?: 'sale' | 'rent',
     @Query('listingId') listingId?: string,
+    @Query('listingNumber') listingNumber?: string,
+    @Query('city') city?: string,
+    @Query('area') area?: string,
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
     @Query('minAreaValue') minAreaValue?: string,
@@ -144,6 +157,9 @@ export class ListingsController {
         propertyTypeSlug,
         purpose,
         listingId,
+        listingNumber: listingNumber ? Number(listingNumber) : undefined,
+        city,
+        area,
         minPrice: minPrice ? Number(minPrice) : undefined,
         maxPrice: maxPrice ? Number(maxPrice) : undefined,
         minAreaValue: minAreaValue ? Number(minAreaValue) : undefined,
@@ -191,6 +207,47 @@ export class ListingsController {
     });
   }
 
+  // Same DTO/validation as create() — a draft is a fully-valid listing saved
+  // with status='draft' instead of entering the verification queue, not a
+  // partially-filled scratch save. See POST /listings/:id/submit to move it
+  // into pending_verification once the agent/owner is ready.
+  @UseGuards(ScopeGuard)
+  @Roles('owner', 'agent', 'super_admin')
+  @Post('draft')
+  createDraft(@Req() req: any, @Body() body: CreateListingDto) {
+    return this.listings.create({
+      ...body,
+      ownerId: req.user.id,
+      agentId: req.user.role === 'agent' ? req.user.agentId : undefined,
+      status: 'draft',
+    });
+  }
+
+  // Self-scoped like update()/remove() below — moves a draft into the
+  // verification queue. Only meaningful from status='draft'; setStatus()
+  // itself doesn't enforce a from-state, so this is a thin, deliberately
+  // narrow entry point rather than exposing the general setStatus write path.
+  @UseGuards(ScopeGuard)
+  @Roles('owner', 'agent', 'super_admin')
+  @Post(':id/submit')
+  async submitDraft(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnListing(req, id);
+    return this.listings.setStatus(id, 'pending_verification');
+  }
+
+  // Photos/videos upload as they're picked on the submit form — before the
+  // listing exists, so there's no :id yet. Self-scoped to the uploader's own
+  // id (just a storage-path prefix, no ownership row to check against). The
+  // returned url is attached to the listing via CreateListingDto.media on
+  // the subsequent POST /listings call.
+  @UseGuards(ScopeGuard)
+  @Roles('owner', 'agent', 'super_admin')
+  @Post('media/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadMedia(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
+    return this.listingMedia.upload(req.user.id, file);
+  }
+
   // Direct lifecycle control — the write-mechanism explicitly deferred in the
   // My Listings pass. super_admin-only: distinct from the verification queue
   // (POST /verification/:id/action), which is scoped to verification_staff
@@ -200,6 +257,28 @@ export class ListingsController {
   @Patch(':id/status')
   setStatus(@Param('id') id: string, @Body() body: SetListingStatusDto) {
     return this.listings.setStatus(id, body.status);
+  }
+
+  // The general-purpose edit an agent/owner never had — self-scoped to their
+  // own listing (or super_admin, any). See listings.repository.ts::update()
+  // for the re-review-on-edit business rule.
+  @UseGuards(ScopeGuard)
+  @Roles('owner', 'agent', 'super_admin')
+  @Patch(':id')
+  async update(@Req() req: any, @Param('id') id: string, @Body() body: UpdateListingDto) {
+    await this.assertOwnListing(req, id);
+    return this.listings.update(id, body);
+  }
+
+  // Soft delete — reuses the existing 'deleted' status (already a real
+  // ListingStatus with its own My Listings tab) rather than a destructive
+  // hard delete. Same self-scoping as update() above.
+  @UseGuards(ScopeGuard)
+  @Roles('owner', 'agent', 'super_admin')
+  @Delete(':id')
+  async remove(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnListing(req, id);
+    return this.listings.setStatus(id, 'deleted');
   }
 
   // Real property-verification requirement — ID card front/back, ownership
@@ -236,6 +315,17 @@ export class ListingsController {
     const isAssignedAgent = req.user.role === 'agent' && req.user.agentId === agentId;
     if (!isOwner && !isAssignedAgent) {
       throw new ForbiddenException("Cannot access another listing's documents");
+    }
+  }
+
+  private async assertOwnListing(req: any, listingId: string) {
+    if (req.user.role === 'super_admin') return;
+
+    const { ownerId, agentId } = await this.listings.getOwnership(listingId);
+    const isOwner = req.user.role === 'owner' && req.user.id === ownerId;
+    const isAssignedAgent = req.user.role === 'agent' && req.user.agentId === agentId;
+    if (!isOwner && !isAssignedAgent) {
+      throw new ForbiddenException('Cannot modify another listing');
     }
   }
 }

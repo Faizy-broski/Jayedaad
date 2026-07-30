@@ -12,10 +12,13 @@ export class ChatbotController {
   @Post('message')
   async handleMessage(@Req() req: any, @Body('message') _message: string) {
     const tools = this.capabilities.resolve(req.user.role);
-    // TODO: forward `_message` + `tools` manifest to the LLM provider
-    // (see LLM_PROVIDER_API_KEY in .env.example). Stubbed pending provider selection.
+    // Explicitly descoped from this release, not a silent gap — no LLM
+    // provider has been chosen yet (see LLM_PROVIDER_API_KEY in
+    // .env.example). `implemented: false` lets callers branch on this
+    // programmatically instead of pattern-matching the reply text.
     return {
-      reply: 'Chatbot integration pending LLM provider selection.',
+      implemented: false,
+      reply: 'Chatbot integration is not yet available.',
       availableTools: tools,
     };
   }

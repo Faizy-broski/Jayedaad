@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx -y supabase link --project-ref penavqszyhbcatopspqc)"
+      "Bash(npx -y supabase link --project-ref penavqszyhbcatopspqc)",
+      "Bash(pnpm --filter @jayedaad/ui-native typecheck)",
+      "Bash(echo \"TYPECHECK:$?\")",
+      "Bash(pnpm --filter @jayedaad/api typecheck)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-dev": false
   }
 }

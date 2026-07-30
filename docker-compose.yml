@@ -1,13 +1,76 @@
-# Postgres is Supabase-hosted now (see supabase/migrations/ + .env
-# SUPABASE_*), so only Redis (caching / real-time counters) runs locally.
+# Postgres is Supabase-hosted (see supabase/migrations/ + SUPABASE_* env
+# vars), so only Redis is containerized alongside the app services.
+#
+# Local dev/verification: `docker compose up --build` builds both images
+# from source (see services/api/Dockerfile, apps/web/Dockerfile — both
+# require the repo root as build context, which `context: .` below already
+# gives them since this file lives at the repo root).
+#
+# VPS (Phase B): images are built by CI and pushed to GHCR, not built on the
+# VPS itself (see .github/workflows/*.yml) — the VPS only ever runs
+# `docker compose pull && docker compose up -d --remove-orphans`, which pulls
+# the `image:` tags below instead of rebuilding.
+#
+# Update `ghcr.io/<org>/...` below to the real GitHub org/repo once known.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "6379:6379"
     volumes:
       - jayedaad_redis_data:/data
+
+  api:
+    image: ghcr.io/jayedaad/api:latest
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    env_file:
+      - ./services/api/.env
+    environment:
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  web:
+    image: ghcr.io/jayedaad/web:latest
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 volumes:
   jayedaad_redis_data:

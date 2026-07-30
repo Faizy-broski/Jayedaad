@@ -1,0 +1,83 @@
+'use client';
+
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
+import { Home, Search } from 'lucide-react';
+
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+const group = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+};
+
+export default function NotFound() {
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white px-4 py-24">
+      {/* Faint building watermark, same treatment used across the site's
+          light sections, so a 404 still reads as unmistakably "Jayedaad". */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.06]">
+        <Image
+          src="/images/bg-image.png"
+          alt=""
+          width={1085}
+          height={1150}
+          className="h-auto w-[70%] max-w-xl object-contain"
+        />
+      </div>
+
+      <motion.div
+        variants={group}
+        initial="hidden"
+        animate="show"
+        className="relative z-10 flex max-w-lg flex-col items-center gap-5 text-center"
+      >
+        <motion.span
+          variants={item}
+          className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient"
+        >
+          Wrong turn
+        </motion.span>
+
+        <motion.h1
+          variants={item}
+          className="text-heading-gradient text-7xl font-black leading-none sm:text-8xl"
+        >
+          404
+        </motion.h1>
+
+        <motion.h2 variants={item} className="text-2xl font-bold leading-tight text-brand-dark sm:text-3xl">
+          This address doesn&apos;t exist.
+        </motion.h2>
+
+        <motion.p variants={item} className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+          The page you&apos;re looking for may have been moved, renamed, or never listed in the first place.
+          Let&apos;s get you back to somewhere real.
+        </motion.p>
+
+        <motion.div variants={item} className="mt-4 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-full bg-heading-gradient px-6 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <Home className="h-4 w-4" />
+            Back to homepage
+          </Link>
+          <Link
+            href="/search"
+            className="flex items-center gap-2 rounded-full border border-slate-200 px-6 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+          >
+            <Search className="h-4 w-4" />
+            Browse properties
+          </Link>
+        </motion.div>
+      </motion.div>
+    </main>
+  );
+}

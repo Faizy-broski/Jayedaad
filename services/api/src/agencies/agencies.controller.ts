@@ -1,4 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -8,6 +22,9 @@ import { CreateAgencyDto } from './dto/create-agency.dto';
 import { UpdateAgencyDto } from './dto/update-agency.dto';
 import { SetAgencyVerificationStatusDto } from './dto/set-verification-status.dto';
 import { UploadOnboardingDocumentDto } from './dto/upload-document.dto';
+import { CreateAgencyStaffDto } from './dto/create-agency-staff.dto';
+import { SetAgencyStaffAdminDto } from './dto/set-agency-staff-admin.dto';
+import { RegisterAgencyDto } from './dto/register-agency.dto';
 
 @Controller('agencies')
 export class AgenciesController {
@@ -34,13 +51,26 @@ export class AgenciesController {
     return this.agencies.getStats((agency as any).id);
   }
 
-  // Registration/onboarding is a Super Admin action for now — matches
-  // [Spec §7] "Agents are onboarded through a verification process".
+  // Direct Super Admin creation — matches [Spec §7] "Agents are onboarded
+  // through a verification process". See POST /agencies/register below for
+  // the self-service counterpart (signup's "Agency" account type).
   @UseGuards(ScopeGuard)
   @Roles('super_admin')
   @Post()
   create(@Body() body: CreateAgencyDto) {
     return this.agencies.create(body);
+  }
+
+  // Self-service agency registration (signup's "Agency" account type) — a
+  // buyer registers a brand-new agency and becomes its admin in one step,
+  // both starting 'pending'. Buyer-only, same discipline as
+  // POST /agents/apply (agents.controller.ts) — an existing agent/owner/etc.
+  // re-registering would create a second, orphaned agent_profiles row.
+  @UseGuards(ScopeGuard)
+  @Roles('buyer')
+  @Post('register')
+  register(@Req() req: any, @Body() body: RegisterAgencyDto) {
+    return this.agencies.registerSelfService(req.user.id, body);
   }
 
   // The write-mechanism explicitly deferred at create-time — every agency
@@ -85,5 +115,70 @@ export class AgenciesController {
   @Get(':id/documents')
   listDocuments(@Param('id') id: string) {
     return this.agencies.listDocuments(id);
+  }
+
+  // --- Agency self-management ("Agency Staff") ----------------------------
+  // Not @Roles('super_admin') — any agent may reach these routes, but
+  // assertSameAgency/assertCanManageStaff below enforce the real boundary
+  // (their own agency, and admin-flag for writes). Mirrors the
+  // assertOwnAgentOrAdmin pattern in agents.controller.ts.
+
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/staff')
+  async listStaff(@Req() req: any, @Param('id') id: string) {
+    await this.assertSameAgency(req, id);
+    return this.agencies.listStaff(id);
+  }
+
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Post(':id/staff')
+  async addStaff(@Req() req: any, @Param('id') id: string, @Body() body: CreateAgencyStaffDto) {
+    await this.assertCanManageStaff(req, id);
+    return this.agencies.addStaff(id, body);
+  }
+
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Patch(':id/staff/:agentId/admin')
+  async setStaffAdmin(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Param('agentId') agentId: string,
+    @Body() body: SetAgencyStaffAdminDto,
+  ) {
+    await this.assertCanManageStaff(req, id);
+    return this.agencies.setStaffAdmin(id, agentId, body.isAgencyAdmin);
+  }
+
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Delete(':id/staff/:agentId')
+  async removeStaff(@Req() req: any, @Param('id') id: string, @Param('agentId') agentId: string) {
+    await this.assertCanManageStaff(req, id);
+    return this.agencies.removeStaff(id, agentId);
+  }
+
+  private async assertSameAgency(req: any, agencyId: string) {
+    if (req.user.role === 'super_admin') return;
+    if (req.user.role !== 'agent' || !req.user.agentId) {
+      throw new ForbiddenException('Only an agent or super_admin can view agency staff');
+    }
+    const scope = await this.agencies.getStaffScope(req.user.agentId);
+    if (scope.agencyId !== agencyId) {
+      throw new ForbiddenException("Cannot view another agency's staff");
+    }
+  }
+
+  private async assertCanManageStaff(req: any, agencyId: string) {
+    if (req.user.role === 'super_admin') return;
+    if (req.user.role !== 'agent' || !req.user.agentId) {
+      throw new ForbiddenException('Only an agency admin or super_admin can manage agency staff');
+    }
+    const scope = await this.agencies.getStaffScope(req.user.agentId);
+    if (!scope.isAgencyAdmin || scope.agencyId !== agencyId) {
+      throw new ForbiddenException("Only this agency's admin or super_admin can manage its staff");
+    }
   }
 }

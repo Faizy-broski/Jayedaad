@@ -13,6 +13,27 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   { prefix: '/verification', roles: ['super_admin', 'verification_staff'] },
   { prefix: '/crm', roles: ['agent', 'super_admin'] },
   { prefix: '/submit', roles: ['owner', 'agent', 'super_admin'] },
+  // Rest of the (agent) Profolio-style portal — see app/(agent)/layout.tsx.
+  { prefix: '/dashboard', roles: ['agent', 'super_admin'] },
+  { prefix: '/property-management', roles: ['agent', 'super_admin'] },
+  { prefix: '/agent-settings', roles: ['agent', 'super_admin'] },
+  { prefix: '/plan', roles: ['agent', 'super_admin'] },
+  // Super Admin "god mode" dashboard — see app/(super-admin)/layout.tsx.
+  // Deliberately super_admin-only (not shared with verification_staff,
+  // unlike /verification above).
+  { prefix: '/admin', roles: ['super_admin'] },
+  // Self-service "Apply to become an agent" — buyer-only; an agent visiting
+  // after their application is approved is redirected away by role change
+  // (role flips to 'agent' server-side, no longer matches this gate).
+  { prefix: '/become-an-agent', roles: ['buyer', 'agent'] },
+  // Staff review queue for self-service agent applications — same access
+  // pattern as /verification above (shared with verification_staff, no shell).
+  { prefix: '/agent-verification', roles: ['super_admin', 'verification_staff'] },
+  // Agency self-management — role-gated here to 'agent'/'super_admin' same
+  // as the rest of the (agent) portal; the isAgencyAdmin=true check happens
+  // server-side per-request (agencies.controller.ts::assertCanManageStaff),
+  // this is just the outer role gate.
+  { prefix: '/agency-staff', roles: ['agent', 'super_admin'] },
 ];
 
 export async function middleware(request: NextRequest) {
@@ -61,5 +82,17 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/verification/:path*', '/crm/:path*', '/submit/:path*'],
+  matcher: [
+    '/verification/:path*',
+    '/crm/:path*',
+    '/submit/:path*',
+    '/dashboard/:path*',
+    '/property-management/:path*',
+    '/agent-settings/:path*',
+    '/plan/:path*',
+    '/admin/:path*',
+    '/become-an-agent/:path*',
+    '/agent-verification/:path*',
+    '/agency-staff/:path*',
+  ],
 };

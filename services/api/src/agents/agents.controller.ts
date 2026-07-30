@@ -20,17 +20,49 @@ import { AgentsRepository } from './agents.repository';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateAgentProfileDto } from './dto/update-profile.dto';
 import { GrantCreditsDto } from './dto/grant-credits.dto';
+import { ApplyAsAgentDto } from './dto/apply-as-agent.dto';
 import { UploadOnboardingDocumentDto } from './dto/upload-document.dto';
 import { SetAgentVerificationStatusDto } from './dto/set-verification-status.dto';
+import { AvatarMediaService } from './avatar-media.service';
 
 @Controller('agents')
 export class AgentsController {
-  constructor(private readonly agents: AgentsRepository) {}
+  constructor(
+    private readonly agents: AgentsRepository,
+    private readonly avatarMedia: AvatarMediaService,
+  ) {}
+
+  // Staff review queue — the counterpart to GET /verification/queue for
+  // listings. Nothing else lists pending agents (GET /admin/agents is the
+  // full roster, deliberately super_admin-only); verification_staff needs
+  // its own narrower view to actually process self-service applications.
+  // Declared BEFORE the bare GET :id below — both are single-segment GET
+  // routes, and Nest/Express try routes in declaration order, so :id would
+  // otherwise swallow this literal path (same footgun documented in
+  // listings.controller.ts re: 'mine' vs :id).
+  @UseGuards(ScopeGuard)
+  @Roles('super_admin', 'verification_staff')
+  @Get('pending-verification')
+  listPendingVerification() {
+    return this.agents.listPendingVerification();
+  }
 
   @Public()
   @Get(':id')
   findProfile(@Param('id') id: string) {
     return this.agents.findProfile(id);
+  }
+
+  // Self-service "Apply to become an agent" — buyer-only (an existing
+  // agent/owner/etc. re-applying would create a second, orphaned
+  // agent_profiles row, so this is deliberately gated to the one role that
+  // has no agent_profiles row yet). Lands in the same `pending` review queue
+  // as a super_admin-created agent.
+  @UseGuards(ScopeGuard)
+  @Roles('buyer')
+  @Post('apply')
+  applyAsAgent(@Req() req: any, @Body() body: ApplyAsAgentDto) {
+    return this.agents.applyAsAgent(req.user.id, body);
   }
 
   @Public()
@@ -94,6 +126,19 @@ export class AgentsController {
     return this.agents.updateProfile(id, body);
   }
 
+  // Profile picture — own dedicated "avatars" bucket (see
+  // avatar-media.service.ts), separate from listing-media. Same ownership
+  // discipline as updateProfile above.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Post(':id/photo')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPhoto(@Req() req: any, @Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    this.assertOwnAgentOrAdmin(req, id);
+    const url = await this.avatarMedia.upload(id, file);
+    return this.agents.updatePhoto(id, url);
+  }
+
   private assertOwnAgentOrAdmin(req: any, agentId: string) {
     if (req.user.role === 'super_admin') return;
     if (req.user.agentId !== agentId) {
@@ -137,11 +182,12 @@ export class AgentsController {
     return this.agents.listDocuments(id);
   }
 
-  // The write path that never existed until now — agent_profiles.verification_status
-  // has had no endpoint to set it since the column was introduced. Symmetric
-  // with PATCH /agencies/:id/verify (also super_admin-only).
+  // verification_staff can now approve/reject agents, same split as listing
+  // verification (verification_staff + super_admin both act there) — was
+  // super_admin-only despite verification_staff already being able to
+  // review an agent's documents via GET :id/documents above.
   @UseGuards(ScopeGuard)
-  @Roles('super_admin')
+  @Roles('super_admin', 'verification_staff')
   @Patch(':id/verify')
   setVerificationStatus(@Param('id') id: string, @Body() body: SetAgentVerificationStatusDto) {
     return this.agents.setVerificationStatus(id, body.status);

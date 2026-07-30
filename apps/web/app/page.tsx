@@ -1,26 +1,37 @@
-import Link from 'next/link';
+import { Hero } from '../components/landing/Hero';
+import { FeaturedProperties } from '@/components/landing/features/FeaturedProperties';
+import { FEATURED_PROPERTIES } from '@/data/properties';
+import { BrowseByCategory } from '@/components/landing/category/BrowseByCategory';
+import { CATEGORIES } from '@/data/categories';
+import { AboutSection } from '@/components/landing/about/AboutSection';
+import { WhereWeLive } from '@/components/landing/city/WhereWeLive';
+import { CITIES } from '@/data/cities';
+import { ServicesAndProjects } from '@/components/landing/services/ServicesAndProjects';
+import { NewlyStaged } from '@/components/landing/newlystaged/NewlyStaged';
+import { NEWLY_STAGED_PROPERTIES } from '@/data/newlyStaged';
+import { MarketInsights } from '@/components/landing/article/MarketInsights';
+import { ARTICLES } from '@/data/articles';
+import { HowItWorks } from '@/components/landing/howitworks/HowItWorks';
+import { RealStories } from '@/components/landing/testimonials/RealStories';
+import { TESTIMONIALS } from '@/data/testimonials';
+import { CommonQuestions } from '@/components/landing/faqs/CommonQuestion';
+import { AppPromo } from '@/components/landing/AppPromo';
 
-// Hero section placeholder — search bar (property type, city/area, price range)
-// and trust indicators per [Reqs §2]. Full search UX lives in (buyer)/search.
 export default function HomePage() {
   return (
-    <main className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-24 text-center">
-      <h1 className="text-4xl font-bold">Building Trust in Real Estate</h1>
-      <p className="max-w-xl text-slate-600 dark:text-slate-300">
-        Every listing on Jayedaad is manually verified by our internal review team before publication.
-      </p>
-      <div className="flex flex-wrap justify-center gap-3 text-sm text-slate-500">
-        <span>✅ Verified Listings</span>
-        <span>🤖 AI-Powered Search</span>
-        <span>🔒 Secure &amp; Trusted</span>
-        <span>🧑‍💼 Expert Support</span>
-      </div>
-      <Link
-        href="/search"
-        className="rounded-md bg-emerald-600 px-6 py-3 font-medium text-white hover:bg-emerald-700"
-      >
-        Search Properties
-      </Link>
+    <main>
+      <Hero />
+      <FeaturedProperties properties={FEATURED_PROPERTIES} />
+      <BrowseByCategory categories={CATEGORIES} />
+      <AboutSection />
+      <WhereWeLive cities={CITIES} />
+      <ServicesAndProjects />
+      <NewlyStaged properties={NEWLY_STAGED_PROPERTIES} />
+      <HowItWorks />
+      <RealStories testimonials={TESTIMONIALS} />
+      <CommonQuestions />
+      <AppPromo />
+      <MarketInsights articles={ARTICLES} />
     </main>
   );
 }

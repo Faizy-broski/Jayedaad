@@ -6,6 +6,10 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 export interface LeadListFilters {
   status?: 'new' | 'contacted' | 'negotiating' | 'closed' | 'lost';
   listingId?: string;
+  // Super Admin-only — lets the "show me agent X's CRM" admin view filter
+  // the otherwise cross-agent result set down to one agent. Ignored for
+  // scoped roles (agent), who are already implicitly filtered to themselves.
+  agentId?: string;
 }
 
 // Every method here takes the requesting user's scope and applies it inside
@@ -24,6 +28,8 @@ export class LeadsRepository {
 
     if (scope.role !== 'super_admin') {
       query = query.eq('agent_id', scope.agentId);
+    } else if (filters.agentId) {
+      query = query.eq('agent_id', filters.agentId);
     }
     if (filters.status) query = query.eq('status', filters.status);
     if (filters.listingId) query = query.eq('listing_id', filters.listingId);

@@ -11,6 +11,8 @@ import {
 } from '../models';
 
 export interface ListingSearchFilters {
+  listingId?: string;
+  listingNumber?: number;
   city?: string;
   area?: string;
   propertyTypeSlug?: string;
@@ -41,6 +43,9 @@ export interface MyListingsFilters {
   propertyTypeSlug?: string;
   purpose?: ListingPurpose;
   listingId?: string;
+  listingNumber?: number;
+  city?: string;
+  area?: string;
   minPrice?: number;
   maxPrice?: number;
   minAreaValue?: number;
@@ -68,6 +73,7 @@ export interface PaginatedListings {
 export interface CreateListingAmenityInput {
   slug: string;
   value?: number;
+  textValue?: string;
 }
 
 // Mirrors services/api/src/listings/dto/create-listing.dto.ts — status is
@@ -93,8 +99,29 @@ export interface CreateListingInput {
   furnishingStatus?: FurnishingStatus;
   installmentAvailable?: boolean;
   readyForPossession?: boolean;
+  advanceAmount?: number;
+  numberOfInstallments?: number;
+  monthlyInstallment?: number;
+  balloonPaymentAvailable?: boolean;
+  balloonPaymentAmount?: number;
+  ballotingFeeApplicable?: boolean;
+  ballotingFeeAmount?: number;
+  possessionFeeApplicable?: boolean;
+  possessionFeeAmount?: number;
+  developmentFeeApplicable?: boolean;
+  developmentFeeAmount?: number;
   contactNumbers?: { type: ContactNumberType; countryCode?: string; number: string }[];
   amenities?: CreateListingAmenityInput[];
+  media?: CreateListingMediaInput[];
+}
+
+// url comes from a prior uploadListingMedia() call — attaches an
+// already-uploaded photo/video to the listing being created.
+export interface CreateListingMediaInput {
+  url: string;
+  type: 'image' | 'video';
+  isCover?: boolean;
+  sortOrder?: number;
 }
 
 export const listingsRepository = {
@@ -128,6 +155,19 @@ export const listingsRepository = {
     return data;
   },
 
+  // Backs the agent dashboard's Calls/WhatsApp/SMS analytics — public,
+  // fire-and-forget from the caller (a failed track shouldn't block the
+  // real tel:/wa.me/sms: action). Mirrors services/api's TrackEngagementDto
+  // exactly; 'view'/'email' are deliberately not exposed here — no
+  // listing-detail page or listing-level email exists yet for either to
+  // attach to honestly.
+  trackEngagement: async (
+    listingId: string,
+    input: { type: 'call' | 'whatsapp' | 'sms'; platform: 'web' | 'mobile'; viewerSessionId: string },
+  ): Promise<void> => {
+    await httpClient.post(`/listings/${listingId}/track`, input);
+  },
+
   listCities: async (): Promise<string[]> => {
     const { data } = await httpClient.get('/listings/locations/cities');
     return data;
@@ -140,6 +180,42 @@ export const listingsRepository = {
 
   create: async (input: CreateListingInput): Promise<Listing> => {
     const { data } = await httpClient.post('/listings', input);
+    return data;
+  },
+
+  // Same body/validation as create() — saved with status='draft' instead of
+  // entering the verification queue. Pair with submitDraft() once the
+  // agent/owner is ready to send it for review.
+  createDraft: async (input: CreateListingInput): Promise<Listing> => {
+    const { data } = await httpClient.post('/listings/draft', input);
+    return data;
+  },
+
+  submitDraft: async (listingId: string): Promise<Listing> => {
+    const { data } = await httpClient.post(`/listings/${listingId}/submit`);
+    return data;
+  },
+
+  // Super Admin-only direct lifecycle override (expired/deleted/downgraded/
+  // inactive, plus a staff-equivalent verified/rejected override) — distinct
+  // from the verification queue's approve/reject/request-info action.
+  setStatus: async (listingId: string, status: ListingStatus): Promise<Listing> => {
+    const { data } = await httpClient.patch(`/listings/${listingId}/status`, { status });
+    return data;
+  },
+
+  // The write path Property Management's row actions were missing entirely
+  // until now — self-scoped to the caller's own listing server-side (see
+  // services/api/src/listings/listings.controller.ts::update).
+  updateListing: async (listingId: string, input: Partial<CreateListingInput>): Promise<Listing> => {
+    const { data } = await httpClient.patch(`/listings/${listingId}`, input);
+    return data;
+  },
+
+  // Soft delete — server-side sets status to 'deleted' (an existing
+  // ListingStatus with its own My Listings tab), not a hard row delete.
+  deleteListing: async (listingId: string): Promise<Listing> => {
+    const { data } = await httpClient.delete(`/listings/${listingId}`);
     return data;
   },
 
@@ -159,6 +235,19 @@ export const listingsRepository = {
 
   listDocuments: async (listingId: string): Promise<ListingDocument[]> => {
     const { data } = await httpClient.get(`/listings/${listingId}/documents`);
+    return data;
+  },
+
+  // Uploads a photo/video ahead of the listing existing — the submit form
+  // uploads as files are picked, then passes the returned urls into
+  // create()'s `media` array. `file` is platform-specific (a browser File
+  // on web, a { uri, name, type } asset object on React Native).
+  uploadListingMedia: async (file: any): Promise<{ url: string; type: 'image' | 'video' }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await httpClient.post('/listings/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data;
   },
 };
