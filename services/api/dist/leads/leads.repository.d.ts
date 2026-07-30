@@ -4,6 +4,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 export interface LeadListFilters {
     status?: 'new' | 'contacted' | 'negotiating' | 'closed' | 'lost';
     listingId?: string;
+    agentId?: string;
 }
 export declare class LeadsRepository {
     private readonly supabase;

@@ -1,6 +1,7 @@
 declare const AREA_UNITS: readonly ["marla", "kanal", "sqyd", "sqft", "sqm", "acre"];
 declare const FURNISHING_STATUSES: readonly ["unfurnished", "semi_furnished", "furnished"];
 declare const CONTACT_NUMBER_TYPES: readonly ["mobile", "landline"];
+declare const LISTING_MEDIA_TYPES: readonly ["image", "video"];
 export declare class CreateListingContactNumberDto {
     type: (typeof CONTACT_NUMBER_TYPES)[number];
     countryCode?: string;
@@ -9,6 +10,13 @@ export declare class CreateListingContactNumberDto {
 export declare class CreateListingAmenityDto {
     slug: string;
     value?: number;
+    textValue?: string;
+}
+export declare class CreateListingMediaDto {
+    url: string;
+    type: (typeof LISTING_MEDIA_TYPES)[number];
+    isCover?: boolean;
+    sortOrder?: number;
 }
 export declare class CreateListingDto {
     propertyTypeId: string;
@@ -31,7 +39,19 @@ export declare class CreateListingDto {
     furnishingStatus?: (typeof FURNISHING_STATUSES)[number];
     installmentAvailable?: boolean;
     readyForPossession?: boolean;
+    advanceAmount?: number;
+    numberOfInstallments?: number;
+    monthlyInstallment?: number;
+    balloonPaymentAvailable?: boolean;
+    balloonPaymentAmount?: number;
+    ballotingFeeApplicable?: boolean;
+    ballotingFeeAmount?: number;
+    possessionFeeApplicable?: boolean;
+    possessionFeeAmount?: number;
+    developmentFeeApplicable?: boolean;
+    developmentFeeAmount?: number;
     contactNumbers?: CreateListingContactNumberDto[];
     amenities?: CreateListingAmenityDto[];
+    media?: CreateListingMediaDto[];
 }
 export {};

@@ -13,6 +13,15 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   { prefix: '/verification', roles: ['super_admin', 'verification_staff'] },
   { prefix: '/crm', roles: ['agent', 'super_admin'] },
   { prefix: '/submit', roles: ['owner', 'agent', 'super_admin'] },
+  // Rest of the (agent) Profolio-style portal — see app/(agent)/layout.tsx.
+  { prefix: '/dashboard', roles: ['agent', 'super_admin'] },
+  { prefix: '/property-management', roles: ['agent', 'super_admin'] },
+  { prefix: '/agent-settings', roles: ['agent', 'super_admin'] },
+  { prefix: '/plan', roles: ['agent', 'super_admin'] },
+  // Super Admin "god mode" dashboard — see app/(super-admin)/layout.tsx.
+  // Deliberately super_admin-only (not shared with verification_staff,
+  // unlike /verification above).
+  { prefix: '/admin', roles: ['super_admin'] },
 ];
 
 export async function middleware(request: NextRequest) {
@@ -61,5 +70,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/verification/:path*', '/crm/:path*', '/submit/:path*'],
+  matcher: [
+    '/verification/:path*',
+    '/crm/:path*',
+    '/submit/:path*',
+    '/dashboard/:path*',
+    '/property-management/:path*',
+    '/agent-settings/:path*',
+    '/plan/:path*',
+    '/admin/:path*',
+  ],
 };

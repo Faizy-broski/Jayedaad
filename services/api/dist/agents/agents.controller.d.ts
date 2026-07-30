@@ -4,12 +4,14 @@ import { UpdateAgentProfileDto } from './dto/update-profile.dto';
 import { GrantCreditsDto } from './dto/grant-credits.dto';
 import { UploadOnboardingDocumentDto } from './dto/upload-document.dto';
 import { SetAgentVerificationStatusDto } from './dto/set-verification-status.dto';
+import { AvatarMediaService } from './avatar-media.service';
 export declare class AgentsController {
     private readonly agents;
-    constructor(agents: AgentsRepository);
+    private readonly avatarMedia;
+    constructor(agents: AgentsRepository, avatarMedia: AvatarMediaService);
     findProfile(id: string): Promise<{
         id: any;
-        display_name: any;
+        displayName: any;
         title: any;
         bio: any;
         phone: any;
@@ -17,14 +19,9 @@ export declare class AgentsController {
         landline: any;
         city: any;
         address: any;
-        photo_url: any;
-        verification_status: any;
-        agencies: {
-            id: any;
-            name: any;
-            slug: any;
-            logo_url: any;
-        }[];
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
     }>;
     listReviews(id: string): Promise<{
         id: any;
@@ -70,7 +67,7 @@ export declare class AgentsController {
     }>;
     updateProfile(req: any, id: string, body: UpdateAgentProfileDto): Promise<{
         id: any;
-        display_name: any;
+        displayName: any;
         title: any;
         bio: any;
         phone: any;
@@ -78,14 +75,23 @@ export declare class AgentsController {
         landline: any;
         city: any;
         address: any;
-        photo_url: any;
-        verification_status: any;
-        agencies: {
-            id: any;
-            name: any;
-            slug: any;
-            logo_url: any;
-        }[];
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
+    }>;
+    uploadPhoto(req: any, id: string, file: Express.Multer.File): Promise<{
+        id: any;
+        displayName: any;
+        title: any;
+        bio: any;
+        phone: any;
+        whatsapp: any;
+        landline: any;
+        city: any;
+        address: any;
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
     }>;
     private assertOwnAgentOrAdmin;
     createReview(req: any, id: string, body: CreateReviewDto): Promise<any>;
@@ -103,7 +109,7 @@ export declare class AgentsController {
     }[]>;
     setVerificationStatus(id: string, body: SetAgentVerificationStatusDto): Promise<{
         id: any;
-        display_name: any;
+        displayName: any;
         title: any;
         bio: any;
         phone: any;
@@ -111,13 +117,8 @@ export declare class AgentsController {
         landline: any;
         city: any;
         address: any;
-        photo_url: any;
-        verification_status: any;
-        agencies: {
-            id: any;
-            name: any;
-            slug: any;
-            logo_url: any;
-        }[];
+        photoUrl: any;
+        verificationStatus: any;
+        agency: any;
     }>;
 }

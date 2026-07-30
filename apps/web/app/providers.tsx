@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserClient } from '@supabase/ssr';
+import { Toaster } from 'react-hot-toast';
 import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken } from '@jayedaad/core';
 import { getClientEnv } from '@/lib/env';
 
@@ -32,5 +33,10 @@ if (typeof window !== 'undefined') {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
+    </QueryClientProvider>
+  );
 }

@@ -13,6 +13,8 @@ const AMENITY_CATEGORIES = [
   'other_facilities',
 ] as const;
 
+const AMENITY_VALUE_TYPES = ['boolean', 'number', 'text', 'select'] as const;
+
 export class CreateAmenityDto {
   @IsString()
   slug!: string;
@@ -23,12 +25,27 @@ export class CreateAmenityDto {
   @IsIn(AMENITY_CATEGORIES)
   category!: (typeof AMENITY_CATEGORIES)[number];
 
-  // Set when this amenity carries a number on a listing (e.g. "spaces",
-  // "kms" — confirmed real: "Parking Spaces: 2", "Distance From Airport
-  // (kms)"). Omit for a plain boolean-tag amenity.
+  // Drives how this amenity is rendered on the submit form: 'boolean' (a
+  // checkbox), 'number' (a number input, labeled with valueUnit — e.g.
+  // "Distance From Airport (kms)"), 'text' (free text, e.g. "View"), or
+  // 'select' (a dropdown of `options`, e.g. Flooring -> Tiles/Marble/...).
+  // Defaults to 'boolean' in the DB if omitted.
+  @IsOptional()
+  @IsIn(AMENITY_VALUE_TYPES)
+  valueType?: (typeof AMENITY_VALUE_TYPES)[number];
+
+  // Only meaningful when valueType is 'number' (e.g. "spaces", "kms" —
+  // confirmed real: "Parking Spaces: 2", "Distance From Airport (kms)").
   @IsOptional()
   @IsString()
   valueUnit?: string;
+
+  // Only meaningful when valueType is 'select' (e.g. Flooring ->
+  // ["Tiles","Marble","Wooden","Chip","Cement","Other"]).
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
 
   // Which property-type categories (Homes/Plots/Commercial) this amenity is
   // relevant for — many-to-many, since e.g. Electricity Backup can apply to
@@ -58,8 +75,17 @@ export class UpdateAmenityDto {
   category?: (typeof AMENITY_CATEGORIES)[number];
 
   @IsOptional()
+  @IsIn(AMENITY_VALUE_TYPES)
+  valueType?: (typeof AMENITY_VALUE_TYPES)[number];
+
+  @IsOptional()
   @IsString()
   valueUnit?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
 
   @IsOptional()
   @IsArray()

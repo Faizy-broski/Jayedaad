@@ -1,5 +1,8 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { SupabaseModule } from './supabase/supabase.module';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { UsersModule } from './users/users.module';
@@ -16,11 +19,17 @@ import { SavedSearchesModule } from './saved-searches/saved-searches.module';
 import { ProjectsModule } from './projects/projects.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PreferencesModule } from './preferences/preferences.module';
+import { AccountModule } from './account/account.module';
 import { AdminModule } from './admin/admin.module';
 import { DevelopersModule } from './developers/developers.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
+    // Generous global default (every route gets *some* protection) —
+    // individual routes override it with stricter @Throttle() limits where
+    // warranted (see auth/otp/otp.controller.ts).
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     SupabaseModule,
     AuthModule,
     UsersModule,
@@ -37,9 +46,16 @@ import { DevelopersModule } from './developers/developers.module';
     ProjectsModule,
     NotificationsModule,
     PreferencesModule,
+    AccountModule,
     AdminModule,
     DevelopersModule,
+    ContactModule,
   ],
   controllers: [HealthController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}

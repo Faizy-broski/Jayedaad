@@ -9,6 +9,7 @@ export declare class TaxonomyRepository {
     createCategory(input: CreatePropertyTypeCategoryDto): Promise<any>;
     updateCategory(id: string, input: UpdatePropertyTypeCategoryDto): Promise<any>;
     removeCategory(id: string): Promise<void>;
+    private mapPropertyTypeRow;
     listPropertyTypes(): Promise<any[]>;
     createPropertyType(input: CreatePropertyTypeDto): Promise<any>;
     updatePropertyType(id: string, input: UpdatePropertyTypeDto): Promise<any>;
@@ -21,7 +22,9 @@ export declare class TaxonomyRepository {
         slug: any;
         label: any;
         category: any;
+        valueType: any;
         valueUnit: any;
+        options: any;
         propertyTypeCategories: any;
         sortOrder: any;
     }[]>;
@@ -30,7 +33,9 @@ export declare class TaxonomyRepository {
         slug: any;
         label: any;
         category: any;
+        valueType: any;
         valueUnit: any;
+        options: any;
         propertyTypeCategories: any;
         sortOrder: any;
     }>;
@@ -39,7 +44,9 @@ export declare class TaxonomyRepository {
         slug: any;
         label: any;
         category: any;
+        valueType: any;
         valueUnit: any;
+        options: any;
         propertyTypeCategories: any;
         sortOrder: any;
     }>;

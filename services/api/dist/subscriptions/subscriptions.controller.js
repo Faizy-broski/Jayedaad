@@ -30,6 +30,19 @@ let SubscriptionsController = class SubscriptionsController {
     usage(req) {
         return this.entitlements.getListingUsage(req.user.agentId);
     }
+    // The agent's own current plan — findForAgent() already existed but was
+    // never wired to a route (Current Plan showed a hardcoded "-" on the
+    // dashboard because nothing ever fetched this).
+    me(req) {
+        return this.subscriptions.findForAgent(req.user.agentId);
+    }
+    // Self-service plan selection — this app has no payment/billing
+    // integration anywhere, so "upgrade" is a real, immediate tier change
+    // (same upsert the super_admin assign route uses), not a checkout flow.
+    // Flagged in the Plan page UI as not being a real billing transaction.
+    select(req, body) {
+        return this.subscriptions.assign(req.user.agentId, body);
+    }
     // Super Admin assigns/changes an agent's plan — the write side that was
     // entirely missing; nothing ever populated `subscriptions` before this.
     assign(agentId, body) {
@@ -46,6 +59,25 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], SubscriptionsController.prototype, "usage", null);
+__decorate([
+    (0, common_1.UseGuards)(scope_guard_1.ScopeGuard),
+    (0, roles_decorator_1.Roles)('agent', 'super_admin'),
+    (0, common_1.Get)('me'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SubscriptionsController.prototype, "me", null);
+__decorate([
+    (0, common_1.UseGuards)(scope_guard_1.ScopeGuard),
+    (0, roles_decorator_1.Roles)('agent'),
+    (0, common_1.Post)('me/select'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, assign_subscription_dto_1.AssignSubscriptionDto]),
+    __metadata("design:returntype", void 0)
+], SubscriptionsController.prototype, "select", null);
 __decorate([
     (0, common_1.UseGuards)(scope_guard_1.ScopeGuard),
     (0, roles_decorator_1.Roles)('super_admin'),

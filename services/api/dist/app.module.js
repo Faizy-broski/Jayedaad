@@ -8,7 +8,10 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const core_1 = require("@nestjs/core");
+const throttler_1 = require("@nestjs/throttler");
 const supabase_module_1 = require("./supabase/supabase.module");
+const request_logger_middleware_1 = require("./common/middleware/request-logger.middleware");
 const auth_module_1 = require("./auth/auth.module");
 const health_controller_1 = require("./health/health.controller");
 const users_module_1 = require("./users/users.module");
@@ -25,14 +28,23 @@ const saved_searches_module_1 = require("./saved-searches/saved-searches.module"
 const projects_module_1 = require("./projects/projects.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const preferences_module_1 = require("./preferences/preferences.module");
+const account_module_1 = require("./account/account.module");
 const admin_module_1 = require("./admin/admin.module");
 const developers_module_1 = require("./developers/developers.module");
+const contact_module_1 = require("./contact/contact.module");
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer.apply(request_logger_middleware_1.RequestLoggerMiddleware).forRoutes('*');
+    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            // Generous global default (every route gets *some* protection) —
+            // individual routes override it with stricter @Throttle() limits where
+            // warranted (see auth/otp/otp.controller.ts).
+            throttler_1.ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
             supabase_module_1.SupabaseModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
@@ -49,9 +61,12 @@ exports.AppModule = AppModule = __decorate([
             projects_module_1.ProjectsModule,
             notifications_module_1.NotificationsModule,
             preferences_module_1.PreferencesModule,
+            account_module_1.AccountModule,
             admin_module_1.AdminModule,
             developers_module_1.DevelopersModule,
+            contact_module_1.ContactModule,
         ],
         controllers: [health_controller_1.HealthController],
+        providers: [{ provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard }],
     })
 ], AppModule);

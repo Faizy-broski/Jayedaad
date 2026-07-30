@@ -10,6 +10,7 @@ exports.ListingsModule = void 0;
 const common_1 = require("@nestjs/common");
 const listings_controller_1 = require("./listings.controller");
 const listings_repository_1 = require("./listings.repository");
+const listing_media_service_1 = require("./listing-media.service");
 const documents_module_1 = require("../documents/documents.module");
 let ListingsModule = class ListingsModule {
 };
@@ -18,7 +19,7 @@ exports.ListingsModule = ListingsModule = __decorate([
     (0, common_1.Module)({
         imports: [documents_module_1.DocumentsModule],
         controllers: [listings_controller_1.ListingsController],
-        providers: [listings_repository_1.ListingsRepository],
-        exports: [listings_repository_1.ListingsRepository],
+        providers: [listings_repository_1.ListingsRepository, listing_media_service_1.ListingMediaService],
+        exports: [listings_repository_1.ListingsRepository, listing_media_service_1.ListingMediaService],
     })
 ], ListingsModule);

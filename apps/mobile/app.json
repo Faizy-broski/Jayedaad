@@ -3,9 +3,10 @@
     "name": "Jayedaad",
     "slug": "jayedaad",
     "version": "0.1.0",
+    "scheme": "jayedaad",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/jayedaad.png",
     "splash": {
       "backgroundColor": "#ffffff"
     },

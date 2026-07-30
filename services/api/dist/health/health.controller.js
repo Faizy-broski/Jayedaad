@@ -12,9 +12,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthController = void 0;
 const common_1 = require("@nestjs/common");
 const public_decorator_1 = require("../common/decorators/public.decorator");
+const supabase_service_1 = require("../supabase/supabase.service");
 let HealthController = class HealthController {
-    check() {
-        return { status: 'ok', service: 'jayedaad-api', timestamp: new Date().toISOString() };
+    supabase;
+    constructor(supabase) {
+        this.supabase = supabase;
+    }
+    async check() {
+        // Readiness, not just liveness — a load balancer/uptime monitor should
+        // be able to tell "process is up" apart from "process is up but can't
+        // reach the database", since those need different responses.
+        const { error } = await this.supabase.client.from('profiles').select('id').limit(1);
+        if (error) {
+            throw new common_1.ServiceUnavailableException({
+                status: 'degraded',
+                service: 'jayedaad-api',
+                database: 'unreachable',
+                timestamp: new Date().toISOString(),
+            });
+        }
+        return { status: 'ok', service: 'jayedaad-api', database: 'reachable', timestamp: new Date().toISOString() };
     }
 };
 exports.HealthController = HealthController;
@@ -23,8 +40,9 @@ __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], HealthController.prototype, "check", null);
 exports.HealthController = HealthController = __decorate([
-    (0, common_1.Controller)('health')
+    (0, common_1.Controller)('health'),
+    __metadata("design:paramtypes", [supabase_service_1.SupabaseService])
 ], HealthController);

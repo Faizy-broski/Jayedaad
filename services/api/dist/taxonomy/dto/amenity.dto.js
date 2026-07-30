@@ -23,14 +23,23 @@ const AMENITY_CATEGORIES = [
     'nearby_locations',
     'other_facilities',
 ];
+const AMENITY_VALUE_TYPES = ['boolean', 'number', 'text', 'select'];
 class CreateAmenityDto {
     slug;
     label;
     category;
-    // Set when this amenity carries a number on a listing (e.g. "spaces",
-    // "kms" — confirmed real: "Parking Spaces: 2", "Distance From Airport
-    // (kms)"). Omit for a plain boolean-tag amenity.
+    // Drives how this amenity is rendered on the submit form: 'boolean' (a
+    // checkbox), 'number' (a number input, labeled with valueUnit — e.g.
+    // "Distance From Airport (kms)"), 'text' (free text, e.g. "View"), or
+    // 'select' (a dropdown of `options`, e.g. Flooring -> Tiles/Marble/...).
+    // Defaults to 'boolean' in the DB if omitted.
+    valueType;
+    // Only meaningful when valueType is 'number' (e.g. "spaces", "kms" —
+    // confirmed real: "Parking Spaces: 2", "Distance From Airport (kms)").
     valueUnit;
+    // Only meaningful when valueType is 'select' (e.g. Flooring ->
+    // ["Tiles","Marble","Wooden","Chip","Cement","Other"]).
+    options;
     // Which property-type categories (Homes/Plots/Commercial) this amenity is
     // relevant for — many-to-many, since e.g. Electricity Backup can apply to
     // more than one. Confirmed a real gap: without this, every amenity was
@@ -53,9 +62,20 @@ __decorate([
 ], CreateAmenityDto.prototype, "category", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(AMENITY_VALUE_TYPES),
+    __metadata("design:type", Object)
+], CreateAmenityDto.prototype, "valueType", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateAmenityDto.prototype, "valueUnit", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateAmenityDto.prototype, "options", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
@@ -71,7 +91,9 @@ class UpdateAmenityDto {
     slug;
     label;
     category;
+    valueType;
     valueUnit;
+    options;
     propertyTypeCategoryIds;
     sortOrder;
 }
@@ -93,9 +115,20 @@ __decorate([
 ], UpdateAmenityDto.prototype, "category", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(AMENITY_VALUE_TYPES),
+    __metadata("design:type", Object)
+], UpdateAmenityDto.prototype, "valueType", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateAmenityDto.prototype, "valueUnit", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], UpdateAmenityDto.prototype, "options", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

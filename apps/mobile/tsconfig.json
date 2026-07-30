@@ -7,5 +7,5 @@
       "@jayedaad/ui-native": ["../../packages/ui-native/src"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx", "assets.d.ts"]
 }

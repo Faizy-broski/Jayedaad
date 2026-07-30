@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  IsUrl,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
@@ -15,6 +16,7 @@ import {
 const AREA_UNITS = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'] as const;
 const FURNISHING_STATUSES = ['unfurnished', 'semi_furnished', 'furnished'] as const;
 const CONTACT_NUMBER_TYPES = ['mobile', 'landline'] as const;
+const LISTING_MEDIA_TYPES = ['image', 'video'] as const;
 
 // Confirmed real on the live Profolio "Post Listing" form (screenshot): a
 // repeatable "+"-add Mobile field plus a separate Landline field, each with
@@ -32,9 +34,11 @@ export class CreateListingContactNumberDto {
   number!: string;
 }
 
-// value is only meaningful for amenities with a value_unit set on the
-// catalog (e.g. "Parking Spaces: 2") — confirmed real on a scraped Zameen
-// detail page, which shows some amenities with a number, not just presence.
+// value is only meaningful for 'number'-valueType amenities on the catalog
+// (e.g. "Parking Spaces: 2", "Distance From Airport: 5 kms") — confirmed
+// real on a scraped Zameen detail page. textValue is for 'text' amenities
+// (free text, e.g. "View: Mountain View") and 'select' amenities (the
+// chosen option, e.g. "Flooring: Tiles").
 export class CreateListingAmenityDto {
   @IsString()
   slug!: string;
@@ -42,6 +46,29 @@ export class CreateListingAmenityDto {
   @IsOptional()
   @IsNumber()
   value?: number;
+
+  @IsOptional()
+  @IsString()
+  textValue?: string;
+}
+
+// url comes from a prior POST /listings/media/upload call (see
+// listing-media.controller.ts) — this DTO just attaches an already-uploaded
+// file to the listing being created, it never accepts raw file data itself.
+export class CreateListingMediaDto {
+  @IsUrl()
+  url!: string;
+
+  @IsIn(LISTING_MEDIA_TYPES)
+  type!: (typeof LISTING_MEDIA_TYPES)[number];
+
+  @IsOptional()
+  @IsBoolean()
+  isCover?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
 }
 
 // First real DTO class in this codebase — establishes the pattern for
@@ -125,6 +152,61 @@ export class CreateListingDto {
   @IsBoolean()
   readyForPossession?: boolean;
 
+  // Structured installment details — only meaningful when installmentAvailable
+  // is true, but validated independently since the client can send them in
+  // any combination (each fee/payment field is independently toggleable on
+  // the form, see apps/web/app/(owner)/submit/page.tsx).
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  advanceAmount?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  numberOfInstallments?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  monthlyInstallment?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  balloonPaymentAvailable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  balloonPaymentAmount?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  ballotingFeeApplicable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  ballotingFeeAmount?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  possessionFeeApplicable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  possessionFeeAmount?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  developmentFeeApplicable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  developmentFeeAmount?: number;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -140,4 +222,13 @@ export class CreateListingDto {
   @ValidateNested({ each: true })
   @Type(() => CreateListingAmenityDto)
   amenities?: CreateListingAmenityDto[];
+
+  // Uploaded ahead of time via POST /listings/media/upload (the submit
+  // form uploads photos as they're picked, before the listing exists) —
+  // attached to the new listing's row at create time.
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateListingMediaDto)
+  media?: CreateListingMediaDto[];
 }

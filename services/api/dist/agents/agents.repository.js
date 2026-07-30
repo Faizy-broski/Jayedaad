@@ -22,6 +22,30 @@ let AgentsRepository = class AgentsRepository {
         this.supabase = supabase;
         this.documents = documents;
     }
+    // Supabase's implicit-join select returns raw snake_case (display_name,
+    // photo_url, agencies) — packages/core's AgentProfileSummary expects
+    // camelCase (displayName, photoUrl, agency). This was missing entirely:
+    // phone/whatsapp/landline/city/address/bio happen to be spelled the same
+    // in both cases so they "worked", but displayName/photoUrl/agency were
+    // always undefined on the client — the exact cause of "Name doesn't save"
+    // (the form's useEffect kept resetting to '' since profile.displayName
+    // never actually held the saved value).
+    mapProfileRow(row) {
+        return {
+            id: row.id,
+            displayName: row.display_name,
+            title: row.title,
+            bio: row.bio,
+            phone: row.phone,
+            whatsapp: row.whatsapp,
+            landline: row.landline,
+            city: row.city,
+            address: row.address,
+            photoUrl: row.photo_url,
+            verificationStatus: row.verification_status,
+            agency: row.agencies ?? null,
+        };
+    }
     async findProfile(agentId) {
         const { data, error } = await this.supabase.client
             .from('agent_profiles')
@@ -30,7 +54,7 @@ let AgentsRepository = class AgentsRepository {
             .single();
         if (error)
             throw error;
-        return data;
+        return this.mapProfileRow(data);
     }
     // The Profolio "User Settings" page's actual save action. Ownership is
     // enforced at the controller (see agents.controller.ts::assertOwnAgentOrAdmin),
@@ -54,7 +78,20 @@ let AgentsRepository = class AgentsRepository {
             .single();
         if (error)
             throw error;
-        return data;
+        return this.mapProfileRow(data);
+    }
+    // The write side of "Upload a picture" — separate from updateProfile()
+    // since it's driven by a file upload, not the rest of the form fields.
+    async updatePhoto(agentId, photoUrl) {
+        const { data, error } = await this.supabase.client
+            .from('agent_profiles')
+            .update({ photo_url: photoUrl })
+            .eq('id', agentId)
+            .select(PROFILE_COLUMNS)
+            .single();
+        if (error)
+            throw error;
+        return this.mapProfileRow(data);
     }
     // Property inventory broken down by purpose + type, scoped to one agent —
     // mirrors AgenciesRepository.getStats() exactly, just without the
@@ -290,7 +327,7 @@ let AgentsRepository = class AgentsRepository {
             .single();
         if (error)
             throw error;
-        return data;
+        return this.mapProfileRow(data);
     }
 };
 exports.AgentsRepository = AgentsRepository;
