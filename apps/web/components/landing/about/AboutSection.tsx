@@ -20,7 +20,7 @@ export function AboutSection() {
       {/* Top half — house photo with floating testimonial card + copy */}
       <div className="relative z-10 mx-auto grid max-w-6xl gap-16 px-4 sm:gap-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16 lg:px-8">
         <Reveal className="relative">
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl sm:rounded-3xl">
+          <div className="relative aspect-[3/3] w-full overflow-hidden rounded-2xl sm:rounded-3xl">
             <Image
               src="/images/about-house-image.png"
               alt="Modern villa exterior at dusk"
@@ -57,18 +57,21 @@ export function AboutSection() {
           </p>
 
           <h2 className="text-heading-gradient mt-6 flex flex-col text-3xl font-bold uppercase leading-[1.05] tracking-tight sm:mt-8 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
-            <span className="self-end">Jayedaad</span>
-            <span className="self-start">Housing</span>
+            <span className="self-end hidden lg:block">Jayedaad</span>
+            <span className="self-start hidden lg:block">Housing</span>
+          </h2>
+          <h2 className="text-heading-gradient mt-6 flex flex-col text-3xl font-bold uppercase leading-[1.05] tracking-tight sm:mt-8 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl lg:hidden">
+           Jayedaad Housing
           </h2>
 
           <div className="mt-8 flex items-start gap-4 sm:gap-5">
-            <p className="max-w-sm flex-1 text-sm leading-relaxed text-muted-foreground">
+            <p className="max-w-6xl sm:max-w-5xl flex-1 text-sm leading-relaxed text-muted-foreground">
               At Jayedaad, every listing is carefully verified to ensure transparency, accuracy, and peace of mind.
               Whether you&apos;re searching for your first home, a luxury residence, or your next investment
               opportunity, we deliver a seamless experience backed by trust and innovation.
             </p>
 
-            <div className="relative hidden h-20 w-28 shrink-0 overflow-hidden rounded-xl sm:block md:h-24 md:w-32">
+            <div className="relative hidden h-[10rem] w-[14rem] shrink-0 overflow-hidden rounded-xl lg:block md:h-24 md:w-32 lg:h-[10rem] lg:w-[12rem]">
               <Image
                 src="/images/about-small-image.png"
                 alt="Hands reviewing a property model"

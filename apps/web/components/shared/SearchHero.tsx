@@ -32,9 +32,9 @@ export function SearchHero({
     // h-10/h-11 + py-3) at each breakpoint, so the fixed/attached bar on
     // mobile/md doesn't cover the hero; lg:pt-0 lets it float over the hero
     // instead, same convention as the homepage Hero.
-    <div className="pt-16 sm:pt-[68px] lg:pt-0">
+    <div className="pt-16 sm:py-[68px] lg:pt-0">
       <section className="relative mb-28 sm:mb-20 md:mb-16">
-        <div className="relative h-[70vh] w-full overflow-hidden">
+        <div className="relative h-[50vh] sm:[h-20vh] lg:h-[70vh] w-full overflow-hidden">
           <Image
             src={backgroundImage}
             alt={imageAlt}

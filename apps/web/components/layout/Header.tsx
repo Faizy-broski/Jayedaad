@@ -81,6 +81,13 @@ const DESKTOP_QUERY = '(min-width: 1024px)';
 // keeps the plain in-flow sticky bar.
 const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings']);
 
+// Listing detail pages (/listings/[slug]) have no hero banner, but still get
+// the floating treatment — PropertyDetail reserves top clearance itself
+// (rather than a hero backdrop) so the pill doesn't sit over the breadcrumb.
+function isHeroRoute(pathname: string): boolean {
+  return HERO_ROUTES.has(pathname) || pathname.startsWith('/listings/');
+}
+
 export function Header() {
   return (
     <Suspense fallback={<div className={`${STATIC_CLASSES} h-[68px] sm:h-[76px]`} />}>
@@ -95,7 +102,7 @@ function HeaderInner() {
   const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
   const isLinkActive = useIsLinkActive();
-  const hasHero = HERO_ROUTES.has(pathname);
+  const hasHero = isHeroRoute(pathname);
 
   useEffect(() => {
     if (!hasHero) return;

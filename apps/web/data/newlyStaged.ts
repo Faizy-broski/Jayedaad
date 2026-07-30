@@ -2,10 +2,11 @@ import type { Property } from '../lib/types';
 
 // Reuses the same Property shape as FEATURED_PROPERTIES — this is a
 // separate curated list, so it's a distinct array/query in a real backend,
-// not just a re-sort of the same one.
+// not just a re-sort of the same one. ids match entries in data/listings.ts
+// so each card's "View Details" link resolves to a real listing page.
 export const NEWLY_STAGED_PROPERTIES: Property[] = [
   {
-    id: 'sky-view-villa',
+    id: 'sky-view-villa-3',
     title: 'Sky View Villa',
     location: 'Bani Gala, Islamabad',
     price: 'PKR 8.9 Cr',
@@ -17,7 +18,7 @@ export const NEWLY_STAGED_PROPERTIES: Property[] = [
     areaSqft: 1, // see note below on Kanal/Marla units
   },
   {
-    id: 'penthouse-clifton',
+    id: 'penthouse-clifton-2',
     title: 'Penthouse',
     location: 'Clifton, Karachi',
     price: 'PKR 12.4 Cr',
@@ -29,7 +30,7 @@ export const NEWLY_STAGED_PROPERTIES: Property[] = [
     areaSqft: 4200,
   },
   {
-    id: 'gulberg-residence',
+    id: 'gulberg-residence-2',
     title: 'Gulberg Residence',
     location: 'DHA Phase 8, Karachi',
     price: 'PKR 6.2 Cr',
@@ -41,7 +42,7 @@ export const NEWLY_STAGED_PROPERTIES: Property[] = [
     areaSqft: 2800,
   },
   {
-    id: 'dha-townhouse',
+    id: 'dha-townhouse-1',
     title: 'DHA Townhouse',
     location: 'Bahria Town, Lahore',
     price: 'PKR 4.5 Cr',

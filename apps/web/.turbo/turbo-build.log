@@ -1,0 +1,33 @@
+$ next build
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+Failed to compile.
+
+app\(agent)\submit\page.tsx
+You cannot have two parallel pages that resolve to the same path. Please check /(agent)/submit/page and /(owner)/submit/page. Refer to the route group docs for more information: https://nextjs.org/docs/app/building-your-application/routing/route-groups
+
+app\(owner)\submit\page.tsx
+You cannot have two parallel pages that resolve to the same path. Please check /(agent)/submit/page and /(owner)/submit/page. Refer to the route group docs for more information: https://nextjs.org/docs/app/building-your-application/routing/route-groups
+
+./app/not-found.tsx
+Module not found: Can't resolve 'framer-motion'
+
+https://nextjs.org/docs/messages/module-not-found
+
+./components/Reveal.tsx
+Module not found: Can't resolve 'framer-motion'
+
+https://nextjs.org/docs/messages/module-not-found
+
+./components/RouteError.tsx
+Module not found: Can't resolve 'framer-motion'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./app/error.tsx
+
+
+> Build failed because of webpack errors
+[ELIFECYCLE] Command failed with exit code 1.
