@@ -97,23 +97,29 @@ export class AgenciesController {
   }
 
   // Real onboarding requirement — company registration, owner's ID card, tax
-  // certificate. Matches the existing agency-mutation discipline (super_admin-only).
+  // certificate. Not @Roles('super_admin')-only: the agency's own admin
+  // (fresh off self-service registration) must be able to upload these
+  // during the 'pending' review window. assertSameAgency enforces the
+  // boundary, mirroring the staff routes below.
   @UseGuards(ScopeGuard)
-  @Roles('super_admin')
+  @Roles('agent', 'super_admin')
   @Post(':id/documents')
   @UseInterceptors(FileInterceptor('file'))
-  uploadDocument(
+  async uploadDocument(
+    @Req() req: any,
     @Param('id') id: string,
     @Body() body: UploadOnboardingDocumentDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    await this.assertSameAgency(req, id);
     return this.agencies.addDocument(id, body.documentType, file);
   }
 
   @UseGuards(ScopeGuard)
-  @Roles('super_admin')
+  @Roles('agent', 'super_admin')
   @Get(':id/documents')
-  listDocuments(@Param('id') id: string) {
+  async listDocuments(@Req() req: any, @Param('id') id: string) {
+    await this.assertSameAgency(req, id);
     return this.agencies.listDocuments(id);
   }
 

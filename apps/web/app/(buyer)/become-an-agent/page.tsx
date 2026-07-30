@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
   agenciesRepository,
@@ -116,6 +117,10 @@ function DocumentUploadStep({ agentId }: { agentId: string }) {
           ))}
         </CardContent>
       </Card>
+
+      <Link href="/dashboard">
+        <Button className="w-full">Continue to Dashboard</Button>
+      </Link>
     </div>
   );
 }

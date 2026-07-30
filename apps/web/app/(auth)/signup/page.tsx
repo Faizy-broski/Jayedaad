@@ -232,7 +232,9 @@ export default function SignupPage() {
             {passwordMismatch && <p className="text-sm text-destructive">Passwords don&apos;t match.</p>}
             {signUp.isError && <p className="text-sm text-destructive">Could not create your account. Try again.</p>}
             {registerAgency.isError && (
-              <p className="text-sm text-destructive">Could not register your agency. Try again.</p>
+              <p className="text-sm text-destructive">
+                {(registerAgency.error as any)?.response?.data?.message || 'Could not register your agency. Try again.'}
+              </p>
             )}
 
             <div className="space-y-1.5">

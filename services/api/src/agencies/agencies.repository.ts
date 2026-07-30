@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateAgencyDto } from './dto/create-agency.dto';
 import { UpdateAgencyDto } from './dto/update-agency.dto';
@@ -292,7 +292,17 @@ export class AgenciesRepository {
       })
       .select(AGENCY_COLUMNS)
       .single();
-    if (agencyError) throw agencyError;
+    if (agencyError) {
+      // '23505' = Postgres unique_violation — this specific, anticipated
+      // case (agency name already taken, since the slug is derived from it)
+      // gets a clear message; AllExceptionsFilter deliberately masks every
+      // other raw DB error as a generic 500 (never leak constraint/column
+      // details to callers), which is correct and untouched here.
+      if ((agencyError as { code?: string }).code === '23505') {
+        throw new ConflictException('An agency with this name already exists — please choose a different name.');
+      }
+      throw agencyError;
+    }
 
     // Everything past this point can fail independently (agent_profiles
     // insert, auth metadata sync, profiles sync) — PostgREST has no

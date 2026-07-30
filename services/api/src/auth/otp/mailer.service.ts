@@ -1,5 +1,16 @@
+import { join } from 'path';
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
+import { paragraph, renderCodeBox, renderEmailHtml } from './email-template';
+
+// Embedded as a CID inline attachment (not an external image URL) — works
+// regardless of whether/where apps/web ends up deployed, and won't break if
+// that domain changes later. Copied from apps/web/public/images/ rather than
+// referenced across app boundaries — services/api is deployed separately
+// and shouldn't runtime-depend on apps/web's file layout. `nest-cli.json`'s
+// `assets` entry copies this into dist/ alongside the compiled JS on build.
+const LOGO_PATH = join(__dirname, 'assets', 'jayedaad-logo.png');
+const LOGO_CID = 'jayedaad-logo';
 
 // Custom OTP email delivery — NOT Supabase's built-in email. Unlike
 // SupabaseService (required for the whole app to function), SMTP is only
@@ -36,20 +47,35 @@ export class MailerService {
   }
 
   async sendOtpEmail(to: string, code: string): Promise<void> {
+    const html = renderEmailHtml({
+      preheader: `Your verification code is ${code}`,
+      heading: 'Verify your email',
+      bodyHtml: paragraph('Enter this code to verify your email address and finish setting up your Jayedaad account.') + renderCodeBox(code) + paragraph('This code expires in 10 minutes.'),
+      bodyText: '',
+    });
     await this.send({
       to,
       subject: 'Your Jayedaad verification code',
       text: `Your verification code is ${code}. It expires in 10 minutes.`,
-      html: `<p>Your verification code is <strong>${code}</strong>. It expires in 10 minutes.</p>`,
+      html,
     });
   }
 
   async sendPasswordResetEmail(to: string, code: string): Promise<void> {
+    const html = renderEmailHtml({
+      preheader: `Your password reset code is ${code}`,
+      heading: 'Reset your password',
+      bodyHtml:
+        paragraph('Use this code to reset your Jayedaad password.') +
+        renderCodeBox(code) +
+        paragraph("This code expires in 10 minutes. If you didn't request this, you can safely ignore this email — your password won't be changed."),
+      bodyText: '',
+    });
     await this.send({
       to,
       subject: 'Your Jayedaad password reset code',
       text: `Your password reset code is ${code}. It expires in 10 minutes. If you didn't request this, you can ignore this email.`,
-      html: `<p>Your password reset code is <strong>${code}</strong>. It expires in 10 minutes.</p><p>If you didn't request this, you can ignore this email.</p>`,
+      html,
     });
   }
 
@@ -60,7 +86,11 @@ export class MailerService {
   // still surface as an opaque 500.
   private async send(message: { to: string; subject: string; text: string; html: string }): Promise<void> {
     try {
-      await this.getTransporter().sendMail({ from: process.env.SMTP_FROM_EMAIL ?? 'no-reply@jayedaad.com', ...message });
+      await this.getTransporter().sendMail({
+        from: process.env.SMTP_FROM_EMAIL ?? 'no-reply@jayedaad.com',
+        ...message,
+        attachments: [{ filename: 'jayedaad-logo.png', path: LOGO_PATH, cid: LOGO_CID }],
+      });
     } catch (err) {
       if (err instanceof ServiceUnavailableException) throw err;
       throw new ServiceUnavailableException(

@@ -1,9 +1,0 @@
-{
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js",
-  "/(public)/contact-us/page": "app/(public)/contact-us/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/(auth)/signup/page": "app/(auth)/signup/page.js",
-  "/(buyer)/search/page": "app/(buyer)/search/page.js",
-  "/page": "app/page.js"
-}
