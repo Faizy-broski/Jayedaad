@@ -48,7 +48,10 @@ export function PropertyDetail({ listing, similar }: PropertyDetailProps) {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
+    // pt is clearance for the Header, which is fixed/floating (out of flow)
+    // on this route instead of the plain in-flow sticky bar — see
+    // isHeroRoute() in components/layout/Header.tsx.
+    <div className="mx-auto max-w-6xl px-4 pb-8 pt-24 sm:pb-10 sm:pt-28 lg:pt-32">
       <motion.nav
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

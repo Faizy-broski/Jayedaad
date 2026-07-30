@@ -1,5 +1,5 @@
 export type Role = 'super_admin' | 'verification_staff' | 'agent' | 'buyer' | 'owner';
-export type ListingStatus = 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive';
+export type ListingStatus = 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive';
 export type ListingPurpose = 'sale' | 'rent';
 export type AreaUnit = 'marla' | 'kanal' | 'sqyd' | 'sqft' | 'sqm' | 'acre';
 export type FurnishingStatus = 'unfurnished' | 'semi_furnished' | 'furnished';
@@ -21,12 +21,15 @@ export interface PropertyType {
     label: string;
     category: PropertyTypeCategorySummary;
 }
+export type AmenityValueType = 'boolean' | 'number' | 'text' | 'select';
 export interface Amenity {
     id: string;
     slug: string;
     label: string;
     category: AmenityCategory;
+    valueType: AmenityValueType;
     valueUnit: string | null;
+    options: string[] | null;
     propertyTypeCategories: PropertyTypeCategorySummary[];
 }
 export interface CreatePropertyTypeCategoryInput {
@@ -55,7 +58,9 @@ export interface CreateAmenityInput {
     slug: string;
     label: string;
     category: AmenityCategory;
+    valueType?: AmenityValueType;
     valueUnit?: string;
+    options?: string[];
     propertyTypeCategoryIds?: string[];
     sortOrder?: number;
 }
@@ -63,7 +68,9 @@ export interface UpdateAmenityInput {
     slug?: string;
     label?: string;
     category?: AmenityCategory;
+    valueType?: AmenityValueType;
     valueUnit?: string;
+    options?: string[];
     propertyTypeCategoryIds?: string[];
     sortOrder?: number;
 }
@@ -74,6 +81,7 @@ export interface PropertyTypeSummary {
 }
 export interface ListingMediaItem {
     url: string;
+    type: 'image' | 'video';
     compressedUrl: string | null;
     isCover: boolean;
     sortOrder: number;
@@ -90,11 +98,15 @@ export interface AmenitySummary {
     category: AmenityCategory;
 }
 export interface ListingAmenity extends AmenitySummary {
+    valueType: AmenityValueType;
     valueUnit: string | null;
+    options: string[] | null;
     value: number | null;
+    textValue: string | null;
 }
 export interface Listing {
     id: string;
+    listingNumber: number;
     title: string;
     description: string | null;
     price: string;
@@ -118,6 +130,17 @@ export interface Listing {
     boostTier: ListingBoostTier;
     installmentAvailable: boolean;
     readyForPossession: boolean;
+    advanceAmount: number | null;
+    numberOfInstallments: number | null;
+    monthlyInstallment: number | null;
+    balloonPaymentAvailable: boolean;
+    balloonPaymentAmount: number | null;
+    ballotingFeeApplicable: boolean;
+    ballotingFeeAmount: number | null;
+    possessionFeeApplicable: boolean;
+    possessionFeeAmount: number | null;
+    developmentFeeApplicable: boolean;
+    developmentFeeAmount: number | null;
     status: ListingStatus;
     createdAt: string;
     media: ListingMediaItem[];
@@ -390,6 +413,14 @@ export interface Favorite {
     id: string;
     listingId: string;
     createdAt: string;
+    listing: {
+        id: string;
+        title: string;
+        price: number;
+        city: string;
+        area: string;
+        status: ListingStatus;
+    } | null;
 }
 export type AlertFrequency = 'instant' | 'daily' | 'weekly' | 'off';
 export interface SavedSearch {

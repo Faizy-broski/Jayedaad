@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import useEmblaCarousel from 'embla-carousel-react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PropertyCard } from './PropertyCard';
 import type { Property } from '@/lib/types';
 import { TrustFeatures } from './TrustFeatures';
@@ -72,25 +73,34 @@ export function FeaturedProperties({ properties }: FeaturedPropertiesProps) {
             </p>
           </Reveal>
 
-          <div className="hidden shrink-0 items-center gap-2 sm:flex">
-            <button
-              type="button"
-              aria-label="Previous properties"
-              onClick={scrollPrev}
-              disabled={!canScrollPrev}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+          <div className="hidden shrink-0 items-center gap-3 sm:flex">
+            <Link
+              href="/listings"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
             >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Next properties"
-              onClick={scrollNext}
-              disabled={!canScrollNext}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+              Show all listings
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Previous properties"
+                onClick={scrollPrev}
+                disabled={!canScrollPrev}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next properties"
+                onClick={scrollNext}
+                disabled={!canScrollNext}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -126,6 +136,18 @@ export function FeaturedProperties({ properties }: FeaturedPropertiesProps) {
               }`}
             />
           ))}
+        </div>
+
+        {/* Same "Show all listings" CTA as the desktop header row, just
+            shown here instead since that row is hidden below sm. */}
+        <div className="mt-6 flex justify-center sm:hidden">
+          <Link
+            href="/listings"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-5 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+          >
+            Show all listings
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </div>
     </section>

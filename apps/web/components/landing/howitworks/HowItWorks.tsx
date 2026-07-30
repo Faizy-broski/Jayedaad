@@ -14,7 +14,7 @@ export function HowItWorks() {
     <section className="relative overflow-hidden py-20 sm:py-24">
       {/* Background layer: faint "subtract" shape centered, plus the wordmark
           logo mirrored large and faint on both far edges. */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-between">
+      <div className="pointer-events-none absolute inset-0 lg:flex hidden items-center justify-between">
         <Image
           src="/images/logo-left.png"
           alt=""
@@ -31,7 +31,7 @@ export function HowItWorks() {
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 lg:flex hidden items-center justify-center">
         <Image
           src="/images/subtract.png"
           alt=""
@@ -97,7 +97,7 @@ export function HowItWorks() {
             />
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="mt-8 grid grid-cols-1 place-items-center gap-4 sm:grid-cols-2">
             {HOW_IT_WORKS_STEPS.map((step, index) => (
               <Reveal key={step.id} delay={(index % 2) * 0.08}>
                 <StepCard step={step} />

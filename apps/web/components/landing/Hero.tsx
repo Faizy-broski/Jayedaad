@@ -29,6 +29,20 @@ const textItem = {
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
 };
 
+// Wordmark reveal — plays once on mount/reload only. It starts tucked
+// behind the house cutout and glides up into its resting spot, so it
+// reads as emerging from behind the house. Purely time-based; scrolling
+// the page has no effect on it.
+const wordmarkReveal = {
+  hidden: { opacity: 0, y: 120 },
+  show: { opacity: 0.9, y: 0, transition: { duration: 1.2, ease: EASE, delay: 0.35 } },
+};
+
+const wordmarkRevealMobile = {
+  hidden: { opacity: 0, y: 44 },
+  show: { opacity: 0.9, y: 0, transition: { duration: 1, ease: EASE, delay: 0.3 } },
+};
+
 function PurposeTabs({
   purpose,
   onChange,
@@ -153,41 +167,62 @@ export function Hero() {
   return (
     <section className="relative">
       {/* ————————————————————————————————————————————————————————————
-          Desktop (lg+) — unchanged from the original design. Kept as a
-          verbatim, self-contained block (own image heights/paddings/
-          overlap technique) so any responsive work below lg can never
-          leak into how this renders at lg+. */}
+          Desktop (lg+) — own image heights/paddings/overlap technique,
+          kept as a self-contained block so responsive work below lg can
+          never leak into how this renders at lg+. */}
       <div className="relative mb-16 hidden lg:block">
         <div className="pt-16 sm:pt-[68px] lg:pt-0">
           <div className="relative h-[480px] w-full overflow-hidden sm:h-[620px] md:h-[680px]">
-            <Image
-              src="/images/belowest-hero-image.png"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center"
-            />
+            <motion.div
+              initial={{ opacity: 0, scale: 1.12 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.6, ease: EASE }}
+              className="absolute inset-0"
+            >
+              <Image
+                src="/images/belowest-hero-image.png"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+            </motion.div>
 
-            <div className="absolute inset-0 flex justify-center pt-6 shrink-0 sm:pt-[150px]">
+            {/* Wordmark — sits behind the house cutout and glides up into
+                place once on mount, reading as if it emerges from behind
+                the house. Not tied to scroll in any way. */}
+            <motion.div
+              variants={wordmarkReveal}
+              initial="hidden"
+              animate="show"
+              className="absolute inset-0 flex justify-center pt-6 shrink-0 sm:pt-[150px]"
+            >
               <Image
                 src="/images/jayedaad-text.png"
                 alt="Jayedaad"
                 width={1200}
                 height={168}
                 priority
-                className="h-16 w-full max-w-5xl select-none opacity-90 sm:h-36"
+                className="h-16 w-full max-w-5xl select-none sm:h-36"
               />
-            </div>
+            </motion.div>
 
-            <Image
-              src="/images/top-hero-image.png"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center"
-            />
+            <motion.div
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.3, ease: EASE, delay: 0.15 }}
+              className="absolute inset-0"
+            >
+              <Image
+                src="/images/top-hero-image.png"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+            </motion.div>
 
             <motion.div
               variants={textGroup}
@@ -237,23 +272,37 @@ export function Hero() {
       <div className="lg:hidden">
         <div className="pt-16 sm:pt-[68px]">
           <div className="relative h-[420px] w-full overflow-hidden rounded-b-[2rem] sm:h-[520px] md:h-[560px]">
-            <Image
-              src="/images/belowest-hero-image.png"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center"
-            />
+            <motion.div
+              initial={{ opacity: 0, scale: 1.12 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.6, ease: EASE }}
+              className="absolute inset-0"
+            >
+              <Image
+                src="/images/belowest-hero-image.png"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+            </motion.div>
 
-            <Image
-              src="/images/top-hero-image.png"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center"
-            />
+            <motion.div
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.1, ease: EASE, delay: 0.15 }}
+              className="absolute inset-0"
+            >
+              <Image
+                src="/images/top-hero-image.png"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+            </motion.div>
 
             <motion.div
               variants={textGroup}
@@ -261,14 +310,16 @@ export function Hero() {
               animate="show"
               className="relative z-10 flex h-full flex-col items-center px-5 pb-10 pt-8 text-center sm:pb-12 sm:pt-10 md:pt-12"
             >
-              <Image
-                src="/images/jayedaad-text.png"
-                alt="Jayedaad"
-                width={1200}
-                height={168}
-                priority
-                className="h-12 w-auto max-w-[88%] select-none opacity-90 sm:h-16 md:h-20"
-              />
+              <motion.div variants={wordmarkRevealMobile} initial="hidden" animate="show">
+                <Image
+                  src="/images/jayedaad-text.png"
+                  alt="Jayedaad"
+                  width={1200}
+                  height={168}
+                  priority
+                  className="h-12 w-auto max-w-[88%] select-none sm:h-16 md:h-20"
+                />
+              </motion.div>
 
               <motion.p
                 variants={textItem}

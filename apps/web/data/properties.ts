@@ -1,8 +1,10 @@
 import type { Property } from '@/lib/types';
 
+// ids match entries in data/listings.ts so each card's "View Details" link
+// (built as /listings/${id}) resolves to a real listing detail page.
 export const FEATURED_PROPERTIES: Property[] = [
   {
-    id: 'sky-view-villa',
+    id: 'sky-view-villa-1',
     title: 'Sky View Villa',
     location: 'Bahria Town, Islamabad',
     price: 'PKR 8.9 Cr',
@@ -14,7 +16,7 @@ export const FEATURED_PROPERTIES: Property[] = [
     areaSqft: 5400,
   },
   {
-    id: 'penthouse-clifton',
+    id: 'penthouse-clifton-1',
     title: 'Penthouse',
     location: 'Clifton, Karachi',
     price: 'PKR 12.4 Cr',
@@ -26,7 +28,7 @@ export const FEATURED_PROPERTIES: Property[] = [
     areaSqft: 4200,
   },
   {
-    id: 'gulberg-residence',
+    id: 'gulberg-residence-1',
     title: 'Gulberg Residence',
     location: 'DHA Phase 6, Karachi',
     price: 'PKR 6.2 Cr',
@@ -38,7 +40,7 @@ export const FEATURED_PROPERTIES: Property[] = [
     areaSqft: 2900,
   },
   {
-    id: 'dha-townhouse',
+    id: 'dha-townhouse-1',
     title: 'DHA Townhouse',
     location: 'DHA Phase 5, Lahore',
     price: 'PKR 4.5 Cr',

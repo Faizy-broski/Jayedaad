@@ -16,4 +16,8 @@ export const leadsRepository = {
         const { data } = await httpClient.patch(`/crm/leads/${leadId}/status`, { status });
         return data;
     },
+    // Super Admin-only — reassigns a lead to a different agent.
+    assign: async (leadId, agentId) => {
+        await httpClient.patch(`/crm/leads/${leadId}/assign`, { agentId });
+    },
 };

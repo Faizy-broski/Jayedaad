@@ -2,6 +2,7 @@ import { Lead, LeadInquirerType, LeadSource, LeadStatus } from '../models';
 export interface LeadListFilters {
     status?: LeadStatus;
     listingId?: string;
+    agentId?: string;
 }
 export interface CreateLeadInput {
     listingId: string;
@@ -21,4 +22,5 @@ export declare const leadsRepository: {
         leadId: string;
         status: LeadStatus;
     }) => Promise<any>;
+    assign: (leadId: string, agentId: string) => Promise<void>;
 };
