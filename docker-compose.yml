@@ -11,7 +11,11 @@
 # `docker compose pull && docker compose up -d --remove-orphans`, which pulls
 # the `image:` tags below instead of rebuilding.
 #
-# Update `ghcr.io/<org>/...` below to the real GitHub org/repo once known.
+# IMPORTANT: the `ghcr.io/jayedaad/...` image names below are a placeholder.
+# .github/workflows/deploy.yml pushes to `ghcr.io/${{ github.repository_owner }}/...`
+# (resolved automatically to your real GitHub org/username at CI time) — once
+# you know that value, either hardcode it here to match, or replace "jayedaad"
+# below with it, so the VPS pulls the same image the workflow actually pushes.
 x-logging: &default-logging
   driver: json-file
   options:
