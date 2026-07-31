@@ -20,10 +20,10 @@ export function OurStory() {
           Real estate isn&apos;t just about properties. It&apos;s about building futures.
         </h2>
       </Reveal>
-        <Reveal className="flex flex-col gap-8 sm:col-span-3 mx-auto">
+        <Reveal className="flex lg:flex-col gap-8 sm:col-span-3 mx-auto">
           {STATS.map((stat) => (
             <div key={stat.id} className="flex flex-col gap-1">
-              <span className="text-gradient-emerald text-3xl font-bold sm:text-4xl">{stat.value}</span>
+              <span className="text-primary text-3xl font-bold sm:text-4xl">{stat.value}</span>
               <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{stat.label}</span>
             </div>
           ))}
@@ -47,7 +47,7 @@ export function OurStory() {
 
       {/* Full-width photo banner with a centered wordmark, closing out the
           story section before the values grid. */}
-      <Reveal delay={0.15} className="relative mt-14 aspect-[16/7] w-full overflow-hidden rounded-3xl sm:mt-16">
+      <Reveal delay={0.15} className="relative mt-14 aspect-[16/9] lg:aspect-[16/7] w-full overflow-hidden rounded-3xl sm:mt-16">
         <Image
           src="/images/about-us/our-story.jpg"
           alt="Jayedaad House entrance — glass facade with landscaped greenery"

@@ -24,7 +24,7 @@ export function MortgageCalculator({ priceValue }: MortgageCalculatorProps) {
   }, [loanAmount, interestRate, years]);
 
   return (
-    <div className="flex gap-3 rounded-2xl border border-slate-200 p-4">
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row">
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Loan Amount (PKR)</span>
@@ -72,7 +72,7 @@ export function MortgageCalculator({ priceValue }: MortgageCalculatorProps) {
         </label>
       </div>
 
-      <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-heading-gradient px-2 py-3 text-center text-primary-foreground sm:w-40 sm:px-5">
+      <div className="flex w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-heading-gradient px-2 py-3 text-center text-primary-foreground sm:w-40 sm:px-5">
         <span className="text-[10px] font-medium uppercase tracking-wide text-white/70">Monthly Payment</span>
         <span className="text-sm font-bold leading-tight sm:text-lg">{formatPkr(monthlyPayment)}</span>
         <span className="text-[10px] text-white/70">Est. over {years} years</span>

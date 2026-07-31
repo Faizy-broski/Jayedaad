@@ -33,8 +33,8 @@ export function SearchHero({
     // mobile/md doesn't cover the hero; lg:pt-0 lets it float over the hero
     // instead, same convention as the homepage Hero.
     <div className="pt-16 sm:py-[68px] lg:pt-0">
-      <section className="relative mb-28 sm:mb-20 md:mb-16">
-        <div className="relative h-[50vh] sm:[h-20vh] lg:h-[70vh] w-full overflow-hidden">
+      <section className="relative mb-8 sm:mb-20 md:mb-16">
+        <div className="relative h-[30vh] sm:h-[55vh] lg:h-[70vh] w-full overflow-hidden">
           <Image
             src={backgroundImage}
             alt={imageAlt}
@@ -64,7 +64,7 @@ export function SearchHero({
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.3 }}
-          className="absolute inset-x-4 -bottom-24 z-10 mx-auto flex max-w-4xl flex-col sm:-bottom-16 md:-bottom-10"
+          className="relative z-10 mx-auto -mt-10 flex w-full max-w-4xl flex-col px-4 sm:absolute sm:inset-x-4 sm:-bottom-16 sm:mt-0 sm:px-0 md:-bottom-10"
         >
           <SearchBar defaultPurpose={defaultPurpose} />
         </motion.div>

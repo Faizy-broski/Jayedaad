@@ -1,21 +1,12 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowRight, Eye, EyeOff, Home } from 'lucide-react';
 import { COUNTRIES, getMaxPhoneDigits, PAKISTAN_CITIES, useAgencyRegistrationViewModel, useAuthViewModel } from '@jayedaad/core';
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  Checkbox,
-  CountryCodeSelect,
-  Input,
-  Label,
-  Select,
-} from '@jayedaad/ui-web';
+import { Button, Checkbox, CountryCodeSelect, Input, Label, Select } from '@jayedaad/ui-web';
 
 type AccountType = 'individual' | 'agency';
 
@@ -32,13 +23,16 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-// Field order/grouping mirrors Zameen.com's signup modal (Google -> OR ->
-// Name/Email/Password/Confirm/Phone -> marketing + terms checkboxes ->
-// submit), restyled onto our existing full-page route. On success, Supabase
-// already returns an active session (Confirm email is off —
-// profiles.email_verified is the real gate, see services/api/src/auth/otp),
-// so we fire the first OTP email immediately and send the user to
-// /verify-email rather than any role landing.
+// Split-screen layout matching /login: full-bleed hero image + copy on the
+// left (sticky, so it stays put while the longer form scrolls on the
+// right), pill-styled fields on the right. Field order/grouping still
+// mirrors Zameen.com's signup modal (Google -> OR -> Name/Email/Password/
+// Confirm/Phone -> marketing + terms checkboxes -> submit) — only the
+// chrome around it changed. On success, Supabase already returns an active
+// session (Confirm email is off — profiles.email_verified is the real gate,
+// see services/api/src/auth/otp), so we fire the first OTP email
+// immediately and send the user to /verify-email rather than any role
+// landing.
 export default function SignupPage() {
   const router = useRouter();
   const { signUp, sendOtp, signInWithGoogle } = useAuthViewModel();
@@ -54,6 +48,8 @@ export default function SignupPage() {
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agencyName, setAgencyName] = useState('');
   const [agencyCity, setAgencyCity] = useState('');
 
@@ -98,36 +94,103 @@ export default function SignupPage() {
   const isPending = signUp.isPending || sendOtp.isPending || registerAgency.isPending;
 
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-8">
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Create your account</CardTitle>
-          <CardDescription>Sign up to start buying, selling, or renting on Jayedaad.</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <Button
+    <main className="relative grid h-screen overflow-hidden lg:grid-cols-2">
+      {/* Escape hatch back to the marketing site — AppChrome deliberately
+          omits Header/Footer on this route (see AppChrome.tsx), so this is
+          the only way back without hitting the browser back button. */}
+      <Link
+        href="/"
+        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-white"
+      >
+        <Home className="h-4 w-4" />
+        Home
+      </Link>
+
+      {/* Left: hero image + copy — hidden on mobile/tablet, same breakpoint
+          as /login. The whole page no longer scrolls (main is h-screen), so
+          this no longer needs to be sticky — it just fills its grid row. */}
+      <div className="relative hidden overflow-hidden lg:block">
+        <Image
+          src="/images/login-bg.png"
+          alt="A Jayedaad home ready to welcome its next owner"
+          fill
+          priority
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+
+        <div className="absolute left-8 top-8 flex items-center gap-2 text-white">
+          <span className="text-xl font-bold tracking-wide">JAYEDAAD</span>
+        </div>
+
+        <div className="absolute inset-x-0 bottom-0 space-y-4 p-10">
+          <span className="eyebrow-label text-white/70">Join Jayedaad</span>
+          <h1 className="heading-display leading-[1.1] text-white">
+            Start your search.
+            <br />
+            Find the place you&apos;ll call home.
+          </h1>
+
+          <div className="flex items-center gap-3 pt-2">
+            <div className="flex -space-x-3">
+              {['/images/auth/avatar-1.jpg', '/images/auth/avatar-2.jpg', '/images/auth/avatar-3.jpg'].map((src) => (
+                <div key={src} className="relative h-9 w-9 overflow-hidden rounded-full border-2 border-white">
+                  <Image src={src} alt="" fill className="object-cover" sizes="36px" />
+                </div>
+              ))}
+            </div>
+            <p className="body-text-sm text-white/80">
+              Trusted by discerning homeowners
+              <br />
+              across 40+ cities worldwide.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Right: signup form. Centered via my-auto on the child (below), NOT
+          items-center on this container — align-items centering clips the
+          TOP half unreachably when a flex child overflows an overflow-y-auto
+          parent (scrollTop can't go negative), which is exactly what
+          happened before. margin:auto centering doesn't have that bug: it
+          collapses to 0 instead of clipping. overflow-y-auto itself is a
+          fallback for very short viewports; spacing below is tuned to fit
+          without scrolling on typical screens. */}
+      <div className="flex justify-center overflow-y-auto px-6 py-4 sm:px-10">
+        <div className="my-auto w-full max-w-md space-y-3">
+          <div className="space-y-0.5">
+            <span className="eyebrow-label text-muted-foreground">Create account</span>
+            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Let&apos;s get you started.</h2>
+            <p className="body-text-sm text-muted-foreground">
+              Sign up to start buying, selling, or renting on Jayedaad.
+            </p>
+          </div>
+
+          <button
             type="button"
-            variant="outline"
-            className="w-full"
             disabled={signInWithGoogle.isPending}
             onClick={handleGoogle}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
           >
+            <GoogleIcon className="h-4 w-4" />
             Continue with Google
-          </Button>
+          </button>
 
-          <div className="my-3 flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs font-medium text-muted-foreground">OR</span>
+            <span className="eyebrow-label whitespace-nowrap text-muted-foreground">Or</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+          <form onSubmit={handleSubmit} className="space-y-2.5">
+            <div className="flex gap-2 rounded-full border border-input bg-muted/40 p-1">
               <button
                 type="button"
                 onClick={() => setAccountType('individual')}
-                className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  accountType === 'individual' ? 'border-primary bg-primary/10 text-primary' : 'border-input text-muted-foreground'
+                className={`flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                  accountType === 'individual'
+                    ? 'bg-heading-gradient text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Individual
@@ -135,8 +198,10 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => setAccountType('agency')}
-                className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  accountType === 'agency' ? 'border-primary bg-primary/10 text-primary' : 'border-input text-muted-foreground'
+                className={`flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                  accountType === 'agency'
+                    ? 'bg-heading-gradient text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Agency
@@ -145,11 +210,22 @@ export default function SignupPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="name">{accountType === 'agency' ? 'Your Name' : 'Name'}</Label>
-                <Input id="name" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Label htmlFor="name" className="eyebrow-label text-muted-foreground">
+                  {accountType === 'agency' ? 'Your name' : 'Name'}
+                </Label>
+                <Input
+                  id="name"
+                  required
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-10 rounded-full border-input px-5"
+                />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="eyebrow-label text-muted-foreground">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -157,39 +233,73 @@ export default function SignupPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="h-10 rounded-full border-input px-5"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <Label htmlFor="password" className="eyebrow-label text-muted-foreground">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-10 rounded-full border-input px-5 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
+                <Label htmlFor="confirmPassword" className="eyebrow-label text-muted-foreground">
+                  Confirm password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-10 rounded-full border-input px-5 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone" className="eyebrow-label text-muted-foreground">
+                Phone
+              </Label>
               <div className="flex items-center gap-2">
-                <CountryCodeSelect countries={COUNTRIES} value={dialCode} onChange={setDialCode} className="w-[110px] shrink-0" />
+                <CountryCodeSelect
+                  countries={COUNTRIES}
+                  value={dialCode}
+                  onChange={setDialCode}
+                  className="h-10 w-[110px] shrink-0 rounded-full"
+                />
                 <Input
                   id="phone"
                   type="tel"
@@ -199,22 +309,37 @@ export default function SignupPage() {
                   value={phone}
                   maxLength={getMaxPhoneDigits(dialCode)}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, getMaxPhoneDigits(dialCode)))}
-                  className="min-w-0 flex-1"
+                  className="h-10 min-w-0 flex-1 rounded-full border-input px-5"
                 />
               </div>
             </div>
 
             {accountType === 'agency' && (
-              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+              <div className="space-y-2 rounded-2xl border border-border bg-muted/30 p-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label htmlFor="agencyName">Agency Name</Label>
-                    <Input id="agencyName" required value={agencyName} onChange={(e) => setAgencyName(e.target.value)} />
+                    <Label htmlFor="agencyName" className="eyebrow-label text-muted-foreground">
+                      Agency name
+                    </Label>
+                    <Input
+                      id="agencyName"
+                      required
+                      value={agencyName}
+                      onChange={(e) => setAgencyName(e.target.value)}
+                      className="h-10 rounded-full border-input px-5"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="agencyCity">Agency City</Label>
-                    <Select id="agencyCity" value={agencyCity} onChange={(e) => setAgencyCity(e.target.value)}>
-                      <option value="">Select City</option>
+                    <Label htmlFor="agencyCity" className="eyebrow-label text-muted-foreground">
+                      Agency city
+                    </Label>
+                    <Select
+                      id="agencyCity"
+                      value={agencyCity}
+                      onChange={(e) => setAgencyCity(e.target.value)}
+                      className="h-10 rounded-full border-input px-5"
+                    >
+                      <option value="">Select city</option>
                       {PAKISTAN_CITIES.map((city) => (
                         <option key={city} value={city}>
                           {city}
@@ -223,27 +348,23 @@ export default function SignupPage() {
                     </Select>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs leading-snug text-muted-foreground">
                   Your agency will be reviewed before it goes live — upload verification documents right after signing up.
                 </p>
               </div>
             )}
 
-            {passwordMismatch && <p className="text-sm text-destructive">Passwords don&apos;t match.</p>}
-            {signUp.isError && <p className="text-sm text-destructive">Could not create your account. Try again.</p>}
+            {passwordMismatch && <p className="text-xs text-destructive">Passwords don&apos;t match.</p>}
+            {signUp.isError && <p className="text-xs text-destructive">Could not create your account. Try again.</p>}
             {registerAgency.isError && (
-              <p className="text-sm text-destructive">
+              <p className="text-xs text-destructive">
                 {(registerAgency.error as any)?.response?.data?.message || 'Could not register your agency. Try again.'}
               </p>
             )}
 
             <div className="space-y-1.5">
               <label className="flex items-start gap-2 text-xs leading-tight text-muted-foreground">
-                <Checkbox
-                  checked={marketingOptIn}
-                  onChange={(e) => setMarketingOptIn(e.target.checked)}
-                  className="mt-0.5"
-                />
+                <Checkbox checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} className="mt-0.5" />
                 Yes, I&apos;d like to receive marketing communication from Jayedaad.
               </label>
               <label className="flex items-start gap-2 text-xs leading-tight text-muted-foreground">
@@ -255,7 +376,7 @@ export default function SignupPage() {
                 />
                 <span>
                   I have read and I agree to the Jayedaad{' '}
-                  <a href="/terms" target="_blank" rel="noreferrer" className="text-primary underline">
+                  <a href="/terms" target="_blank" rel="noreferrer" className="font-medium text-foreground underline">
                     Terms and Conditions
                   </a>
                   .
@@ -263,12 +384,52 @@ export default function SignupPage() {
               </label>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isPending || !termsAccepted}>
-              {isPending ? 'Creating account…' : 'Continue'}
+            <Button
+              type="submit"
+              disabled={isPending || !termsAccepted}
+              className="bg-heading-gradient h-10 w-full rounded-full text-base font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {isPending ? (
+                'Creating account…'
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  Continue <ArrowRight className="h-4 w-4" />
+                </span>
+              )}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{' '}
+            <a href="/login" className="font-medium text-foreground underline underline-offset-2">
+              Sign in
+            </a>
+          </p>
+        </div>
+      </div>
     </main>
+  );
+}
+
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.87c2.27-2.09 3.58-5.17 3.58-8.82z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.87-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11A11.99 11.99 0 0 0 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.61H1.27A11.99 11.99 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4-3.11z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.27 6.61l4 3.11C6.22 6.88 8.87 4.77 12 4.77z"
+      />
+    </svg>
   );
 }

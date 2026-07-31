@@ -11,7 +11,7 @@ export function ServiceCard({ service }: { service: Service }) {
     return (
       <Link
         href={href}
-        className="group relative flex h-full min-h-[480px] flex-col justify-end overflow-hidden rounded-3xl p-5"
+        className="group relative flex h-full min-h-[300px] lg:min-h-[400px] flex-col justify-end overflow-hidden rounded-3xl p-5"
       >
         <Image
           src={image}

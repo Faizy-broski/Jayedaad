@@ -104,7 +104,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bedrooms</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 grid grid-cols-5 gap-2">
           {BED_BATH_OPTIONS.map((n) => {
             const active = filters.minBedrooms === n;
             return (
@@ -112,7 +112,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
                 key={n}
                 type="button"
                 onClick={() => set('minBedrooms', active ? null : n)}
-                className={`flex h-9 w-12 items-center justify-center rounded-full border text-xs font-medium transition-colors ${
+                className={`flex h-9 w-full items-center justify-center rounded-full border text-xs font-medium transition-colors ${
                   active
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-slate-200 text-slate-600 hover:border-slate-300'
@@ -127,7 +127,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bathrooms</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 grid grid-cols-5 gap-2">
           {BED_BATH_OPTIONS.map((n) => {
             const active = filters.minBathrooms === n;
             return (
@@ -135,7 +135,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
                 key={n}
                 type="button"
                 onClick={() => set('minBathrooms', active ? null : n)}
-                className={`flex h-9 w-12 items-center justify-center rounded-full border text-xs font-medium transition-colors ${
+                className={`flex h-9 w-full items-center justify-center rounded-full border text-xs font-medium transition-colors ${
                   active
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-slate-200 text-slate-600 hover:border-slate-300'

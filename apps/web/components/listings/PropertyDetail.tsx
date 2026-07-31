@@ -177,7 +177,7 @@ export function PropertyDetail({ listing, similar }: PropertyDetailProps) {
 
           <Reveal delay={0.1}>
             <h2 className="heading-2 text-heading-gradient">Verified reviews</h2>
-            <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {TESTIMONIALS.slice(0, 2).map((testimonial) => (
                 <TestimonialCard key={testimonial.id} testimonial={testimonial} />
               ))}
