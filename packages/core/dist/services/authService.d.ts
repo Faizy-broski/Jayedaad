@@ -55,3 +55,7 @@ export declare function confirmPasswordReset(input: {
 }>;
 export declare function getUserRole(user: User | null): Role | undefined;
 export declare function getUserAgentId(user: User | null): string | undefined;
+export declare function refreshSession(): Promise<{
+    user: User | null;
+    session: import("@supabase/supabase-js").AuthSession | null;
+}>;

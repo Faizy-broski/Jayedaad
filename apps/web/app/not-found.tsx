@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Home, Search } from 'lucide-react';
+import { Home, Search, MapPin, Compass, Building2 } from 'lucide-react';
+import { FloatingIcon } from '@/components/FloatingIcon';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -17,9 +18,13 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
 };
 
+// Fixed full-screen overlay, same rationale as RouteLoading/RouteError —
+// this replaces whatever chrome (Header/Footer, or an agent/admin shell)
+// the requested URL would normally sit inside, rather than rendering
+// awkwardly nested in it.
 export default function NotFound() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white px-4 py-24">
+    <main className="fixed inset-0 z-[999] flex items-center justify-center overflow-hidden bg-white px-4">
       {/* Faint building watermark, same treatment used across the site's
           light sections, so a 404 still reads as unmistakably "Jayedaad". */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.06]">
@@ -30,6 +35,13 @@ export default function NotFound() {
           height={1150}
           className="h-auto w-[70%] max-w-xl object-contain"
         />
+      </div>
+
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <FloatingIcon icon={Compass} className="absolute left-[10%] top-[16%] h-11 w-11 text-primary/10" duration={7} />
+        <FloatingIcon icon={MapPin} className="absolute right-[12%] top-[22%] h-9 w-9 text-primary/10" duration={6} delay={0.6} />
+        <FloatingIcon icon={Building2} className="absolute left-[14%] bottom-[18%] h-10 w-10 text-primary/10" duration={8} delay={0.2} />
+        <FloatingIcon icon={Search} className="absolute right-[10%] bottom-[14%] h-9 w-9 text-primary/10" duration={7.5} delay={1} />
       </div>
 
       <motion.div

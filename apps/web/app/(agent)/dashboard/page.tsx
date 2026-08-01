@@ -2,21 +2,60 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
+  RadialBar,
+  RadialBarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import {
   useAgentDashboardViewModel,
   useSubscriptionViewModel,
   usePreferencesViewModel,
+  useLeadInboxViewModel,
+  useAgentProfileViewModel,
+  useAuthViewModel,
   formatPrice,
   AgentCreditType,
 } from '@jayedaad/core';
-import { Button, Card, CardContent, Tabs } from '@jayedaad/ui-web';
-import { Home, Flame, Sparkles, BarChart3, ImageOff, PlusCircle } from 'lucide-react';
+import { Card, Button } from '@jayedaad/ui-web';
+import {
+  Home,
+  Flame,
+  Sparkles,
+  ImageOff,
+  PlusCircle,
+  Sun,
+  Eye,
+  MousePointerClick,
+  Phone,
+  MessageCircle,
+  Smartphone,
+  Mail,
+  Users,
+  Inbox,
+  ArrowRight,
+  Gauge,
+  CreditCard as CreditCardIcon,
+  TrendingUp,
+} from 'lucide-react';
+import { Reveal } from '@/components/Reveal';
 
-const CREDIT_TABS: { id: AgentCreditType; label: string }[] = [
-  { id: 'listing_quota', label: 'Listing Quota' },
-  { id: 'refresh', label: 'Refresh Credits' },
-  { id: 'hot', label: 'Hot Credits' },
-  { id: 'super_hot', label: 'Super Hot Credits' },
+const CREDIT_TABS: { id: AgentCreditType; label: string; icon: typeof Home }[] = [
+  { id: 'listing_quota', label: 'Quota', icon: Home },
+  { id: 'refresh', label: 'Refresh', icon: TrendingUp },
+  { id: 'hot', label: 'Hot', icon: Sparkles },
+  { id: 'super_hot', label: 'Super Hot', icon: Flame },
 ];
 
 const PURPOSE_FILTERS = [
@@ -25,127 +64,314 @@ const PURPOSE_FILTERS = [
   { id: 'rent' as const, label: 'For Rent' },
 ];
 
-// Zameen "Profolio" Dashboard reference — listings-by-type row, Quota &
-// Credits tabbed panel, engagement stats with purpose filters, an insights
-// teaser, and Recent Listings. Every number here is real (AgentStats/
-// AgentCredit/AgentAnalytics, already built server-side) — a fresh agent
-// account will show all zeros, same as the reference screenshot itself.
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+const STATUS_LABEL: Record<string, { label: string; className: string }> = {
+  verified: { label: 'Verified', className: 'bg-primary/10 text-primary' },
+  pending_verification: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
+  rejected: { label: 'Rejected', className: 'bg-destructive/10 text-destructive' },
+  draft: { label: 'Draft', className: 'bg-muted text-muted-foreground' },
+  expired: { label: 'Expired', className: 'bg-muted text-muted-foreground' },
+  inactive: { label: 'Inactive', className: 'bg-muted text-muted-foreground' },
+  downgraded: { label: 'Downgraded', className: 'bg-muted text-muted-foreground' },
+  deleted: { label: 'Deleted', className: 'bg-muted text-muted-foreground' },
+};
+
+// Themed tooltip — recharts renders its own unstyled default, this matches
+// the rest of the app's card/shadow language instead.
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color?: string }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-md border border-border bg-background px-3 py-2 text-xs shadow-lg">
+      {label && <p className="mb-1 font-medium text-foreground">{label}</p>}
+      {payload.map((p) => (
+        <p key={p.name} className="flex items-center gap-1.5 text-muted-foreground">
+          {p.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />}
+          {p.name}: <span className="font-semibold text-foreground">{p.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// Zameen "Profolio" Dashboard reference, restyled to match the admin
+// dashboard's visual language (greeting header, stat tiles, chart cards,
+// list cards, promo banner) — every number here is still real (AgentStats/
+// AgentCredit/AgentAnalytics/Subscription/Lead, already built server-side),
+// same as the original page this replaces; a fresh agent account shows all
+// zeros rather than any placeholder/sample data, since (unlike the admin
+// dashboard) every section here has a real agent-scoped data source.
 export default function AgentDashboardPage() {
   const [activeCreditTab, setActiveCreditTab] = useState<AgentCreditType>('listing_quota');
   const [purposeFilter, setPurposeFilter] = useState<'sale' | 'rent' | undefined>(undefined);
 
-  const { stats, credits, analytics, recentListings, isRecentListingsLoading } = useAgentDashboardViewModel({
-    purpose: purposeFilter,
-  });
+  const { user } = useAuthViewModel();
+  const { profile } = useAgentProfileViewModel();
+  const {
+    stats,
+    isStatsLoading,
+    credits,
+    isCreditsLoading,
+    analytics,
+    isAnalyticsLoading,
+    recentListings,
+    isRecentListingsLoading,
+  } = useAgentDashboardViewModel({ purpose: purposeFilter });
   const { current: currentPlan } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
+  const { leads, isLoading: isLeadsLoading } = useLeadInboxViewModel({});
 
+  const displayName = profile?.displayName || (user?.user_metadata?.display_name as string | undefined) || 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const activeListings = (stats?.forSaleCount ?? 0) + (stats?.forRentCount ?? 0);
+  const newLeadsCount = leads.filter((l) => l.status === 'new').length;
+  const recentLeads = [...leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
+  const listingQuotaCredit = credits.find((c) => c.creditType === 'listing_quota');
   const activeCredit = credits.find((c) => c.creditType === activeCreditTab);
+  const activeCreditPct = activeCredit && activeCredit.total > 0 ? Math.min(100, (activeCredit.used / activeCredit.total) * 100) : 0;
+
+  const engagementData = [
+    { label: 'Clicks', value: analytics?.clicks ?? 0, icon: MousePointerClick },
+    { label: 'Leads', value: analytics?.leads ?? 0, icon: Users },
+    { label: 'Calls', value: analytics?.calls ?? 0, icon: Phone },
+    { label: 'WhatsApp', value: analytics?.whatsapp ?? 0, icon: MessageCircle },
+    { label: 'SMS', value: analytics?.sms ?? 0, icon: Smartphone },
+    { label: 'Emails', value: analytics?.emails ?? 0, icon: Mail },
+  ];
+
+  const listingsMix = [
+    { name: 'For Sale', value: stats?.forSaleCount ?? 0, color: 'hsl(var(--primary))' },
+    { name: 'For Rent', value: stats?.forRentCount ?? 0, color: 'hsl(var(--brand-emerald))' },
+  ];
+  const hasListingsMix = listingsMix.some((d) => d.value > 0);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardContent className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted-foreground">My Listings</h2>
-              <Link href="/search" className="text-sm font-medium text-primary hover:underline">
-                View all Listings
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <StatTile icon={Home} label="For Sale" value={stats?.forSaleCount ?? 0} />
-              <StatTile icon={Home} label="For Rent" value={stats?.forRentCount ?? 0} />
-              <StatTile
-                icon={Flame}
-                label="Super Hot"
-                value={stats?.byBoostTier.find((b) => b.tier === 'super_hot')?.count ?? 0}
-              />
-              <StatTile icon={Sparkles} label="Hot" value={stats?.byBoostTier.find((b) => b.tier === 'hot')?.count ?? 0} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* <Card>
-          <CardContent className="p-6">
-            <h2 className="mb-4 text-sm font-semibold">Quota and Credits</h2>
-            <Tabs
-              tabs={CREDIT_TABS.map((t) => ({ id: t.id, label: `${t.label} (${credits.find((c) => c.creditType === t.id)?.available ?? 0})` }))}
-              activeId={activeCreditTab}
-              onChange={(id) => setActiveCreditTab(id as AgentCreditType)}
-              className="mb-4"
-            />
-            <div className="grid grid-cols-4 gap-4">
-              <QuotaFigure label="Available Quota" value={activeCredit?.available ?? 0} />
-              <QuotaFigure label="Used" value={activeCredit?.used ?? 0} />
-              <QuotaFigure label="Total" value={activeCredit?.total ?? 0} />
-              <div>
-                <p className="text-xs text-muted-foreground">Current Plan</p>
-                <p className="mt-1 text-lg font-semibold">{currentPlan?.tier.name ?? '-'}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card> */}
-      </div>
-
-      <Card>
-        <CardContent className="p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex gap-2">
-              {PURPOSE_FILTERS.map((f) => (
-                <Button
-                  key={f.label}
-                  size="sm"
-                  variant={purposeFilter === f.id ? 'primary' : 'outline'}
-                  onClick={() => setPurposeFilter(f.id)}
-                >
-                  {f.label}
-                </Button>
-              ))}
-            </div>
-            <span className="text-sm text-muted-foreground">Last 30 Days</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-            <StatFigure label="Clicks" value={analytics?.clicks ?? 0} />
-            <StatFigure label="Leads" value={analytics?.leads ?? 0} />
-            <StatFigure label="Calls" value={analytics?.calls ?? 0} />
-            <StatFigure label="WhatsApp" value={analytics?.whatsapp ?? 0} />
-            <StatFigure label="SMS" value={analytics?.sms ?? 0} />
-            <StatFigure label="Emails" value={analytics?.emails ?? 0} />
-          </div>
-
-          <div className="mt-8 flex flex-col items-center rounded-lg border border-dashed border-border py-10 text-center">
-            <div className="relative mb-3 rounded-full bg-muted p-3">
-              <BarChart3 className="h-6 w-6 text-primary" />
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                {analytics?.views ?? 0}
-              </span>
-            </div>
-            <h3 className="text-sm font-semibold">View In-Depth Insights</h3>
-            <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-              See the number of views, clicks and leads that your listing has received.
+      {/* Greeting header */}
+      <Reveal>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Sun className="h-4 w-4" />
+              {today}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">
+              {greeting}, {displayName}.
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              You have <span className="font-semibold text-foreground">{activeListings}</span> active listings and{' '}
+              <span className="font-semibold text-foreground">{newLeadsCount}</span> new inquiries since morning.
+              Everything is on track.
             </p>
           </div>
-        </CardContent>
-      </Card>
 
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">Recent Listings</h2>
-          <Link href="/search" className="text-sm font-medium text-muted-foreground hover:underline">
-            View All Listings
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/submit"
+              className="bg-heading-gradient flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Post Listing
+            </Link>
+            <Link
+              href="/property-management"
+              className="flex items-center gap-1.5 rounded-full border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Home className="h-4 w-4" />
+              My Listings
+            </Link>
+            <Link
+              href="/crm"
+              className="flex items-center gap-1.5 rounded-full border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Inbox className="h-4 w-4" />
+              View Inbox
+            </Link>
+          </div>
         </div>
+      </Reveal>
 
-        <Card>
-          <CardContent className="p-10">
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {isStatsLoading || isAnalyticsLoading ? (
+          [0, 1, 2, 3, 4].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+        ) : (
+          <>
+            <StatTile index={0} icon={Home} label="Total Listings" value={activeListings} sub="For sale & rent" />
+            <StatTile index={1} icon={Home} label="For Sale" value={stats?.forSaleCount ?? 0} sub="Active" />
+            <StatTile index={2} icon={Home} label="For Rent" value={stats?.forRentCount ?? 0} sub="Active" />
+            <StatTile index={3} icon={Users} label="Leads" value={analytics?.leads ?? 0} sub="Last 30 days" />
+            <StatTile index={4} icon={Eye} label="Views" value={analytics?.views ?? 0} sub="Last 30 days" />
+          </>
+        )}
+      </div>
+
+      {/* Charts: engagement bar chart, credits radial gauge, listings mix donut */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+        <Reveal className="lg:col-span-1">
+          <Card className="h-full p-4 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Listing engagement</h2>
+                <p className="text-sm text-muted-foreground">How buyers are reaching out to you</p>
+              </div>
+              <div className="flex gap-2">
+                {PURPOSE_FILTERS.map((f) => (
+                  <Button key={f.label} size="sm" variant={purposeFilter === f.id ? 'primary' : 'outline'} onClick={() => setPurposeFilter(f.id)}>
+                    {f.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {isAnalyticsLoading ? (
+              <div className="mt-6 h-60 animate-pulse rounded-md bg-muted/40" />
+            ) : (
+              <div className="mt-4 h-60">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={engagementData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="engagementFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" />
+                        <stop offset="100%" stopColor="hsl(var(--brand-emerald))" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
+                    <Bar dataKey="value" name="Count" fill="url(#engagementFill)" radius={[6, 6, 0, 0]} animationDuration={900} animationEasing="ease-out" maxBarSize={44} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </Card>
+        </Reveal>
+
+        {/* <Reveal>
+          <Card className="flex h-full flex-col p-4 sm:p-6">
+            <h2 className="text-base font-semibold text-foreground">Quota &amp; Credits</h2>
+            <p className="text-xs text-muted-foreground">Plan: {currentPlan?.tier.name ?? '—'}</p>
+
+            <div className="mt-3 flex flex-wrap gap-1 rounded-full border border-border bg-muted/40 p-1">
+              {CREDIT_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveCreditTab(tab.id)}
+                  className={`relative flex-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                    activeCreditTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {activeCreditTab === tab.id && (
+                    <motion.span
+                      layoutId="dashboardCreditTab"
+                      className="bg-heading-gradient absolute inset-0 rounded-full"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="relative">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {isCreditsLoading ? (
+              <div className="mt-4 h-44 flex-1 animate-pulse rounded-md bg-muted/40" />
+            ) : (
+              <div className="relative mt-2 flex-1">
+                <ResponsiveContainer width="100%" height={180}>
+                  <RadialBarChart innerRadius="72%" outerRadius="100%" data={[{ value: activeCreditPct }]} startAngle={90} endAngle={-270}>
+                    <defs>
+                      <linearGradient id="creditGaugeFill" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" />
+                        <stop offset="100%" stopColor="hsl(var(--brand-emerald))" />
+                      </linearGradient>
+                    </defs>
+                    <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+                    <RadialBar dataKey="value" cornerRadius={8} fill="url(#creditGaugeFill)" background={{ fill: 'hsl(var(--muted))' }} animationDuration={900} />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-xl font-bold text-foreground">{activeCredit?.available ?? 0}</p>
+                  <p className="text-[11px] text-muted-foreground">of {activeCredit?.total ?? 0} available</p>
+                </div>
+              </div>
+            )}
+          </Card>
+        </Reveal> */}
+
+        <Reveal>
+          <Card className="flex h-full flex-col p-4 sm:p-6">
+            <h2 className="text-base font-semibold text-foreground">Listings Mix</h2>
+            <p className="text-xs text-muted-foreground">Sale vs. rent split</p>
+
+            {isStatsLoading ? (
+              <div className="mt-4 h-44 flex-1 animate-pulse rounded-md bg-muted/40" />
+            ) : !hasListingsMix ? (
+              <div className="mt-4 flex flex-1 flex-col items-center justify-center text-center">
+                <ImageOff className="mb-2 h-8 w-8 text-muted-foreground/40" />
+                <p className="text-xs text-muted-foreground">No listings yet.</p>
+              </div>
+            ) : (
+              <div className="relative mt-2 flex-1">
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={listingsMix} dataKey="value" nameKey="name" innerRadius={50} outerRadius={72} paddingAngle={4} animationDuration={900}>
+                      {listingsMix.map((d) => (
+                        <Cell key={d.name} fill={d.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<ChartTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-xl font-bold text-foreground">{activeListings}</p>
+                  <p className="text-[11px] text-muted-foreground">total</p>
+                </div>
+                <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                  {listingsMix.map((d) => (
+                    <span key={d.name} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
+                      {d.name} ({d.value})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        </Reveal>
+      </div>
+
+      {/* Recent listings + New inquiries */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+        <Reveal>
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-foreground">Recent Listings</h2>
+              <Link href="/property-management" className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline">
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
             {isRecentListingsLoading ? (
-              <p className="text-center text-sm text-muted-foreground">Loading…</p>
+              <div className="mt-4 space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-md bg-muted/40" />
+                ))}
+              </div>
             ) : recentListings.length === 0 ? (
-              <div className="flex flex-col items-center text-center">
+              <div className="mt-6 flex flex-col items-center py-6 text-center">
                 <ImageOff className="mb-3 h-10 w-10 text-muted-foreground/50" />
-                <h3 className="text-sm font-semibold">No Active Listings</h3>
+                <h3 className="text-sm font-semibold text-foreground">No Active Listings</h3>
                 <p className="mt-1 text-xs text-muted-foreground">Your active listings will appear here</p>
                 <Link href="/submit" className="mt-4">
                   <Button size="sm">
@@ -155,52 +381,169 @@ export default function AgentDashboardPage() {
                 </Link>
               </div>
             ) : (
-              <ul className="divide-y divide-border">
-                {recentListings.map((listing) => (
-                  <li key={listing.id} className="flex items-center justify-between py-3 text-sm">
-                    <span className="font-medium">{listing.title}</span>
-                    <span className="text-muted-foreground">
-                      {listing.area}, {listing.city} — {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
-                    </span>
-                  </li>
+              <ul className="mt-4 divide-y divide-border">
+                {recentListings.map((listing, index) => {
+                  const status = STATUS_LABEL[listing.status] ?? STATUS_LABEL.draft;
+                  return (
+                    <motion.li
+                      key={listing.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: index * 0.05 }}
+                      className="flex items-center gap-3 py-3"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <Home className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{listing.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {listing.city}, {listing.area}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-sm font-semibold text-foreground">
+                          {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}>{status.label}</span>
+                      </div>
+                    </motion.li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </Reveal>
+
+        <Reveal>
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-foreground">New Inquiries</h2>
+              <Link href="/crm" className="text-sm font-medium text-primary hover:underline">
+                View all
+              </Link>
+            </div>
+            {isLeadsLoading ? (
+              <div className="mt-4 space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-md bg-muted/40" />
+                ))}
+              </div>
+            ) : recentLeads.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">No inquiries yet.</p>
+            ) : (
+              <ul className="mt-4 space-y-4">
+                {recentLeads.map((lead, index) => (
+                  <motion.li
+                    key={lead.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: index * 0.06 }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">{lead.name}</p>
+                      <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(lead.createdAt)}</span>
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{lead.message}</p>
+                  </motion.li>
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+          </Card>
+        </Reveal>
+      </div>
+
+      {/* Insights + Plan + Promo */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Reveal>
+          <Card className="flex h-full flex-col items-center justify-center p-6 text-center">
+            <div className="relative mb-3 rounded-full bg-muted p-3">
+              <Gauge className="h-6 w-6 text-primary" />
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {analytics?.views ?? 0}
+              </span>
+            </div>
+            <h3 className="text-sm font-semibold text-foreground">View In-Depth Insights</h3>
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+              See the number of views, clicks and leads that your listings have received.
+            </p>
+          </Card>
+        </Reveal>
+
+        <Reveal>
+          <Card className="h-full p-6">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <CreditCardIcon className="h-3.5 w-3.5" />
+              My Plan
+            </p>
+            <p className="mt-2 text-xl font-bold text-foreground">{currentPlan?.tier.name ?? 'No active plan'}</p>
+            <p className="mt-1 text-xs capitalize text-muted-foreground">{currentPlan?.status ?? '—'}</p>
+            {currentPlan?.currentPeriodEnd && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Renews {new Date(currentPlan.currentPeriodEnd).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </p>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              {listingQuotaCredit ? `${listingQuotaCredit.available} of ${listingQuotaCredit.total} listing slots left` : ''}
+            </p>
+            <Link href="/plan" className="mt-4 flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+              Manage plan <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Card>
+        </Reveal>
+
+        <Reveal>
+          <Card className="flex h-full flex-col justify-between overflow-hidden bg-brand-dark p-6 text-white">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">Grow faster</p>
+              <p className="mt-2 text-lg font-semibold leading-snug">
+                Boost a listing to <span className="text-brand-emerald">Hot</span> or{' '}
+                <span className="text-brand-emerald">Super Hot</span> to reach more buyers.
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-white/70">
+                Boosted listings surface higher in search and category pages.
+              </p>
+            </div>
+            <Link
+              href="/property-management"
+              className="mt-6 block w-full rounded-full bg-white py-2.5 text-center text-sm font-semibold text-brand-dark hover:bg-white/90"
+            >
+              Boost a listing
+            </Link>
+          </Card>
+        </Reveal>
       </div>
     </div>
   );
 }
 
-function StatTile({ icon: Icon, label, value }: { icon: typeof Home; label: string; value: number }) {
+function StatTile({
+  index,
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  index: number;
+  icon: typeof Home;
+  label: string;
+  value: number;
+  sub: string;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="rounded-md bg-muted p-2">
-        <Icon className="h-4 w-4 text-primary" />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-lg font-semibold">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function QuotaFigure({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function StatFigure({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold">{value}</p>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.06 }}
+    >
+      <Card className="p-4">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </span>
+        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
+      </Card>
+    </motion.div>
   );
 }

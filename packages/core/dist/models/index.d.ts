@@ -338,6 +338,27 @@ export interface UpdateAgencyInput {
 export interface SetAgencyVerificationStatusInput {
     status: 'verified' | 'rejected';
 }
+export interface AgencyStaffMember {
+    id: string;
+    displayName: string | null;
+    phone: string | null;
+    city: string | null;
+    verificationStatus: 'pending' | 'verified' | 'rejected';
+    isAgencyAdmin: boolean;
+}
+export interface CreateAgencyStaffInput {
+    email: string;
+    password: string;
+    displayName?: string;
+}
+export interface RegisterAgencyInput {
+    agencyName: string;
+    agencySlug: string;
+    agencyPhone?: string;
+    agencyCity?: string;
+    displayName?: string;
+    agentPhone?: string;
+}
 export interface AgencyStats {
     forSaleCount: number;
     forRentCount: number;
@@ -363,6 +384,20 @@ export interface AgentProfileSummary {
     address: string | null;
     photoUrl: string | null;
     agency: Agency | null;
+    verificationStatus: 'pending' | 'verified' | 'rejected';
+    isAgencyAdmin: boolean;
+}
+export interface ApplyAsAgentInput {
+    displayName?: string;
+    phone?: string;
+    city?: string;
+}
+export interface PendingAgentApplication extends AgentProfileSummary {
+    documents: {
+        required: string[];
+        uploaded: string[];
+        missing: string[];
+    };
 }
 export interface UserPreferences {
     emailNotifications: boolean;
@@ -602,6 +637,12 @@ export type OnboardingDocumentType = 'company_registration' | 'owner_id_card' | 
 export interface ListingDocument {
     id: string;
     documentType: ListingDocumentType;
+    url: string;
+    uploadedAt: string;
+}
+export interface OnboardingDocument {
+    id: string;
+    documentType: OnboardingDocumentType;
     url: string;
     uploadedAt: string;
 }

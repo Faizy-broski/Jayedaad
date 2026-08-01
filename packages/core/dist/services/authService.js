@@ -123,3 +123,14 @@ export function getUserRole(user) {
 export function getUserAgentId(user) {
     return user?.app_metadata?.agent_id;
 }
+// Pulls a fresh JWT after a server-side app_metadata change (e.g.
+// POST /agents/apply flipping role: buyer -> agent) — without this, the
+// cached session's role/agentId claims stay stale until next sign-in.
+// useAuthStore's onAuthStateChange listener picks up the refreshed session
+// automatically, same as any other auth state transition.
+export async function refreshSession() {
+    const { data, error } = await getSupabaseClient().auth.refreshSession();
+    if (error)
+        throw error;
+    return data;
+}

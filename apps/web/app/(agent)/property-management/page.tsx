@@ -14,9 +14,21 @@ import {
   usePreferencesViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
-import { Button, Card, CardContent, DateRange, DateRangePicker, Input, Select, Tabs } from '@jayedaad/ui-web';
+import { Button, Card, CardContent, DateRange, DateRangePicker, Input, Select } from '@jayedaad/ui-web';
 import toast from 'react-hot-toast';
-import { Copy, Eye, ImageOff, PlusCircle, Trash2, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Reveal } from '@/components/Reveal';
+import {
+  Building2,
+  Copy,
+  Eye,
+  ImageOff,
+  MapPin,
+  PlusCircle,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 const AREA_UNIT_LABELS: Record<AreaUnit, string> = {
@@ -62,6 +74,17 @@ const STATUS_TABS: { id: ListingStatus; label: string }[] = [
   // { id: 'downgraded', label: 'Downgraded' },
   { id: 'inactive', label: 'Inactive' },
 ];
+
+const STATUS_BADGE: Record<ListingStatus, { label: string; className: string }> = {
+  draft: { label: 'Draft', className: 'bg-muted text-muted-foreground' },
+  verified: { label: 'Active', className: 'bg-primary/10 text-primary' },
+  pending_verification: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
+  rejected: { label: 'Rejected', className: 'bg-destructive/10 text-destructive' },
+  expired: { label: 'Expired', className: 'bg-slate-100 text-slate-600' },
+  deleted: { label: 'Deleted', className: 'bg-slate-100 text-slate-600' },
+  downgraded: { label: 'Downgraded', className: 'bg-slate-100 text-slate-600' },
+  inactive: { label: 'Inactive', className: 'bg-slate-100 text-slate-600' },
+};
 
 interface DraftFilters {
   listingNumber: string;
@@ -207,8 +230,15 @@ export default function PropertyManagementPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
+      <Reveal>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Property Management</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Track, edit, and manage every listing you&apos;ve posted.</p>
+        </div>
+      </Reveal>
+
+      <Reveal><Card>
+        <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Input
               placeholder="Enter Listing ID (e.g. JYD-00001)"
@@ -245,9 +275,10 @@ export default function PropertyManagementPage() {
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="text-sm font-medium text-primary hover:underline"
+                className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
               >
-                More Filters »
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                More Filters
               </button>
               <button type="button" onClick={clearFilters} className="text-sm font-medium text-destructive hover:underline">
                 Clear filters
@@ -256,12 +287,25 @@ export default function PropertyManagementPage() {
             <Button onClick={applySearch}>Search</Button>
           </div>
         </CardContent>
-      </Card>
+      </Card></Reveal>
 
+      <AnimatePresence>
       {filtersOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex justify-end"
+        >
           <div className="absolute inset-0 bg-black/40" onClick={() => setFiltersOpen(false)} />
-          <div className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-background shadow-xl">
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-background shadow-xl"
+          >
             <div className="flex items-start justify-between border-b border-border p-6">
               <div>
                 <h2 className="text-lg font-semibold">Filters</h2>
@@ -418,112 +462,166 @@ export default function PropertyManagementPage() {
               </Button>
               <Button onClick={applyPanelFilters}>Search</Button>
             </div>
-          </div>
+          </motion.div>
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      <Reveal>
+        <div className="flex flex-wrap gap-1 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
+          {STATUS_TABS.map((t) => {
+            const count = isStatusCountsLoading ? 0 : (statusCounts[t.id] ?? 0);
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => changeTab(t.id)}
+                className={`relative shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  active ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="activePropertyStatusPill"
+                    className="bg-heading-gradient absolute inset-0 rounded-full"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative">
+                  {t.label} ({count})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Reveal>
+
+      {isLoading && (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl border border-border bg-muted/40" />
+          ))}
         </div>
       )}
 
-      <Tabs
-        tabs={STATUS_TABS.map((t) => ({
-          id: t.id,
-          label: `${t.label} (${isStatusCountsLoading ? 0 : (statusCounts[t.id] ?? 0)})`,
-        }))}
-        activeId={activeTab}
-        onChange={changeTab}
-      />
+      {!isLoading && listings.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center"
+        >
+          <ImageOff className="mb-3 h-10 w-10 text-muted-foreground/50" />
+          <h3 className="text-sm font-semibold text-foreground">No {activeTabLabel} Listings</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Your {activeTabLabel.toLowerCase()} listings will appear here</p>
+          <Link href="/submit" className="mt-4">
+            <Button size="sm">
+              <PlusCircle className="mr-1.5 h-4 w-4" />
+              Post Listing
+            </Button>
+          </Link>
+        </motion.div>
+      )}
 
-      <Card>
-        <CardContent className="p-10">
-          {isLoading ? (
-            <p className="text-center text-sm text-muted-foreground">Loading…</p>
-          ) : listings.length === 0 ? (
-            <div className="flex flex-col items-center text-center">
-              <ImageOff className="mb-3 h-10 w-10 text-muted-foreground/50" />
-              <h3 className="text-sm font-semibold">No {activeTabLabel} Listings</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Your {activeTabLabel.toLowerCase()} listings will appear here</p>
-              <Link href="/submit" className="mt-4">
-                <Button size="sm">
-                  <PlusCircle className="mr-1.5 h-4 w-4" />
-                  Post Listing
-                </Button>
-              </Link>
-            </div>
-          ) : (
-            <>
-              <div className="hidden border-b border-border pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[1fr_1.6fr_1.4fr_1fr_auto] sm:items-center sm:gap-4">
-                <span>Listing ID</span>
-                <span>Property</span>
-                <span>Location</span>
-                <span>Price</span>
-                <span className="text-right">Actions</span>
-              </div>
-              <ul className="divide-y divide-border">
-                {listings.map((listing) => (
-                  <li
+      {!isLoading && listings.length > 0 && (
+        <>
+          <ul className="space-y-3">
+            <AnimatePresence initial={false}>
+              {listings.map((listing, index) => {
+                const status = STATUS_BADGE[listing.status];
+                return (
+                  <motion.li
                     key={listing.id}
-                    className="grid grid-cols-1 gap-3 py-4 text-sm sm:grid-cols-[1fr_1.6fr_1.4fr_1fr_auto] sm:items-center sm:gap-4"
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+                    transition={{ duration: 0.25, delay: Math.min(index, 6) * 0.04 }}
+                    whileHover={{ y: -2 }}
+                    className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
                   >
-                    <button
-                      type="button"
-                      onClick={() => handleCopyId(listing.listingNumber)}
-                      title="Copy Listing ID"
-                      className="flex w-fit items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary"
-                    >
-                      {formatListingCode(listing.listingNumber)}
-                      <Copy className="h-3 w-3" />
-                    </button>
-                    <span className="font-medium">{listing.title}</span>
-                    <span className="text-muted-foreground">
-                      {listing.area}, {listing.city}
-                    </span>
-                    <span className="font-medium">{formatPrice(Number(listing.price), preferences?.preferredCurrency)}</span>
-                    <div className="flex items-center gap-2 sm:justify-end">
-                      <Link href={`/submit?edit=${listing.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Eye className="mr-1.5 h-3.5 w-3.5" />
-                          View / Edit
-                        </Button>
-                      </Link>
-                      {activeTab === 'draft' && (
-                        <Button
-                          size="sm"
-                          disabled={submitForVerification.isPending}
-                          onClick={() => handleSubmitForVerification(listing.id)}
-                        >
-                          Submit
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:bg-destructive/10"
-                        disabled={remove.isPending}
-                        onClick={() => handleDelete(listing.id, listing.title)}
-                      >
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <Building2 className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">{listing.title}</p>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}>
+                              {status.label}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {listing.area}, {listing.city}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyId(listing.listingNumber)}
+                              title="Copy Listing ID"
+                              className="flex items-center gap-1 font-mono hover:text-foreground"
+                            >
+                              {formatListingCode(listing.listingNumber)}
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
 
-              {totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-center gap-3">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                    Previous
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                    Next
-                  </Button>
-                </div>
-              )}
-            </>
+                      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                        <span className="mr-1 text-sm font-semibold text-foreground">
+                          {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
+                        </span>
+                        <Link href={`/submit?edit=${listing.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Eye className="mr-1.5 h-3.5 w-3.5" />
+                            View / Edit
+                          </Button>
+                        </Link>
+                        {activeTab === 'draft' && (
+                          <Button
+                            size="sm"
+                            disabled={submitForVerification.isPending}
+                            onClick={() => handleSubmitForVerification(listing.id)}
+                          >
+                            Submit
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10"
+                          disabled={remove.isPending}
+                          onClick={() => handleDelete(listing.id, listing.title)}
+                        >
+                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
+          </ul>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Next
+              </Button>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 }

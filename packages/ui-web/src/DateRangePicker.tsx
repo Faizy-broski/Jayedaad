@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from './lib/cn';
 
 export interface DateRange {
@@ -41,6 +41,19 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
     const base = value.from ? new Date(value.from) : new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setDraft(value);
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, value]);
 
   function openPanel() {
     setDraft(value);
@@ -83,11 +96,11 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
   ];
 
   return (
-    <div className={cn('relative', className)}>
+    <div ref={containerRef} className={cn('relative', className)}>
       <button
         type="button"
         onClick={openPanel}
-        className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-left transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span aria-hidden className="shrink-0 text-muted-foreground">
           📅
@@ -95,15 +108,19 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
         <span className="truncate">{formatLabel(value)}</span>
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 flex w-[420px] rounded-md border border-border bg-background shadow-lg">
-          <div className="flex w-32 shrink-0 flex-col border-r border-border py-2">
+      <div
+        className={cn(
+          'absolute left-0 right-0 top-full z-20 mt-1 flex max-h-[80vh] origin-top-right flex-col overflow-auto rounded-md border border-border bg-background shadow-lg transition-all duration-150 ease-out sm:left-auto sm:w-[420px] sm:flex-row',
+          open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0',
+        )}
+      >
+          <div className="flex shrink-0 flex-row overflow-x-auto border-b border-border py-2 sm:w-32 sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-r">
             {PRESETS.map((preset) => (
               <button
                 key={preset.label}
                 type="button"
                 onClick={() => applyPreset(preset.days)}
-                className="px-3 py-2 text-left text-sm hover:bg-muted"
+                className="whitespace-nowrap px-3 py-2 text-left text-sm hover:bg-muted"
               >
                 {preset.label}
               </button>
@@ -180,7 +197,6 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
             </div>
           </div>
         </div>
-      )}
     </div>
   );
 }

@@ -50,6 +50,10 @@ const config: Config = {
           DEFAULT: 'hsl(var(--brand-dark) / <alpha-value>)',
           foreground: 'hsl(var(--brand-dark-foreground) / <alpha-value>)',
         },
+        'brand-emerald': {
+          DEFAULT: 'hsl(var(--brand-emerald) / <alpha-value>)',
+          foreground: 'hsl(var(--brand-emerald-foreground) / <alpha-value>)',
+        },
         destructive: {
           DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',
           foreground: 'hsl(var(--destructive-foreground) / <alpha-value>)',

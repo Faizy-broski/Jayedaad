@@ -44,4 +44,30 @@ export const agentsRepository = {
         const { data } = await httpClient.patch(`/agents/${agentId}/verify`, { status });
         return data;
     },
+    // Self-service "Apply to become an agent" — buyer-only server-side.
+    applyAsAgent: async (input) => {
+        const { data } = await httpClient.post('/agents/apply', input);
+        return data;
+    },
+    // Staff review queue — super_admin/verification_staff only server-side.
+    listPendingVerification: async () => {
+        const { data } = await httpClient.get('/agents/pending-verification');
+        return data;
+    },
+    // Onboarding documents — same required set as agencies (an independent
+    // agent stands in as their own "company"). `file` is platform-specific,
+    // same untyped convention as listingsRepository.uploadDocument.
+    uploadDocument: async (agentId, documentType, file) => {
+        const formData = new FormData();
+        formData.append('documentType', documentType);
+        formData.append('file', file);
+        const { data } = await httpClient.post(`/agents/${agentId}/documents`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+    },
+    listDocuments: async (agentId) => {
+        const { data } = await httpClient.get(`/agents/${agentId}/documents`);
+        return data;
+    },
 };
