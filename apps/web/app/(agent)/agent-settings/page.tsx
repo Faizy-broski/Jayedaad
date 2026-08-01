@@ -10,6 +10,7 @@ import {
   PAKISTAN_CITIES,
   useAgentProfileViewModel,
   useAuthViewModel,
+  useMyAgencyViewModel,
   usePreferencesViewModel,
 } from '@jayedaad/core';
 import {
@@ -44,19 +45,24 @@ function parsePhone(stored: string | null | undefined): { dialCode: string; numb
   return { dialCode: '92', number: stored.replace(/\D/g, '') };
 }
 
-type SettingsTab = 'user' | 'preferences' | 'password';
+type SettingsTab = 'user' | 'agency' | 'preferences' | 'password';
 
-const SUB_NAV: { id: SettingsTab; label: string; icon: typeof UserCog }[] = [
-  { id: 'user', label: 'User Settings', icon: UserCog },
-  { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
-  { id: 'password', label: 'Change Password', icon: KeyRound },
+const SUB_NAV: { id: SettingsTab; label: string }[] = [
+  { id: 'user', label: 'User Settings' },
+  { id: 'agency', label: 'Agency Details' },
+  { id: 'preferences', label: 'Preferences' },
+  { id: 'password', label: 'Change Password' },
 ];
 
-// Profolio Settings reference: left sub-nav switching between three
-// independent panels — User Settings (agent_profiles), Preferences
-// (user_preferences), Change Password (Supabase Auth only).
+// Profolio Settings reference: left sub-nav switching between independent
+// panels — User Settings (agent_profiles), Agency Details (the agencies
+// table itself, shown only to a member of an agency — editable only by its
+// admin), Preferences (user_preferences), Change Password (Supabase Auth
+// only).
 export default function AgentSettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('user');
+  const { profile } = useAgentProfileViewModel();
+  const visibleNav = SUB_NAV.filter((item) => item.id !== 'agency' || !!profile?.agency);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -340,6 +346,113 @@ function PhoneField({
         />
       </div>
     </div>
+  );
+}
+
+function AgencyDetailsPanel() {
+  const { agency, isLoading, isAgencyAdmin, update } = useMyAgencyViewModel();
+  const [form, setForm] = useState({ name: '', description: '', phone: '', email: '', city: '', address: '', businessHours: '' });
+
+  useEffect(() => {
+    if (!agency) return;
+    setForm({
+      name: agency.name ?? '',
+      description: agency.description ?? '',
+      phone: agency.phone ?? '',
+      email: agency.email ?? '',
+      city: agency.city ?? '',
+      address: agency.address ?? '',
+      businessHours: agency.businessHours ?? '',
+    });
+  }, [agency]);
+
+  function updateField<K extends keyof typeof form>(key: K, value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleSave() {
+    update.mutate(form, {
+      onSuccess: () => toast.success('Agency details saved.'),
+      onError: () => toast.error('Something went wrong — please try again.'),
+    });
+  }
+
+  if (isLoading || !agency) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-6">
+        <h2 className="font-medium">Agency Details</h2>
+        {!isAgencyAdmin && (
+          <p className="text-sm text-muted-foreground">Only your agency&apos;s admin can edit these details.</p>
+        )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="agencyName">Agency Name</Label>
+            <Input id="agencyName" value={form.name} disabled={!isAgencyAdmin} onChange={(e) => updateField('name', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="agencyEmail">Email</Label>
+            <Input id="agencyEmail" value={form.email} disabled={!isAgencyAdmin} onChange={(e) => updateField('email', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="agencyPhone">Phone</Label>
+            <Input id="agencyPhone" value={form.phone} disabled={!isAgencyAdmin} onChange={(e) => updateField('phone', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="agencyCity">City</Label>
+            <Select id="agencyCity" value={form.city} disabled={!isAgencyAdmin} onChange={(e) => updateField('city', e.target.value)}>
+              <option value="">Select City</option>
+              {PAKISTAN_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="agencyAddress">Address</Label>
+            <Input id="agencyAddress" value={form.address} disabled={!isAgencyAdmin} onChange={(e) => updateField('address', e.target.value)} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="agencyHours">Business Hours</Label>
+            <Input
+              id="agencyHours"
+              placeholder="e.g. Mon-Sat, 10am-7pm"
+              value={form.businessHours}
+              disabled={!isAgencyAdmin}
+              onChange={(e) => updateField('businessHours', e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="agencyDescription">Description</Label>
+            <Input
+              id="agencyDescription"
+              value={form.description}
+              disabled={!isAgencyAdmin}
+              onChange={(e) => updateField('description', e.target.value)}
+            />
+          </div>
+        </div>
+
+        {update.isError && <p className="text-sm text-destructive">Something went wrong — please try again.</p>}
+        {update.isSuccess && <p className="text-sm text-primary">Saved.</p>}
+
+        {isAgencyAdmin && (
+          <Button onClick={handleSave} disabled={update.isPending}>
+            {update.isPending ? 'Saving…' : 'Save Changes'}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
