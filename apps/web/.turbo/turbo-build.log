@@ -1,33 +1,88 @@
 $ next build
   ▲ Next.js 14.2.35
+  - Environments: .env
 
    Creating an optimized production build ...
-Failed to compile.
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (106kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (253kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/47) ...
+   Generating static pages (11/47) 
+   Generating static pages (23/47) 
+   Generating static pages (35/47) 
+ ✓ Generating static pages (47/47)
+   Finalizing page optimization ...
+   Collecting build traces ...
+ ⚠ Failed to copy traced files for C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\server\pages\_app.js Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\react@18.3.1\node_modules\react' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\apps\web\node_modules\react'
+    at async Object.symlink (node:internal/fs/promises:1002:10)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
+    at async Promise.all (index 9)
+    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
+    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1451:9)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
+    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'symlink',
+  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\react@18.3.1\\node_modules\\react',
+  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\apps\\web\\node_modules\\react'
+}
+ ⚠ Failed to copy traced files for C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\server\pages\_error.js Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\react-dom@18.3.1_react@18.3.1\node_modules\react-dom' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\react-dom'
+    at async Object.symlink (node:internal/fs/promises:1002:10)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
+    at async Promise.all (index 14)
+    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
+    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1451:9)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
+    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'symlink',
+  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\react-dom@18.3.1_react@18.3.1\\node_modules\\react-dom',
+  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\\node_modules\\react-dom'
+}
+ ⚠ Failed to copy traced files for C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\server\pages\_document.js Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\apps\web\node_modules\next'
+    at async Object.symlink (node:internal/fs/promises:1002:10)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
+    at async Promise.all (index 37)
+    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
+    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1451:9)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
+    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'symlink',
+  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\\node_modules\\next',
+  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\apps\\web\\node_modules\\next'
+}
 
-app\(agent)\submit\page.tsx
-You cannot have two parallel pages that resolve to the same path. Please check /(agent)/submit/page and /(owner)/submit/page. Refer to the route group docs for more information: https://nextjs.org/docs/app/building-your-application/routing/route-groups
-
-app\(owner)\submit\page.tsx
-You cannot have two parallel pages that resolve to the same path. Please check /(agent)/submit/page and /(owner)/submit/page. Refer to the route group docs for more information: https://nextjs.org/docs/app/building-your-application/routing/route-groups
-
-./app/not-found.tsx
-Module not found: Can't resolve 'framer-motion'
-
-https://nextjs.org/docs/messages/module-not-found
-
-./components/Reveal.tsx
-Module not found: Can't resolve 'framer-motion'
-
-https://nextjs.org/docs/messages/module-not-found
-
-./components/RouteError.tsx
-Module not found: Can't resolve 'framer-motion'
-
-https://nextjs.org/docs/messages/module-not-found
-
-Import trace for requested module:
-./app/error.tsx
-
-
-> Build failed because of webpack errors
+> Build error occurred
+Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\@next+env@14.2.35\node_modules\@next\env' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\@next\env'
+    at async Object.symlink (node:internal/fs/promises:1002:10)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
+    at async Promise.all (index 86)
+    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
+    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1472:5)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
+    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
+    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
+    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'symlink',
+  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\@next+env@14.2.35\\node_modules\\@next\\env',
+  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\\node_modules\\@next\\env'
+}
 [ELIFECYCLE] Command failed with exit code 1.

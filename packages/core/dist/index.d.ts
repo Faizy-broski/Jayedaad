@@ -49,3 +49,7 @@ export * from './viewmodels/useUserManagementViewModel';
 export * from './viewmodels/useVerificationAuditLogViewModel';
 export * from './viewmodels/useTaxonomyManagementViewModel';
 export * from './viewmodels/useDevelopersViewModel';
+export * from './viewmodels/useAgentApplicationViewModel';
+export * from './viewmodels/useAgentVerificationQueueViewModel';
+export * from './viewmodels/useAgencyStaffViewModel';
+export * from './viewmodels/useAgencyRegistrationViewModel';

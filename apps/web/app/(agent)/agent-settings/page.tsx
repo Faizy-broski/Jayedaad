@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   AreaUnit,
   COUNTRIES,
@@ -9,7 +10,6 @@ import {
   PAKISTAN_CITIES,
   useAgentProfileViewModel,
   useAuthViewModel,
-  useMyAgencyViewModel,
   usePreferencesViewModel,
 } from '@jayedaad/core';
 import {
@@ -22,6 +22,8 @@ import {
   Select,
   Switch,
 } from '@jayedaad/ui-web';
+import { Camera, Eye, EyeOff, Loader2, SlidersHorizontal, UserCog, KeyRound } from 'lucide-react';
+import { Reveal } from '@/components/Reveal';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 
@@ -42,50 +44,77 @@ function parsePhone(stored: string | null | undefined): { dialCode: string; numb
   return { dialCode: '92', number: stored.replace(/\D/g, '') };
 }
 
-type SettingsTab = 'user' | 'agency' | 'preferences' | 'password';
+type SettingsTab = 'user' | 'preferences' | 'password';
 
-const SUB_NAV: { id: SettingsTab; label: string }[] = [
-  { id: 'user', label: 'User Settings' },
-  { id: 'agency', label: 'Agency Details' },
-  { id: 'preferences', label: 'Preferences' },
-  { id: 'password', label: 'Change Password' },
+const SUB_NAV: { id: SettingsTab; label: string; icon: typeof UserCog }[] = [
+  { id: 'user', label: 'User Settings', icon: UserCog },
+  { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
+  { id: 'password', label: 'Change Password', icon: KeyRound },
 ];
 
-// Profolio Settings reference: left sub-nav switching between independent
-// panels — User Settings (agent_profiles), Agency Details (the agencies
-// table itself, shown only to a member of an agency — editable only by its
-// admin), Preferences (user_preferences), Change Password (Supabase Auth
-// only).
+// Profolio Settings reference: left sub-nav switching between three
+// independent panels — User Settings (agent_profiles), Preferences
+// (user_preferences), Change Password (Supabase Auth only).
 export default function AgentSettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('user');
-  const { profile } = useAgentProfileViewModel();
-  const visibleNav = SUB_NAV.filter((item) => item.id !== 'agency' || !!profile?.agency);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
-      <Card className="h-fit">
-        <CardContent className="p-3">
-          <nav className="space-y-1">
-            {visibleNav.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={`w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
-                  tab === item.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-        </CardContent>
-      </Card>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <Reveal>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your profile, preferences, and account security.</p>
+        </div>
+      </Reveal>
 
-      {tab === 'user' && <UserSettingsPanel />}
-      {tab === 'agency' && <AgencyDetailsPanel />}
-      {tab === 'preferences' && <PreferencesPanel />}
-      {tab === 'password' && <ChangePasswordPanel />}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
+        <Reveal>
+          <Card className="h-fit lg:sticky lg:top-6">
+            <CardContent className="p-3">
+              <nav className="flex gap-1 overflow-x-auto lg:flex-col">
+                {SUB_NAV.map((item) => {
+                  const Icon = item.icon;
+                  const active = tab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setTab(item.id)}
+                      className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
+                        active ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="settingsActiveTab"
+                          className="absolute inset-0 rounded-md bg-primary/10"
+                          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                        />
+                      )}
+                      <Icon className="relative h-4 w-4 shrink-0" />
+                      <span className="relative">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </CardContent>
+          </Card>
+        </Reveal>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {tab === 'user' && <UserSettingsPanel />}
+            {tab === 'preferences' && <PreferencesPanel />}
+            {tab === 'password' && <ChangePasswordPanel />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -146,36 +175,75 @@ function UserSettingsPanel() {
     );
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadPhoto.mutate(file, {
+        onSuccess: () => toast.success('Photo uploaded.'),
+        onError: () => toast.error('Upload failed — please try again.'),
+      });
+    }
+    e.target.value = '';
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardContent className="flex items-center gap-4 p-6">
-          {profile?.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.photoUrl} alt="" className="h-14 w-14 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground">
-              {(profile?.displayName ?? user?.email ?? '?').charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">{profile?.displayName || user?.email}</span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadPhoto.isPending}
+            className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-full"
+            aria-label="Change profile photo"
+          >
+            {profile?.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.photoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-muted text-lg font-semibold text-muted-foreground">
+                {(profile?.displayName ?? user?.email ?? '?').charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+              {uploadPhoto.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin text-white" />
+              ) : (
+                <Camera className="h-5 w-5 text-white" />
+              )}
+            </span>
+          </motion.button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="truncate font-semibold text-foreground">{profile?.displayName || user?.email}</span>
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 {profile?.agency ? 'Agency' : 'Individual'}
               </span>
             </div>
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <span className="truncate text-sm text-muted-foreground">{user?.email}</span>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="space-y-4 p-6">
-          <h2 className="font-medium">Additional Information</h2>
+          <h2 className="font-medium text-foreground">Additional Information</h2>
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-16 animate-pulse rounded-md bg-muted/60" />
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -218,38 +286,9 @@ function UserSettingsPanel() {
                   ))}
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="address">Address</Label>
                 <Input id="address" placeholder="Enter Address" value={form.address} onChange={(e) => update('address', e.target.value)} />
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Upload a picture</Label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/heic"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      uploadPhoto.mutate(file, {
-                        onSuccess: () => toast.success('Photo uploaded.'),
-                        onError: () => toast.error('Upload failed — please try again.'),
-                      });
-                    }
-                    e.target.value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadPhoto.isPending}
-                  className="w-full rounded-md border border-dashed border-input px-3 py-6 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary"
-                >
-                  {uploadPhoto.isPending ? 'Uploading…' : 'Browse and Upload'}
-                </button>
-                {uploadPhoto.isError && <p className="text-sm text-destructive">Upload failed — please try again.</p>}
               </div>
 
               {/* Listings join agent_profiles live (see PUBLIC_LISTING_COLUMNS)
@@ -304,121 +343,16 @@ function PhoneField({
   );
 }
 
-function AgencyDetailsPanel() {
-  const { agency, isLoading, isAgencyAdmin, update } = useMyAgencyViewModel();
-  const [form, setForm] = useState({ name: '', description: '', phone: '', email: '', city: '', address: '', businessHours: '' });
-
-  useEffect(() => {
-    if (!agency) return;
-    setForm({
-      name: agency.name ?? '',
-      description: agency.description ?? '',
-      phone: agency.phone ?? '',
-      email: agency.email ?? '',
-      city: agency.city ?? '',
-      address: agency.address ?? '',
-      businessHours: agency.businessHours ?? '',
-    });
-  }, [agency]);
-
-  function updateField<K extends keyof typeof form>(key: K, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function handleSave() {
-    update.mutate(form, {
-      onSuccess: () => toast.success('Agency details saved.'),
-      onError: () => toast.error('Something went wrong — please try again.'),
-    });
-  }
-
-  if (isLoading || !agency) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardContent className="space-y-4 p-6">
-        <h2 className="font-medium">Agency Details</h2>
-        {!isAgencyAdmin && (
-          <p className="text-sm text-muted-foreground">Only your agency&apos;s admin can edit these details.</p>
-        )}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="agencyName">Agency Name</Label>
-            <Input id="agencyName" value={form.name} disabled={!isAgencyAdmin} onChange={(e) => updateField('name', e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="agencyEmail">Email</Label>
-            <Input id="agencyEmail" value={form.email} disabled={!isAgencyAdmin} onChange={(e) => updateField('email', e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="agencyPhone">Phone</Label>
-            <Input id="agencyPhone" value={form.phone} disabled={!isAgencyAdmin} onChange={(e) => updateField('phone', e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="agencyCity">City</Label>
-            <Select id="agencyCity" value={form.city} disabled={!isAgencyAdmin} onChange={(e) => updateField('city', e.target.value)}>
-              <option value="">Select City</option>
-              {PAKISTAN_CITIES.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="agencyAddress">Address</Label>
-            <Input id="agencyAddress" value={form.address} disabled={!isAgencyAdmin} onChange={(e) => updateField('address', e.target.value)} />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="agencyHours">Business Hours</Label>
-            <Input
-              id="agencyHours"
-              placeholder="e.g. Mon-Sat, 10am-7pm"
-              value={form.businessHours}
-              disabled={!isAgencyAdmin}
-              onChange={(e) => updateField('businessHours', e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="agencyDescription">Description</Label>
-            <Input
-              id="agencyDescription"
-              value={form.description}
-              disabled={!isAgencyAdmin}
-              onChange={(e) => updateField('description', e.target.value)}
-            />
-          </div>
-        </div>
-
-        {update.isError && <p className="text-sm text-destructive">Something went wrong — please try again.</p>}
-        {update.isSuccess && <p className="text-sm text-primary">Saved.</p>}
-
-        {isAgencyAdmin && (
-          <Button onClick={handleSave} disabled={update.isPending}>
-            {update.isPending ? 'Saving…' : 'Save Changes'}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function PreferencesPanel() {
   const { preferences, isLoading, updatePreferences } = usePreferencesViewModel();
 
   if (isLoading || !preferences) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <p className="text-sm text-muted-foreground">Loading…</p>
+        <CardContent className="space-y-4 p-6">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-14 animate-pulse rounded-md bg-muted/60" />
+          ))}
         </CardContent>
       </Card>
     );
@@ -432,7 +366,7 @@ function PreferencesPanel() {
   return (
     <Card>
       <CardContent className="space-y-6 p-6">
-        <h2 className="font-medium">Preferences</h2>
+        <h2 className="font-medium text-foreground">Preferences</h2>
 
         <ToggleRow
           label="Email Notification"
@@ -446,9 +380,8 @@ function PreferencesPanel() {
           checked={preferences.newsletters}
           onCheckedChange={(checked) => updatePreferences.mutate({ newsletters: checked }, toastOpts)}
         />
-       
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 border-t border-border pt-6 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="currency">Currency</Label>
             <Select
@@ -491,9 +424,9 @@ function ToggleRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-border pb-4 last:border-b-0 last:pb-0">
+    <div className="flex items-center justify-between gap-4 border-b border-border pb-4 last:border-b-0 last:pb-0">
       <div>
-        <p className="text-sm font-medium">{label}</p>
+        <p className="text-sm font-medium text-foreground">{label}</p>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
@@ -531,27 +464,9 @@ function ChangePasswordPanel() {
   return (
     <Card>
       <CardContent className="max-w-sm space-y-4 p-6">
-        <PasswordField
-          label="Enter Old Password"
-          value={oldPassword}
-          onChange={setOldPassword}
-          visible={showOld}
-          onToggleVisible={() => setShowOld((v) => !v)}
-        />
-        <PasswordField
-          label="Enter New Password"
-          value={newPassword}
-          onChange={setNewPassword}
-          visible={showNew}
-          onToggleVisible={() => setShowNew((v) => !v)}
-        />
-        <PasswordField
-          label="Confirm Password"
-          value={confirmPassword}
-          onChange={setConfirmPassword}
-          visible={showConfirm}
-          onToggleVisible={() => setShowConfirm((v) => !v)}
-        />
+        <PasswordField label="Enter Old Password" value={oldPassword} onChange={setOldPassword} visible={showOld} onToggleVisible={() => setShowOld((v) => !v)} />
+        <PasswordField label="Enter New Password" value={newPassword} onChange={setNewPassword} visible={showNew} onToggleVisible={() => setShowNew((v) => !v)} />
+        <PasswordField label="Confirm Password" value={confirmPassword} onChange={setConfirmPassword} visible={showConfirm} onToggleVisible={() => setShowConfirm((v) => !v)} />
 
         {mismatch && <p className="text-sm text-destructive">Passwords don&apos;t match.</p>}
         {changePassword.isError && <p className="text-sm text-destructive">Could not change password — check your old password.</p>}
@@ -582,18 +497,14 @@ function PasswordField({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <div className="relative">
-        <Input
-          type={visible ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="pr-10"
-        />
+        <Input type={visible ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} className="pr-10" />
         <button
           type="button"
           onClick={onToggleVisible}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
         >
-          {visible ? 'Hide' : 'Show'}
+          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
     </div>

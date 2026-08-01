@@ -24,11 +24,18 @@ const APP_SHELL_PREFIXES = [
   '/agent-verification',
 ];
 
+// Auth pages (login/signup) render their own full-bleed split-screen layout
+// and shouldn't get the public marketing Header/Footer stacked around them
+// either — same exclusion mechanism as APP_SHELL_PREFIXES above, just for a
+// different reason (standalone page design, not an app shell).
+const NO_CHROME_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email'];
+
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAppShell = APP_SHELL_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const isNoChrome = NO_CHROME_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
-  if (isAppShell) return <>{children}</>;
+  if (isAppShell || isNoChrome) return <>{children}</>;
 
   return (
     <>

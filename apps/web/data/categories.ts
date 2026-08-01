@@ -5,7 +5,7 @@ export const CATEGORIES: Category[] = [
     id: 'luxury-villas',
     label: 'Luxury Villas',
     listingsCount: 3240,
-    image: '/images/categories/luxury-villas.jpg',
+    image: '/images/categories/luxury-villa.jpg',
     href: '/search?type=villa',
   },
   {

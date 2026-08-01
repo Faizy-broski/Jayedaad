@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', '../../packages/ui-web/src/**/*.{ts,tsx}'],
@@ -8,6 +9,13 @@ const config: Config = {
   darkMode: 'class',
   theme: {
     extend: {
+      // Wires Tailwind's `font-sans` (applied to <body> in app/layout.tsx)
+      // to the Plus_Jakarta_Sans variable exposed there via next/font —
+      // without this, `font-sans` silently falls back to Tailwind's default
+      // system-font stack even though the variable is set on <html>.
+      fontFamily: {
+        sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
+      },
       // Maps the CSS-variable tokens defined in app/globals.css — standard
       // shadcn/ui convention. `hsl(var(--x) / <alpha-value>)` (rather than
       // plain `hsl(var(--x))`) is what lets Tailwind's opacity modifiers
@@ -41,6 +49,10 @@ const config: Config = {
         'brand-dark': {
           DEFAULT: 'hsl(var(--brand-dark) / <alpha-value>)',
           foreground: 'hsl(var(--brand-dark-foreground) / <alpha-value>)',
+        },
+        'brand-emerald': {
+          DEFAULT: 'hsl(var(--brand-emerald) / <alpha-value>)',
+          foreground: 'hsl(var(--brand-emerald-foreground) / <alpha-value>)',
         },
         destructive: {
           DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',

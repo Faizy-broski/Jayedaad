@@ -34,6 +34,13 @@ export const agenciesRepository = {
         const { data } = await httpClient.post('/agencies', input);
         return mapAgencyRow(data);
     },
+    // Self-service — buyer registers a brand-new agency and becomes its
+    // admin in one step. Both the agency and the caller's new agent profile
+    // start 'pending'.
+    registerSelfService: async (input) => {
+        const { data } = await httpClient.post('/agencies/register', input);
+        return { agency: mapAgencyRow(data.agency), agentId: data.agentId };
+    },
     update: async (id, input) => {
         const { data } = await httpClient.patch(`/agencies/${id}`, input);
         return mapAgencyRow(data);
@@ -59,6 +66,25 @@ export const agenciesRepository = {
     },
     listDocuments: async (agencyId) => {
         const { data } = await httpClient.get(`/agencies/${agencyId}/documents`);
+        return data;
+    },
+    // Agency self-management ("Agency Staff") — server already returns
+    // camelCase for these (agencies.repository.ts's newer methods), unlike
+    // the rest of this file.
+    listStaff: async (agencyId) => {
+        const { data } = await httpClient.get(`/agencies/${agencyId}/staff`);
+        return data;
+    },
+    addStaff: async (agencyId, input) => {
+        const { data } = await httpClient.post(`/agencies/${agencyId}/staff`, input);
+        return data;
+    },
+    setStaffAdmin: async (agencyId, agentId, isAgencyAdmin) => {
+        const { data } = await httpClient.patch(`/agencies/${agencyId}/staff/${agentId}/admin`, { isAgencyAdmin });
+        return data;
+    },
+    removeStaff: async (agencyId, agentId) => {
+        const { data } = await httpClient.delete(`/agencies/${agencyId}/staff/${agentId}`);
         return data;
     },
 };

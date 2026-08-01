@@ -20,8 +20,8 @@ export function AppPromo() {
             className="pointer-events-none z-20 p-5 object-fill"
           />
 
-          <div className="relative z-10 grid gap-10 px-6 py-14 sm:px-10 sm:py-16 lg:grid-cols-2 lg:items-center lg:gap-6 lg:px-14">
-            <Reveal className="text-center lg:text-left">
+          <div className="relative z-10 grid gap-8 px-6 py-10 sm:gap-10 sm:px-10 sm:py-16 lg:grid-cols-2 lg:items-center lg:gap-6 lg:px-14">
+            <Reveal className="order-1 text-center lg:order-none lg:text-left">
               <span className="text-xs font-semibold uppercase tracking-widest text-white/50">Jayedaad App</span>
 
               <h2 className="mt-4 text-4xl font-bold leading-[1.1] text-white sm:text-5xl">
@@ -33,8 +33,26 @@ export function AppPromo() {
               <p className="mx-auto mt-5 max-w-sm text-sm leading-relaxed text-white/60 lg:mx-0">
                 Instant alerts, AR tours, saved searches and secure chat — all in one beautifully designed app.
               </p>
+            </Reveal>
 
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+            <Reveal
+              className="relative order-2 mx-auto w-full max-w-[260px] sm:max-w-md lg:order-none lg:row-span-2 lg:max-w-none"
+              delay={0.15}
+            >
+              <div className="relative aspect-[549/514] w-full lg:aspect-[4/3]">
+                <Image
+                  src="/images/mobile-image.png"
+                  alt="Jayedaad app shown on two phones — a property listing and saved homes"
+                  fill
+                  sizes="(min-width: 1024px) 50vw, 70vw"
+                  className="object-contain object-center lg:object-right"
+                  priority={false}
+                />
+              </div>
+            </Reveal>
+
+            <Reveal className="order-3 text-center lg:order-none lg:text-left" delay={0.1}>
+              <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                 <a
                   href="https://apps.apple.com"
                   target="_blank"
@@ -62,7 +80,7 @@ export function AppPromo() {
                 </a>
               </div>
 
-              <div className="mt-8 flex items-center justify-center gap-3 lg:justify-start">
+              <div className="mt-8 flex items-center justify-center gap-12 lg:gap-6 lg:justify-start">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white p-1.5">
                   <Image src="/images/qr-code.png" alt="QR code to download the Jayedaad app" fill sizes="64px" className="object-contain p-1" />
                 </div>
@@ -71,19 +89,6 @@ export function AppPromo() {
                   <br />
                   Available on iOS and Android.
                 </p>
-              </div>
-            </Reveal>
-
-            <Reveal className="relative mx-auto w-full max-w-[280px] sm:max-w-md lg:max-w-none" delay={0.15}>
-              <div className="relative aspect-[4/3] w-full">
-                <Image
-                  src="/images/mobile-image.png"
-                  alt="Jayedaad app shown on two phones — a property listing and saved homes"
-                  fill
-                  sizes="(min-width: 1024px) 50vw, 90vw"
-                  className="object-contain object-center lg:object-right"
-                  priority={false}
-                />
               </div>
             </Reveal>
           </div>

@@ -23,7 +23,7 @@ export function PropertyLocation({ listing }: PropertyLocationProps) {
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         {NEARBY.map(({ label, time }) => (
-          <div key={label} className="flex justify-between items-center rounded-2xl border border-slate-100 bg-white px-3 py-2.5">
+          <div key={label} className="flex flex-col gap-1 rounded-2xl border border-slate-100 bg-white px-3 py-2.5">
             <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
             <span className="block text-sm font-semibold text-slate-900">{time}</span>
           </div>

@@ -27,14 +27,14 @@ export function ServicesOverview() {
             dedicated advisor guides you through discovery, verification,
             negotiation, legal, and long-term care.
           </p>
-          <div className="mt-10 flex flex-wrap justify-between items-start gap-x-10 gap-y-6">
+          <div className="mt-10 grid grid-cols-3 gap-x-4 gap-y-6 sm:flex sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-10">
             {STATS.map((stat, index) => (
               <Reveal
                 key={stat.id}
                 delay={index * 0.08}
-                className="flex flex-col gap-1"
+                className="flex min-w-0 flex-col gap-1"
               >
-                <span className="text-gradient-emerald text-3xl font-bold sm:text-4xl">
+                <span className="text-primary text-xl font-bold sm:text-3xl lg:text-4xl">
                   {stat.value}
                 </span>
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-500">

@@ -1,9 +1,26 @@
 'use client';
 
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { formatPrice, usePreferencesViewModel, useSubscriptionViewModel } from '@jayedaad/core';
-import { Button, Card, CardContent } from '@jayedaad/ui-web';
-import { Check, CreditCard } from 'lucide-react';
+import { Button, Card } from '@jayedaad/ui-web';
+import { Check, CreditCard, Gauge, Sparkles } from 'lucide-react';
+import { Reveal } from '@/components/Reveal';
+
+// Real entitlement fields spread onto SubscriptionTier.analyticsDepth by the
+// API (see services/api/src/subscriptions/entitlements.service.ts) — not a
+// free-form blob in practice, just typed loosely (Record<string, unknown>)
+// on the wire. Rendered as real plan features below, not invented ones.
+interface TierEntitlements {
+  analyticsDepth?: 'basic' | 'standard' | 'advanced' | 'full';
+  viewCountDetail?: 'total_only' | 'breakdown_by_source' | 'full_timeseries';
+}
+
+const VIEW_DETAIL_LABEL: Record<string, string> = {
+  total_only: 'Total view count',
+  breakdown_by_source: 'Views broken down by source',
+  full_timeseries: 'Full view history over time',
+};
 
 // Replaces the "Prop Shop" nav item — this app has no payment/billing
 // integration anywhere, so "Upgrade" here is a real, immediate tier change
@@ -13,83 +30,163 @@ export default function PlanPage() {
   const { current, isCurrentLoading, tiers, isTiersLoading, usage, selectTier } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
 
+  const usagePct = usage && usage.quota > 0 ? Math.min(100, (usage.used / usage.quota) * 100) : 0;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Plan</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          No payment processing is wired up in this app — selecting a plan below changes it immediately, it isn&apos;t
-          a real purchase.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <Reveal>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Plan</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            No payment processing is wired up in this app — selecting a plan below changes it immediately, it isn&apos;t
+            a real purchase.
+          </p>
+        </div>
+      </Reveal>
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <CreditCard className="h-4 w-4" />
-            Current Plan
-          </div>
-          {isCurrentLoading ? (
-            <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
-          ) : current ? (
-            <div className="mt-2">
-              <p className="text-xl font-semibold">{current.tier.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {formatPrice(current.tier.price, preferences?.preferredCurrency)} · {current.tier.listingQuota} listings ·
-                status: {current.status}
-                {current.currentPeriodEnd && ` · renews ${new Date(current.currentPeriodEnd).toLocaleDateString()}`}
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No plan selected yet — choose one below.</p>
-          )}
-
-          {usage && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Listings used</span>
-                <span>
-                  {usage.used} / {usage.quota}
-                </span>
-              </div>
-              <div className="mt-1 h-2 rounded-full bg-muted">
-                <div
-                  className="h-2 rounded-full bg-primary"
-                  style={{ width: `${usage.quota > 0 ? Math.min(100, (usage.used / usage.quota) * 100) : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">Available Plans</h2>
-        {isTiersLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : tiers.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground">
-              No plans have been configured yet — a Super Admin needs to create subscription tiers before agents can
-              select one.
-            </CardContent>
-          </Card>
+      <Reveal>
+        {isCurrentLoading ? (
+          <div className="h-40 animate-pulse rounded-xl border border-border bg-muted/40" />
         ) : (
+          <div className="bg-heading-gradient overflow-hidden rounded-xl p-6 text-primary-foreground sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground/70">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Current Plan
+                </p>
+                {current ? (
+                  <>
+                    <p className="mt-2 text-2xl font-bold sm:text-3xl">{current.tier.name}</p>
+                    <p className="mt-1 text-sm text-primary-foreground/80">
+                      {formatPrice(current.tier.price, preferences?.preferredCurrency)} /mo · {current.tier.listingQuota}{' '}
+                      listing quota
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-lg font-medium">No plan selected yet — choose one below.</p>
+                )}
+              </div>
+              {current && (
+                <div className="text-right text-xs text-primary-foreground/70">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 font-medium capitalize text-primary-foreground">
+                    {current.status}
+                  </span>
+                  {current.currentPeriodEnd && (
+                    <p className="mt-1.5">
+                      Renews {new Date(current.currentPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {usage && (
+              <div className="mt-6">
+                <div className="flex justify-between text-xs text-primary-foreground/80">
+                  <span className="flex items-center gap-1.5">
+                    <Gauge className="h-3.5 w-3.5" />
+                    Listings used
+                  </span>
+                  <span className="font-medium">
+                    {usage.used} / {usage.quota}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/15">
+                  <motion.div
+                    className="h-full rounded-full bg-white"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${usagePct}%` }}
+                    transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Reveal>
+
+      <div>
+        <Reveal>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Available Plans</h2>
+        </Reveal>
+
+        {isTiersLoading && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tiers.map((tier) => {
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-64 animate-pulse rounded-xl border border-border bg-muted/40" />
+            ))}
+          </div>
+        )}
+
+        {!isTiersLoading && tiers.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center"
+          >
+            <Sparkles className="mb-3 h-10 w-10 text-muted-foreground/50" />
+            <h3 className="text-sm font-semibold text-foreground">No plans configured yet</h3>
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+              A Super Admin needs to create subscription tiers before agents can select one.
+            </p>
+          </motion.div>
+        )}
+
+        {!isTiersLoading && tiers.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {tiers.map((tier, index) => {
               const isCurrent = current?.tierId === tier.id;
+              const entitlements = tier.analyticsDepth as TierEntitlements;
+              const features = [
+                `${tier.listingQuota.toLocaleString()} listing quota`,
+                entitlements?.analyticsDepth && `${capitalize(entitlements.analyticsDepth)} analytics`,
+                entitlements?.viewCountDetail && VIEW_DETAIL_LABEL[entitlements.viewCountDetail],
+              ].filter((f): f is string => !!f);
+
               return (
-                <Card key={tier.id} className={isCurrent ? 'border-primary' : undefined}>
-                  <CardContent className="flex flex-col gap-3 p-6">
+                <motion.div
+                  key={tier.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={{ duration: 0.4, delay: Math.min(index, 6) * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ y: -4 }}
+                >
+                  <Card
+                    className={`relative flex h-full flex-col gap-4 p-6 shadow-sm transition-shadow hover:shadow-lg ${
+                      isCurrent ? 'border-2 border-primary' : ''
+                    }`}
+                  >
+                    {isCurrent && (
+                      <span className="bg-heading-gradient absolute -top-3 left-6 rounded-full px-3 py-1 text-[11px] font-semibold text-primary-foreground shadow">
+                        Current Plan
+                      </span>
+                    )}
+
                     <div className="flex items-center justify-between">
-                      <p className="font-semibold">{tier.name}</p>
-                      {isCurrent && <Check className="h-4 w-4 text-primary" />}
+                      <p className="text-base font-semibold text-foreground">{tier.name}</p>
+                      {isCurrent && (
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                      )}
                     </div>
-                    <p className="text-2xl font-bold">
+
+                    <p className="text-3xl font-bold text-foreground">
                       {formatPrice(tier.price, preferences?.preferredCurrency)}
                       <span className="text-sm font-normal text-muted-foreground"> /mo</span>
                     </p>
-                    <p className="text-sm text-muted-foreground">{tier.listingQuota} listing quota</p>
+
+                    <ul className="flex-1 space-y-2">
+                      {features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+
                     <Button
                       variant={isCurrent ? 'secondary' : 'primary'}
                       disabled={isCurrent || selectTier.isPending}
@@ -105,8 +202,8 @@ export default function PlanPage() {
                     >
                       {isCurrent ? 'Current Plan' : selectTier.isPending ? 'Switching…' : 'Select Plan'}
                     </Button>
-                  </CardContent>
-                </Card>
+                  </Card>
+                </motion.div>
               );
             })}
           </div>
@@ -115,4 +212,8 @@ export default function PlanPage() {
       </div>
     </div>
   );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
