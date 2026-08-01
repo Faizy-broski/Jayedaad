@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatPrice, useAgentDashboardViewModel, usePreferencesViewModel } from '@jayedaad/core';
 import { Button, Card, CardContent, theme } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { BottomTabParamList } from '../navigation/BottomTabNavigator';
 
 const PURPOSE_FILTERS: { id: 'sale' | 'rent' | undefined; label: string }[] = [
   { id: undefined, label: 'All' },
@@ -18,7 +19,7 @@ const PURPOSE_FILTERS: { id: 'sale' | 'rent' | undefined; label: string }[] = [
 // Credits stays out of scope here too — web's own version of this card is
 // commented out (no quota/credits UI actually ships there either).
 export function AgentDashboardScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
   const [purposeFilter, setPurposeFilter] = useState<'sale' | 'rent' | undefined>(undefined);
 
   const { stats, analytics, recentListings, isRecentListingsLoading } = useAgentDashboardViewModel({
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radius.sm,
+    borderRadius: 999,
     backgroundColor: theme.colors.secondaryBg,
     overflow: 'hidden',
   },

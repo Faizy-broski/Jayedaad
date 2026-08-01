@@ -154,9 +154,11 @@ const styles = StyleSheet.create({
   tierQuota: { fontSize: 13, color: theme.colors.muted },
   selectButton: {
     marginTop: theme.spacing.sm,
-    borderRadius: theme.radius.sm,
+    borderRadius: 999,
+    minHeight: 48,
     paddingVertical: theme.spacing.sm,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.primary,
   },
   selectButtonCurrent: { backgroundColor: theme.colors.secondaryBg },

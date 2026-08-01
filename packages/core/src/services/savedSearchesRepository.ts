@@ -14,13 +14,25 @@ function mapRow(row: any): SavedSearch {
   };
 }
 
-// Self-scoped via the caller's own JWT (no id param), any authenticated
-// role. create() intentionally not wired here — no "save this search" entry
-// point exists yet on mobile.
+export interface CreateSavedSearchInput {
+  name?: string;
+  filters: Record<string, unknown>;
+  alertFrequency?: AlertFrequency;
+}
+
+// Self-scoped via the caller's own JWT (no id param), any authenticated role.
 export const savedSearchesRepository = {
   list: async (): Promise<SavedSearch[]> => {
     const { data } = await httpClient.get('/saved-searches');
     return (data as any[]).map(mapRow);
+  },
+
+  // filters is whatever ListingSearchFilters shape the caller was searching
+  // with — stored as jsonb server-side, replayed verbatim on future alert
+  // matching (see services/api/src/saved-searches/dto/create-saved-search.dto.ts).
+  create: async (input: CreateSavedSearchInput): Promise<SavedSearch> => {
+    const { data } = await httpClient.post('/saved-searches', input);
+    return mapRow(data);
   },
 
   remove: async (id: string): Promise<void> => {

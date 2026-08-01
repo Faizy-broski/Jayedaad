@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { listingsRepository, ListingSearchFilters } from '../services/listingsRepository';
 
 // searchPublic now returns a page ({ items, total, page, pageSize }), not a
@@ -17,6 +17,30 @@ export function useListingSearchViewModel(filters: ListingSearchFilters) {
     page: query.data?.page ?? 1,
     pageSize: query.data?.pageSize ?? 20,
     isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
+// Infinite-scroll variant — backs mobile's AllPropertiesScreen/
+// BuyerSearchScreen "load more on scroll" results, fetching real 20-item
+// pages (the API's own DEFAULT_PAGE_SIZE) instead of one big unbounded
+// fetch. Same real GET /listings endpoint as the plain query above, just
+// paged through via fetchNextPage.
+export function useInfiniteListingSearchViewModel(filters: ListingSearchFilters) {
+  const query = useInfiniteQuery({
+    queryKey: ['listings', 'public', 'infinite', filters],
+    queryFn: ({ pageParam }) => listingsRepository.searchPublic({ ...filters, page: pageParam, pageSize: 20 }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.page * lastPage.pageSize < lastPage.total ? lastPage.page + 1 : undefined),
+  });
+
+  return {
+    listings: query.data?.pages.flatMap((p) => p.items) ?? [],
+    total: query.data?.pages[0]?.total ?? 0,
+    isLoading: query.isLoading,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: !!query.hasNextPage,
+    fetchNextPage: query.fetchNextPage,
     error: query.error,
   };
 }

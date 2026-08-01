@@ -1,20 +1,21 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label } from '@jayedaad/ui-web';
 
 const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
   super_admin: '/admin/dashboard',
   verification_staff: '/verification',
-  agent: '/crm',
+  agent: '/dashboard',
   owner: '/submit',
   buyer: '/search',
 };
 
 export default function VerifyEmailPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isEmailVerified, isEmailVerifiedLoading, role, agentId, verifyOtp, sendOtp } = useAuthViewModel();
   // Only fetches once agentId exists (see useAgentProfileViewModel.ts) — a
   // no-op for buyer/owner/staff accounts.
@@ -22,6 +23,7 @@ export default function VerifyEmailPage() {
 
   const [code, setCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [otpSendFailed, setOtpSendFailed] = useState(searchParams.get('otpSendFailed') === '1');
 
   // A fresh agent (self-service agent application OR agency registration)
   // hasn't uploaded onboarding documents yet — send them to
@@ -63,6 +65,7 @@ export default function VerifyEmailPage() {
 
   async function handleResend() {
     await sendOtp.mutateAsync();
+    setOtpSendFailed(false);
     setResendCooldown(60);
   }
 
@@ -75,6 +78,11 @@ export default function VerifyEmailPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleVerify} className="space-y-4">
+            {otpSendFailed && (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">
+                Your account was created, but we couldn&apos;t send your verification code. Tap &quot;Resend code&quot; below to try again.
+              </p>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="code">Verification code</Label>
               <Input

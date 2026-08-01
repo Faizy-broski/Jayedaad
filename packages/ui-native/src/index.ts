@@ -8,3 +8,4 @@ export * from './CountryCodeField';
 export * from './Toast';
 export * from './Checkbox';
 export * from './Accordion';
+export * from './Dialog';

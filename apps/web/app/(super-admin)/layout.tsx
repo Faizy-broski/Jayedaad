@@ -15,6 +15,7 @@ import {
   ListTree,
   Building,
   LogOut,
+  Landmark,
 } from 'lucide-react';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: '/admin/verification-log', label: 'Verification Log', icon: ShieldCheck },
   { href: '/admin/taxonomy', label: 'Taxonomy', icon: ListTree },
   { href: '/admin/developers', label: 'Developers', icon: Building },
+  { href: '/admin/projects', label: 'Projects', icon: Landmark },
 ];
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {

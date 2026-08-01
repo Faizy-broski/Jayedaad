@@ -72,19 +72,34 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   const [status, setStatus] = useState<ListingStatus>('verified');
 
   const [listingNumber, setListingNumberInput] = useState('');
+  const [categoryLabel, setCategoryLabel] = useState('');
   const [propertyTypeLabel, setPropertyTypeLabel] = useState('');
   const [purposeLabel, setPurposeLabel] = useState('');
-  const [applied, setApplied] = useState({ listingNumber: '', propertyTypeSlug: '', purpose: '' as ListingPurpose | '' });
+  const [applied, setApplied] = useState({
+    listingNumber: '',
+    categorySlug: '',
+    propertyTypeSlug: '',
+    purpose: '' as ListingPurpose | '',
+  });
+
+  const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, type) => {
+    if (type.category && !acc.some((c) => c.slug === type.category.slug)) acc.push(type.category);
+    return acc;
+  }, []);
+  const typesInSelectedCategory = categoryLabel
+    ? propertyTypes.filter((t) => t.category?.label === categoryLabel)
+    : propertyTypes;
 
   const filters: MyListingsFilters = {
     status: applied.listingNumber ? undefined : status,
     page: 1,
     pageSize: 20,
     listingNumber: applied.listingNumber ? Number(applied.listingNumber.replace(/\D/g, '')) : undefined,
+    propertyTypeCategory: applied.categorySlug || undefined,
     propertyTypeSlug: applied.propertyTypeSlug || undefined,
     purpose: applied.purpose || undefined,
   };
-  
+
   const { listings, isLoading, remove } = useMyListingsViewModel(filters);
   const { preferences } = usePreferencesViewModel();
   const { showToast } = useToast();
@@ -93,6 +108,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   function handleSearch() {
     setApplied({
       listingNumber,
+      categorySlug: categories.find((c) => c.label === categoryLabel)?.slug ?? '',
       propertyTypeSlug: propertyTypes.find((t) => t.label === propertyTypeLabel)?.slug ?? '',
       purpose: (PURPOSE_OPTIONS.find((p) => p.label === purposeLabel)?.id ?? '') as ListingPurpose | '',
     });
@@ -100,9 +116,10 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
 
   function handleClearFilters() {
     setListingNumberInput('');
+    setCategoryLabel('');
     setPropertyTypeLabel('');
     setPurposeLabel('');
-    setApplied({ listingNumber: '', propertyTypeSlug: '', purpose: '' });
+    setApplied({ listingNumber: '', categorySlug: '', propertyTypeSlug: '', purpose: '' });
   }
 
   async function handleCopyId(listingNumber: number) {
@@ -139,13 +156,27 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
         <View style={styles.filterRow2}>
           <View style={styles.pickerWrapper}>
             <PickerField
+              value={categoryLabel}
+              options={categories.map((c) => c.label)}
+              placeholder="Category"
+              title="Category"
+              onChange={(label) => {
+                setCategoryLabel(label);
+                setPropertyTypeLabel('');
+              }}
+            />
+          </View>
+          <View style={styles.pickerWrapper}>
+            <PickerField
               value={propertyTypeLabel}
-              options={propertyTypes.map((t) => t.label)}
+              options={typesInSelectedCategory.map((t) => t.label)}
               placeholder="Property Type"
               title="Property Type"
               onChange={setPropertyTypeLabel}
             />
           </View>
+        </View>
+        <View style={styles.filterRow2}>
           <View style={styles.pickerWrapper}>
             <PickerField
               value={purposeLabel}
@@ -215,6 +246,11 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
               <View style={styles.cardDivider} />
               
               <View style={styles.rowActions}>
+                <Pressable style={styles.actionButton} onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}>
+                  <Ionicons name="eye-outline" size={16} color={theme.colors.primary} />
+                  <Text style={styles.actionTextPrimary}>View</Text>
+                </Pressable>
+
                 <Pressable
                   style={styles.actionButton}
                   onPress={() => navigation.navigate('PostListing', { editListingId: listing.id })}
@@ -222,7 +258,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
                   <Text style={styles.actionTextPrimary}>Edit details</Text>
                 </Pressable>
-                
+
                 <Pressable
                   style={styles.actionButton}
                   disabled={remove.isPending}
@@ -501,7 +537,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: 6,
+    borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,
     gap: 6,

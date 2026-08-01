@@ -13,7 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-const PROJECT_STATUSES = ['planned', 'under_construction', 'ready'] as const;
+const PROJECT_STATUSES = ['planned', 'under_construction', 'ready', 'draft'] as const;
 const AREA_UNITS = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'] as const;
 
 // Verified against a real Zameen "New Projects" page: price and area are
@@ -129,6 +129,27 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  // Confirmed real gaps against a live Zameen project page (gallery beyond
+  // the single cover photo, floor plan images, a video/3D-walkthrough link,
+  // a downloadable sales-kit brochure) — supabase/migrations/0024_project_media_fields.sql.
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  galleryImageUrls?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  floorPlanUrls?: string[];
+
+  @IsOptional()
+  @IsString()
+  videoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  brochureUrl?: string;
 
   @IsOptional()
   @IsArray()

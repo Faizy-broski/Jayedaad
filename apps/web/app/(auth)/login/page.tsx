@@ -12,7 +12,7 @@ import { makeSessionOnlyIfNotRemembered } from '@/lib/rememberMe';
 const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
   super_admin: '/admin/dashboard',
   verification_staff: '/verification',
-  agent: '/crm',
+  agent: '/dashboard',
   owner: '/submit',
   buyer: '/search',
 };

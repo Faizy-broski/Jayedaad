@@ -82,10 +82,17 @@ export class AgenciesController {
     return this.agencies.setVerificationStatus(id, body.status);
   }
 
+  // Self-service for the agency's own admin, in addition to Super Admin —
+  // previously this was super_admin-only, so an agency's own details
+  // (name/city/phone/logo/description) were effectively write-once, set at
+  // registerSelfService() during signup with no way to ever edit them
+  // again. assertCanManageAgency mirrors assertCanManageStaff's admin-flag
+  // check — regular staff can't edit the agency's own record, only its admin.
   @UseGuards(ScopeGuard)
-  @Roles('super_admin')
+  @Roles('agent', 'super_admin')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: UpdateAgencyDto) {
+  async update(@Req() req: any, @Param('id') id: string, @Body() body: UpdateAgencyDto) {
+    await this.assertCanManageAgency(req, id);
     return this.agencies.update(id, body);
   }
 
@@ -174,6 +181,17 @@ export class AgenciesController {
     const scope = await this.agencies.getStaffScope(req.user.agentId);
     if (scope.agencyId !== agencyId) {
       throw new ForbiddenException("Cannot view another agency's staff");
+    }
+  }
+
+  private async assertCanManageAgency(req: any, agencyId: string) {
+    if (req.user.role === 'super_admin') return;
+    if (req.user.role !== 'agent' || !req.user.agentId) {
+      throw new ForbiddenException('Only an agency admin or super_admin can edit agency details');
+    }
+    const scope = await this.agencies.getStaffScope(req.user.agentId);
+    if (!scope.isAgencyAdmin || scope.agencyId !== agencyId) {
+      throw new ForbiddenException("Only this agency's admin or super_admin can edit its details");
     }
   }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthViewModel } from '@jayedaad/core';
@@ -8,6 +8,8 @@ import { Button, Checkbox, TextInput, theme } from '@jayedaad/ui-native';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { setRememberMe } from '../../lib/rememberMeStorage';
+import { AuthBrandHeader } from '../../components/AuthBrandHeader';
+import bgImage from '../../../assets/images/singup.webp';
 
 // Supabase's real "wrong email/password" rejection has this exact message
 // (AuthApiError, invalid_credentials) — anything else (missing/invalid
@@ -24,10 +26,14 @@ function describeSignInError(error: unknown): string {
   return message || 'Something went wrong — check your connection and try again.';
 }
 
-// Field order/styling mirrors the Zameen mobile reference (icon badge ->
-// title -> email/password -> Forgot Password -> Log In -> divider -> Google
-// -> Sign Up prompt). Facebook omitted per the "Google only" scope decision
-// already applied to web.
+// Full-bleed singup.webp behind a uniform white wash (rather than a
+// contained hero box) so the photo reads faintly through the whole screen —
+// same pairing used on the marketing "Verified First" splash, just light
+// instead of dark-green. Field order mirrors the Zameen mobile reference
+// (brand mark -> title -> email/password -> Forgot Password -> Log In ->
+// divider -> Google -> Sign Up prompt). Facebook/Apple omitted per the
+// "Google only" scope decision already applied to web — no sign-in flow is
+// wired up for them.
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const { signIn } = useAuthViewModel();
@@ -35,7 +41,7 @@ export function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMeChecked] = useState(true);
+  const [rememberMe, setRememberMeChecked] = useState(false);
 
   async function handleSignIn() {
     setRememberMe(rememberMe);
@@ -45,101 +51,102 @@ export function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.iconBadge}>
-          <Ionicons name="mail-outline" size={32} color={theme.colors.primary} />
-          <View style={styles.iconCheck}>
-            <Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />
+    <View style={styles.root}>
+      <Image source={bgImage} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <View style={styles.wash} />
+
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <AuthBrandHeader />
+
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>Sign in to continue your search across Pakistan.</Text>
+
+          <View style={styles.form}>
+            <TextInput
+              label="Email or phone"
+              icon="mail-outline"
+              variant="pill"
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+            <TextInput
+              label="Password"
+              icon="lock-closed-outline"
+              variant="pill"
+              placeholder="••••••••"
+              value={password}
+              onChangeText={setPassword}
+              secureToggle
+              autoComplete="current-password"
+            />
+
+            <View style={styles.rememberRow}>
+              <Pressable style={styles.rememberMeTap} onPress={() => setRememberMeChecked((v) => !v)}>
+                <Checkbox checked={rememberMe} onChange={setRememberMeChecked} />
+                <Text style={styles.rememberMeLabel}>Remember me</Text>
+              </Pressable>
+              <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
+                <Text style={styles.link}>Forgot password?</Text>
+              </Pressable>
+            </View>
+
+            {signIn.isError && <Text style={styles.error}>{describeSignInError(signIn.error)}</Text>}
+
+            <Button
+              label={signIn.isPending ? 'Signing in…' : 'Sign in'}
+              onPress={handleSignIn}
+              disabled={signIn.isPending}
+              size="lg"
+            />
           </View>
-        </View>
 
-        <Text style={styles.title}>Log In to Continue</Text>
-
-        <View style={styles.form}>
-          <TextInput
-            placeholder="Email Address"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-          />
-          <TextInput
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureToggle
-            autoComplete="current-password"
-          />
-
-          <View style={styles.rememberRow}>
-            <Pressable style={styles.rememberMeTap} onPress={() => setRememberMeChecked((v) => !v)}>
-              <Checkbox checked={rememberMe} onChange={setRememberMeChecked} />
-              <Text style={styles.rememberMeLabel}>Remember Me</Text>
-            </Pressable>
-            <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.link}>Forgot Password?</Text>
-            </Pressable>
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.dividerLine} />
           </View>
-
-          {signIn.isError && <Text style={styles.error}>{describeSignInError(signIn.error)}</Text>}
 
           <Button
-            label={signIn.isPending ? 'Logging in…' : 'Log In'}
-            onPress={handleSignIn}
-            disabled={signIn.isPending}
+            label="Google"
+            variant="secondary"
+            size="lg"
+            onPress={() => {
+              setRememberMe(rememberMe);
+              signInWithGoogle();
+            }}
+            disabled={isGooglePending}
           />
-        </View>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or continue with</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <Button
-          label="Google"
-          variant="secondary"
-          onPress={() => {
-            setRememberMe(rememberMe);
-            signInWithGoogle();
-          }}
-          disabled={isGooglePending}
-        />
-
-        <Text style={styles.footer}>
-          Don&apos;t have an account?{' '}
-          <Text style={styles.link} onPress={() => navigation.navigate('Signup')}>
-            Sign Up with Email
+          <Text style={styles.footer}>
+            New to Jayedaad?{' '}
+            <Text style={styles.link} onPress={() => navigation.navigate('Signup')}>
+              Create an account
+            </Text>
           </Text>
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.bg },
-  content: { padding: theme.spacing.lg, flexGrow: 1, justifyContent: 'center' },
-  iconBadge: {
-    alignSelf: 'center',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: theme.colors.secondaryBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
+  root: { flex: 1, backgroundColor: theme.colors.bg },
+  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.9)' },
+  safeArea: { flex: 1 },
+  content: { padding: theme.spacing.lg, paddingTop: theme.spacing.xxl, flexGrow: 1 },
+  title: { fontSize: 24, fontWeight: '700', color: theme.colors.text, textAlign: 'center', marginTop: theme.spacing.md },
+  subtitle: {
+    fontSize: 14,
+    color: theme.colors.muted,
+    textAlign: 'center',
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.xl,
   },
-  iconCheck: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: theme.colors.bg,
-    borderRadius: 10,
-  },
-  title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, textAlign: 'center', marginBottom: theme.spacing.xl },
   form: { gap: theme.spacing.md },
   rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rememberMeTap: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },

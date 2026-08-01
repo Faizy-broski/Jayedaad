@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { savedSearchesRepository } from '../services/savedSearchesRepository';
+import { CreateSavedSearchInput, savedSearchesRepository } from '../services/savedSearchesRepository';
 import { useAuthViewModel } from './useAuthViewModel';
 
 // Drives the "Favorites & Saved" screen's Saved Searches tab — self-scoped,
@@ -14,14 +14,22 @@ export function useSavedSearchesViewModel() {
     enabled: !!user,
   });
 
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['savedSearches', user?.id] });
+
+  const create = useMutation({
+    mutationFn: (input: CreateSavedSearchInput) => savedSearchesRepository.create(input),
+    onSuccess: invalidate,
+  });
+
   const remove = useMutation({
     mutationFn: (id: string) => savedSearchesRepository.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savedSearches', user?.id] }),
+    onSuccess: invalidate,
   });
 
   return {
     savedSearches: savedSearchesQuery.data ?? [],
     isLoading: savedSearchesQuery.isLoading,
+    create,
     remove,
   };
 }

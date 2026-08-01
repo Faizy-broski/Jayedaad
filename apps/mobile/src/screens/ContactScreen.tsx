@@ -242,7 +242,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   goldButton: {
-    borderRadius: theme.radius.sm,
+    borderRadius: 999,
+    minHeight: 48,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',

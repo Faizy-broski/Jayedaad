@@ -106,6 +106,7 @@ export default function SearchPage() {
   const [purpose, setPurpose] = useState<ListingPurpose>('sale');
   const [city, setCity] = useState('');
   const [area, setArea] = useState('');
+  const [categorySlug, setCategorySlug] = useState('');
   const [propertyTypeSlug, setPropertyTypeSlug] = useState('');
   const [minAreaValue, setMinAreaValue] = useState('');
   const [maxAreaValue, setMaxAreaValue] = useState('');
@@ -120,6 +121,12 @@ export default function SearchPage() {
   const [hasVideo, setHasVideo] = useState(false);
 
   const moreSelectedCount = (furnishingStatus ? 1 : 0) + (hasVideo ? 1 : 0);
+
+  const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, type) => {
+    if (type.category && !acc.some((c) => c.slug === type.category.slug)) acc.push(type.category);
+    return acc;
+  }, []);
+  const typesInSelectedCategory = categorySlug ? propertyTypes.filter((t) => t.category?.slug === categorySlug) : propertyTypes;
 
   const { listings, isLoading } = useListingSearchViewModel({
     city: city || undefined,
@@ -143,7 +150,7 @@ export default function SearchPage() {
       <h1 className="mb-6 text-2xl font-semibold">Search Verified Properties</h1>
 
       <div className="relative mb-8 rounded-xl bg-[hsl(var(--brand-dark))] shadow-lg">
-        <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-6 sm:divide-x sm:divide-y-0">
           <FilterCell label="Purpose">
             <select value={purpose} onChange={(e) => setPurpose(e.target.value as ListingPurpose)} className={fieldClasses}>
               <option value="sale">Buy</option>
@@ -163,10 +170,27 @@ export default function SearchPage() {
           <FilterCell label="Location">
             <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="Search location" className={fieldClasses} />
           </FilterCell>
+          <FilterCell label="Category">
+            <select
+              value={categorySlug}
+              onChange={(e) => {
+                setCategorySlug(e.target.value);
+                setPropertyTypeSlug('');
+              }}
+              className={fieldClasses}
+            >
+              <option value="">Any Category</option>
+              {categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </FilterCell>
           <FilterCell label="Property Type">
             <select value={propertyTypeSlug} onChange={(e) => setPropertyTypeSlug(e.target.value)} className={fieldClasses}>
               <option value="">Any Type</option>
-              {propertyTypes.map((type) => (
+              {typesInSelectedCategory.map((type) => (
                 <option key={type.slug} value={type.slug}>
                   {type.label}
                 </option>

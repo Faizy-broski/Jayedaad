@@ -13,6 +13,7 @@ const AMENITY_CATEGORIES: AmenityCategory[] = [
   'healthcare_recreation',
   'nearby_locations',
   'other_facilities',
+  'plot_features',
 ];
 const AMENITY_VALUE_TYPES: AmenityValueType[] = ['boolean', 'number', 'text', 'select'];
 

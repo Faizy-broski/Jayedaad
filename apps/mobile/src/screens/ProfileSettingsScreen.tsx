@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, Text, TextInput as RNTextInput, View, Pressable, StyleSheet } from 'react-native';
-import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import {
   AreaUnit,
   COUNTRIES,
   getMaxPhoneDigits,
   PAKISTAN_CITIES,
-  accountRepository,
+  useAccountProfileViewModel,
   useAgentProfileViewModel,
   useAuthViewModel,
+  useMyAgencyViewModel,
   usePreferencesViewModel,
 } from '@jayedaad/core';
 import { Button, Card, CardContent, CountryCodeField, PickerField, theme, useToast } from '@jayedaad/ui-native';
@@ -44,6 +44,8 @@ export function ProfileSettingsScreen() {
           {isAgent ? <AgentProfileForm /> : <SelfProfileForm />}
         </CardContent>
       </Card>
+
+      {isAgent && <AgencyDetailsCard />}
 
       <Card style={[styles.card, styles.sectionSpacing]}>
         <CardContent style={styles.cardContent}>
@@ -179,35 +181,161 @@ function AgentProfileForm() {
   );
 }
 
+// Previously agency name/city/phone were write-once, set at registerAgency()
+// during signup with no read or edit path anywhere afterward. Only rendered
+// for agent-role users; a no-op internally (query disabled) if they don't
+// belong to an agency at all.
+function AgencyDetailsCard() {
+  const { agency, isLoading, isAgencyAdmin, update } = useMyAgencyViewModel();
+  const { showToast } = useToast();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    if (!agency) return;
+    setName(agency.name ?? '');
+    setPhone(agency.phone ?? '');
+    setCity(agency.city ?? '');
+    setAddress(agency.address ?? '');
+    setDescription(agency.description ?? '');
+  }, [agency]);
+
+  if (!agency && !isLoading) return null;
+
+  function handleSave() {
+    update.mutate(
+      { name, phone, city, address, description },
+      {
+        onSuccess: () => showToast('Agency details saved.'),
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
+    );
+  }
+
+  return (
+    <Card style={[styles.card, styles.sectionSpacing]}>
+      <CardContent style={styles.cardContent}>
+        <Text style={styles.sectionTitle}>Agency Details</Text>
+        {isLoading ? (
+          <Text style={styles.muted}>Loading…</Text>
+        ) : (
+          <>
+            {!isAgencyAdmin && <Text style={styles.muted}>Only your agency&apos;s admin can edit these details.</Text>}
+            <Field label="Agency Name" value={name} onChangeText={setName} disabled={!isAgencyAdmin} />
+            <Field label="Phone" value={phone} onChangeText={setPhone} disabled={!isAgencyAdmin} />
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>City</Text>
+              <PickerField
+                value={city}
+                options={PAKISTAN_CITIES}
+                placeholder="Select City"
+                title="Select City"
+                disabled={!isAgencyAdmin}
+                onChange={setCity}
+              />
+            </View>
+            <Field label="Address" value={address} onChangeText={setAddress} disabled={!isAgencyAdmin} />
+            <Field label="Description" value={description} onChangeText={setDescription} disabled={!isAgencyAdmin} />
+            {isAgencyAdmin && (
+              <View style={styles.buttonContainer}>
+                <Button label={update.isPending ? 'Updating…' : 'Update Agency'} onPress={handleSave} disabled={update.isPending} />
+              </View>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SelfProfileForm() {
   const { user } = useAuthViewModel();
+  const { profile, isLoading, updateProfile, uploadPhoto } = useAccountProfileViewModel();
   const { showToast } = useToast();
-  const [displayName, setDisplayName] = useState((user?.user_metadata?.display_name as string | undefined) ?? '');
+  const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneDialCode, setPhoneDialCode] = useState('92');
 
-  const updateProfile = useMutation({
-    mutationFn: () =>
-      accountRepository.updateProfile({
+  // Previously this form had no read path at all — phone (already saved
+  // correctly at signup) never appeared here, only whatever the user
+  // typed into this session. Mirrors AgentProfileForm's prefill effect.
+  useEffect(() => {
+    if (!profile) return;
+    const parsedPhone = parsePhone(profile.phone);
+    setDisplayName(profile.displayName ?? '');
+    setPhone(parsedPhone.number);
+    setPhoneDialCode(parsedPhone.dialCode);
+  }, [profile]);
+
+  if (isLoading) return <Text style={styles.muted}>Loading…</Text>;
+
+  async function handlePickPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast('Photo library permission is required.', 'error');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const filename = asset.uri.split('/').pop() ?? 'photo.jpg';
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    uploadPhoto.mutate(
+      { uri: asset.uri, name: filename, type: mimeType },
+      {
+        onSuccess: () => showToast('Photo uploaded.'),
+        onError: () => showToast('Upload failed — please try again.', 'error'),
+      },
+    );
+  }
+
+  function handleSave() {
+    updateProfile.mutate(
+      {
         displayName,
         phone: phone ? `+${phoneDialCode.replace(/\D/g, '')}${phone}` : undefined,
-      }),
-  });
+      },
+      {
+        onSuccess: () => showToast('Profile saved.'),
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
+    );
+  }
 
   return (
     <>
+      <View style={styles.photoRow}>
+        {profile?.photoUrl ? (
+          <Image source={{ uri: profile.photoUrl }} style={styles.photoPreview} />
+        ) : (
+          <View style={styles.photoPlaceholder}>
+            <Text style={styles.photoPlaceholderText}>{(displayName || '?').charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+        <Pressable
+          style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
+          onPress={handlePickPhoto}
+          disabled={uploadPhoto.isPending}
+        >
+          <Text style={styles.photoButtonText}>{uploadPhoto.isPending ? 'Uploading…' : 'Browse and Upload'}</Text>
+        </Pressable>
+      </View>
+      {uploadPhoto.isError && <Text style={styles.error}>Upload failed — please try again.</Text>}
+
       <Field label="Name" value={displayName} onChangeText={setDisplayName} />
       <Field label="Email Address" value={user?.email ?? ''} disabled />
       <PhoneField label="Mobile" value={phone} onChangeText={setPhone} dialCode={phoneDialCode} onDialCodeChange={setPhoneDialCode} />
       <View style={styles.buttonContainer}>
         <Button
           label={updateProfile.isPending ? 'Updating…' : 'Update Profile'}
-          onPress={() =>
-            updateProfile.mutate(undefined, {
-              onSuccess: () => showToast('Profile saved.'),
-              onError: () => showToast('Something went wrong — please try again.', 'error'),
-            })
-          }
+          onPress={handleSave}
           disabled={updateProfile.isPending}
         />
       </View>
@@ -424,7 +552,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: theme.colors.border,
-    borderRadius: 8,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surface,
@@ -500,7 +628,7 @@ const styles = StyleSheet.create({
   },
   deleteRowPressed: {
     backgroundColor: theme.colors.dangerBg, // Soft red background on press
-    borderRadius: 12,
+    borderRadius: 999,
   },
   deleteText: { 
     color: DESTRUCTIVE_COLOR, 

@@ -206,7 +206,13 @@ export class ListingsRepository {
     if (filters.purpose) query = query.eq('purpose', filters.purpose);
     if (filters.bedrooms) query = query.eq('bedrooms', filters.bedrooms);
     if (filters.minBathrooms) query = query.gte('bathrooms', filters.minBathrooms);
-    if (filters.areaUnit) query = query.eq('area_unit', filters.areaUnit);
+    // areaUnit is only meaningful alongside an actual area range — clients
+    // (web/mobile search filter state) always carry a default unit
+    // ('marla') even when the user never touched the area filter, so
+    // applying it unconditionally silently excluded every listing measured
+    // in a different unit (e.g. sqft/kanal) from an otherwise-unfiltered
+    // search.
+    if (filters.areaUnit && (filters.minAreaValue || filters.maxAreaValue)) query = query.eq('area_unit', filters.areaUnit);
     if (filters.minAreaValue) query = query.gte('area_value', filters.minAreaValue);
     if (filters.maxAreaValue) query = query.lte('area_value', filters.maxAreaValue);
     if (filters.minPrice) query = query.gte('price', filters.minPrice);
@@ -637,7 +643,9 @@ export class ListingsRepository {
     if (filters.area) query = query.ilike('area', `%${filters.area}%`);
     if (filters.minPrice) query = query.gte('price', filters.minPrice);
     if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
-    if (filters.areaUnit) query = query.eq('area_unit', filters.areaUnit);
+    // See the matching comment in findPublic above — areaUnit alone (no
+    // range) shouldn't narrow results.
+    if (filters.areaUnit && (filters.minAreaValue || filters.maxAreaValue)) query = query.eq('area_unit', filters.areaUnit);
     if (filters.minAreaValue) query = query.gte('area_value', filters.minAreaValue);
     if (filters.maxAreaValue) query = query.lte('area_value', filters.maxAreaValue);
     if (filters.listedDateFrom) query = query.gte('created_at', filters.listedDateFrom);

@@ -18,6 +18,7 @@ import {
   ChevronDown,
   LogOut,
   Users,
+  Landmark,
 } from 'lucide-react';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, roles: ['agent', 'super_admin'] },
   { href: '/submit', label: 'Post Listing', icon: PlusCircle, roles: ['owner', 'agent', 'super_admin'] },
   { href: '/property-management', label: 'Property Management', icon: Building2, roles: ['agent', 'super_admin'] },
+  { href: '/projects', label: 'Projects', icon: Landmark, roles: ['agent', 'super_admin'] },
   { href: '/crm', label: 'Inbox', icon: Inbox, roles: ['agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
   { href: '/agent-settings', label: 'Settings', icon: Settings, roles: ['agent', 'super_admin'] },

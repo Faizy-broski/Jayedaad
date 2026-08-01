@@ -20,8 +20,12 @@ export class OtpService {
     const code = generateCode();
     const expiresAt = new Date(Date.now() + CODE_TTL_MS);
 
-    await this.repo.insertCode(userId, hashCode(code), expiresAt, 'email_verification');
+    // Send before persisting — a failed send (e.g. SMTP misconfigured/down)
+    // must not leave a valid-but-never-delivered code sitting in the DB,
+    // since that code would otherwise still pass verifyCode() for anyone
+    // who somehow got hold of it despite the user never receiving it.
     await this.mailer.sendOtpEmail(email, code);
+    await this.repo.insertCode(userId, hashCode(code), expiresAt, 'email_verification');
 
     return { sent: true };
   }

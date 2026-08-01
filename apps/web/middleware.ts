@@ -16,6 +16,7 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   // Rest of the (agent) Profolio-style portal — see app/(agent)/layout.tsx.
   { prefix: '/dashboard', roles: ['agent', 'super_admin'] },
   { prefix: '/property-management', roles: ['agent', 'super_admin'] },
+  { prefix: '/projects', roles: ['agent', 'super_admin'] },
   { prefix: '/agent-settings', roles: ['agent', 'super_admin'] },
   { prefix: '/plan', roles: ['agent', 'super_admin'] },
   // Super Admin "god mode" dashboard — see app/(super-admin)/layout.tsx.
@@ -88,6 +89,7 @@ export const config = {
     '/submit/:path*',
     '/dashboard/:path*',
     '/property-management/:path*',
+    '/projects/:path*',
     '/agent-settings/:path*',
     '/plan/:path*',
     '/admin/:path*',

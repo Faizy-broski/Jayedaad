@@ -9,6 +9,16 @@ import { UpdateOwnProfileDto } from './dto/update-profile.dto';
 export class AccountRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  async getProfile(userId: string) {
+    const { data, error } = await this.supabase.client
+      .from('profiles')
+      .select('display_name, phone, email, photo_url')
+      .eq('id', userId)
+      .single();
+    if (error) throw error;
+    return { displayName: data.display_name, phone: data.phone, email: data.email, photoUrl: data.photo_url };
+  }
+
   async updateProfile(userId: string, input: UpdateOwnProfileDto) {
     const { data, error } = await this.supabase.client
       .from('profiles')
@@ -17,10 +27,24 @@ export class AccountRepository {
         phone: input.phone,
       })
       .eq('id', userId)
-      .select('display_name, phone')
+      .select('display_name, phone, email, photo_url')
       .single();
     if (error) throw error;
-    return { displayName: data.display_name, phone: data.phone };
+    return { displayName: data.display_name, phone: data.phone, email: data.email, photoUrl: data.photo_url };
+  }
+
+  // The write side of "Upload a picture" — separate from updateProfile()
+  // since it's driven by a file upload, not the rest of the form fields.
+  // Mirrors AgentsRepository.updatePhoto exactly.
+  async updatePhoto(userId: string, photoUrl: string) {
+    const { data, error } = await this.supabase.client
+      .from('profiles')
+      .update({ photo_url: photoUrl })
+      .eq('id', userId)
+      .select('display_name, phone, email, photo_url')
+      .single();
+    if (error) throw error;
+    return { displayName: data.display_name, phone: data.phone, email: data.email, photoUrl: data.photo_url };
   }
 
   // listings.owner_id/agent_id and leads.agent_id/lead_assignments.agent_id

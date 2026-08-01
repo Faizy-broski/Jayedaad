@@ -209,22 +209,36 @@ export default function PropertyManagementPage() {
     <div className="space-y-6">
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Input
               placeholder="Enter Listing ID (e.g. JYD-00001)"
               value={draft.listingNumber}
               onChange={(e) => setDraft((prev) => ({ ...prev, listingNumber: e.target.value }))}
             />
             <Select
-              value={draft.propertyTypeSlug}
-              onChange={(e) => setDraft((prev) => ({ ...prev, propertyTypeSlug: e.target.value }))}
+              value={draft.categorySlug}
+              onChange={(e) => setDraft((prev) => ({ ...prev, categorySlug: e.target.value, propertyTypeSlug: '' }))}
             >
-              <option value="">Select Property Type</option>
-              {propertyTypes.map((type) => (
-                <option key={type.id} value={type.slug}>
-                  {type.label}
+              <option value="">Select Category</option>
+              {categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.label}
                 </option>
               ))}
+            </Select>
+            <Select
+              value={draft.propertyTypeSlug}
+              onChange={(e) => setDraft((prev) => ({ ...prev, propertyTypeSlug: e.target.value }))}
+              disabled={!draft.categorySlug}
+            >
+              <option value="">Select Property Type</option>
+              {propertyTypes
+                .filter((type) => type.category?.slug === draft.categorySlug)
+                .map((type) => (
+                  <option key={type.id} value={type.slug}>
+                    {type.label}
+                  </option>
+                ))}
             </Select>
             <Select
               value={draft.purpose}
@@ -273,18 +287,6 @@ export default function PropertyManagementPage() {
             </div>
 
             <div className="flex-1 space-y-6 p-6">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Category</label>
-                <Select value={draft.categorySlug} onChange={(e) => setDraft((prev) => ({ ...prev, categorySlug: e.target.value }))}>
-                  <option value="">Select Category</option>
-                  {categories.map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">City</label>
                 <Select value={draft.city} onChange={(e) => setDraft((prev) => ({ ...prev, city: e.target.value }))}>

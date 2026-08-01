@@ -9,12 +9,25 @@ export interface PickerFieldProps {
   placeholder?: string;
   title?: string;
   onChange: (value: string) => void;
+  // "pill": fully-rounded, filled, borderless trigger (photo-background auth
+  // screens). Omit for the existing bordered-rectangle default everywhere
+  // else.
+  variant?: 'default' | 'pill';
+  disabled?: boolean;
 }
 
 // RN has no native <select> — this is the searchable full-screen-modal
 // equivalent used everywhere a long static option list (cities, etc.) needs
 // picking on mobile, mirroring ui-web's <Select>.
-export function PickerField({ value, options, placeholder = 'Select', title = 'Select', onChange }: PickerFieldProps) {
+export function PickerField({
+  value,
+  options,
+  placeholder = 'Select',
+  title = 'Select',
+  onChange,
+  variant = 'default',
+  disabled = false,
+}: PickerFieldProps) {
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -27,7 +40,10 @@ export function PickerField({ value, options, placeholder = 'Select', title = 'S
 
   return (
     <>
-      <Pressable style={styles.trigger} onPress={() => setVisible(true)}>
+      <Pressable
+        style={[styles.trigger, variant === 'pill' && styles.triggerPill, disabled && styles.triggerDisabled]}
+        onPress={() => !disabled && setVisible(true)}
+      >
         <Text style={[styles.triggerText, !value && styles.placeholder]}>{value || placeholder}</Text>
         <Ionicons name="chevron-down" size={16} color={theme.colors.muted} />
       </Pressable>
@@ -81,6 +97,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.sm,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
+  },
+  triggerPill: {
+    borderWidth: 0,
+    borderRadius: 999,
+    backgroundColor: theme.colors.secondaryBg,
+  },
+  triggerDisabled: {
+    opacity: 0.5,
   },
   triggerText: { fontSize: 14, color: theme.colors.text },
   placeholder: { color: theme.colors.muted },

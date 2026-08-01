@@ -13,6 +13,10 @@ export interface CountryCodeFieldProps {
   countries: CountryCodeOption[];
   value: string;
   onChange: (dialCode: string) => void;
+  // "pill": fully-rounded, filled, borderless trigger (photo-background auth
+  // screens, sitting beside a pill-variant phone TextInput). Omit for the
+  // existing bordered-rectangle default everywhere else.
+  variant?: 'default' | 'pill';
 }
 
 // Same regional-indicator-emoji trick as ui-web's CountryCodeSelect — no
@@ -26,7 +30,7 @@ function flagEmoji(iso2: string): string {
 // RN has no native <select>; this is the flag+abbreviation+dial-code
 // equivalent of ui-web's CountryCodeSelect, using the same full-screen
 // searchable modal pattern as PickerField.
-export function CountryCodeField({ countries, value, onChange }: CountryCodeFieldProps) {
+export function CountryCodeField({ countries, value, onChange, variant = 'default' }: CountryCodeFieldProps) {
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -47,7 +51,7 @@ export function CountryCodeField({ countries, value, onChange }: CountryCodeFiel
 
   return (
     <>
-      <Pressable style={styles.trigger} onPress={() => setVisible(true)}>
+      <Pressable style={[styles.trigger, variant === 'pill' && styles.triggerPill]} onPress={() => setVisible(true)}>
         <Text style={styles.triggerText} numberOfLines={1} adjustsFontSizeToFit>
           {flagEmoji(selected.iso2)} {selected.iso2} +{selected.dialCode}
         </Text>
@@ -109,6 +113,12 @@ const styles = StyleSheet.create({
     // same height as the phone-number field it always sits beside, with no
     // fill color so it reads as one continuous field, not a separate box.
     paddingVertical: theme.spacing.sm,
+  },
+  triggerPill: {
+    borderWidth: 0,
+    borderRadius: 999,
+    backgroundColor: theme.colors.secondaryBg,
+    paddingHorizontal: theme.spacing.md,
   },
   triggerText: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: theme.colors.text },
   modal: { flex: 1, backgroundColor: theme.colors.bg, paddingTop: 56, paddingHorizontal: theme.spacing.lg },

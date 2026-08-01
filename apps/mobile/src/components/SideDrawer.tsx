@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuthViewModel } from '@jayedaad/core';
+import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import logoImage from '../../assets/images/jayedaad.webp';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -33,7 +33,11 @@ export interface SideDrawerProps {
 // caused real version-mismatch breakage earlier this session.
 export function SideDrawer({ visible, onClose }: SideDrawerProps) {
   const navigation = useNavigation<Nav>();
-  const { user, signOut } = useAuthViewModel();
+  const { user, role, signOut } = useAuthViewModel();
+  const isAgent = role === 'agent' || role === 'super_admin';
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  const canManageAgency = role === 'super_admin' || !!agentProfile?.isAgencyAdmin;
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
   useEffect(() => {
@@ -88,6 +92,8 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
             <SectionLabel>Properties and Quota</SectionLabel>
             <NavRow icon="home-outline" label="My Properties" onPress={() => go('MyProperties')} />
             <NavRow icon="document-text-outline" label="Drafts" onPress={() => go('MyProperties', { initialTab: 'drafts' })} />
+            {isAgent && <NavRow icon="business-outline" label="My Projects" onPress={() => go('MyProjects')} />}
+            {canManageAgency && <NavRow icon="people-outline" label="Agency Staff" onPress={() => go('AgencyStaff')} />}
 
             <SectionLabel>App Controls</SectionLabel>
             <NavRow icon="settings-outline" label="Settings" onPress={() => go('ProfileSettings')} />
@@ -170,7 +176,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     paddingVertical: theme.spacing.sm + 2,
     paddingHorizontal: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    borderRadius: 999,
   },
   rowActive: { backgroundColor: theme.colors.secondaryBg },
   rowLabel: { fontSize: 14, fontWeight: '600', color: theme.colors.text },

@@ -42,6 +42,8 @@ export interface PropertyTypeCategorySummary {
 }
 // Verified against a real scraped Zameen.com listing detail page — 7
 // categories, not a guessed set (see supabase/migrations/0005_taxonomy_seed.sql).
+// 'plot_features' added in 0021_add_plot_features_category.sql — Plots'
+// own tab (Corner, Balloted, Sui Gas, etc.), not applicable to Homes/Commercial.
 export type AmenityCategory =
   | 'main_features'
   | 'rooms'
@@ -49,7 +51,8 @@ export type AmenityCategory =
   | 'community_features'
   | 'healthcare_recreation'
   | 'nearby_locations'
-  | 'other_facilities';
+  | 'other_facilities'
+  | 'plot_features';
 // Zameen's real listing-boost ranking (Basic/Premium/Hot/Super Hot "Value
 // Booster" products) — independent of the owning agency's subscription tier.
 export type ListingBoostTier = 'basic' | 'premium' | 'hot' | 'super_hot';
@@ -683,7 +686,12 @@ export interface ListingSearchFiltersJson {
 
 // --- Projects (mirrors 0008_projects.sql) --------------------------------------
 
-export type ProjectStatus = 'planned' | 'under_construction' | 'ready';
+export type ProjectStatus = 'planned' | 'under_construction' | 'ready' | 'draft';
+// Publish gate — mirrors AgencyVerificationStatus's simple 3-state shape.
+// An agent-authored project starts 'pending' and is invisible to public
+// search until a Super Admin approves it; a super_admin-authored one is
+// auto-'verified'. See supabase/migrations/0025_project_verification_status.sql.
+export type ProjectVerificationStatus = 'pending' | 'verified' | 'rejected' | 'draft';
 
 // Promoted from a plain `developerName` string to a first-class entity —
 // confirmed real on the Zameen New Projects page's "Select Developers"
@@ -784,9 +792,27 @@ export interface Project {
   status: ProjectStatus;
   possessionDate: string | null;
   coverImageUrl: string | null;
-  unitTypes: ProjectUnitType[];
-  paymentPlans: ProjectPaymentPlan[];
-  amenities: AmenitySummary[];
+  galleryImageUrls: string[];
+  floorPlanUrls: string[];
+  videoUrl: string | null;
+  brochureUrl: string | null;
+  verificationStatus: ProjectVerificationStatus;
+  // The auth user id of whoever created this project — null for legacy
+  // rows that predate this column. Used client-side to decide whether an
+  // agent viewing /projects/[id] gets an editable form or a read-only one
+  // (see apps/web/app/(agent)/projects/[id]/page.tsx).
+  createdBy: string | null;
+  // Always present — a real count from the DB (see
+  // ProjectsRepository.mapProjectRow's `project_unit_types (count)` embed),
+  // unlike unitTypes below.
+  unitTypeCount: number;
+  // Only populated on the single-project detail endpoints (findBySlug/
+  // findById) — search/manage list rows omit these entirely rather than
+  // eagerly joining every project's full child rows, so treat as absent
+  // (not just empty) on a Project that came from a search/list response.
+  unitTypes?: ProjectUnitType[];
+  paymentPlans?: ProjectPaymentPlan[];
+  amenities?: AmenitySummary[];
   // Computed at query time from unit types, never stored — same principle
   // as every other stats figure on this platform.
   priceRange: ProjectPriceRange | null;
@@ -867,9 +893,59 @@ export interface CreateProjectInput {
   status?: ProjectStatus;
   possessionDate?: string;
   coverImageUrl?: string;
+  galleryImageUrls?: string[];
+  floorPlanUrls?: string[];
+  videoUrl?: string;
+  brochureUrl?: string;
   unitTypes?: CreateProjectUnitTypeInput[];
   paymentPlans?: CreateProjectPaymentPlanInput[];
   amenitySlugs?: string[];
+}
+
+export interface SetProjectVerificationStatusInput {
+  status: 'verified' | 'rejected';
+}
+
+// Full-page-form edit input — unitTypes/paymentPlans/amenitySlugs, when
+// present, replace the project's existing rows entirely server-side (see
+// ProjectsRepository.update), same as CreateProjectInput's shape.
+export interface UpdateProjectInput {
+  name?: string;
+  slug?: string;
+  developerId?: string;
+  description?: string;
+  city?: string;
+  area?: string;
+  status?: ProjectStatus;
+  possessionDate?: string;
+  coverImageUrl?: string;
+  galleryImageUrls?: string[];
+  floorPlanUrls?: string[];
+  videoUrl?: string;
+  brochureUrl?: string;
+  unitTypes?: CreateProjectUnitTypeInput[];
+  paymentPlans?: CreateProjectPaymentPlanInput[];
+  amenitySlugs?: string[];
+}
+
+// Shared ownership/verification rules — mirrors the server-side checks in
+// services/api/src/projects/projects.controller.ts's assertOwnProject/
+// assertCanDeleteProject exactly, so web (ProjectsListView.tsx) and mobile
+// (MyProjectsScreen.tsx) enforce the identical business rule instead of
+// each re-deriving it. These are permission *predicates* only (what the UI
+// should show/allow) — the API is still the actual source of truth and
+// re-checks on every request regardless of what the client renders.
+export function canEditProject(project: Project, role: Role | undefined, userId: string | undefined): boolean {
+  if (role === 'super_admin') return true;
+  return role === 'agent' && !!userId && project.createdBy === userId;
+}
+
+// An agent may delete their own project only before it's approved — once
+// verification_status is 'verified' it's live/public, so removing it
+// becomes a Super Admin call.
+export function canDeleteProject(project: Project, role: Role | undefined, userId: string | undefined): boolean {
+  if (role === 'super_admin') return true;
+  return role === 'agent' && !!userId && project.createdBy === userId && project.verificationStatus !== 'verified';
 }
 
 // --- Notifications (mirrors 0009_notifications.sql) ----------------------------

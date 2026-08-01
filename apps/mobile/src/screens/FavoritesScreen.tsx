@@ -8,6 +8,12 @@ import { formatPrice, useFavoritesViewModel, usePreferencesViewModel, useSavedSe
 // Removed Tabs from ui-native import to use the premium segmented control
 import { Button, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { BottomTabParamList } from '../navigation/BottomTabNavigator';
+
+// Nav type unions both param lists — this screen itself now lives in
+// BottomTabParamList (it's a tab), but still navigates to RootStackParamList
+// screens elsewhere in the tree; same union pattern SideDrawer.tsx uses.
+type Nav = NativeStackNavigationProp<RootStackParamList & BottomTabParamList>;
 
 type TabId = 'favorites' | 'saved';
 
@@ -19,12 +25,13 @@ const TABS: { id: TabId; label: string }[] = [
 const DESTRUCTIVE_COLOR = theme.colors.danger;
 
 export function FavoritesScreen() {
-  const route = useRoute<RouteProp<RootStackParamList, 'Favorites'>>();
+  const route = useRoute<RouteProp<BottomTabParamList, 'Favorites'>>();
   const [tab, setTab] = useState<TabId>(route.params?.initialTab ?? 'favorites');
 
   return (
-    <SafeAreaView style={styles.root} edges={['left', 'right']}>
-      
+    <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <Text style={styles.title}>Favorites</Text>
+
       {/* Premium Segmented Control Header */}
       <View style={styles.header}>
         <View style={styles.segmentedControl}>
@@ -54,7 +61,7 @@ function FavoritesTab() {
   const { favorites, isLoading, remove } = useFavoritesViewModel();
   const { preferences } = usePreferencesViewModel();
   const { showToast } = useToast();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<Nav>();
 
   if (isLoading) {
     return (
@@ -78,7 +85,12 @@ function FavoritesTab() {
   return (
     <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
       {favorites.map((favorite) => (
-        <View key={favorite.id} style={styles.card}>
+        <Pressable
+          key={favorite.id}
+          style={styles.card}
+          disabled={!favorite.listing}
+          onPress={() => navigation.navigate('ListingDetail', { listingId: favorite.listingId })}
+        >
           <View style={styles.cardContent}>
             <View style={styles.cardTextWrap}>
               <Text style={styles.cardTitle} numberOfLines={1}>
@@ -108,7 +120,7 @@ function FavoritesTab() {
               <Ionicons name="heart" size={24} color={DESTRUCTIVE_COLOR} />
             </Pressable>
           </View>
-        </View>
+        </Pressable>
       ))}
     </ScrollView>
   );
@@ -117,7 +129,7 @@ function FavoritesTab() {
 function SavedSearchesTab() {
   const { savedSearches, isLoading, remove } = useSavedSearchesViewModel();
   const { showToast } = useToast();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<Nav>();
 
   if (isLoading) {
     return (
@@ -204,6 +216,17 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  // Matches ProjectsScreen's plain tab-title treatment — every other tab
+  // screen shows some page heading by default (Home's hero header, Projects'
+  // title, Profile's profile card); this screen previously jumped straight
+  // into the segmented control with no heading above it.
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: theme.colors.text,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
 
   // Premium Segmented Control
   header: {
@@ -215,14 +238,14 @@ const styles = StyleSheet.create({
   segmentedControl: {
     flexDirection: 'row',
     backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: 12,
+    borderRadius: 999,
     padding: 4,
   },
   segmentTab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 999,
   },
   segmentTabActive: {
     backgroundColor: theme.colors.primary,
@@ -358,6 +381,6 @@ const styles = StyleSheet.create({
   actionIconWrapper: {
     padding: 4,
     backgroundColor: theme.colors.dangerBg,
-    borderRadius: 8,
+    borderRadius: 999,
   },
 });

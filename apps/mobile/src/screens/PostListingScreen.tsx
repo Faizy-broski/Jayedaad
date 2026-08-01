@@ -557,11 +557,17 @@ export function PostListingScreen() {
           <Button
             label={saveDraft.isPending ? 'Saving…' : 'Save as Draft'}
             variant="secondary"
+            size="sm"
             onPress={handleSaveDraft}
             disabled={isPending}
           />
         )}
-        <Button label={isPending ? (editId ? 'Saving…' : 'Submitting…') : editId ? 'Save Changes' : 'Submit for Verification'} onPress={handleSubmit} disabled={isPending} />
+        <Button
+          label={isPending ? (editId ? 'Saving…' : 'Submitting…') : editId ? 'Save Changes' : 'Submit for Verification'}
+          size="sm"
+          onPress={handleSubmit}
+          disabled={isPending}
+        />
       </View>
     </ScrollView>
   );
@@ -651,7 +657,7 @@ const styles = StyleSheet.create({
   segmentedControl: {
     flexDirection: 'row',
     backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: 12,
+    borderRadius: 999,
     padding: 4,
     marginTop: 4,
   },
@@ -659,7 +665,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 999,
   },
   segmentTabActive: {
     backgroundColor: theme.colors.primary,
@@ -736,8 +742,9 @@ const styles = StyleSheet.create({
 
   // Gold Gradient Buttons
   goldButton: {
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 999,
+    minHeight: 38,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: theme.gradients.gold.colors[1],

@@ -22,8 +22,11 @@ export class DevelopersController {
     return this.developers.findBySlug(slug);
   }
 
+  // agent, not just super_admin — a duplicate/sloppy entry here isn't a real
+  // risk, since every project referencing it still needs super_admin
+  // verification (see ProjectsController) before it's publicly visible.
   @UseGuards(ScopeGuard)
-  @Roles('super_admin')
+  @Roles('agent', 'super_admin')
   @Post()
   create(@Body() body: CreateDeveloperDto) {
     return this.developers.create(body);

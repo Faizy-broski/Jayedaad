@@ -71,6 +71,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+// Override for categories whose reference-form tab name doesn't match the
+// auto-derived `category.replace(/_/g, ' ')` — everything else falls
+// through to that derivation unchanged.
+const AMENITY_CATEGORY_TAB_LABELS: Partial<Record<string, string>> = {
+  nearby_locations: 'Nearby Locations and Other Facilities',
+};
+
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 const FURNISHING_STATUSES: FurnishingStatus[] = ['unfurnished', 'semi_furnished', 'furnished'];
 const BEDROOM_OPTIONS = ['Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
@@ -1176,7 +1183,7 @@ function AmenitiesModal({
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              {category.replace(/_/g, ' ')}
+              {AMENITY_CATEGORY_TAB_LABELS[category] ?? category.replace(/_/g, ' ')}
             </button>
           ))}
         </div>

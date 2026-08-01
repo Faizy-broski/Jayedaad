@@ -9,12 +9,18 @@ import { Card, CardContent, theme } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
 
+type CombinedParamList = RootStackParamList & BottomTabParamList;
+
 type QuickAction = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  route?: keyof RootStackParamList;
-  params?: RootStackParamList['Favorites'] | RootStackParamList['MyProperties'];
+  route?: keyof CombinedParamList;
+  params?: CombinedParamList['Favorites'] | CombinedParamList['MyProperties'];
   agentOnly?: boolean;
+  // Matches web's agent-settings layout.tsx NAV_ITEMS filter
+  // (`!item.agencyAdminOnly || role === 'super_admin' || profile?.isAgencyAdmin`)
+  // — a regular (non-admin) agent shouldn't see this even though they pass agentOnly.
+  agencyAdminOnly?: boolean;
 };
 
 const QUICK_ACTIONS: QuickAction[] = [
@@ -23,6 +29,8 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'My Favourites', icon: 'heart-outline', route: 'Favorites', params: { initialTab: 'favorites' } },
   { label: 'My Properties', icon: 'home-outline', route: 'MyProperties' },
   { label: 'Dashboard', icon: 'stats-chart-outline', route: 'AgentDashboard', agentOnly: true },
+  { label: 'My Projects', icon: 'business-outline', route: 'MyProjects', agentOnly: true },
+  { label: 'Agency Staff', icon: 'people-outline', route: 'AgencyStaff', agentOnly: true, agencyAdminOnly: true },
   { label: 'Inbox', icon: 'mail-unread-outline', route: 'AgentCRM', agentOnly: true },
   { label: 'Drafts', icon: 'document-text-outline', route: 'MyProperties', params: { initialTab: 'drafts' } },
   { label: 'Plan', icon: 'card-outline', route: 'Plan', agentOnly: true },
@@ -53,7 +61,13 @@ export function ProfileScreen() {
   const email = user?.email || '';
   const rawName = user?.user_metadata?.display_name as string | undefined;
   const displayName = rawName || (email ? email.split('@')[0] : 'Guest');
-  const roleLabel = role ? ROLE_LABELS[role] : undefined;
+  // Web already distinguishes Agency vs Individual (agent-settings' "Agency"/
+  // "Individual" pill, sourced off profile?.agency) — mobile's badge just
+  // showed the raw role string for both, so an agency admin saw "AGENT"
+  // same as a plain individual agent. agentProfile.agency is only ever
+  // populated for a real agency member (registerSelfService/becomeAnAgent),
+  // never for an individual agent.
+  const roleLabel = role === 'agent' && agentProfile?.agency ? 'AGENCY' : role ? ROLE_LABELS[role] : undefined;
 
   function handleLogOut() {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -94,7 +108,11 @@ export function ProfileScreen() {
 
         {/* Quick Actions Grid */}
         <View style={styles.grid}>
-          {QUICK_ACTIONS.filter((action) => !action.agentOnly || isAgent).map((action) => (
+          {QUICK_ACTIONS.filter(
+            (action) =>
+              (!action.agentOnly || isAgent) &&
+              (!action.agencyAdminOnly || role === 'super_admin' || agentProfile?.isAgencyAdmin),
+          ).map((action) => (
             <Pressable
               key={action.label}
               disabled={!action.route}
@@ -353,10 +371,12 @@ const styles = StyleSheet.create({
   },
   promoButtonWhite: {
     backgroundColor: theme.colors.bg,
-    borderRadius: 8,
+    borderRadius: 999,
+    minHeight: 48,
     paddingVertical: 12,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 4,

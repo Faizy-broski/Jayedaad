@@ -1,173 +1,181 @@
 import { useState } from 'react';
-import { FlatList, Linking, Pressable, SafeAreaView, Text, View, StyleSheet } from 'react-native';
-import { randomUUID } from 'expo-crypto';
+import { ActivityIndicator, FlatList, Pressable, Text, View, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Listing,
-  PAKISTAN_CITIES,
-  formatPrice,
-  listingsRepository,
-  useFavoritesViewModel,
-  useListingSearchViewModel,
-  usePreferencesViewModel,
-} from '@jayedaad/core';
-import { Button, PickerField, TextInput, theme } from '@jayedaad/ui-native';
-import { useAuthGate } from '../auth/AuthGateProvider';
+import { useInfiniteListingSearchViewModel, usePreferencesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
+import { TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { useAuthGate } from '../auth/AuthGateContext';
+import { ContactActions } from '../components/ListingContactActions';
+import { PropertyCard } from '../components/PropertyCard';
+import { SearchFilterSheet } from '../components/SearchFilterSheet';
+import { DEFAULT_SEARCH_FILTERS, SearchFilterState, toListingSearchFilters } from '../lib/searchFilters';
+import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
+import type { RootStackParamList } from '../navigation/RootNavigator';
 
-// One anonymous id per app session, same purpose as apps/web's
-// viewerSession.ts — groups one visitor's engagement events. Hermes (RN's JS
-// engine) has no global `crypto`, unlike browsers/Node — expo-crypto provides
-// a real native-backed randomUUID instead.
-const viewerSessionId = randomUUID();
-
-// Fires the real engagement-tracking event (backs the agent dashboard's
-// Calls/WhatsApp/SMS analytics, previously always 0 — nothing anywhere
-// called this endpoint) then performs the real native action. Fire-and-forget.
-function trackAndOpen(listingId: string, type: 'call' | 'whatsapp' | 'sms', url: string) {
-  listingsRepository.trackEngagement(listingId, { type, platform: 'mobile', viewerSessionId }).catch(() => {});
-  Linking.openURL(url);
+function filterSummary(filters: SearchFilterState): string {
+  const parts = [filters.purpose === 'sale' ? 'Buy' : 'Rent', filters.city || 'Any City', filters.propertyTypeSlug ? undefined : 'Any Type'];
+  return parts.filter(Boolean).join(' · ');
 }
 
-function FavoriteButton({ listing }: { listing: Listing }) {
-  const { favorites, add, remove } = useFavoritesViewModel();
+// Same viewmodel as apps/web's (buyer)/search page.tsx — only the View
+// differs. Full filter field set (Purpose, City, Location, Property Type,
+// Area, Price, Beds, Baths, Keyword, More Options) lives in
+// SearchFilterSheet, matching web's filter panel; this screen just holds
+// the committed filters + renders results, same draft-then-commit split as
+// AddFeaturesScreen.
+export function BuyerSearchScreen() {
+  const route = useRoute<RouteProp<BottomTabParamList, 'BuyerSearch'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
+  const [filters, setFilters] = useState<SearchFilterState>({
+    ...DEFAULT_SEARCH_FILTERS,
+    ...route.params?.initialFilters,
+  });
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [listingNumberInput, setListingNumberInput] = useState('');
+  const [listingNumber, setListingNumber] = useState<number | undefined>(undefined);
+  const { listings, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel({
+    ...toListingSearchFilters(filters),
+    listingNumber,
+  });
+  const { preferences } = usePreferencesViewModel();
+  const { create: createSavedSearch } = useSavedSearchesViewModel();
   const { requireAuth } = useAuthGate();
-  const isFavorited = favorites.some((f) => f.listingId === listing.id);
+  const { showToast } = useToast();
 
-  function handlePress() {
+  function handleListingIdSubmit() {
+    const digits = listingNumberInput.replace(/\D/g, '');
+    setListingNumber(digits ? Number(digits) : undefined);
+  }
+
+  // Real backend (POST /saved-searches) previously had no caller anywhere —
+  // the Favorites screen's "Saved Searches" tab could only ever show an
+  // empty list. filters is the exact same ListingSearchFilters shape the
+  // live search below already uses, so replaying a saved search later
+  // reproduces these same results.
+  function handleSaveSearch() {
     requireAuth(() => {
-      if (isFavorited) {
-        remove.mutate(listing.id);
-      } else {
-        add.mutate(listing.id);
-      }
+      createSavedSearch.mutate(
+        { name: filterSummary(filters), filters: toListingSearchFilters(filters) as Record<string, unknown> },
+        {
+          onSuccess: () => showToast('Search saved.'),
+          onError: () => showToast('Something went wrong — please try again.', 'error'),
+        },
+      );
     });
   }
 
   return (
-    <Pressable style={styles.favoriteButton} onPress={handlePress} hitSlop={8}>
-      <Ionicons
-        name={isFavorited ? 'heart' : 'heart-outline'}
-        size={20}
-        color={isFavorited ? theme.colors.danger : theme.colors.muted}
-      />
-    </Pressable>
-  );
-}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <Text style={styles.screenTitle}>Search</Text>
 
-function ContactActions({ listing }: { listing: Listing }) {
-  const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
-  const landline = listing.contactNumbers.find((c) => c.type === 'landline');
-  const callContact = mobile ?? landline;
-  if (!callContact) return null;
-
-  const callNumber = `${callContact.countryCode}${callContact.number}`;
-  const whatsappDigits = mobile ? `${mobile.countryCode}${mobile.number}`.replace(/\D/g, '') : undefined;
-  const smsNumber = mobile ? `${mobile.countryCode}${mobile.number}` : undefined;
-
-  return (
-    <View style={styles.contactRow}>
-      <Pressable style={styles.contactButtonPrimary} onPress={() => trackAndOpen(listing.id, 'call', `tel:${callNumber}`)}>
-        <Text style={styles.contactButtonPrimaryText}>Call</Text>
-      </Pressable>
-      {whatsappDigits && (
-        <Pressable
-          style={styles.contactButton}
-          onPress={() => trackAndOpen(listing.id, 'whatsapp', `https://wa.me/${whatsappDigits}`)}
-        >
-          <Text style={styles.contactButtonText}>WhatsApp</Text>
-        </Pressable>
-      )}
-      {smsNumber && (
-        <Pressable style={styles.contactButton} onPress={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)}>
-          <Text style={styles.contactButtonText}>SMS</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
-
-// Same viewmodel as apps/web's (buyer)/search page.tsx — only the View differs.
-export function BuyerSearchScreen() {
-  const [listingNumber, setListingNumber] = useState('');
-  const [submittedListingNumber, setSubmittedListingNumber] = useState<number | undefined>(undefined);
-  const [city, setCity] = useState('');
-  const [submittedCity, setSubmittedCity] = useState<string | undefined>(undefined);
-  const { listings, isLoading } = useListingSearchViewModel({ listingNumber: submittedListingNumber, city: submittedCity });
-  const { preferences } = usePreferencesViewModel();
-
-  function handleSearch() {
-    const digits = listingNumber.replace(/\D/g, '');
-    setSubmittedListingNumber(digits ? Number(digits) : undefined);
-    setSubmittedCity(city || undefined);
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
       <TextInput
-        value={listingNumber}
-        onChangeText={setListingNumber}
+        value={listingNumberInput}
+        onChangeText={setListingNumberInput}
+        onSubmitEditing={handleListingIdSubmit}
         placeholder="Search by Listing ID (e.g. JYD-00001)"
         autoCapitalize="none"
+        keyboardType="number-pad"
         style={styles.listingIdInput}
       />
-      <View style={styles.searchRow}>
-        <View style={styles.cityPicker}>
-          <PickerField value={city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={setCity} />
-        </View>
-        <Button label="Search" onPress={handleSearch} />
-      </View>
 
-      {isLoading && <Text>Loading…</Text>}
+      <Pressable style={styles.filterBar} onPress={() => setSheetVisible(true)}>
+        <View style={styles.filterBarText}>
+          <Text style={styles.filterSummary} numberOfLines={1}>
+            {filterSummary(filters)}
+          </Text>
+          {(filters.area || filters.keyword) && (
+            <Text style={styles.filterSubSummary} numberOfLines={1}>
+              {[filters.area, filters.keyword].filter(Boolean).join(' · ')}
+            </Text>
+          )}
+        </View>
+        <View style={styles.filterButton}>
+          <Ionicons name="options-outline" size={18} color={theme.colors.bg} />
+        </View>
+      </Pressable>
+
+      <Pressable style={styles.saveSearchButton} onPress={handleSaveSearch} disabled={createSavedSearch.isPending}>
+        <Ionicons name="bookmark-outline" size={16} color={theme.colors.primary} />
+        <Text style={styles.saveSearchText}>{createSavedSearch.isPending ? 'Saving…' : 'Save Search'}</Text>
+      </Pressable>
+
+      <SearchFilterSheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        value={filters}
+        onApply={setFilters}
+      />
+
+      {isLoading && <Text style={styles.loading}>Loading…</Text>}
 
       <FlatList
         data={listings}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
         ListEmptyComponent={!isLoading ? <Text style={styles.empty}>No verified listings yet.</Text> : null}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <FavoriteButton listing={item} />
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>
-              {item.area}, {item.city} — {formatPrice(Number(item.price), preferences?.preferredCurrency)}
-            </Text>
-            <ContactActions listing={item} />
-          </View>
+          <PropertyCard
+            listing={item}
+            currency={preferences?.preferredCurrency}
+            onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
+            footer={<ContactActions listing={item} />}
+          />
         )}
+        onEndReachedThreshold={0.4}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
+        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={theme.colors.primary} /> : null}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: theme.spacing.lg, backgroundColor: theme.colors.bg },
-  listingIdInput: { marginBottom: theme.spacing.sm },
-  searchRow: { flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.lg, alignItems: 'center' },
-  cityPicker: { flex: 1 },
-  card: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
+  container: { flex: 1, backgroundColor: theme.colors.bg },
+  screenTitle: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.lg },
+  listingIdInput: { marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.md },
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    margin: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
-  favoriteButton: { position: 'absolute', top: theme.spacing.sm, right: theme.spacing.sm, zIndex: 1 },
-  title: { fontWeight: '600' },
-  subtitle: { color: theme.colors.muted, fontSize: 12, marginTop: 4 },
-  empty: { color: theme.colors.muted },
-  contactRow: { flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.sm },
-  contactButtonPrimary: {
+  filterBarText: { flex: 1 },
+  filterSummary: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
+  filterSubSummary: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
+  filterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  contactButtonPrimaryText: { color: theme.colors.bg, fontSize: 12, fontWeight: '600' },
-  contactButton: {
+  saveSearchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    marginTop: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.radius.sm,
-    paddingHorizontal: theme.spacing.md,
+    borderColor: theme.colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.xs,
   },
-  contactButtonText: { color: theme.colors.text, fontSize: 12, fontWeight: '600' },
+  saveSearchText: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
+  loading: { textAlign: 'center', color: theme.colors.muted, marginTop: theme.spacing.md },
+  list: { padding: theme.spacing.lg, gap: theme.spacing.md },
+  empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
+  footerLoader: { marginVertical: theme.spacing.lg },
 });

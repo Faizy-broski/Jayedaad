@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { COUNTRIES, getMaxPhoneDigits, PAKISTAN_CITIES, useAgencyRegistrationViewModel, useAuthViewModel } from '@jayedaad/core';
+import { COUNTRIES, getMaxPhoneDigits, PAKISTAN_CITIES, slugify, useAgencyRegistrationViewModel, useAuthViewModel } from '@jayedaad/core';
 import {
   Button,
   Card,
@@ -18,19 +18,6 @@ import {
 } from '@jayedaad/ui-web';
 
 type AccountType = 'individual' | 'agency';
-
-// Slugs are a URL-facing implementation detail agencies shouldn't have to
-// think about at signup — auto-derived, same as any typical "company name"
-// -> "company-name" slugify, uniqueness enforced by the DB's unique
-// constraint on agencies.slug (a collision surfaces as a plain signup error,
-// same as any other failed registerSelfService call).
-function slugify(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
 
 // Field order/grouping mirrors Zameen.com's signup modal (Google -> OR ->
 // Name/Email/Password/Confirm/Phone -> marketing + terms checkboxes ->
@@ -87,8 +74,15 @@ export default function SignupPage() {
       });
     }
 
-    await sendOtp.mutateAsync();
-    router.push('/verify-email');
+    // The account (and agency, if any) already exist at this point — a failed
+    // OTP send (e.g. SMTP misconfigured) shouldn't strand the user on a
+    // crashed signup form. /verify-email has its own "Resend code" action.
+    try {
+      await sendOtp.mutateAsync();
+      router.push('/verify-email');
+    } catch {
+      router.push('/verify-email?otpSendFailed=1');
+    }
   }
 
   function handleGoogle() {
@@ -105,21 +99,25 @@ export default function SignupPage() {
           <CardDescription>Sign up to start buying, selling, or renting on Jayedaad.</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={signInWithGoogle.isPending}
-            onClick={handleGoogle}
-          >
-            Continue with Google
-          </Button>
+          {accountType === 'individual' && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={signInWithGoogle.isPending}
+                onClick={handleGoogle}
+              >
+                Continue with Google
+              </Button>
 
-          <div className="my-3 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs font-medium text-muted-foreground">OR</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
+              <div className="my-3 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs font-medium text-muted-foreground">OR</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-2">

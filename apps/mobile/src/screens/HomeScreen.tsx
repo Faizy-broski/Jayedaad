@@ -1,21 +1,34 @@
-import { memo, useState } from 'react';
-import { ScrollView, Text, View, Pressable, FlatList, StyleSheet } from 'react-native';
+import { memo, useCallback, useState } from 'react';
+import { FlatList, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  Listing,
+  Project,
+  ProjectStatus,
+  formatPrice,
+  useAuthViewModel,
+  useListingSearchViewModel,
+  usePreferencesViewModel,
+  useProjectsViewModel,
+} from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
+import { PropertyCard } from '../components/PropertyCard';
 import { SideDrawer } from '../components/SideDrawer';
-import logoImage from '../../assets/images/jayedaad.webp';
+import { SearchFilterSheet } from '../components/SearchFilterSheet';
+import { DEFAULT_SEARCH_FILTERS, SearchFilterState } from '../lib/searchFilters';
+import { getRecentlyViewed } from '../lib/recentlyViewedStorage';
+import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
+import heroLogoImage from '../../assets/images/hero-logo.webp';
+import heroBannerImage from '../../assets/images/home-banner.webp';
 import skyViewVillaImage from '../../assets/images/Sky View Villa.webp';
-import skylinePenthouseImage from '../../assets/images/Skyline Penthouse.webp';
 import gulbergResidenceImage from '../../assets/images/Container.webp';
 import dhaTownhouseImage from '../../assets/images/Ocean Residence.webp';
-import luxuryVillasImage from '../../assets/images/Luxury-villas.webp';
-import apartmentsImage from '../../assets/images/appartments.webp';
-import plotsImage from '../../assets/images/plots.webp';
-import commercialImage from '../../assets/images/commercial.webp';
-import bannerImage from '../../assets/images/bannner.webp';
 import lahoreImage from '../../assets/images/lahore.webp';
 import karachiImage from '../../assets/images/karachi.webp';
 import islamabadImage from '../../assets/images/islamabad.webp';
@@ -23,179 +36,195 @@ import dhaImage from '../../assets/images/DHA.webp';
 import bahriaImage from '../../assets/images/bahria.webp';
 import gulbergImage from '../../assets/images/gulberg.webp';
 
-type Purpose = 'Buy' | 'Rent' | 'Commercial';
-const PURPOSES: Purpose[] = ['Buy', 'Rent', 'Commercial'];
-const SKYLINE_HEIGHTS = [22, 36, 18, 46, 26, 40, 20, 50, 28, 34, 16, 42];
-
-type PropertyKind = 'Homes' | 'Plots' | 'Commercial';
-const PROPERTY_KINDS: { key: PropertyKind; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'Homes', icon: 'home' },
-  { key: 'Plots', icon: 'location' },
-  { key: 'Commercial', icon: 'business' },
-];
-
-const FILTER_CHIPS = ['Popular', 'Type', 'Location', 'Area Size'];
-
-const QUICK_FILTER_PAGES = [
-  [
-    { id: 'qf-5marla', title: '5 Marla', subtitle: 'Houses' },
-    { id: 'qf-10marla', title: '10 Marla', subtitle: 'Houses' },
-    { id: 'qf-3marla', title: '3 Marla', subtitle: 'Houses' },
-    { id: 'qf-new', title: 'New', subtitle: 'Houses' },
-    { id: 'qf-lowprice-homes', title: 'Low Price', subtitle: 'Homes' },
-    { id: 'qf-lowprice-houses', title: 'Low Price', subtitle: 'Houses' },
-  ],
-  [
-    { id: 'qf-small', title: 'Small', subtitle: 'Houses' },
-    { id: 'qf-installment-houses', title: 'On Installments', subtitle: 'Houses' },
-    { id: 'qf-1bed', title: '1 Bedroom', subtitle: 'Flats' },
-    { id: 'qf-2bed', title: '2 Bedroom', subtitle: 'Flats' },
-    { id: 'qf-3bed', title: '3 Bedroom', subtitle: 'Flats' },
-    { id: 'qf-installment-flats', title: 'On Installments', subtitle: 'Flats' },
-  ],
-];
-
-const TRUST_BADGES: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: 'checkmark-circle', label: 'Verified Listings' },
-  { icon: 'sparkles', label: 'AI Search' },
-  { icon: 'people', label: 'Trusted Agents' },
-  { icon: 'shield-checkmark', label: 'Secure Payments' },
-  { icon: 'headset', label: '24/7 Support' },
-];
-
-type Property = {
-  id: string;
-  title: string;
-  price: string;
-  location: string;
-  beds: number;
-  baths: number;
-  area: string;
-  image: number;
-};
-
-const FEATURED_PROPERTIES: Property[] = [
-  {
-    id: 'sky-view-villa',
-    title: 'Sky View Villa',
-    price: 'PKR 8.9 Cr',
-    location: 'Bani Gala, Islamabad',
-    beds: 5,
-    baths: 6,
-    area: '1 Kanal',
-    image: skyViewVillaImage,
-  },
-  {
-    id: 'penthouse',
-    title: 'Penthouse',
-    price: 'PKR 12.4 Cr',
-    location: 'Clifton, Karachi',
-    beds: 4,
-    baths: 4,
-    area: '4,200 sqft',
-    image: skylinePenthouseImage,
-  },
-  {
-    id: 'gulberg-residence',
-    title: 'Gulberg Residence',
-    price: 'PKR 6.2 Cr',
-    location: 'DHA Phase 8, Karachi',
-    beds: 3,
-    baths: 3,
-    area: '2,800 sqft',
-    image: gulbergResidenceImage,
-  },
-  {
-    id: 'dha-townhouse',
-    title: 'DHA Townhouse',
-    price: 'PKR 4.5 Cr',
-    location: 'Bahria Town, Lahore',
-    beds: 4,
-    baths: 4,
-    area: '10 Marla',
-    image: dhaTownhouseImage,
-  },
+// Purpose is a real ListingPurpose ('sale'|'rent') — "Commercial" was never
+// a valid purpose (see purposeToFilters below), it's a Property Type
+// category, so it's not offered here as a third tab anymore.
+type Purpose = 'Buy' | 'Rent';
+const PURPOSE_TABS: { value: Purpose; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'Buy', icon: 'home' },
+  { value: 'Rent', icon: 'key' },
 ];
 
 type Category = { id: string; title: string; listings: string; image: number };
 
-const CATEGORIES: Category[] = [
-  { id: 'luxury-villas', title: 'Luxury Villas', listings: '3,240 listings', image: luxuryVillasImage },
-  { id: 'apartments', title: 'Apartments', listings: '8,120 listings', image: apartmentsImage },
-  { id: 'plots', title: 'Plots', listings: '12,400 listings', image: plotsImage },
-  { id: 'commercial', title: 'Commercial', listings: '1,540 listings', image: commercialImage },
+// Icons here map to real property-type slugs from the taxonomy (Homes/Plots/
+// Commercial categories, supabase/migrations/0005_taxonomy_seed.sql) — House,
+// Flat/Apartment, Farm House under "residential"; Office, Shop under
+// "commercial"; the Plots tile represents the "plot" category as a whole
+// (residential_plot, agricultural_land, etc.), same category-level
+// representation already used for HomeHeader's Commercial purpose tab.
+type PropertyCategory = {
+  id: string;
+  title: string;
+  count: string;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+const PROPERTY_CATEGORIES: PropertyCategory[] = [
+  { id: 'house', title: 'Homes', count: '12,480', icon: 'home' },
+  { id: 'flat', title: 'Apartments', count: '8,120', icon: 'business' },
+  { id: 'residential_plot', title: 'Plots', count: '5,660', icon: 'flag' },
+  { id: 'office', title: 'Offices', count: '1,940', icon: 'briefcase' },
+  { id: 'shop', title: 'Shops', count: '2,310', icon: 'storefront' },
+  { id: 'farm_house', title: 'Farmhouse', count: '480', icon: 'leaf' },
 ];
 
 const CITIES: Category[] = [
-  { id: 'lahore', title: 'Lahore', listings: '8,240 homes', image: lahoreImage },
-  { id: 'karachi', title: 'Karachi', listings: '8,240 homes', image: karachiImage },
-  { id: 'islamabad', title: 'Islamabad', listings: '8,240 homes', image: islamabadImage },
-  { id: 'dha', title: 'DHA', listings: '8,240 homes', image: dhaImage },
-  { id: 'bahria', title: 'Bahria', listings: '8,240 homes', image: bahriaImage },
-  { id: 'gulberg', title: 'Gulberg', listings: '8,240 homes', image: gulbergImage },
+  { id: 'lahore', title: 'Lahore', listings: '1,240 listings', image: lahoreImage },
+  { id: 'karachi', title: 'Karachi', listings: '986 listings', image: karachiImage },
+  { id: 'islamabad', title: 'Islamabad', listings: '742 listings', image: islamabadImage },
+  { id: 'dha', title: 'DHA', listings: '615 listings', image: dhaImage },
+  { id: 'bahria', title: 'Bahria', listings: '528 listings', image: bahriaImage },
+  { id: 'gulberg', title: 'Gulberg', listings: '340 listings', image: gulbergImage },
 ];
 
-type Stat = { id: string; index: string; value: string; label: string };
+type BlogPost = { id: string; tag: string; title: string; readTime: string; image: number };
 
-const STATS: Stat[] = [
-  { id: 'customers', index: '/ 01', value: '50K+', label: 'HAPPY CUSTOMERS' },
-  { id: 'listings', index: '/ 02', value: '150K+', label: 'VERIFIED LISTINGS' },
-  { id: 'cities', index: '/ 03', value: '200+', label: 'CITIES & AREAS' },
-  { id: 'trust', index: '/ 04', value: '99%', label: 'TRUST SCORE' },
+// No CMS/blog backend exists yet — same placeholder-data convention as
+// FEATURED_PROPERTIES/CITIES above, reusing existing property photos
+// as thumbnails rather than adding new blog-specific image assets.
+const BLOG_POSTS: BlogPost[] = [
+  {
+    id: 'verify-title',
+    tag: 'Legal',
+    title: 'How to verify a property title in Pakistan',
+    readTime: '6 min read',
+    image: skyViewVillaImage,
+  },
+  {
+    id: 'rent-vs-buy',
+    tag: 'Finance',
+    title: 'Rent vs buy: the 2026 math',
+    readTime: '4 min read',
+    image: gulbergResidenceImage,
+  },
+  {
+    id: 'negotiating-dha',
+    tag: 'Guide',
+    title: 'Negotiating like a pro in DHA',
+    readTime: '5 min read',
+    image: dhaTownhouseImage,
+  },
 ];
 
-// Compact colored header (search-first, no decorative hero photo) + trust
-// badges + featured properties — restructured after the Zameen.com reference:
-// mobile real-estate apps lead with search, not a hero image, so the header
-// puts Buy/Rent/Commercial + the search bar immediately under the wordmark.
+const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  planned: 'Planned',
+  under_construction: 'Under Construction',
+  ready: 'Ready',
+  draft: 'Draft',
+};
+
+function projectPriceLabel(project: Project): string | null {
+  if (!project.priceRange) return null;
+  return `From ${formatPrice(project.priceRange.min)}`;
+}
+
+// Hero-photo header (see HomeHeader below) followed by featured properties,
+// browse-by-category, cities, about, and stats sections.
 export const HomeScreen = memo(function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
+  // Previously FEATURED_PROPERTIES was hardcoded mock data (same as web's
+  // homepage, which also pulls from a static array) — real verified
+  // listings, newest first, so the cards are actually tappable to a real
+  // ListingDetailScreen instead of dead-ending on fake ids.
+  const { listings: featuredListings, isLoading: featuredLoading } = useListingSearchViewModel({
+    sortBy: 'newest',
+    pageSize: 4,
+  });
+  // Previously NEW_PROJECTS was hardcoded mock data — real verified
+  // projects, newest first, tappable to the real ProjectDetailScreen.
+  const { projects: newProjects } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
+  const { preferences } = usePreferencesViewModel();
+
+  // No buyer-side view-history backend exists — tracked on-device instead
+  // (ListingDetailScreen writes to it on view). Re-read on every focus, not
+  // just mount, so coming back from viewing a listing shows it here right
+  // away instead of needing an app restart.
+  const [recentListings, setRecentListings] = useState<Listing[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getRecentlyViewed().then((data) => {
+        if (active) setRecentListings(data);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right']}>
-      <HomeHeader onMenuPress={() => setDrawerVisible(true)} />
       <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
+      {/* HomeHeader (photo, search bar, Buy/Rent) now scrolls away with the
+          rest of the page — it used to be a sibling rendered before
+          ScrollView, which pinned it fixed at the top while only the
+          sections below it scrolled underneath. */}
       <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
-        <BrowsePropertiesCard />
+        <HomeHeader onMenuPress={() => setDrawerVisible(true)} />
 
         <View style={styles.sectionCard}>
-          <View style={styles.trustRowInCard}>
-            {TRUST_BADGES.map((badge) => (
-              <View key={badge.label} style={styles.trustItem}>
-                <View style={styles.trustIconCircle}>
-                  <Ionicons name={badge.icon} size={18} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.trustLabel}>{badge.label}</Text>
-              </View>
-            ))}
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderText}>
+              <Text style={styles.sectionTitle}>Featured properties</Text>
+              <Text style={styles.sectionSubtitleTight}>Hand-picked, fully verified</Text>
+            </View>
+            <Pressable style={styles.seeAllRow} onPress={() => navigation.navigate('AllProperties')}>
+              <Text style={styles.viewAllLink}>See all</Text>
+              <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
+            </Pressable>
+          </View>
+
+          <View style={styles.propertyListVertical}>
+            {featuredLoading ? (
+              <Text style={styles.mutedText}>Loading…</Text>
+            ) : featuredListings.length === 0 ? (
+              <Text style={styles.mutedText}>No listings yet.</Text>
+            ) : (
+              featuredListings.map((listing) => (
+                <PropertyCard
+                  key={listing.id}
+                  listing={listing}
+                  currency={preferences?.preferredCurrency}
+                  onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}
+                />
+              ))
+            )}
           </View>
         </View>
 
+        {/* On-device view history (see recentlyViewedStorage.ts) — hidden
+            entirely rather than shown empty, since a fresh install/new
+            buyer has nothing to "continue" yet. */}
+        {recentListings.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderText}>
+                <Text style={styles.sectionTitle}>Recent properties</Text>
+                <Text style={styles.sectionSubtitleTight}>Continue where you left off</Text>
+              </View>
+            </View>
+
+            <View style={styles.propertyListVertical}>
+              {recentListings.map((listing) => (
+                <PropertyCard
+                  key={listing.id}
+                  listing={listing}
+                  currency={preferences?.preferredCurrency}
+                  onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={styles.sectionCard}>
-          <Text style={styles.eyebrow}>HANDPICKED</Text>
-          <Text style={styles.sectionTitle}>Featured properties</Text>
-          <Text style={styles.sectionSubtitle}>
-            A curated selection of Pakistan's most desirable homes — verified, photographed, and ready to move in.
-          </Text>
+          <Text style={styles.browseCategoryTitle}>Browse by category</Text>
 
-          <FlatList
-            data={FEATURED_PROPERTIES}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.propertyList}
-            renderItem={({ item }) => <PropertyCard property={item} />}
-          />
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.eyebrow}>EXPLORE</Text>
-          <Text style={styles.sectionTitle}>Browse by category</Text>
-          <Text style={styles.sectionSubtitle}>From investment plots to seafront penthouses — find what fits your life.</Text>
-
-          <View style={styles.categoryGrid}>
-            {CATEGORIES.map((category) => (
-              <CategoryCard key={category.id} category={category} />
+          <View style={styles.propertyCategoryGrid}>
+            {PROPERTY_CATEGORIES.map((category) => (
+              <PropertyCategoryCard key={category.id} category={category} />
             ))}
           </View>
         </View>
@@ -203,68 +232,57 @@ export const HomeScreen = memo(function HomeScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeaderText}>
-              <Text style={styles.eyebrow}>EXPLORE</Text>
-              <Text style={styles.sectionTitle}>Where we live</Text>
+              <Text style={styles.sectionTitle}>Popular locations</Text>
+              <Text style={styles.sectionSubtitleTight}>Where Pakistan is buying</Text>
             </View>
-            <Text style={styles.viewAllLink}>All 24 cities</Text>
+            <Pressable style={styles.seeAllRow}>
+              <Text style={styles.viewAllLink}>Map</Text>
+              <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
+            </Pressable>
           </View>
-          <Text style={styles.sectionSubtitle}>From investment plots to seafront penthouses — find what fits your life.</Text>
 
-          <View style={styles.categoryGrid}>
-            {CITIES.map((city) => (
-              <CategoryCard key={city.id} category={city} />
-            ))}
-          </View>
+          <FlatList
+            data={CITIES}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.cityList}
+            renderItem={({ item }) => <CategoryCard category={item} />}
+          />
         </View>
 
         <View style={styles.sectionCard}>
-          <View style={styles.aboutImageBlock}>
-            <Image source={bannerImage} style={styles.aboutImage} contentFit="cover" transition={150} />
-            <View style={styles.ownersCard}>
-              <View style={styles.avatarRow}>
-                {[0, 1, 2].map((i) => (
-                  <View key={i} style={[styles.avatarCircle, i > 0 && styles.avatarOverlap]}>
-                    <Ionicons name="person" size={12} color={theme.colors.bg} />
-                  </View>
-                ))}
-              </View>
-              <View>
-                <Text style={styles.ownersCount}>50K+ happy owners</Text>
-                <Text style={styles.ownersQuote}>"Jayedaad made our first home purchase feel effortless."</Text>
-              </View>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderText}>
+              <Text style={styles.sectionTitle}>New projects</Text>
+              <Text style={styles.sectionSubtitleTight}>Off-plan and pre-launch</Text>
             </View>
+            <Pressable style={styles.seeAllRow} onPress={() => navigation.navigate('Projects')}>
+              <Text style={styles.viewAllLink}>See all</Text>
+              <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
+            </Pressable>
           </View>
 
-          <Text style={styles.eyebrow}>ABOUT JAYEDAAD</Text>
-          <Text style={styles.aboutIntro}>
-            Pakistan's modern real estate platform built to simplify buying, selling, & investing. We combine verified
-            listings, local expertise to help you make confident property decisions.
-          </Text>
-          <Text style={styles.aboutHeading}>JAYEDAAD{'\n'}HOUSING</Text>
-          <Text style={styles.aboutBody}>
-            At Jayedaad, every listing is carefully verified to ensure transparency, accuracy, and peace of mind.
-            Whether you're searching for your first home, a luxury residence, or your next investment opportunity, we
-            deliver a seamless experience backed by trust and innovation.
-          </Text>
+          <FlatList
+            data={newProjects}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.projectList}
+            renderItem={({ item }) => (
+              <ProjectCard project={item} onPress={() => navigation.navigate('ProjectDetail', { projectSlug: item.slug })} />
+            )}
+          />
         </View>
 
-        <View style={[styles.sectionCard, styles.statsCard]}>
-          <Image source={bannerImage} style={styles.statsBackground} contentFit="cover" />
-          <View style={styles.statsOverlay}>
-            <Text style={styles.eyebrow}>BY THE NUMBERS</Text>
-            <Text style={styles.statsSubtitle}>
-              Trusted by thousands across Pakistan, we're redefining the way people discover, buy, sell, and invest
-              in real estate.
-            </Text>
-            <View style={styles.statsGrid}>
-              {STATS.map((stat) => (
-                <View key={stat.id} style={styles.statItem}>
-                  <Text style={styles.statIndex}>{stat.index}</Text>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              ))}
-            </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.blogTitle}>Property tips</Text>
+          <Text style={styles.sectionSubtitleTight}>Read before you sign</Text>
+
+          <View style={styles.blogList}>
+            {BLOG_POSTS.map((post) => (
+              <BlogCard key={post.id} post={post} />
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -272,166 +290,167 @@ export const HomeScreen = memo(function HomeScreen() {
   );
 });
 
+// Hero photo (home-banner.webp) + dark gradient replaces the old flat-color
+// header — logo top-left, hamburger+bell grouped top-right (the reference
+// this was redesigned from has no hamburger at all, but it's the only way to
+// reach SideDrawer's Favorites/My Properties/Post Listing/logout, none of
+// which live on the bottom tabs, so it stays, restyled to sit on the photo
+// instead of the old solid bar), a greeting + "{name}, find your address"
+// headline, and a location row — all clipped inside the rounded-bottom photo
+// block. The search bar + Buy/Rent/Commercial tabs are a separate sibling
+// with a negative top margin so they float, straddling the seam between the
+// photo and the white content below (previously they were rendered INSIDE
+// the photo's overflow:hidden clip, which is why they never reached the
+// white background at all) — z-order comes for free from paint order (this
+// block is the later sibling), no explicit zIndex needed.
 function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
+  const { user } = useAuthViewModel();
   const [purpose, setPurpose] = useState<Purpose>('Buy');
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+
+  const displayName = user?.user_metadata?.display_name as string | undefined;
+  const firstName = displayName?.split(' ')[0];
+
+  function purposeToFilters(p: Purpose): Partial<SearchFilterState> {
+    return { purpose: p === 'Rent' ? 'rent' : 'sale' };
+  }
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + theme.spacing.md }]}>
-      <View style={styles.skylineRow} pointerEvents="none">
-        {SKYLINE_HEIGHTS.map((h, i) => (
-          <View key={i} style={[styles.skylineBar, { height: h }]} />
-        ))}
-      </View>
+    <View style={styles.headerOuter}>
+      <View style={styles.headerPhotoClip}>
+        <Image source={heroBannerImage} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <LinearGradient
+          colors={['rgba(3,20,15,0.75)', 'rgba(3,20,15,0.55)', 'rgba(3,20,15,0.88)']}
+          locations={[0, 0.45, 1]}
+          style={StyleSheet.absoluteFill}
+        />
 
-      <View style={styles.headerTopRow}>
-        <Pressable style={styles.headerIconButton} onPress={onMenuPress} hitSlop={8}>
-          <Ionicons name="menu" size={20} color={theme.colors.bg} />
-        </Pressable>
-        <View style={styles.headerLogoBadge}>
-          <Image source={logoImage} style={styles.headerLogo} contentFit="contain" />
-        </View>
-        <Pressable style={styles.headerIconButton}>
-          <Ionicons name="notifications-outline" size={18} color={theme.colors.bg} />
-        </Pressable>
-      </View>
+        <View style={[styles.headerContent, { paddingTop: insets.top + theme.spacing.md }]}>
+          <View style={styles.headerTopRow}>
+            <Image source={heroLogoImage} style={styles.headerLogo} contentFit="contain" />
+            <View style={styles.headerTopIcons}>
+              <Pressable style={styles.headerIconButton} onPress={onMenuPress} hitSlop={8}>
+                <Ionicons name="menu" size={18} color={theme.colors.bg} />
+              </Pressable>
+              <Pressable style={styles.headerIconButton} hitSlop={8}>
+                <Ionicons name="notifications-outline" size={18} color={theme.colors.bg} />
+                <View style={styles.headerNotificationDot} />
+              </Pressable>
+            </View>
+          </View>
 
-      <View style={styles.purposeRow}>
-        {PURPOSES.map((p) => (
-          <Pressable
-            key={p}
-            onPress={() => setPurpose(p)}
-            style={[styles.purposeTab, p === purpose && styles.purposeTabActive]}
-          >
-            <Text style={[styles.purposeText, p === purpose && styles.purposeTextActive]}>{p}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Pressable style={styles.searchBar}>
-        <Ionicons name="search" size={16} color={theme.colors.muted} />
-        <Text style={styles.searchPlaceholder}>Search for {purpose === 'Rent' ? 'Rentals' : 'Flats'}</Text>
-        <View style={styles.searchDivider} />
-        <View style={styles.locationRow}>
-          <Text style={styles.locationText}>Lahore</Text>
-          <View style={styles.locationArrow}>
-            <Ionicons name="arrow-forward" size={12} color={theme.colors.bg} />
+          <Text style={styles.greeting}>Assalam-o-Alaikum 👋</Text>
+          <Text style={styles.headline}>{firstName ? `${firstName}, find your address` : 'Find your address'}</Text>
+          <View style={styles.headerLocationRow}>
+            <Ionicons name="location" size={14} color={theme.colors.bg} />
+            <Text style={styles.headerLocationText}>Lahore, Punjab</Text>
           </View>
         </View>
-      </Pressable>
+      </View>
+
+      {/* Transparent wrap (no background of its own) so the negative
+          marginTop pulls just the opaque white search pill up over the
+          still-visible photo behind it — this block previously had its own
+          opaque white background, which masked the photo in the overlap
+          zone and made the bar look like it was sitting flush below the
+          banner instead of floating over it. */}
+      <View style={styles.searchBarFloatWrap}>
+        <View style={styles.searchBar}>
+          <Pressable
+            style={styles.searchBarTextArea}
+            onPress={() => navigation.navigate('BuyerSearch', { initialFilters: purposeToFilters(purpose) })}
+          >
+            <Ionicons name="search" size={16} color={theme.colors.muted} />
+            <Text style={styles.searchPlaceholder}>Search area, project or agency...</Text>
+          </Pressable>
+          <Pressable onPress={() => setFilterSheetVisible(true)} hitSlop={8} style={styles.searchFilterGlow}>
+            <LinearGradient
+              colors={theme.gradients.primary.colors}
+              start={theme.gradients.primary.start}
+              end={theme.gradients.primary.end}
+              style={styles.searchFilterButton}
+            >
+              <Ionicons name="options-outline" size={18} color={theme.colors.bg} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.purposeRowWrap}>
+        <View style={styles.purposeRow}>
+          {PURPOSE_TABS.map(({ value, icon }) => {
+            const active = value === purpose;
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setPurpose(value)}
+                style={[styles.purposeTab, active && styles.purposeTabActive]}
+              >
+                <Ionicons name={icon} size={15} color={active ? theme.colors.primary : theme.colors.muted} />
+                <Text style={[styles.purposeText, active && styles.purposeTextActive]}>{value}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <SearchFilterSheet
+        visible={filterSheetVisible}
+        onClose={() => setFilterSheetVisible(false)}
+        value={{ ...DEFAULT_SEARCH_FILTERS, ...purposeToFilters(purpose) }}
+        onApply={(applied) => navigation.navigate('BuyerSearch', { initialFilters: applied })}
+      />
     </View>
   );
 }
 
-function BrowsePropertiesCard() {
-  const [kind, setKind] = useState<PropertyKind>('Homes');
-  const [activeChip, setActiveChip] = useState('Popular');
-  const [pageWidth, setPageWidth] = useState(0);
-  const [activePage, setActivePage] = useState(0);
+function ProjectCard({ project, onPress }: { project: Project; onPress: () => void }) {
+  const price = projectPriceLabel(project);
 
   return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.browseTitle}>Browse Properties</Text>
+    <Pressable style={styles.projectCard} onPress={onPress}>
+      {project.coverImageUrl ? (
+        <Image source={{ uri: project.coverImageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, styles.propertyImagePlaceholder]}>
+          <Ionicons name="business-outline" size={28} color={theme.colors.mutedLight} />
+        </View>
+      )}
+      <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={StyleSheet.absoluteFill} />
 
-      <View style={styles.kindTabRow}>
-        {PROPERTY_KINDS.map(({ key, icon }) => (
-          <Pressable key={key} onPress={() => setKind(key)} style={styles.kindTab}>
-            <Ionicons name={icon} size={16} color={kind === key ? theme.colors.primary : theme.colors.muted} />
-            <Text style={[styles.kindTabText, kind === key && styles.kindTabTextActive]}>{key}</Text>
-            {kind === key && <View style={styles.kindTabUnderline} />}
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.kindTabDivider} />
-
-      <View style={styles.filterChipRow}>
-        {FILTER_CHIPS.map((chip) => (
-          <Pressable
-            key={chip}
-            onPress={() => setActiveChip(chip)}
-            style={[styles.filterChip, activeChip === chip && styles.filterChipActive]}
-          >
-            <Text style={[styles.filterChipText, activeChip === chip && styles.filterChipTextActive]}>{chip}</Text>
-          </Pressable>
-        ))}
+      <View style={styles.projectStatusPill}>
+        <Text style={styles.projectStatusText}>{PROJECT_STATUS_LABELS[project.status]}</Text>
       </View>
 
-      <View onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}>
-        {pageWidth > 0 && (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              setActivePage(Math.round(e.nativeEvent.contentOffset.x / pageWidth));
-            }}
-          >
-            {QUICK_FILTER_PAGES.map((page, pageIndex) => (
-              <View key={pageIndex} style={[styles.quickFilterGrid, { width: pageWidth }]}>
-                {page.map((qf) => (
-                  <Pressable key={qf.id} style={styles.quickFilterCard}>
-                    <Text style={styles.quickFilterTitle}>{qf.title}</Text>
-                    <Text style={styles.quickFilterSubtitle}>{qf.subtitle}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          </ScrollView>
-        )}
+      <View style={styles.projectTextBlock}>
+        <Text style={styles.projectName}>{project.name}</Text>
+        <Text style={styles.projectDeveloper}>{project.developer.name}</Text>
+        {price && <Text style={styles.projectPrice}>{price}</Text>}
       </View>
-
-      <View style={styles.paginationRow}>
-        {QUICK_FILTER_PAGES.map((_, i) => (
-          <View key={i} style={[styles.paginationDot, i === activePage && styles.paginationDotActive]} />
-        ))}
-      </View>
-    </View>
+    </Pressable>
   );
 }
 
-function PropertyCard({ property }: { property: Property }) {
+// Soft organic "blob" behind the icon circle — no blob-path/SVG library in
+// this app, so it's approximated with two overlapping low-opacity tinted
+// circles (a bigger pale one, a smaller mid-tone one offset toward a
+// corner), clipped by the card's own overflow:hidden bounds, which reads
+// as the same soft-gradient-blob look without hand-rolled SVG paths.
+function PropertyCategoryCard({ category }: { category: PropertyCategory }) {
   return (
-    <View style={styles.propertyCard}>
-      <View>
-        <Image source={property.image} style={styles.propertyImage} contentFit="cover" transition={150} />
-        <View style={styles.verifiedBadge}>
-          <Ionicons name="checkmark-circle" size={12} color={theme.colors.primary} />
-          <Text style={styles.verifiedText}>Verified</Text>
-        </View>
-        <Pressable style={styles.favoriteButton}>
-          <Ionicons name="heart-outline" size={16} color={theme.colors.text} />
-        </Pressable>
-        <View style={styles.forSaleTag}>
-          <Text style={styles.forSaleText}>For Sale</Text>
+    <Pressable style={styles.propertyCategoryCard}>
+      <View style={styles.propertyCategoryIconWrap}>
+        <View style={styles.propertyCategoryBlobBack} />
+        <View style={styles.propertyCategoryBlobFront} />
+        <View style={styles.propertyCategoryIconCircle}>
+          <Ionicons name={category.icon} size={26} color={theme.colors.primary} />
         </View>
       </View>
-
-      <View style={styles.propertyBody}>
-        <View style={styles.propertyTitleRow}>
-          <Text style={styles.propertyTitle}>{property.title}</Text>
-          <Text style={styles.propertyPrice}>{property.price}</Text>
-        </View>
-        <View style={styles.propertyLocationRow}>
-          <Ionicons name="location-outline" size={12} color={theme.colors.muted} />
-          <Text style={styles.propertyLocation}>{property.location}</Text>
-        </View>
-        <View style={styles.propertyStatsRow}>
-          <View style={styles.propertyStat}>
-            <Ionicons name="bed-outline" size={12} color={theme.colors.muted} />
-            <Text style={styles.propertyStatText}>{property.beds}</Text>
-          </View>
-          <View style={styles.propertyStat}>
-            <Ionicons name="water-outline" size={12} color={theme.colors.muted} />
-            <Text style={styles.propertyStatText}>{property.baths}</Text>
-          </View>
-          <View style={styles.propertyStat}>
-            <Ionicons name="resize-outline" size={12} color={theme.colors.muted} />
-            <Text style={styles.propertyStatText}>{property.area}</Text>
-          </View>
-        </View>
-        <Text style={styles.viewDetails}>View details →</Text>
-      </View>
-    </View>
+      <Text style={styles.propertyCategoryTitle}>{category.title}</Text>
+      <Text style={styles.propertyCategoryCount}>{category.count}</Text>
+    </Pressable>
   );
 }
 
@@ -444,11 +463,31 @@ function CategoryCard({ category }: { category: Category }) {
         style={styles.categoryGradient}
       />
       <View style={styles.categoryTextRow}>
-        <View>
-          <Text style={styles.categoryTitle}>{category.title}</Text>
-          <Text style={styles.categoryListings}>{category.listings}</Text>
+        <Text style={styles.categoryTitle}>{category.title}</Text>
+        <Text style={styles.categoryListings}>{category.listings}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// Same soft-blob decoration technique as PropertyCategoryCard (two
+// overlapping low-opacity tinted circles, clipped by the card's own
+// overflow:hidden) — here sitting behind the text column instead of behind
+// an icon.
+function BlogCard({ post }: { post: BlogPost }) {
+  return (
+    <Pressable style={styles.blogCard}>
+      <View style={styles.blogBlobBack} />
+      <View style={styles.blogBlobFront} />
+      <Image source={post.image} style={styles.blogThumb} contentFit="cover" transition={150} />
+      <View style={styles.blogBody}>
+        <View style={styles.blogTag}>
+          <Text style={styles.blogTagText}>{post.tag}</Text>
         </View>
-        <Ionicons name="arrow-up-outline" size={16} color={theme.colors.bg} style={styles.categoryArrowIcon} />
+        <Text style={styles.blogPostTitle} numberOfLines={2}>
+          {post.title}
+        </Text>
+        <Text style={styles.blogReadTime}>{post.readTime}</Text>
       </View>
     </Pressable>
   );
@@ -470,81 +509,31 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statsCard: { overflow: 'hidden', padding: 0 },
-  browseTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.md },
-  kindTabRow: { flexDirection: 'row', gap: theme.spacing.lg },
-  kindTab: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs, paddingBottom: theme.spacing.sm },
-  kindTabText: { fontSize: 14, fontWeight: '600', color: theme.colors.muted },
-  kindTabTextActive: { color: theme.colors.primary },
-  kindTabUnderline: {
-    position: 'absolute',
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: theme.colors.primary,
-  },
-  kindTabDivider: { height: 1, backgroundColor: theme.colors.border, marginBottom: theme.spacing.md },
-  filterChipRow: { flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md },
-  filterChip: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: 16,
+  // Cancels out scrollContent's own padding so the header stays full-bleed
+  // edge-to-edge now that it's the ScrollView's first child rather than a
+  // sibling rendered outside the padded content area.
+  headerOuter: {
     backgroundColor: theme.colors.bg,
+    marginTop: -theme.spacing.md,
+    marginHorizontal: -theme.spacing.md,
   },
-  filterChipActive: { backgroundColor: theme.colors.secondaryBg },
-  filterChipText: { fontSize: 12, color: theme.colors.muted, fontWeight: '600' },
-  filterChipTextActive: { color: theme.colors.primary },
-  quickFilterGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
-  },
-  quickFilterCard: {
-    width: '31%',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.spacing.md,
-    alignItems: 'center',
-  },
-  quickFilterTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
-  quickFilterSubtitle: { fontSize: 11, color: theme.colors.muted, marginTop: 2 },
-  paginationRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  paginationDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.border },
-  paginationDotActive: { backgroundColor: theme.colors.primary },
-  header: {
-    backgroundColor: theme.colors.primary,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 72,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+  headerPhotoClip: {
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     overflow: 'hidden',
   },
-  skylineRow: {
-    position: 'absolute',
-    left: -theme.spacing.lg,
-    right: -theme.spacing.lg,
-    bottom: 84,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-evenly',
-    opacity: 0.16,
+  headerContent: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
   },
-  skylineBar: { width: 18, backgroundColor: theme.colors.bg, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
-  headerLogoBadge: {
-    backgroundColor: theme.colors.bg,
-    borderRadius: 10,
-    padding: 4,
-  },
-  headerLogo: { width: 40, height: 40 },
+  headerLogo: { width: 108, height: 72 },
+  headerTopIcons: { flexDirection: 'row', gap: theme.spacing.sm },
   headerIconButton: {
     width: 32,
     height: 32,
@@ -553,66 +542,120 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  purposeRow: {
+  headerNotificationDot: {
+    position: 'absolute',
+    top: 5,
+    right: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+    borderWidth: 1,
+    borderColor: theme.colors.bg,
+  },
+  greeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginBottom: 2 },
+  headline: { color: theme.colors.bg, fontSize: 26, fontWeight: '800', marginBottom: theme.spacing.sm },
+  headerLocationRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.xs,
-    marginBottom: theme.spacing.lg,
-    gap: theme.spacing.xs,
-  },
-  purposeTab: {
-    flex: 1,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.sm,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    gap: 4,
+    marginBottom: theme.spacing.lg,
   },
-  purposeTabActive: { backgroundColor: theme.colors.bg },
-  purposeText: { color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
-  purposeTextActive: { color: theme.colors.primary },
+  headerLocationText: { color: theme.colors.bg, fontSize: 13, fontWeight: '600' },
+  // Deliberately transparent — only the searchBar pill itself is opaque, so
+  // the photo still shows through the rest of this wrap. Negative marginTop
+  // pulls it up so roughly half the pill sits over headerPhotoClip's photo
+  // and half over the white area below; it's a later sibling of
+  // headerPhotoClip so it paints on top (zIndex set anyway for Android's
+  // stacking-context quirks with negative-margin siblings).
+  searchBarFloatWrap: {
+    marginTop: -30,
+    paddingHorizontal: theme.spacing.lg,
+    zIndex: 2,
+  },
+  purposeRowWrap: {
+    backgroundColor: theme.colors.bg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.bg,
     borderRadius: 30,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    paddingLeft: theme.spacing.lg,
+    paddingRight: theme.spacing.sm,
     gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  searchPlaceholder: { flex: 1, color: theme.colors.muted, fontSize: 14 },
-  searchDivider: { width: 1, height: 22, backgroundColor: theme.colors.border },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
-  locationText: { fontWeight: '600', color: theme.colors.text, fontSize: 14 },
-  locationArrow: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
+  searchBarTextArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  searchPlaceholder: { flex: 1, color: theme.colors.muted, fontSize: 13 },
+  // Soft green halo behind the gradient button, echoing the glowing
+  // search-FAB reference — a semi-transparent tinted circle sized larger
+  // than the button itself, plus a colored iOS shadow (Android falls back
+  // to the halo circle alone, since elevation shadows are always neutral).
+  searchFilterGlow: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(13,99,75,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
-  trustRowInCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  trustItem: { alignItems: 'center', flex: 1, gap: theme.spacing.xs },
-  trustIconCircle: {
+  searchFilterButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.secondaryBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trustLabel: { fontSize: 10, color: theme.colors.muted, textAlign: 'center' },
+  purposeRow: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    padding: theme.spacing.xs,
+    gap: theme.spacing.xs,
+  },
+  purposeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+  },
+  purposeTabActive: {
+    backgroundColor: theme.colors.bg,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  purposeText: { color: theme.colors.muted, fontWeight: '600', fontSize: 14 },
+  purposeTextActive: { color: theme.colors.text, fontWeight: '700' },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
   sectionHeaderText: { flexShrink: 1 },
-  viewAllLink: { fontSize: 12, fontWeight: '600', color: theme.colors.primary, marginBottom: theme.spacing.xs },
+  seeAllRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: theme.spacing.xs },
+  viewAllLink: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
+  sectionSubtitleTight: { fontSize: 13, color: theme.colors.muted, marginTop: 2, marginBottom: theme.spacing.lg },
   eyebrow: {
     fontSize: 12,
     fontWeight: '700',
@@ -631,85 +674,166 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     marginBottom: theme.spacing.lg,
   },
-  propertyList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
-  propertyCard: {
-    width: 220,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
+  propertyListVertical: { gap: theme.spacing.md },
+  propertyImagePlaceholder: { backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  mutedText: { fontSize: 13, color: theme.colors.mutedLight, textAlign: 'center', paddingVertical: theme.spacing.lg },
+  projectList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
+  projectCard: {
+    width: 250,
+    height: 220,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: theme.colors.bg,
   },
-  propertyImage: { width: '100%', height: 140 },
-  verifiedBadge: {
+  projectStatusPill: {
     position: 'absolute',
-    top: theme.spacing.sm,
-    left: theme.spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: theme.colors.bg,
-    borderRadius: theme.radius.sm,
+    top: theme.spacing.md,
+    left: theme.spacing.md,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 999,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
   },
-  verifiedText: { fontSize: 10, fontWeight: '600', color: theme.colors.primary },
-  favoriteButton: {
+  projectStatusText: { fontSize: 10, fontWeight: '700', color: theme.colors.bg, letterSpacing: 0.5 },
+  projectTextBlock: {
     position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.sm,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    bottom: theme.spacing.md,
+    left: theme.spacing.md,
+    right: theme.spacing.md,
+  },
+  projectName: { fontSize: 17, fontWeight: '700', color: theme.colors.bg },
+  projectDeveloper: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  projectPrice: { fontSize: 14, fontWeight: '700', color: theme.colors.bg, marginTop: theme.spacing.sm },
+  browseCategoryTitle: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.lg },
+  propertyCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  propertyCategoryCard: {
+    // Explicit % width + space-between (no `gap`) — `gap` was stacking on
+    // top of the space-between-derived spacing and pushing the 3rd column
+    // of every row past 100%, wrapping it down to a new row instead
+    // (2 cols x 3 rows instead of 3 cols x 2 rows).
+    width: '31%',
+    alignItems: 'center',
+    backgroundColor: theme.colors.bg,
+    borderRadius: 20,
+    padding: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  propertyCategoryIconWrap: {
+    width: '100%',
+    height: 76,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EBF3EE',
+    marginBottom: theme.spacing.sm,
+  },
+  propertyCategoryBlobBack: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    top: -20,
+    left: -10,
+    backgroundColor: 'rgba(13,99,75,0.10)',
+  },
+  propertyCategoryBlobFront: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    bottom: -24,
+    right: -8,
+    backgroundColor: 'rgba(13,99,75,0.14)',
+  },
+  propertyCategoryIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: theme.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  forSaleTag: {
+  propertyCategoryTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
+  propertyCategoryCount: { fontSize: 11, color: theme.colors.muted, marginTop: 2 },
+  cityList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
+  blogTitle: { fontSize: 22, fontWeight: '700', color: theme.colors.text },
+  blogList: { gap: theme.spacing.md, marginTop: theme.spacing.sm },
+  blogCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.bg,
+    borderRadius: 20,
+    padding: theme.spacing.sm,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  blogBlobBack: {
     position: 'absolute',
-    bottom: theme.spacing.sm,
-    left: theme.spacing.sm,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.sm,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    top: -60,
+    right: -50,
+    backgroundColor: 'rgba(13,99,75,0.06)',
+  },
+  blogBlobFront: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    bottom: -40,
+    right: -20,
+    backgroundColor: 'rgba(13,99,75,0.08)',
+  },
+  blogThumb: { width: 64, height: 64, borderRadius: 14 },
+  blogBody: { flex: 1, gap: 4 },
+  blogTag: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
+    backgroundColor: theme.colors.bg,
   },
-  forSaleText: { fontSize: 10, fontWeight: '600', color: theme.colors.bg },
-  propertyBody: { padding: theme.spacing.md, gap: theme.spacing.xs },
-  propertyTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  propertyTitle: { fontWeight: '700', color: theme.colors.text, flexShrink: 1 },
-  propertyPrice: { fontWeight: '700', color: theme.colors.primary, fontSize: 12 },
-  propertyLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  propertyLocation: { fontSize: 11, color: theme.colors.muted },
-  propertyStatsRow: { flexDirection: 'row', gap: theme.spacing.md },
-  propertyStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  propertyStatText: { fontSize: 11, color: theme.colors.muted },
-  viewDetails: { fontSize: 12, fontWeight: '600', color: theme.colors.primary, marginTop: theme.spacing.xs },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
-    justifyContent: 'space-between',
-  },
+  blogTagText: { fontSize: 11, fontWeight: '600', color: theme.colors.text },
+  blogPostTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.text, lineHeight: 19 },
+  blogReadTime: { fontSize: 12, color: theme.colors.muted },
   categoryCard: {
-    width: '47%',
-    aspectRatio: 0.78,
+    width: 168,
+    aspectRatio: 0.82,
     borderRadius: theme.radius.md,
     overflow: 'hidden',
-    marginBottom: theme.spacing.md,
   },
   categoryImage: { ...StyleSheet.absoluteFillObject },
   categoryGradient: { ...StyleSheet.absoluteFillObject },
   categoryTextRow: {
     flex: 1,
-    justifyContent: 'space-between',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
     padding: theme.spacing.md,
   },
   categoryTitle: { color: theme.colors.bg, fontWeight: '700', fontSize: 15 },
   categoryListings: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2 },
-  categoryArrowIcon: { transform: [{ rotate: '45deg' }] },
   aboutImageBlock: { marginBottom: theme.spacing.xxl + theme.spacing.lg, marginTop: theme.spacing.sm },
   aboutImage: { width: '100%', aspectRatio: 1.2, borderRadius: theme.radius.md },
   ownersCard: {

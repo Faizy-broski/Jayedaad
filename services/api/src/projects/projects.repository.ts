@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
 
 // Confirmed real on the Zameen New Projects search page: City, Property
 // Type (via the "Browse Projects by Category" taxonomy), Budget Range,
@@ -34,8 +35,10 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
 const PROJECT_COLUMNS = `
-  id, name, slug, description, city, area, status, possession_date, cover_image_url, created_at,
-  developers!inner (id, name, slug, logo_url, phone, whatsapp)
+  id, name, slug, description, city, area, status, possession_date, cover_image_url,
+  gallery_image_urls, floor_plan_urls, video_url, brochure_url, verification_status, created_by, created_at,
+  developers!inner (id, name, slug, logo_url, phone, whatsapp),
+  project_unit_types (count)
 `;
 
 // PostgREST's .or() filter string is itself a small DSL — strip characters
@@ -65,6 +68,104 @@ function mapProjectRow(row: any, priceRange: { min: number; max: number } | null
     status: row.status,
     possessionDate: row.possession_date,
     coverImageUrl: row.cover_image_url,
+    galleryImageUrls: row.gallery_image_urls ?? [],
+    floorPlanUrls: row.floor_plan_urls ?? [],
+    videoUrl: row.video_url,
+    brochureUrl: row.brochure_url,
+    verificationStatus: row.verification_status,
+    createdBy: row.created_by,
+    // Search/manage list rows don't embed the full unit-type array (that's
+    // findBySlug/findById's mapProjectDetailRow below) — just a count, via
+    // PROJECT_COLUMNS' `project_unit_types (count)` embed.
+    unitTypeCount: row.project_unit_types?.[0]?.count ?? 0,
+    priceRange,
+  };
+}
+
+// findBySlug's Supabase query (below) returns raw snake_case rows with
+// nested join tables (project_unit_types, project_amenities,
+// project_payment_plans) — this maps that into the same camelCase shape
+// (Project, packages/core/src/models/index.ts) the search/list endpoints
+// already return via mapProjectRow, which findBySlug previously skipped
+// entirely (`return data` with no transform at all — a pre-existing gap
+// this fix closes since it sits right next to the new media fields).
+function mapProjectDetailRow(row: any) {
+  const unitTypes = (row.project_unit_types ?? []).map((unit: any) => ({
+    id: unit.id,
+    label: unit.label,
+    propertyType: unit.property_types && {
+      slug: unit.property_types.slug,
+      label: unit.property_types.label,
+      // Needed by the Unit Types form's Category -> Property Type cascade
+      // (apps/web/components/projects/ProjectForm.tsx) to preselect the
+      // right category when editing an existing unit type — without this,
+      // the embed omitted the category entirely and the edit form could
+      // never resolve which category the saved property type belonged to.
+      category: unit.property_types.property_type_categories,
+    },
+    areaValueMin: unit.area_value_min,
+    areaValueMax: unit.area_value_max,
+    areaUnit: unit.area_unit,
+    priceMin: unit.price_min,
+    priceMax: unit.price_max,
+    bedrooms: unit.bedrooms,
+    bathrooms: unit.bathrooms,
+  }));
+
+  let priceRange: { min: number; max: number } | null = null;
+  for (const unit of unitTypes) {
+    if (unit.priceMin == null && unit.priceMax == null) continue;
+    const min = unit.priceMin ?? unit.priceMax;
+    const max = unit.priceMax ?? unit.priceMin;
+    if (!priceRange) priceRange = { min, max };
+    else {
+      if (min < priceRange.min) priceRange.min = min;
+      if (max > priceRange.max) priceRange.max = max;
+    }
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    developer: row.developers && {
+      id: row.developers.id,
+      name: row.developers.name,
+      slug: row.developers.slug,
+      logoUrl: row.developers.logo_url,
+      description: row.developers.description,
+      phone: row.developers.phone,
+      whatsapp: row.developers.whatsapp,
+      city: row.developers.city,
+    },
+    description: row.description,
+    city: row.city,
+    area: row.area,
+    status: row.status,
+    possessionDate: row.possession_date,
+    coverImageUrl: row.cover_image_url,
+    galleryImageUrls: row.gallery_image_urls ?? [],
+    floorPlanUrls: row.floor_plan_urls ?? [],
+    videoUrl: row.video_url,
+    brochureUrl: row.brochure_url,
+    verificationStatus: row.verification_status,
+    createdBy: row.created_by,
+    unitTypeCount: unitTypes.length,
+    unitTypes,
+    paymentPlans: (row.project_payment_plans ?? []).map((plan: any) => ({
+      id: plan.id,
+      label: plan.label,
+      bookingPercent: plan.booking_percent,
+      installmentCount: plan.installment_count,
+      installmentFrequency: plan.installment_frequency,
+      balloonPaymentCount: plan.balloon_payment_count,
+      planDocumentUrl: plan.plan_document_url,
+      description: plan.description,
+    })),
+    amenities: (row.project_amenities ?? [])
+      .map((row: any) => row.amenities)
+      .filter(Boolean)
+      .map((amenity: any) => ({ slug: amenity.slug, label: amenity.label, category: amenity.category })),
     priceRange,
   };
 }
@@ -76,7 +177,11 @@ function mapProjectRow(row: any, priceRange: { min: number; max: number } | null
 export class ProjectsRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async findPublic(filters: ProjectSearchFilters = {}): Promise<PaginatedProjects> {
+  // includeUnverified: set by the authenticated agent/super_admin "manage"
+  // route (findAll below) — the public search route never sets this, so a
+  // project an agent submitted stays invisible to public browsing until a
+  // Super Admin approves it.
+  async findPublic(filters: ProjectSearchFilters = {}, includeUnverified = false): Promise<PaginatedProjects> {
     const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
     const pageSize = Math.min(
       filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
@@ -118,6 +223,7 @@ export class ProjectsRepository {
 
     let query = this.supabase.client.from('projects').select(PROJECT_COLUMNS, { count: 'exact' });
 
+    if (!includeUnverified) query = query.eq('verification_status', 'verified');
     if (filters.city) query = query.eq('city', filters.city);
     if (filters.status) query = query.eq('status', filters.status);
     if (filters.developerSlug) query = query.eq('developers.slug', filters.developerSlug);
@@ -245,40 +351,39 @@ export class ProjectsRepository {
       .sort((a, b) => b.count - a.count);
   }
 
-  async findBySlug(slug: string) {
-    const { data, error } = await this.supabase.client
-      .from('projects')
-      .select(
-        `*,
+  private readonly detailSelect = `*,
         developers (id, name, slug, logo_url, description, phone, whatsapp, city),
-        project_unit_types (id, label, area_value_min, area_value_max, area_unit, price_min, price_max, bedrooms, bathrooms, property_types (slug, label)),
+        project_unit_types (id, label, area_value_min, area_value_max, area_unit, price_min, price_max, bedrooms, bathrooms, property_types (slug, label, property_type_categories (slug, label))),
         project_amenities (amenities (slug, label, category)),
-        project_payment_plans (id, label, booking_percent, installment_count, installment_frequency, balloon_payment_count, plan_document_url, description)`,
-      )
-      .eq('slug', slug)
-      .single();
+        project_payment_plans (id, label, booking_percent, installment_count, installment_frequency, balloon_payment_count, plan_document_url, description)`;
+
+  async findBySlug(slug: string) {
+    const { data, error } = await this.supabase.client.from('projects').select(this.detailSelect).eq('slug', slug).single();
     if (error) throw error;
-    return data;
+    return mapProjectDetailRow(data);
   }
 
-  async create(input: CreateProjectDto) {
-    const { data: project, error } = await this.supabase.client
-      .from('projects')
-      .insert({
-        name: input.name,
-        slug: input.slug,
-        developer_id: input.developerId,
-        description: input.description,
-        city: input.city,
-        area: input.area,
-        status: input.status ?? 'planned',
-        possession_date: input.possessionDate,
-        cover_image_url: input.coverImageUrl,
-      })
-      .select()
-      .single();
+  // Agent/Super Admin detail fetch (by id, not slug) — backs the
+  // /admin/projects/[id] and /projects/[id] edit/view pages, which need a
+  // project regardless of its verification_status (findBySlug above has no
+  // such restriction either, but is keyed by slug, not the id the list rows
+  // carry).
+  async findById(id: string) {
+    const { data, error } = await this.supabase.client.from('projects').select(this.detailSelect).eq('id', id).single();
     if (error) throw error;
+    return mapProjectDetailRow(data);
+  }
 
+  // Shared by create()/update() below — resolves propertyTypeSlug ->
+  // property_type_id and (re)inserts project_unit_types/
+  // project_payment_plans/project_amenities. update() calls this after
+  // deleting the project's existing child rows, so this always starts from
+  // empty for that project — same "submit replaces everything" semantics
+  // the create-form's full-page submit already has.
+  private async insertChildRows(
+    projectId: string,
+    input: Pick<CreateProjectDto, 'unitTypes' | 'paymentPlans' | 'amenitySlugs'>,
+  ) {
     if (input.unitTypes?.length) {
       const slugs = Array.from(new Set(input.unitTypes.map((unit) => unit.propertyTypeSlug)));
       const { data: propertyTypes, error: propertyTypesError } = await this.supabase.client
@@ -291,7 +396,7 @@ export class ProjectsRepository {
 
       const { error: unitTypesError } = await this.supabase.client.from('project_unit_types').insert(
         input.unitTypes.map((unit) => ({
-          project_id: project.id,
+          project_id: projectId,
           property_type_id: propertyTypeIdBySlug.get(unit.propertyTypeSlug),
           label: unit.label,
           area_value_min: unit.areaValueMin,
@@ -309,7 +414,7 @@ export class ProjectsRepository {
     if (input.paymentPlans?.length) {
       const { error: paymentPlansError } = await this.supabase.client.from('project_payment_plans').insert(
         input.paymentPlans.map((plan) => ({
-          project_id: project.id,
+          project_id: projectId,
           label: plan.label,
           booking_percent: plan.bookingPercent,
           installment_count: plan.installmentCount,
@@ -332,11 +437,138 @@ export class ProjectsRepository {
       if (amenities?.length) {
         const { error: linkError } = await this.supabase.client
           .from('project_amenities')
-          .insert(amenities.map((amenity: any) => ({ project_id: project.id, amenity_id: amenity.id })));
+          .insert(amenities.map((amenity: any) => ({ project_id: projectId, amenity_id: amenity.id })));
         if (linkError) throw linkError;
       }
     }
+  }
+
+  // creatorRole: a super_admin-authored project is auto-verified (they're
+  // the same authority that would otherwise approve it); an agent-authored
+  // one starts 'pending' and stays out of public search until approved via
+  // setVerificationStatus below — same publish gate listings already have.
+  async create(input: CreateProjectDto, creatorRole: 'agent' | 'super_admin', creatorId: string) {
+    const { data: project, error } = await this.supabase.client
+      .from('projects')
+      .insert({
+        name: input.name,
+        slug: input.slug,
+        developer_id: input.developerId,
+        description: input.description,
+        city: input.city,
+        area: input.area,
+        status: input.status ?? 'planned',
+        possession_date: input.possessionDate,
+        cover_image_url: input.coverImageUrl,
+        gallery_image_urls: input.galleryImageUrls ?? [],
+        floor_plan_urls: input.floorPlanUrls ?? [],
+        video_url: input.videoUrl,
+        brochure_url: input.brochureUrl,
+        verification_status:
+          input.status === 'draft' ? 'draft' : creatorRole === 'super_admin' ? 'verified' : 'pending',
+        created_by: creatorId,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    await this.insertChildRows(project.id, input);
 
     return project;
+  }
+
+  // Ownership check backing ProjectsController.assertOwnProject — mirrors
+  // ListingsController.assertOwnListing/ListingsRepository.getOwnership.
+  async getOwnership(id: string): Promise<{ createdBy: string | null; verificationStatus: string }> {
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .select('created_by, verification_status')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return { createdBy: (data as any).created_by, verificationStatus: (data as any).verification_status };
+  }
+
+  // Full-page-form edit — agent (self-scoped to their own project, enforced
+  // by ProjectsController.assertOwnProject) or super_admin (any). Editing a
+  // 'verified'/'rejected' project always resets it to 'pending' regardless
+  // of who edited it — same re-review-on-edit rule as
+  // ListingsRepository.update, so a Super Admin's changes get the same
+  // fresh look a listing edit gets, not just an agent's.
+  async update(id: string, input: UpdateProjectDto) {
+    const { data: existing, error: existingError } = await this.supabase.client
+      .from('projects')
+      .select('verification_status')
+      .eq('id', id)
+      .single();
+    if (existingError) throw existingError;
+
+    // A draft moving to a real status goes through review like any other
+    // edit — update() has no creatorRole (unlike create()), so this can't
+    // distinguish an agent finishing their own draft from a super_admin
+    // doing the same; 'pending' is the safe default either way.
+    const nextVerificationStatus =
+      input.status === 'draft'
+        ? 'draft'
+        : existing.verification_status === 'draft' ||
+            existing.verification_status === 'verified' ||
+            existing.verification_status === 'rejected'
+          ? 'pending'
+          : existing.verification_status;
+
+    const updatePayload: Record<string, unknown> = { verification_status: nextVerificationStatus };
+    if (input.name !== undefined) updatePayload.name = input.name;
+    if (input.slug !== undefined) updatePayload.slug = input.slug;
+    if (input.developerId !== undefined) updatePayload.developer_id = input.developerId;
+    if (input.description !== undefined) updatePayload.description = input.description;
+    if (input.city !== undefined) updatePayload.city = input.city;
+    if (input.area !== undefined) updatePayload.area = input.area;
+    if (input.status !== undefined) updatePayload.status = input.status;
+    if (input.possessionDate !== undefined) updatePayload.possession_date = input.possessionDate;
+    if (input.coverImageUrl !== undefined) updatePayload.cover_image_url = input.coverImageUrl;
+    if (input.galleryImageUrls !== undefined) updatePayload.gallery_image_urls = input.galleryImageUrls;
+    if (input.floorPlanUrls !== undefined) updatePayload.floor_plan_urls = input.floorPlanUrls;
+    if (input.videoUrl !== undefined) updatePayload.video_url = input.videoUrl;
+    if (input.brochureUrl !== undefined) updatePayload.brochure_url = input.brochureUrl;
+
+    const { error: updateError } = await this.supabase.client.from('projects').update(updatePayload).eq('id', id);
+    if (updateError) throw updateError;
+
+    if (input.unitTypes !== undefined) {
+      const { error: deleteError } = await this.supabase.client.from('project_unit_types').delete().eq('project_id', id);
+      if (deleteError) throw deleteError;
+    }
+    if (input.paymentPlans !== undefined) {
+      const { error: deleteError } = await this.supabase.client.from('project_payment_plans').delete().eq('project_id', id);
+      if (deleteError) throw deleteError;
+    }
+    if (input.amenitySlugs !== undefined) {
+      const { error: deleteError } = await this.supabase.client.from('project_amenities').delete().eq('project_id', id);
+      if (deleteError) throw deleteError;
+    }
+
+    await this.insertChildRows(id, input);
+
+    return this.findById(id);
+  }
+
+  async remove(id: string) {
+    const { error } = await this.supabase.client.from('projects').delete().eq('id', id);
+    if (error) throw error;
+    return { id };
+  }
+
+  // Super Admin approve/reject action — mirrors
+  // AgenciesRepository.setVerificationStatus's simple direct-update shape
+  // (no audit-log RPC like listings' heavier verification flow needs).
+  async setVerificationStatus(id: string, status: 'verified' | 'rejected') {
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .update({ verification_status: status })
+      .eq('id', id)
+      .select(PROJECT_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapProjectRow(data, null);
   }
 }

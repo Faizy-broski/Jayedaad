@@ -8,7 +8,10 @@ import { useAuthViewModel } from '@jayedaad/core';
 export function useGoogleSignIn() {
   const { getGoogleOAuthUrl, exchangeCodeForSession } = useAuthViewModel();
 
-  async function signInWithGoogle() {
+  // Returns whether a session was actually established, so callers can tell
+  // a genuine success apart from the user cancelling/dismissing the sheet
+  // (openAuthSessionAsync resolves normally either way).
+  async function signInWithGoogle(): Promise<{ success: boolean }> {
     const redirectTo = Linking.createURL('auth/callback');
     const url = await getGoogleOAuthUrl.mutateAsync(redirectTo);
     const result = await WebBrowser.openAuthSessionAsync(url, redirectTo);
@@ -18,8 +21,10 @@ export function useGoogleSignIn() {
       const code = queryParams?.code as string | undefined;
       if (code) {
         await exchangeCodeForSession.mutateAsync(code);
+        return { success: true };
       }
     }
+    return { success: false };
   }
 
   return { signInWithGoogle, isPending: getGoogleOAuthUrl.isPending || exchangeCodeForSession.isPending };
