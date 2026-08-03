@@ -24,7 +24,7 @@ export function PageHero({
     // mobile/md doesn't cover the hero; lg:pt-0 lets it float over the hero
     // instead, same convention as the homepage Hero.
     <div className="pt-16 sm:pt-[68px] lg:pt-0">
-      <section className="relative h-[280px] w-full overflow-hidden sm:h-[340px] md:h-[350px] lg:h-[450px]">
+      <section className="relative h-[300px] w-full overflow-hidden sm:h-[340px] md:h-[350px] lg:h-[450px]">
         <Image
           src={backgroundImage}
           alt={imageAlt}

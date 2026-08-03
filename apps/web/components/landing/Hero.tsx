@@ -1,21 +1,40 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { MapPin, Wallet, BedDouble, Home, Search as SearchIcon } from 'lucide-react';
+import { useState } from "react";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import {
+  MapPin,
+  Wallet,
+  BedDouble,
+  Home,
+  Search as SearchIcon,
+} from "lucide-react";
 
-type Purpose = 'buy' | 'rent' | 'commercial';
+type Purpose = "buy" | "rent" | "commercial";
 
 const PURPOSE_TABS: { label: string; value: Purpose }[] = [
-  { label: 'Buy', value: 'buy' },
-  { label: 'Rent', value: 'rent' },
-  { label: 'Commercial', value: 'commercial' },
+  { label: "Buy", value: "buy" },
+  { label: "Rent", value: "rent" },
+  { label: "Commercial", value: "commercial" },
 ];
 
-const BUDGET_OPTIONS = ['Any', 'Under 50 Lac', '50 Lac - 1 Cr', '1 Cr - 3 Cr', '3 Cr+'];
-const BEDROOM_OPTIONS = ['Any', '1', '2', '3', '4', '5+'];
-const TYPE_OPTIONS = ['Any', 'House', 'Apartment', 'Villa', 'Plot', 'Commercial'];
+const BUDGET_OPTIONS = [
+  "Any",
+  "Under 50 Lac",
+  "50 Lac - 1 Cr",
+  "1 Cr - 3 Cr",
+  "3 Cr+",
+];
+const BEDROOM_OPTIONS = ["Any", "1", "2", "3", "4", "5+"];
+const TYPE_OPTIONS = [
+  "Any",
+  "House",
+  "Apartment",
+  "Villa",
+  "Plot",
+  "Commercial",
+];
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -35,19 +54,27 @@ const textItem = {
 // the page has no effect on it.
 const wordmarkReveal = {
   hidden: { opacity: 0, y: 120 },
-  show: { opacity: 0.9, y: 0, transition: { duration: 1.2, ease: EASE, delay: 0.35 } },
+  show: {
+    opacity: 0.9,
+    y: 0,
+    transition: { duration: 1.2, ease: EASE, delay: 0.35 },
+  },
 };
 
 const wordmarkRevealMobile = {
   hidden: { opacity: 0, y: 44 },
-  show: { opacity: 0.9, y: 0, transition: { duration: 1, ease: EASE, delay: 0.3 } },
+  show: {
+    opacity: 0.9,
+    y: 0,
+    transition: { duration: 1, ease: EASE, delay: 0.3 },
+  },
 };
 
 function PurposeTabs({
   purpose,
   onChange,
   layoutId,
-  className = '',
+  className = "",
 }: {
   purpose: Purpose;
   onChange: (p: Purpose) => void;
@@ -69,10 +96,12 @@ function PurposeTabs({
             <motion.span
               layoutId={layoutId}
               className="absolute inset-0 rounded-full bg-white shadow-sm"
-              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              transition={{ type: "spring", stiffness: 500, damping: 35 }}
             />
           )}
-          <span className={`relative z-10 whitespace-nowrap ${purpose === tab.value ? 'text-brand-dark' : 'text-white'}`}>
+          <span
+            className={`relative z-10 whitespace-nowrap ${purpose === tab.value ? "text-brand-dark" : "text-white"}`}
+          >
             {tab.label}
           </span>
         </button>
@@ -90,7 +119,9 @@ function SearchFields({ purpose }: { purpose: Purpose }) {
         <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
           <MapPin className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Where</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Where
+            </span>
             <input
               name="location"
               placeholder="Lahore, DHA..."
@@ -102,7 +133,9 @@ function SearchFields({ purpose }: { purpose: Purpose }) {
         <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
           <Wallet className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Budget</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Budget
+            </span>
             <select
               name="budget"
               defaultValue={BUDGET_OPTIONS[0]}
@@ -118,7 +151,9 @@ function SearchFields({ purpose }: { purpose: Purpose }) {
         <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
           <BedDouble className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Bedrooms</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Bedrooms
+            </span>
             <select
               name="bedrooms"
               defaultValue={BEDROOM_OPTIONS[0]}
@@ -134,7 +169,9 @@ function SearchFields({ purpose }: { purpose: Purpose }) {
         <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
           <Home className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Type</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Type
+            </span>
             <select
               name="type"
               defaultValue={TYPE_OPTIONS[0]}
@@ -162,7 +199,7 @@ function SearchFields({ purpose }: { purpose: Purpose }) {
 }
 
 export function Hero() {
-  const [purpose, setPurpose] = useState<Purpose>('buy');
+  const [purpose, setPurpose] = useState<Purpose>("buy");
 
   return (
     <section className="relative">
@@ -234,7 +271,8 @@ export function Hero() {
                 variants={textItem}
                 className="max-w-xs text-left text-sm leading-relaxed text-white/90 sm:text-base"
               >
-                Pakistan&apos;s smartest real estate platform for buying, selling and renting verified properties.
+                Pakistan&apos;s smartest real estate platform for buying,
+                selling and renting verified properties.
               </motion.p>
 
               <motion.div variants={textItem} className="flex justify-center">
@@ -269,9 +307,23 @@ export function Hero() {
           the search card sits in normal flow (pulled up with a negative
           margin) rather than the desktop's absolute-overlap technique,
           which only really works with a fixed-height hero. */}
+      {/* All screens - same hero composition */}
       <div className="lg:hidden">
         <div className="pt-16 sm:pt-[68px]">
-          <div className="relative h-[420px] w-full overflow-hidden rounded-b-[2rem] sm:h-[520px] md:h-[560px]">
+          <div
+            className="
+        relative
+        h-[420px]
+        w-full
+        overflow-hidden
+        rounded-b-[2rem]
+
+        sm:h-[560px]
+        md:h-[650px]
+        lg:h-[680px]
+      "
+          >
+            {/* Background house environment */}
             <motion.div
               initial={{ opacity: 0, scale: 1.12 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -288,10 +340,39 @@ export function Hero() {
               />
             </motion.div>
 
+            {/* Jayedaad wordmark behind house */}
+            <motion.div
+              variants={wordmarkReveal}
+              initial="hidden"
+              animate="show"
+              className=" absolute inset-0 flex justify-center pt-28 sm:pt-[170px] md:pt-36 lg:pt-[150px]"
+            >
+              <Image
+                src="/images/jayedaad-text.png"
+                alt="Jayedaad"
+                width={1200}
+                height={168}
+                priority
+                className="
+    h-14
+    w-auto
+    max-w-[90%]
+    sm:h-28
+    md:h-32
+    lg:h-36
+  "
+              />
+            </motion.div>
+
+            {/* House foreground cutout */}
             <motion.div
               initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.1, ease: EASE, delay: 0.15 }}
+              transition={{
+                duration: 1.3,
+                ease: EASE,
+                delay: 0.15,
+              }}
               className="absolute inset-0"
             >
               <Image
@@ -304,47 +385,123 @@ export function Hero() {
               />
             </motion.div>
 
+            {/* Content */}
             <motion.div
               variants={textGroup}
               initial="hidden"
               animate="show"
-              className="relative z-10 flex h-full flex-col items-center px-5 pb-10 pt-8 text-center sm:pb-12 sm:pt-10 md:pt-12"
-            >
-              <motion.div variants={wordmarkRevealMobile} initial="hidden" animate="show">
-                <Image
-                  src="/images/jayedaad-text.png"
-                  alt="Jayedaad"
-                  width={1200}
-                  height={168}
-                  priority
-                  className="h-12 w-auto max-w-[88%] select-none sm:h-16 md:h-20"
-                />
-              </motion.div>
+              className="
+  pointer-events-none
+  relative
+  z-10
+  mx-auto
+  flex
+  h-full
+  w-full
+  max-w-5xl
+  flex-col
+  px-5
 
+  pb-12
+  pt-48
+
+  sm:pb-16
+  sm:pt-[260px]
+
+  md:pb-20
+  md:pt-[320px]
+
+  lg:pb-28
+  lg:pt-[300px]
+"
+            >
               <motion.p
                 variants={textItem}
-                className="mt-4 max-w-xs text-sm leading-relaxed text-white/90 sm:mt-5 sm:max-w-sm sm:text-base"
+                className="
+    max-w-xs
+    text-left
+    text-sm
+    leading-relaxed
+    text-white/90
+    sm:max-w-sm
+    sm:text-base
+  "
               >
-                Pakistan&apos;s smartest real estate platform for buying, selling and renting verified properties.
+                Pakistan&apos;s smartest real estate platform for buying,
+                selling and renting verified properties.
               </motion.p>
 
-              <motion.div variants={textItem} className="mt-auto pt-6">
-                <PurposeTabs purpose={purpose} onChange={setPurpose} layoutId="purpose-pill-mobile" />
+              <motion.div
+                variants={textItem}
+                className="
+  pointer-events-auto
+  mt-auto
+  flex
+  justify-center
+
+  pb-6
+
+  sm:pb-10
+  md:pb-12
+"
+              >
+                <PurposeTabs
+                  purpose={purpose}
+                  onChange={setPurpose}
+                  layoutId="purpose-pill-all"
+                />
               </motion.div>
             </motion.div>
           </div>
-        </div>
 
-        <motion.form
-          action="/search"
-          method="get"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE, delay: 0.4 }}
-          className="relative z-10 mx-4 -mt-8 flex flex-col gap-1 rounded-3xl bg-white p-3 shadow-2xl sm:-mt-10 sm:flex-row sm:items-center sm:gap-0 sm:rounded-full sm:p-2"
-        >
-          <SearchFields purpose={purpose} />
-        </motion.form>
+          {/* Floating Search */}
+          <motion.form
+            action="/search"
+            method="get"
+            initial={{
+              opacity: 0,
+              y: 24,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: 0.7,
+              ease: EASE,
+              delay: 0.5,
+            }}
+            className="
+        relative
+        z-20
+
+        mx-4
+        -mt-8
+
+        flex
+        flex-col
+        gap-2
+
+        rounded-3xl
+        bg-white
+        p-3
+
+        shadow-2xl
+
+        sm:-mt-12
+
+        md:mx-auto
+        md:max-w-4xl
+        md:flex-row
+        md:items-center
+        md:gap-0
+        md:rounded-full
+        md:p-2
+      "
+          >
+            <SearchFields purpose={purpose} />
+          </motion.form>
+        </div>
 
         <div className="h-10 sm:h-12" />
       </div>

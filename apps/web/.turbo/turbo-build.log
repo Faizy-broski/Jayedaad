@@ -7,82 +7,17 @@ $ next build
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (253kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
  ✓ Compiled successfully
    Linting and checking validity of types ...
-   Collecting page data ...
-   Generating static pages (0/47) ...
-   Generating static pages (11/47) 
-   Generating static pages (23/47) 
-   Generating static pages (35/47) 
- ✓ Generating static pages (47/47)
-   Finalizing page optimization ...
-   Collecting build traces ...
- ⚠ Failed to copy traced files for C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\server\pages\_app.js Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\react@18.3.1\node_modules\react' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\apps\web\node_modules\react'
-    at async Object.symlink (node:internal/fs/promises:1002:10)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
-    at async Promise.all (index 9)
-    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
-    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1451:9)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
-    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
-  errno: -4048,
-  code: 'EPERM',
-  syscall: 'symlink',
-  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\react@18.3.1\\node_modules\\react',
-  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\apps\\web\\node_modules\\react'
-}
- ⚠ Failed to copy traced files for C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\server\pages\_error.js Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\react-dom@18.3.1_react@18.3.1\node_modules\react-dom' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\react-dom'
-    at async Object.symlink (node:internal/fs/promises:1002:10)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
-    at async Promise.all (index 14)
-    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
-    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1451:9)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
-    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
-  errno: -4048,
-  code: 'EPERM',
-  syscall: 'symlink',
-  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\react-dom@18.3.1_react@18.3.1\\node_modules\\react-dom',
-  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\\node_modules\\react-dom'
-}
- ⚠ Failed to copy traced files for C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\server\pages\_document.js Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\apps\web\node_modules\next'
-    at async Object.symlink (node:internal/fs/promises:1002:10)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
-    at async Promise.all (index 37)
-    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
-    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1451:9)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
-    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
-  errno: -4048,
-  code: 'EPERM',
-  syscall: 'symlink',
-  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\\node_modules\\next',
-  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\apps\\web\\node_modules\\next'
-}
+Failed to compile.
 
-> Build error occurred
-Error: EPERM: operation not permitted, symlink 'C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\@next+env@14.2.35\node_modules\@next\env' -> 'C:\Users\ibm\Documents\Projects\Jayedaad\apps\web\.next\standalone\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\@next\env'
-    at async Object.symlink (node:internal/fs/promises:1002:10)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1402:25
-    at async Promise.all (index 86)
-    at async handleTraceFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1390:9)
-    at async copyTracedFiles (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\utils.js:1472:5)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:224:9
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20)
-    at async writeStandaloneDirectory (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:223:5)
-    at async C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\build\index.js:2143:17
-    at async Span.traceAsyncFn (C:\Users\ibm\Documents\Projects\Jayedaad\node_modules\.pnpm\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\node_modules\next\dist\trace\trace.js:154:20) {
-  errno: -4048,
-  code: 'EPERM',
-  syscall: 'symlink',
-  path: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\node_modules\\.pnpm\\@next+env@14.2.35\\node_modules\\@next\\env',
-  dest: 'C:\\Users\\ibm\\Documents\\Projects\\Jayedaad\\apps\\web\\.next\\standalone\\node_modules\\.pnpm\\next@14.2.35_@babel+core@7._4000fe6c2f32d669d50d1eb5c1fdebdd\\node_modules\\@next\\env'
-}
+./app/(agent)/agent-settings/page.tsx:82:37
+Type error: Property 'icon' does not exist on type '{ id: SettingsTab; label: string; }'.
+
+[0m [90m 80 |[39m               [33m<[39m[33mnav[39m className[33m=[39m[32m"flex gap-1 overflow-x-auto lg:flex-col"[39m[33m>[39m[0m
+[0m [90m 81 |[39m                 {[33mSUB_NAV[39m[33m.[39mmap((item) [33m=>[39m {[0m
+[0m[31m[1m>[22m[39m[90m 82 |[39m                   [36mconst[39m [33mIcon[39m [33m=[39m item[33m.[39micon[33m;[39m[0m
+[0m [90m    |[39m                                     [31m[1m^[22m[39m[0m
+[0m [90m 83 |[39m                   [36mconst[39m active [33m=[39m tab [33m===[39m item[33m.[39mid[33m;[39m[0m
+[0m [90m 84 |[39m                   [36mreturn[39m ([0m
+[0m [90m 85 |[39m                     [33m<[39m[33mbutton[39m[0m
+Next.js build worker exited with code: 1 and signal: null
 [ELIFECYCLE] Command failed with exit code 1.

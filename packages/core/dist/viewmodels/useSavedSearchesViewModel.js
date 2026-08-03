@@ -11,13 +11,19 @@ export function useSavedSearchesViewModel() {
         queryFn: () => savedSearchesRepository.list(),
         enabled: !!user,
     });
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['savedSearches', user?.id] });
+    const create = useMutation({
+        mutationFn: (input) => savedSearchesRepository.create(input),
+        onSuccess: invalidate,
+    });
     const remove = useMutation({
         mutationFn: (id) => savedSearchesRepository.remove(id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savedSearches', user?.id] }),
+        onSuccess: invalidate,
     });
     return {
         savedSearches: savedSearchesQuery.data ?? [],
         isLoading: savedSearchesQuery.isLoading,
+        create,
         remove,
     };
 }

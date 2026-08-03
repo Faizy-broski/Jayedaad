@@ -56,7 +56,7 @@ const SOCIALS = [
 
 export function FollowJourney() {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-24">
+    <section className="relative overflow-hidden py-12 sm:py-24">
       {/* Faint centered building watermark. object-contain (not cover) so
           the whole isometric house shows regardless of this short section's
           aspect ratio — cover was slicing it down to an unrecognizable

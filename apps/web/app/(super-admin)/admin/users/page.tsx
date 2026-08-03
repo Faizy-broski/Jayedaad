@@ -1,20 +1,80 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { AdminUser, CreateUserInput, Role, useUserManagementViewModel } from '@jayedaad/core';
-import { Button, Input, Label, Modal, Select, Table, TableColumn } from '@jayedaad/ui-web';
+import { Button, cn, Input, Label, Modal, Select } from '@jayedaad/ui-web';
+import {
+  Ban,
+  Calendar,
+  ChevronDown,
+  Home,
+  Mail,
+  PlusCircle,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserCheck,
+  Users,
+} from 'lucide-react';
+import { Reveal } from '@/components/Reveal';
 
 const ROLES: Role[] = ['super_admin', 'verification_staff', 'agent', 'buyer', 'owner'];
 const EMPTY_FORM: CreateUserInput = { email: '', password: '', role: 'buyer', displayName: '' };
 
+const ROLE_FILTERS: { id: Role | 'all'; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'super_admin', label: 'Admins' },
+  { id: 'verification_staff', label: 'Staff' },
+  { id: 'agent', label: 'Agents' },
+  { id: 'buyer', label: 'Buyers' },
+  { id: 'owner', label: 'Owners' },
+];
+
+const ROLE_STYLES: Record<Role, { dot: string; badge: string }> = {
+  super_admin: { dot: 'bg-primary', badge: 'bg-primary/10 text-primary' },
+  verification_staff: { dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-400' },
+  agent: { dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
+  buyer: { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  owner: { dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+};
+
+function roleLabel(role: Role): string {
+  return role.replace('_', ' ');
+}
+
+function initials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('');
+}
+
+// Real counts derived from the fetched users list — same "compute from
+// what's already loaded" approach as Agencies/Agents/Plans/CRM/Listings.
 export default function UsersPage() {
-  const [roleFilter, setRoleFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all');
+  const [search, setSearch] = useState('');
   const { users, isLoading, create, updateRole, suspend, unsuspend, remove } = useUserManagementViewModel(
-    roleFilter ? { roles: [roleFilter as Role] } : {},
+    roleFilter === 'all' ? {} : { roles: [roleFilter] },
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CreateUserInput>(EMPTY_FORM);
+
+  const counts = useMemo(() => {
+    const byRole: Record<Role, number> = { super_admin: 0, verification_staff: 0, agent: 0, buyer: 0, owner: 0 };
+    for (const u of users) byRole[u.role]++;
+    return { total: users.length, ...byRole };
+  }, [users]);
+
+  const visibleUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => u.email.toLowerCase().includes(q) || (u.displayName ?? '').toLowerCase().includes(q));
+  }, [users, search]);
 
   function handleCreate() {
     create.mutate(form, {
@@ -53,61 +113,174 @@ export default function UsersPage() {
     });
   }
 
-  const columns: TableColumn<AdminUser>[] = [
-    { key: 'email', header: 'Email', render: (u) => u.email },
-    { key: 'name', header: 'Name', render: (u) => u.displayName ?? '—' },
-    {
-      key: 'role',
-      header: 'Role',
-      render: (u) => (
-        <Select className="h-8 w-40 py-0 text-xs" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}>
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </Select>
-      ),
-    },
-    { key: 'created', header: 'Joined', render: (u) => new Date(u.createdAt).toLocaleDateString() },
-    {
-      key: 'actions',
-      header: '',
-      className: 'text-right',
-      render: (u) => (
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(u, false)}>
-            Suspend
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(u, true)}>
-            Unsuspend
-          </Button>
-          <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleDelete(u.id, u.email)}>
-            Delete
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Users</h1>
-        <div className="flex items-center gap-3">
-          <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="w-48">
-            <option value="">All roles</option>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </Select>
-          <Button onClick={() => setModalOpen(true)}>New User</Button>
+      <Reveal>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Users className="h-4 w-4" />
+              User management
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">Users</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{counts.total}</span> registered {counts.total === 1 ? 'user' : 'users'} across
+              every role.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="bg-heading-gradient flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            <PlusCircle className="h-4 w-4" />
+            New User
+          </button>
         </div>
+      </Reveal>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {isLoading ? (
+          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+        ) : (
+          <>
+            <StatTile index={0} icon={Users} label="Total Users" value={counts.total} sub="All roles" />
+            <StatTile index={1} icon={Home} label="Agents" value={counts.agent} sub="Listing on the platform" />
+            <StatTile index={2} icon={UserCheck} label="Buyers & Owners" value={counts.buyer + counts.owner} sub="Demand-side users" />
+            <StatTile index={3} icon={ShieldCheck} label="Admins & Staff" value={counts.super_admin + counts.verification_staff} sub="Internal team" />
+          </>
+        )}
       </div>
 
-      <Table columns={columns} rows={users} rowKey={(u) => u.id} isLoading={isLoading} emptyMessage="No users." />
+      <Reveal>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
+            {ROLE_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setRoleFilter(f.id)}
+                className={cn(
+                  'relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                  roleFilter === f.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {roleFilter === f.id && (
+                  <motion.span
+                    layoutId="userRoleTab"
+                    className="bg-heading-gradient absolute inset-0 rounded-full"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative">{f.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email or name…" className="pl-9" />
+          </div>
+        </div>
+      </Reveal>
+
+      {isLoading && (
+        <div className="space-y-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-border bg-muted/40" />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && visibleUsers.length === 0 && (
+        <Reveal>
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
+            <Users className="mb-3 h-10 w-10 text-muted-foreground/50" />
+            <h3 className="text-sm font-semibold text-foreground">No users found</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {search || roleFilter !== 'all' ? 'Try a different search or filter.' : 'New users will appear here once registered.'}
+            </p>
+          </div>
+        </Reveal>
+      )}
+
+      {!isLoading && visibleUsers.length > 0 && (
+        <ul className="space-y-3">
+          <AnimatePresence initial={false}>
+            {visibleUsers.map((user, index) => {
+              const style = ROLE_STYLES[user.role];
+              return (
+                <motion.li
+                  key={user.id}
+                  layout
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+                  transition={{ duration: 0.25, delay: Math.min(index, 8) * 0.04 }}
+                  whileHover={{ y: -2 }}
+                  className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                        {user.displayName ? initials(user.displayName) : user.email.slice(0, 2).toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">{user.displayName ?? 'Unnamed user'}</p>
+                          <span className={cn('flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize', style.badge)}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
+                            {roleLabel(user.role)}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 truncate">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            {user.email}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Joined {new Date(user.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      <div className="relative">
+                        <select
+                          value={user.role}
+                          onChange={(e) => handleRoleChange(user.id, e.target.value as Role)}
+                          disabled={updateRole.isPending}
+                          className="h-9 appearance-none rounded-full border border-input bg-background py-0 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {roleLabel(r)}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, false)}>
+                        <Ban className="mr-1 h-3.5 w-3.5" />
+                        Suspend
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, true)}>
+                        <UserCheck className="mr-1 h-3.5 w-3.5" />
+                        Unsuspend
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleDelete(user.id, user.email)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </motion.li>
+              );
+            })}
+          </AnimatePresence>
+        </ul>
+      )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New User">
         <div className="space-y-4">
@@ -128,16 +301,43 @@ export default function UsersPage() {
             <Select value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value as Role }))}>
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {roleLabel(r)}
                 </option>
               ))}
             </Select>
           </div>
-          <Button onClick={handleCreate} disabled={create.isPending}>
+          <Button onClick={handleCreate} disabled={create.isPending} className="w-full">
             {create.isPending ? 'Creating…' : 'Create'}
           </Button>
         </div>
       </Modal>
     </div>
+  );
+}
+
+function StatTile({
+  index,
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  index: number;
+  icon: typeof Users;
+  label: string;
+  value: number;
+  sub: string;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
+      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </span>
+        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
+      </div>
+    </motion.div>
   );
 }

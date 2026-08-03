@@ -76,6 +76,20 @@ const config: Config = {
         'brand-gradient': 'linear-gradient(90deg, #0D634B 0%, #034B37 100%)',
         'gold-gradient': 'linear-gradient(111.53deg, #EBBD57 0%, #AD7B3D 100%)',
       },
+      // Modal entrance — backdrop fades while the panel fades+rises together,
+      // so opening one (Agencies/Agents/Plans/Users create-edit dialogs)
+      // reads as a single smooth motion instead of a hard snap-in.
+      keyframes: {
+        'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        'modal-in': {
+          from: { opacity: '0', transform: 'translateY(8px) scale(0.97)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 0.2s ease-out',
+        'modal-in': 'modal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+      },
     },
   },
   plugins: [],

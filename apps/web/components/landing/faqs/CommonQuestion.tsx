@@ -5,7 +5,7 @@ import { Reveal } from "@/components/Reveal";
 
 export function CommonQuestions() {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-24">
+    <section className="relative overflow-hidden py-12 sm:py-24">
       {/* Faint centered building watermark, same treatment as the other
           bg-image sections — very low opacity so it never competes with the
           accordion text sitting on top of it. */}
