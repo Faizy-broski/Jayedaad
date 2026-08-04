@@ -81,11 +81,12 @@ const DESKTOP_QUERY = '(min-width: 1024px)';
 // keeps the plain in-flow sticky bar.
 const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings']);
 
-// Listing detail pages (/listings/[slug]) have no hero banner, but still get
-// the floating treatment — PropertyDetail reserves top clearance itself
-// (rather than a hero backdrop) so the pill doesn't sit over the breadcrumb.
+// Listing/project detail pages (/listings/[slug], /developments/[slug]) have
+// no hero banner, but still get the floating treatment — PropertyDetail/
+// ProjectDetail reserve top clearance themselves (rather than a hero
+// backdrop) so the pill doesn't sit over the breadcrumb.
 function isHeroRoute(pathname: string): boolean {
-  return HERO_ROUTES.has(pathname) || pathname.startsWith('/listings/');
+  return HERO_ROUTES.has(pathname) || pathname.startsWith('/listings/') || pathname.startsWith('/developments/');
 }
 
 export function Header() {
