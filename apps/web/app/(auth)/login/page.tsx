@@ -61,8 +61,14 @@ function LoginForm() {
   }
 
   function handleGoogle() {
-    const next = searchParams.get('redirectTo') || '/';
-    signInWithGoogle.mutate(`${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`);
+    // Left blank (not '/') when there's no explicit redirectTo — the
+    // callback route falls back to a role-based landing once it knows who
+    // signed in, same as handleSubmit's redirectTo || DEFAULT_LANDING_BY_ROLE
+    // above, just resolved server-side since Google's round-trip means the
+    // role isn't known yet at this point.
+    const redirectTo = searchParams.get('redirectTo');
+    const query = redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : '';
+    signInWithGoogle.mutate(`${window.location.origin}/auth/callback${query}`);
   }
 
   // TODO: wire up once an Apple OAuth mutation exists on useAuthViewModel

@@ -47,6 +47,49 @@ export function FavoriteButton({ listing, size = 20, style }: { listing: Listing
   );
 }
 
+// Real primary contact number (mobile preferred, landline fallback) — used
+// by ListingDetailScreen's sticky bottom "Contact" bar, which needs a
+// single number to dial directly rather than a full Call/WhatsApp/SMS row.
+export function getPrimaryCallNumber(listing: Listing): string | undefined {
+  const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
+  const landline = listing.contactNumbers.find((c) => c.type === 'landline');
+  const contact = mobile ?? landline;
+  return contact ? `${contact.countryCode}${contact.number}` : undefined;
+}
+
+// Compact icon-button row (Call/WhatsApp/Message) for the "Listed by" agent
+// card — same real numbers/tracking as ContactActions below, just a denser
+// visual treatment for a card that already shows the agent's name/agency.
+export function ContactIconActions({ listing, onMessagePress }: { listing: Listing; onMessagePress: () => void }) {
+  const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
+  const landline = listing.contactNumbers.find((c) => c.type === 'landline');
+  const callContact = mobile ?? landline;
+  const callNumber = callContact ? `${callContact.countryCode}${callContact.number}` : undefined;
+  const whatsappDigits = mobile ? `${mobile.countryCode}${mobile.number}`.replace(/\D/g, '') : undefined;
+
+  return (
+    <View style={styles.iconRow}>
+      {callNumber && (
+        <Pressable style={styles.iconButton} onPress={() => trackAndOpen(listing.id, 'call', `tel:${callNumber}`)} hitSlop={6}>
+          <Ionicons name="call-outline" size={18} color={theme.colors.primary} />
+        </Pressable>
+      )}
+      {whatsappDigits && (
+        <Pressable
+          style={styles.iconButton}
+          onPress={() => trackAndOpen(listing.id, 'whatsapp', `https://wa.me/${whatsappDigits}`)}
+          hitSlop={6}
+        >
+          <Ionicons name="logo-whatsapp" size={18} color={theme.colors.primary} />
+        </Pressable>
+      )}
+      <Pressable style={styles.iconButton} onPress={onMessagePress} hitSlop={6}>
+        <Ionicons name="chatbubble-outline" size={18} color={theme.colors.primary} />
+      </Pressable>
+    </View>
+  );
+}
+
 // Call/WhatsApp/SMS numbers come from the listing's own contactNumbers —
 // Listing.agent (ListingAgentSummary) has no phone field at all.
 export function ContactActions({ listing }: { listing: Listing }) {
@@ -110,4 +153,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contactButtonText: { color: theme.colors.primary, fontWeight: '700', fontSize: 14 },
+  iconRow: { flexDirection: 'row', gap: theme.spacing.sm },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

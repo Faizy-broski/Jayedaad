@@ -93,6 +93,11 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
             <NavRow icon="home-outline" label="My Properties" onPress={() => go('MyProperties')} />
             <NavRow icon="document-text-outline" label="Drafts" onPress={() => go('MyProperties', { initialTab: 'drafts' })} />
             {isAgent && <NavRow icon="business-outline" label="My Projects" onPress={() => go('MyProjects')} />}
+            {/* Owners get a calendar too — Book a Visit on an owner-posted
+                listing (no assigned agent) lands there directly. */}
+            {(isAgent || role === 'owner') && (
+              <NavRow icon="calendar-outline" label="Calendar" onPress={() => go('Calendar')} />
+            )}
             {canManageAgency && <NavRow icon="people-outline" label="Agency Staff" onPress={() => go('AgencyStaff')} />}
 
             <SectionLabel>App Controls</SectionLabel>

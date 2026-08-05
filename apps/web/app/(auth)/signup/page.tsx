@@ -35,7 +35,7 @@ function slugify(name: string): string {
 // landing.
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp, sendOtp, signInWithGoogle } = useAuthViewModel();
+  const { signUp, signIn, sendOtp, signInWithGoogle } = useAuthViewModel();
   const { register: registerAgency } = useAgencyRegistrationViewModel();
 
   const [accountType, setAccountType] = useState<AccountType>('individual');
@@ -52,6 +52,21 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agencyName, setAgencyName] = useState('');
   const [agencyCity, setAgencyCity] = useState('');
+  const [salesAssociateCount, setSalesAssociateCount] = useState('');
+  const [associateCountError, setAssociateCountError] = useState(false);
+  // Everything after the initial signUp() used to run with no error
+  // handling at all — a failure partway through (registerAgency or
+  // sendOtp) left an unhandled promise rejection: the auth.users row was
+  // already permanently created by signUp(), but the page never surfaced
+  // why the rest of the flow died (Next.js's raw error overlay instead of a
+  // form error). Retrying then hit signUp() again for an email that now
+  // already exists — Supabase rejects that with a 422 "already registered"
+  // — producing a second, misleading error for an account that, in fact,
+  // already exists. This single submitError + the recovery path below
+  // replace that dead end (mirrors apps/mobile/src/screens/auth/SignupScreen.tsx,
+  // which hit and fixed this same bug first).
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -60,38 +75,94 @@ export default function SignupPage() {
       return;
     }
     setPasswordMismatch(false);
-    const formattedPhone = phone ? `+${dialCode.replace(/\D/g, '')}${phone}` : undefined;
-    await signUp.mutateAsync({
-      email,
-      password,
-      name,
-      phone: formattedPhone,
-      marketingOptIn,
-      termsAcceptedAt: new Date().toISOString(),
-    });
-
-    // Agency registration needs an authenticated session first (it's a
-    // self-scoped POST /agencies/register) — signUp() above already returns
-    // an active session (Confirm email is off), so this can run right after.
-    if (accountType === 'agency') {
-      await registerAgency.mutateAsync({
-        agencyName,
-        agencySlug: slugify(agencyName),
-        agencyCity: agencyCity || undefined,
-        displayName: name,
-        agentPhone: formattedPhone,
-      });
+    // Mandatory at agency onboarding per the Document Verification spec.
+    if (accountType === 'agency' && !(Number(salesAssociateCount) > 0)) {
+      setAssociateCountError(true);
+      return;
     }
+    setAssociateCountError(false);
+    setSubmitError('');
+    const formattedPhone = phone ? `+${dialCode.replace(/\D/g, '')}${phone}` : undefined;
 
-    await sendOtp.mutateAsync();
-    router.push('/verify-email');
+    setIsSubmitting(true);
+    try {
+      // Captures whichever branch below actually authenticates, so the
+      // agency-registration decision after it can be based on this
+      // specific account's real state (JWT app_metadata), not on guessing
+      // from an error message — see the note further down on why that
+      // matters.
+      let resumedUser: any;
+      try {
+        const result = await signUp.mutateAsync({
+          email,
+          password,
+          name,
+          phone: formattedPhone,
+          marketingOptIn,
+          termsAcceptedAt: new Date().toISOString(),
+        });
+        resumedUser = result.user;
+      } catch (err: any) {
+        // Resume instead of dead-ending: if this email is "already
+        // registered" it's most likely this exact scenario — a previous
+        // attempt's signUp succeeded but a later step failed before ever
+        // reaching verify-email. Signing in with the same credentials the
+        // user just typed picks the same account back up; if the password
+        // doesn't match (a genuinely different account), signIn fails too
+        // and the real error below still surfaces.
+        const alreadyRegistered = err?.status === 422 || /already registered/i.test(err?.message ?? '');
+        if (!alreadyRegistered) throw err;
+        const result = await signIn.mutateAsync({ email, password });
+        resumedUser = result.user;
+      }
+
+      // Agency registration needs an authenticated session first (it's a
+      // self-scoped POST /agencies/register) — signUp()/signIn() above
+      // already returns an active session (Confirm email is off), so this
+      // can run right after.
+      // Skip re-registering only when THIS account's own JWT already shows
+      // it as an agent with an agency (a prior attempt's registerAgency
+      // call already succeeded before a later step failed). Deliberately
+      // NOT based on matching "already" in the error message below — the
+      // server returns that exact wording for a genuinely different agency
+      // owning the requested name too, and swallowing that case would
+      // silently skip agency creation while telling the user signup
+      // succeeded.
+      const alreadyHasAgency = resumedUser?.app_metadata?.role === 'agent' && !!resumedUser?.app_metadata?.agent_id;
+      if (accountType === 'agency' && !alreadyHasAgency) {
+        await registerAgency.mutateAsync({
+          agencyName,
+          agencySlug: slugify(agencyName),
+          agencyCity: agencyCity || undefined,
+          displayName: name,
+          agentPhone: formattedPhone,
+          salesAssociateCount: Number(salesAssociateCount),
+        });
+      }
+
+      // A failed OTP send isn't fatal to the flow — verify-email has its
+      // own "Resend" action, so let the user continue there rather than
+      // stranding them on this page with an already-created,
+      // already-signed-in account.
+      try {
+        await sendOtp.mutateAsync();
+      } catch {
+        // non-fatal
+      }
+
+      router.push('/verify-email');
+    } catch (err: any) {
+      setSubmitError(err?.response?.data?.message || err?.message || 'Something went wrong — please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleGoogle() {
     signInWithGoogle.mutate(`${window.location.origin}/auth/callback`);
   }
 
-  const isPending = signUp.isPending || sendOtp.isPending || registerAgency.isPending;
+  const isPending = isSubmitting || signUp.isPending || signIn.isPending || sendOtp.isPending || registerAgency.isPending;
 
   return (
     <main className="relative grid h-screen overflow-hidden lg:grid-cols-2">
@@ -166,21 +237,30 @@ export default function SignupPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={signInWithGoogle.isPending}
-            onClick={handleGoogle}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
-          >
-            <GoogleIcon className="h-4 w-4" />
-            Continue with Google
-          </button>
+          {/* Google's OAuth round-trip has no way to collect the agency
+              name/city/associate-count fields first, so it's only offered
+              for Individual signups — matches
+              apps/mobile/src/screens/auth/SignupScreen.tsx's existing
+              accountType === 'individual' guard around its own Google button. */}
+          {accountType === 'individual' && (
+            <>
+              <button
+                type="button"
+                disabled={signInWithGoogle.isPending}
+                onClick={handleGoogle}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
+              >
+                <GoogleIcon className="h-4 w-4" />
+                Continue with Google
+              </button>
 
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="eyebrow-label whitespace-nowrap text-muted-foreground">Or</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="eyebrow-label whitespace-nowrap text-muted-foreground">Or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-2.5">
             <div className="flex gap-2 rounded-full border border-input bg-muted/40 p-1">
@@ -348,6 +428,24 @@ export default function SignupPage() {
                     </Select>
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="salesAssociateCount" className="eyebrow-label text-muted-foreground">
+                    Number of sales associates
+                  </Label>
+                  <Input
+                    id="salesAssociateCount"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    required
+                    value={salesAssociateCount}
+                    onChange={(e) => setSalesAssociateCount(e.target.value.replace(/\D/g, ''))}
+                    className="h-10 rounded-full border-input px-5"
+                  />
+                  {associateCountError && (
+                    <p className="text-xs text-destructive">Enter the number of sales associates in your company.</p>
+                  )}
+                </div>
                 <p className="text-xs leading-snug text-muted-foreground">
                   Your agency will be reviewed before it goes live — upload verification documents right after signing up.
                 </p>
@@ -355,12 +453,7 @@ export default function SignupPage() {
             )}
 
             {passwordMismatch && <p className="text-xs text-destructive">Passwords don&apos;t match.</p>}
-            {signUp.isError && <p className="text-xs text-destructive">Could not create your account. Try again.</p>}
-            {registerAgency.isError && (
-              <p className="text-xs text-destructive">
-                {(registerAgency.error as any)?.response?.data?.message || 'Could not register your agency. Try again.'}
-              </p>
-            )}
+            {!!submitError && <p className="text-xs text-destructive">{submitError}</p>}
 
             <div className="space-y-1.5">
               <label className="flex items-start gap-2 text-xs leading-tight text-muted-foreground">

@@ -34,4 +34,12 @@ export class CreateLeadDto {
   @IsOptional()
   @IsBoolean()
   wantsSimilarAlerts?: boolean;
+
+  // Set when this lead comes from the listing's "Book a Visit" action
+  // (as opposed to a plain "Send Enquiry") — triggers a linked 'requested'
+  // appointment on the listing's agent's calendar (Document Verification
+  // Phase 3), not just a lead row.
+  @IsOptional()
+  @IsBoolean()
+  isVisitRequest?: boolean;
 }

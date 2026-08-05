@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -7,8 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteListingSearchViewModel, usePreferencesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
 import { TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
-import { ContactActions } from '../components/ListingContactActions';
-import { PropertyCard } from '../components/PropertyCard';
+import { PropertyListCard } from '../components/PropertyListCard';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
 import { DEFAULT_SEARCH_FILTERS, SearchFilterState, toListingSearchFilters } from '../lib/searchFilters';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
@@ -32,6 +31,21 @@ export function BuyerSearchScreen() {
     ...DEFAULT_SEARCH_FILTERS,
     ...route.params?.initialFilters,
   });
+
+  // This screen lives in the bottom tab bar, so it's mounted once and kept
+  // alive — re-navigating to it with new initialFilters (e.g. tapping a
+  // Home category/city tile, or a purpose tab) only updates route.params,
+  // it doesn't remount the component, so the useState initializer above
+  // never re-runs on its own. Without this, once the Search tab had been
+  // opened once, every later "jump here with these filters" navigation was
+  // silently ignored and the tab just kept showing whatever filters were
+  // last left active.
+  useEffect(() => {
+    if (route.params?.initialFilters) {
+      setFilters({ ...DEFAULT_SEARCH_FILTERS, ...route.params.initialFilters });
+    }
+  }, [route.params?.initialFilters]);
+
   const [sheetVisible, setSheetVisible] = useState(false);
   const [listingNumberInput, setListingNumberInput] = useState('');
   const [listingNumber, setListingNumber] = useState<number | undefined>(undefined);
@@ -70,31 +84,22 @@ export function BuyerSearchScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Text style={styles.screenTitle}>Search</Text>
 
-      <TextInput
-        value={listingNumberInput}
-        onChangeText={setListingNumberInput}
-        onSubmitEditing={handleListingIdSubmit}
-        placeholder="Search by Listing ID (e.g. JYD-00001)"
-        autoCapitalize="none"
-        keyboardType="number-pad"
-        style={styles.listingIdInput}
-      />
-
-      <Pressable style={styles.filterBar} onPress={() => setSheetVisible(true)}>
-        <View style={styles.filterBarText}>
-          <Text style={styles.filterSummary} numberOfLines={1}>
-            {filterSummary(filters)}
-          </Text>
-          {(filters.area || filters.keyword) && (
-            <Text style={styles.filterSubSummary} numberOfLines={1}>
-              {[filters.area, filters.keyword].filter(Boolean).join(' · ')}
-            </Text>
-          )}
+      <View style={styles.searchRow}>
+        <View style={styles.listingIdInputWrap}>
+          <TextInput
+            value={listingNumberInput}
+            onChangeText={setListingNumberInput}
+            onSubmitEditing={handleListingIdSubmit}
+            placeholder="Search by Listing ID (e.g. JYD-00001)"
+            autoCapitalize="none"
+            keyboardType="number-pad"
+            style={styles.listingIdInput}
+          />
         </View>
-        <View style={styles.filterButton}>
-          <Ionicons name="options-outline" size={18} color={theme.colors.bg} />
-        </View>
-      </Pressable>
+        <Pressable style={styles.searchFilterIconButton} onPress={() => setSheetVisible(true)}>
+          <Ionicons name="options-outline" size={20} color={theme.colors.bg} />
+        </Pressable>
+      </View>
 
       <Pressable style={styles.saveSearchButton} onPress={handleSaveSearch} disabled={createSavedSearch.isPending}>
         <Ionicons name="bookmark-outline" size={16} color={theme.colors.primary} />
@@ -116,11 +121,10 @@ export function BuyerSearchScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={!isLoading ? <Text style={styles.empty}>No verified listings yet.</Text> : null}
         renderItem={({ item }) => (
-          <PropertyCard
+          <PropertyListCard
             listing={item}
             currency={preferences?.preferredCurrency}
             onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
-            footer={<ContactActions listing={item} />}
           />
         )}
         onEndReachedThreshold={0.4}
@@ -136,26 +140,19 @@ export function BuyerSearchScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.bg },
   screenTitle: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.lg },
-  listingIdInput: { marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.md },
-  filterBar: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    margin: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-    backgroundColor: theme.colors.secondaryBg,
-    borderRadius: 999,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
     gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
   },
-  filterBarText: { flex: 1 },
-  filterSummary: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
-  filterSubSummary: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
-  filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  listingIdInputWrap: { flex: 1 },
+  listingIdInput: { borderRadius: 999, paddingHorizontal: theme.spacing.lg },
+  searchFilterIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

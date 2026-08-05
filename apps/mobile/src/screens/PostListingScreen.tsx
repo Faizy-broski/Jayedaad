@@ -3,7 +3,6 @@ import { Image, ScrollView, Text, View, Pressable, StyleSheet, Switch } from 're
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   AreaUnit,
@@ -14,11 +13,15 @@ import {
   ListingPurpose,
   PAKISTAN_CITIES,
   getMaxPhoneDigits,
+  getMissingMediaCategories,
+  getRequiredMediaCategories,
   listingsRepository,
+  useAuthViewModel,
   useListingSubmissionViewModel,
+  useOwnerVerificationViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
-import { Button, CountryCodeField, PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { Accordion, Button, CountryCodeField, PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { AmenitySelectionMap } from './AddFeaturesScreen';
 
@@ -38,6 +41,8 @@ interface MediaItem {
   type: 'image' | 'video';
   status: 'uploading' | 'done' | 'error';
   url?: string;
+  // Airbnb-style room category — undefined for legacy/unfiled items.
+  category?: string;
 }
 
 export function PostListingScreen() {
@@ -45,8 +50,27 @@ export function PostListingScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'PostListing'>>();
   const editId = route.params?.editListingId;
   const { showToast } = useToast();
+  const { role } = useAuthViewModel();
   const { propertyTypes, isLoading: propertyTypesLoading } = useTaxonomyViewModel();
   const { submit, saveDraft, update } = useListingSubmissionViewModel();
+  // Individual owners need a one-time CNIC+selfie identity check before
+  // their first listing — agents are unaffected, they have their own
+  // agency-level onboarding-document flow instead.
+  const { verification, isLoading: verificationLoading, becomeOwner } = useOwnerVerificationViewModel();
+  const needsIdentityVerification =
+    role === 'owner' && !editId && !verificationLoading && verification?.status !== 'verified';
+
+  // No signup path ever grants 'owner' directly — every fresh individual
+  // signup is 'buyer' by default, and every owner-scoped endpoint requires
+  // role='owner'. Self-promote once, silently, the moment a buyer reaches
+  // this screen (nothing gates mobile nav by role, unlike web's
+  // middleware.ts, so no extra wiring needed there).
+  const isPromotingOwner = role === 'buyer' && !editId;
+  useEffect(() => {
+    if (isPromotingOwner && !becomeOwner.isPending && !becomeOwner.isSuccess) {
+      becomeOwner.mutate();
+    }
+  }, [isPromotingOwner]);
 
   const [editListing, setEditListing] = useState<Listing | undefined>(undefined);
   const [prefilled, setPrefilled] = useState(false);
@@ -108,6 +132,10 @@ export function PostListingScreen() {
   const activeCategoryTab = selectedCategoryTab ?? categories[0]?.slug;
   const typesInActiveCategory = propertyTypes.filter((type) => type.category?.slug === activeCategoryTab);
   const selectedPropertyType = propertyTypes.find((type) => type.id === form.propertyTypeId);
+  // Airbnb-style categorized mandatory media (Document Verification Phase
+  // 4) — derived from the bedrooms/bathrooms already collected above, not
+  // property type (property_type_categories is admin-configurable data).
+  const requiredMediaCategories = getRequiredMediaCategories(form.bedrooms, form.bathrooms);
 
   function update_<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -164,13 +192,14 @@ export function PostListingScreen() {
       status: 'done' as const,
       url: m.url,
       isCover: m.isCover,
+      category: m.category ?? undefined,
     }));
-    setMediaItems(prefillMedia.map(({ id, uri, type, status, url }) => ({ id, uri, type, status, url })));
+    setMediaItems(prefillMedia.map(({ id, uri, type, status, url, category }) => ({ id, uri, type, status, url, category })));
     setCoverId(prefillMedia.find((m) => m.isCover)?.id);
     setPrefilled(true);
   }, [editListing, prefilled, propertyTypes, propertyTypesLoading]);
 
-  async function pickMedia() {
+  async function pickMedia(category?: string) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       showToast('Photo library permission is required.', 'error');
@@ -186,7 +215,7 @@ export function PostListingScreen() {
     for (const asset of result.assets) {
       const id = `${asset.uri}-${Date.now()}`;
       const isVideo = asset.type === 'video';
-      setMediaItems((prev) => [...prev, { id, uri: asset.uri, type: isVideo ? 'video' : 'image', status: 'uploading' }]);
+      setMediaItems((prev) => [...prev, { id, uri: asset.uri, type: isVideo ? 'video' : 'image', status: 'uploading', category }]);
 
       try {
         const filename = asset.uri.split('/').pop() ?? `upload.${isVideo ? 'mp4' : 'jpg'}`;
@@ -202,17 +231,6 @@ export function PostListingScreen() {
   function removeMedia(id: string) {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
     if (coverId === id) setCoverId(undefined);
-  }
-
-  function moveMedia(id: string, direction: -1 | 1) {
-    setMediaItems((prev) => {
-      const index = prev.findIndex((m) => m.id === id);
-      const nextIndex = index + direction;
-      if (index === -1 || nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-      return next;
-    });
   }
 
   function openAddFeatures() {
@@ -289,21 +307,44 @@ export function PostListingScreen() {
           type: m.type,
           isCover: coverId ? m.id === coverId : index === 0,
           sortOrder: index,
+          category: m.category,
         })),
     };
   }
 
   async function handleSubmit() {
+    if (requiredMediaCategories.length > 0) {
+      const counts: Record<string, number> = {};
+      for (const m of mediaItems) {
+        if (m.status === 'done' && m.category) counts[m.category] = (counts[m.category] ?? 0) + 1;
+      }
+      const missing = getMissingMediaCategories(requiredMediaCategories, counts);
+      if (missing.length > 0) {
+        showToast(`Add photos for: ${missing.map((c) => c.label).join(', ')}`, 'error');
+        return;
+      }
+    }
+
     const input = buildInput();
     try {
       if (editId) {
         await update.mutateAsync({ listingId: editId, input });
         showToast('Listing updated.');
+        navigation.navigate('MyProperties');
       } else {
-        await submit.mutateAsync(input);
+        const created = await submit.mutateAsync(input);
         showToast('Listing submitted for verification.');
+        // Ownership proof/utility bill are only required for individual
+        // owners posting without an agent — agents are exempt (spec: "The
+        // agents do not need to upload property ownership documents").
+        // listing_documents requires an existing listingId, so this is
+        // collected here, right after creation, not as a pre-submit section.
+        if (role === 'owner') {
+          navigation.navigate('ListingDocuments', { listingId: created.id });
+        } else {
+          navigation.navigate('MyProperties');
+        }
       }
-      navigation.navigate('MyProperties');
     } catch {
       showToast('Something went wrong — please try again.', 'error');
     }
@@ -312,15 +353,47 @@ export function PostListingScreen() {
   async function handleSaveDraft() {
     const input = buildInput();
     try {
-      await saveDraft.mutateAsync(input);
+      const created = await saveDraft.mutateAsync(input);
       showToast('Draft saved.');
-      navigation.navigate('MyProperties', { initialTab: 'drafts' });
+      if (role === 'owner') {
+        navigation.navigate('ListingDocuments', { listingId: created.id });
+      } else {
+        navigation.navigate('MyProperties', { initialTab: 'drafts' });
+      }
     } catch {
       showToast('Something went wrong — please try again.', 'error');
     }
   }
 
   const isPending = submit.isPending || update.isPending || saveDraft.isPending;
+
+  if (isPromotingOwner) {
+    return (
+      <View style={styles.gateContainer}>
+        <Text style={styles.gateTitle}>Setting up your account…</Text>
+        {becomeOwner.isError ? (
+          <>
+            <Text style={styles.gateSubtitle}>Something went wrong — please try again.</Text>
+            <Button label="Retry" onPress={() => becomeOwner.mutate()} size="lg" />
+          </>
+        ) : (
+          <Text style={styles.gateSubtitle}>One moment while we get you ready to list a property.</Text>
+        )}
+      </View>
+    );
+  }
+
+  if (needsIdentityVerification) {
+    return (
+      <View style={styles.gateContainer}>
+        <Text style={styles.gateTitle}>Verify Your Identity</Text>
+        <Text style={styles.gateSubtitle}>
+          Before posting your first listing, we need a quick one-time identity check — your CNIC and a selfie.
+        </Text>
+        <Button label="Verify Identity" onPress={() => navigation.navigate('OwnerIdentityVerification')} size="lg" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -489,58 +562,34 @@ export function PostListingScreen() {
 
       <View style={styles.divider} />
 
-      {/* PHOTOS & VIDEOS */}
+      {/* PHOTOS & VIDEOS — Airbnb-style categorized mandatory media */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Photos and Videos</Text>
-        {mediaItems.length > 0 && (
-          <View style={styles.mediaGrid}>
-            {mediaItems.map((item, index) => {
-              const isCover = coverId ? item.id === coverId : index === 0;
-              return (
-                <View key={item.id} style={styles.mediaThumbWrap}>
-                  {item.uri ? (
-                    <Image source={{ uri: item.uri }} style={styles.mediaThumb} />
-                  ) : (
-                    <View style={styles.mediaThumb} />
-                  )}
-                  {isCover && item.status === 'done' && (
-                    <View style={styles.mediaCoverBadge}>
-                      <Text style={styles.mediaCoverBadgeText}>Cover</Text>
-                    </View>
-                  )}
-                  <Text style={styles.mediaStatus}>{item.status === 'uploading' ? 'Uploading…' : item.status === 'error' ? 'Failed' : item.type}</Text>
-                  {item.status === 'done' && (
-                    <View style={styles.mediaControlsRow}>
-                      <Pressable onPress={() => moveMedia(item.id, -1)} disabled={index === 0} hitSlop={6}>
-                        <Ionicons name="chevron-back" size={16} color={index === 0 ? theme.colors.border : theme.colors.text} />
-                      </Pressable>
-                      {!isCover && (
-                        <Pressable onPress={() => setCoverId(item.id)}>
-                          <Text style={styles.mediaSetCover}>Set cover</Text>
-                        </Pressable>
-                      )}
-                      <Pressable onPress={() => moveMedia(item.id, 1)} disabled={index === mediaItems.length - 1} hitSlop={6}>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color={index === mediaItems.length - 1 ? theme.colors.border : theme.colors.text}
-                        />
-                      </Pressable>
-                    </View>
-                  )}
-                  <Pressable onPress={() => removeMedia(item.id)}>
-                    <Text style={styles.mediaRemove}>Remove</Text>
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-        )}
-        <Pressable onPress={pickMedia}>
-          <LinearGradient colors={theme.gradients.gold.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
-            <Text style={styles.goldButtonText}>Add Photos / Videos</Text>
-          </LinearGradient>
-        </Pressable>
+        <Text style={styles.mutedText}>Upload at least the required photos for each room before submitting.</Text>
+        {requiredMediaCategories.map((cat) => {
+          const items = mediaItems.filter((m) => m.category === cat.slug);
+          const doneCount = items.filter((m) => m.status === 'done').length;
+          const satisfied = doneCount >= cat.minCount;
+          return (
+            <Accordion
+              key={cat.slug}
+              icon={cat.required && !satisfied ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+              label={cat.required ? `${cat.label} (${doneCount}/${cat.minCount})` : `${cat.label}${items.length ? ` (${items.length})` : ''}`}
+            >
+              <MediaCategoryGrid
+                items={items}
+                coverId={coverId ?? mediaItems[0]?.id}
+                onRemove={removeMedia}
+                onSetCover={setCoverId}
+              />
+              <Pressable onPress={() => pickMedia(cat.slug)}>
+                <LinearGradient colors={theme.gradients.gold.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
+                  <Text style={styles.goldButtonText}>Add Photos</Text>
+                </LinearGradient>
+              </Pressable>
+            </Accordion>
+          );
+        })}
       </View>
 
       <View style={styles.divider} />
@@ -570,6 +619,48 @@ export function PostListingScreen() {
         />
       </View>
     </ScrollView>
+  );
+}
+
+function MediaCategoryGrid({
+  items,
+  coverId,
+  onRemove,
+  onSetCover,
+}: {
+  items: MediaItem[];
+  coverId: string | undefined;
+  onRemove: (id: string) => void;
+  onSetCover: (id: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <View style={styles.mediaGrid}>
+      {items.map((item) => {
+        const isCover = item.id === coverId;
+        return (
+          <View key={item.id} style={styles.mediaThumbWrap}>
+            {item.uri ? <Image source={{ uri: item.uri }} style={styles.mediaThumb} /> : <View style={styles.mediaThumb} />}
+            {isCover && item.status === 'done' && (
+              <View style={styles.mediaCoverBadge}>
+                <Text style={styles.mediaCoverBadgeText}>Cover</Text>
+              </View>
+            )}
+            <Text style={styles.mediaStatus}>
+              {item.status === 'uploading' ? 'Uploading…' : item.status === 'error' ? 'Failed' : item.type}
+            </Text>
+            {item.status === 'done' && !isCover && (
+              <Pressable onPress={() => onSetCover(item.id)}>
+                <Text style={styles.mediaSetCover}>Set cover</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => onRemove(item.id)}>
+              <Text style={styles.mediaRemove}>Remove</Text>
+            </Pressable>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -607,8 +698,17 @@ function PhoneField({
 }
 
 const styles = StyleSheet.create({
-  root: { 
-    flex: 1, 
+  gateContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.bg,
+    padding: 24,
+    justifyContent: 'center',
+    gap: 16,
+  },
+  gateTitle: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
+  gateSubtitle: { fontSize: 14, color: theme.colors.muted, marginBottom: 8 },
+  root: {
+    flex: 1,
     backgroundColor: theme.colors.bg
   },
   content: { 

@@ -9,11 +9,13 @@ import { UsersModule } from './users/users.module';
 import { ListingsModule } from './listings/listings.module';
 import { VerificationModule } from './verification/verification.module';
 import { LeadsModule } from './leads/leads.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { TaxonomyModule } from './taxonomy/taxonomy.module';
 import { AgenciesModule } from './agencies/agencies.module';
 import { AgentsModule } from './agents/agents.module';
+import { OwnersModule } from './owners/owners.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { SavedSearchesModule } from './saved-searches/saved-searches.module';
 import { ProjectsModule } from './projects/projects.module';
@@ -36,11 +38,13 @@ import { ContactModule } from './contact/contact.module';
     ListingsModule,
     VerificationModule,
     LeadsModule,
+    AppointmentsModule,
     SubscriptionsModule,
     ChatbotModule,
     TaxonomyModule,
     AgenciesModule,
     AgentsModule,
+    OwnersModule,
     FavoritesModule,
     SavedSearchesModule,
     ProjectsModule,

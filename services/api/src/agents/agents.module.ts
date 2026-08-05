@@ -8,5 +8,6 @@ import { DocumentsModule } from '../documents/documents.module';
   imports: [DocumentsModule],
   controllers: [AgentsController],
   providers: [AgentsRepository, AvatarMediaService],
+  exports: [AgentsRepository],
 })
 export class AgentsModule {}

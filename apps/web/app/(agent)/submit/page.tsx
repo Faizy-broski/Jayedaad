@@ -13,14 +13,18 @@ import {
   CreateListingInput,
   FurnishingStatus,
   getMaxPhoneDigits,
+  getMissingMediaCategories,
+  getRequiredMediaCategories,
   ListingPurpose,
   PAKISTAN_CITIES,
   listingsRepository,
   useAuthViewModel,
   useListingSubmissionViewModel,
+  useOwnerVerificationViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import {
+  Accordion,
   Button,
   Card,
   CardContent,
@@ -35,12 +39,14 @@ import {
 } from '@jayedaad/ui-web';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import {
+  AlertCircle,
   Bath,
   BedDouble,
   Building,
   Building2,
   CalendarCheck,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -95,6 +101,8 @@ interface MediaItem {
   type: 'image' | 'video';
   status: 'uploading' | 'done' | 'error';
   url?: string;
+  // Airbnb-style room category — undefined for legacy/unfiled items.
+  category?: string;
 }
 
 interface AmenitySelection {
@@ -151,9 +159,30 @@ export default function SubmitListingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit') ?? undefined;
-  const { user } = useAuthViewModel();
+  const { user, role } = useAuthViewModel();
   const { propertyTypes, isLoading: propertyTypesLoading } = useTaxonomyViewModel();
   const { submit, saveDraft, update: updateMutation } = useListingSubmissionViewModel();
+  // Individual owners need a one-time CNIC+selfie identity check before
+  // their first listing — agents are exempt (their own agency-level
+  // onboarding-document flow covers them instead). Document Verification
+  // Phase 1, backfilled onto web here in Phase 4.
+  const { verification, isLoading: verificationLoading, becomeOwner } = useOwnerVerificationViewModel();
+  const needsIdentityVerification =
+    role === 'owner' && !editId && !verificationLoading && verification?.status !== 'verified';
+
+  // No signup path ever grants 'owner' directly — every fresh individual
+  // signup is 'buyer' by default (handle_new_user() in
+  // 0002_profiles_and_trigger.sql), and every owner-scoped endpoint
+  // (including everything above) requires role='owner'. Self-promote once,
+  // silently, the moment a buyer reaches this page — mirrors middleware.ts
+  // now allowing 'buyer' here specifically so this effect can run.
+  const isPromotingOwner = role === 'buyer' && !editId;
+  useEffect(() => {
+    if (isPromotingOwner && !becomeOwner.isPending && !becomeOwner.isSuccess) {
+      becomeOwner.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPromotingOwner]);
 
   const [step, setStep] = useState(0);
   // Furthest step the user has validly reached — a step pill only becomes
@@ -286,6 +315,7 @@ export default function SubmitListingPage() {
       status: 'done' as const,
       url: m.url,
       isCover: m.isCover,
+      category: m.category ?? undefined,
     }));
     setMediaItems(prefillMedia.map(({ isCover, ...rest }) => rest));
     setCoverId(prefillMedia.find((m) => m.isCover)?.id);
@@ -311,6 +341,15 @@ export default function SubmitListingPage() {
   }, []);
   const activeCategoryTab = selectedCategoryTab ?? categories[0]?.slug;
   const typesInActiveCategory = propertyTypes.filter((type) => type.category?.slug === activeCategoryTab);
+  // Airbnb-style categorized mandatory media (Document Verification Phase
+  // 4) — derived from bedrooms/bathrooms already collected in the Details
+  // step, not property type (property_type_categories is admin-configurable
+  // data, not a fixed enum).
+  const requiredMediaCategories = getRequiredMediaCategories(form.bedrooms, form.bathrooms);
+  const mediaCategoryCounts = mediaItems.reduce<Record<string, number>>((acc, m) => {
+    if (m.status === 'done' && m.category) acc[m.category] = (acc[m.category] ?? 0) + 1;
+    return acc;
+  }, {});
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -324,7 +363,7 @@ export default function SubmitListingPage() {
   // reference's live preview behavior. JPEG/PNG/WEBP get a client-side
   // canvas resize/re-encode first ("Auto-compressed" in the reference) —
   // HEIC/video pass through as-is since canvas can't decode/re-encode them.
-  async function addMediaFiles(files: FileList | File[]) {
+  async function addMediaFiles(files: FileList | File[], category?: string) {
     for (const file of Array.from(files)) {
       const id = crypto.randomUUID();
       const isVideo = file.type.startsWith('video/');
@@ -332,7 +371,7 @@ export default function SubmitListingPage() {
 
       setMediaItems((prev) => [
         ...prev,
-        { id, previewUrl, type: isVideo ? 'video' : 'image', status: 'uploading' },
+        { id, previewUrl, type: isVideo ? 'video' : 'image', status: 'uploading', category },
       ]);
 
       try {
@@ -348,17 +387,6 @@ export default function SubmitListingPage() {
   function removeMedia(id: string) {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
     if (coverId === id) setCoverId(undefined);
-  }
-
-  function moveMedia(id: string, direction: -1 | 1) {
-    setMediaItems((prev) => {
-      const index = prev.findIndex((m) => m.id === id);
-      const nextIndex = index + direction;
-      if (index === -1 || nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-      return next;
-    });
   }
 
   function buildInput(): CreateListingInput {
@@ -431,6 +459,7 @@ export default function SubmitListingPage() {
           type: m.type,
           isCover: coverId ? m.id === coverId : index === 0,
           sortOrder: index,
+          category: m.category,
         })),
     };
   }
@@ -443,11 +472,18 @@ export default function SubmitListingPage() {
       if (editId) {
         await updateMutation.mutateAsync({ listingId: editId, input });
         toast.success('Listing updated.');
+        router.push('/property-management');
       } else {
-        await submit.mutateAsync(input);
+        const created = await submit.mutateAsync(input);
         toast.success('Listing submitted for verification.');
+        // Ownership proof/utility bill are only required for individual
+        // owners posting without an agent — agents are exempt.
+        if (role === 'owner') {
+          router.push(`/submit/documents?listingId=${created.id}`);
+        } else {
+          router.push('/property-management');
+        }
       }
-      router.push('/property-management');
     } catch {
       toast.error('Something went wrong — please try again.');
     }
@@ -456,9 +492,13 @@ export default function SubmitListingPage() {
   async function handleSaveDraft() {
     const input = buildInput();
     try {
-      await saveDraft.mutateAsync(input);
+      const created = await saveDraft.mutateAsync(input);
       toast.success('Draft saved.');
-      router.push('/property-management');
+      if (role === 'owner') {
+        router.push(`/submit/documents?listingId=${created.id}`);
+      } else {
+        router.push('/property-management');
+      }
     } catch {
       toast.error('Something went wrong — please try again.');
     }
@@ -480,6 +520,7 @@ export default function SubmitListingPage() {
     if (index === 0) return form.propertyTypeId.trim() !== '';
     if (index === 1) return form.title.trim() !== '' && form.city.trim() !== '' && form.area.trim() !== '';
     if (index === 2) return form.areaValue.trim() !== '';
+    if (index === 4) return getMissingMediaCategories(requiredMediaCategories, mediaCategoryCounts).length === 0;
     if (index === 5) return form.price.trim() !== '';
     return true;
   }
@@ -526,6 +567,34 @@ export default function SubmitListingPage() {
   }
 
   const isPending = submit.isPending || updateMutation.isPending || saveDraft.isPending;
+
+  if (isPromotingOwner) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6 py-12 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Setting up your account…</h1>
+        {becomeOwner.isError ? (
+          <>
+            <p className="text-sm text-destructive">Something went wrong — please try again.</p>
+            <Button onClick={() => becomeOwner.mutate()}>Retry</Button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">One moment while we get you ready to list a property.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (needsIdentityVerification) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6 py-12 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Verify Your Identity</h1>
+        <p className="text-sm text-muted-foreground">
+          Before posting your first listing, we need a quick one-time identity check — your CNIC and a selfie.
+        </p>
+        <Button onClick={() => router.push('/submit/verify-identity')}>Verify Identity</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-28">
@@ -886,14 +955,22 @@ export default function SubmitListingPage() {
                 )}
 
                 {step === 4 && (
-                  <MediaUploadField
-                    items={mediaItems}
-                    coverId={coverId}
-                    onFilesSelected={addMediaFiles}
-                    onRemove={removeMedia}
-                    onSetCover={setCoverId}
-                    onMove={moveMedia}
-                  />
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">
+                      Upload at least the required photos for each room before continuing.
+                    </p>
+                    {requiredMediaCategories.map((cat) => (
+                      <CategoryMediaSection
+                        key={cat.slug}
+                        category={cat}
+                        items={mediaItems.filter((m) => m.category === cat.slug)}
+                        coverId={coverId ?? mediaItems[0]?.id}
+                        onFilesSelected={(files) => addMediaFiles(files, cat.slug)}
+                        onRemove={removeMedia}
+                        onSetCover={setCoverId}
+                      />
+                    ))}
+                  </div>
                 )}
 
                 {step === 5 && (
@@ -1141,161 +1218,118 @@ async function compressImage(file: File): Promise<File> {
   return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
 }
 
-function MediaUploadField({
+// One collapsible section per Airbnb-style room category — replaces the old
+// single flat drop-zone (MediaUploadField). Each section uploads/previews
+// only its own category's files; "Set cover"/remove stay global concepts
+// (one cover photo for the whole listing) same as before, just scoped to
+// whichever category currently holds that photo.
+function CategoryMediaSection({
+  category,
   items,
   coverId,
   onFilesSelected,
   onRemove,
   onSetCover,
-  onMove,
 }: {
+  category: { slug: string; label: string; minCount: number; required: boolean };
   items: MediaItem[];
   coverId: string | undefined;
   onFilesSelected: (files: FileList | File[]) => void;
   onRemove: (id: string) => void;
   onSetCover: (id: string) => void;
-  onMove: (id: string, direction: -1 | 1) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragActive, setDragActive] = useState(false);
+  const doneCount = items.filter((i) => i.status === 'done').length;
+  const satisfied = doneCount >= category.minCount;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragActive(true);
-        }}
-        onDragLeave={() => setDragActive(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragActive(false);
-          if (e.dataTransfer.files.length) onFilesSelected(e.dataTransfer.files);
-        }}
-        className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors ${
-          dragActive ? 'border-primary bg-primary/5' : 'border-input'
-        }`}
-      >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Upload className="h-5 w-5" />
-        </div>
-        <p className="font-medium">Drag & drop your best photography</p>
-        <p className="text-xs text-muted-foreground">JPG, PNG, WEBP or HEIC · Up to 30 MB each · Auto-compressed</p>
-        <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()}>
-          Browse files
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime"
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files?.length) onFilesSelected(e.target.files);
-            e.target.value = '';
-          }}
-        />
-        <div className="flex flex-wrap justify-center gap-2 pt-1">
-          {[
-            { label: 'Images', active: true },
-            { label: 'Videos', active: true },
-            { label: '360° tour', active: false },
-            { label: 'Floor plans', active: false },
-          ].map((chip) => (
-            <span
-              key={chip.label}
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                chip.active ? 'border-border text-muted-foreground' : 'border-input text-muted-foreground/50'
-              }`}
-              title={chip.active ? undefined : 'Not supported yet'}
-            >
-              {chip.label}
-            </span>
-          ))}
-        </div>
-      </div>
+    <Accordion
+      icon={category.required && !satisfied ? AlertCircle : CheckCircle2}
+      label={
+        category.required
+          ? `${category.label} (${doneCount}/${category.minCount})`
+          : `${category.label}${items.length ? ` (${items.length})` : ''}`
+      }
+    >
+      {items.length > 0 && (
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <AnimatePresence initial={false}>
+            {items.map((item) => {
+              const isCover = item.id === coverId;
+              return (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ duration: 0.18 }}
+                  className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+                >
+                  {item.type === 'video' ? (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Video className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+                  )}
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview & Reorder</p>
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No files uploaded yet.</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-2">
-            <AnimatePresence initial={false}>
-              {items.map((item, index) => {
-                const isCover = coverId ? item.id === coverId : index === 0;
-                return (
-                  <motion.div
-                    key={item.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.85 }}
-                    transition={{ duration: 0.18 }}
-                    className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+                  {item.status === 'uploading' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    </div>
+                  )}
+                  {item.status === 'error' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-destructive/10 text-[9px] font-medium text-destructive">
+                      Failed
+                    </div>
+                  )}
+                  {isCover && item.status === 'done' && (
+                    <span className="absolute left-1 top-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
+                      Cover
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(item.id)}
+                    className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                    aria-label="Remove"
                   >
-                    {item.type === 'video' ? (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Video className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
-                    )}
-
-                    {item.status === 'uploading' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      </div>
-                    )}
-                    {item.status === 'error' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-destructive/10 text-[10px] font-medium text-destructive">
-                        Failed
-                      </div>
-                    )}
-
-                    {isCover && item.status === 'done' && (
-                      <span className="absolute left-1 top-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                        Cover
-                      </span>
-                    )}
-
+                    <X className="h-3 w-3" />
+                  </button>
+                  {item.status === 'done' && !isCover && (
                     <button
                       type="button"
-                      onClick={() => onRemove(item.id)}
-                      className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 transition-opacity group-hover:opacity-100"
-                      aria-label="Remove"
+                      onClick={() => onSetCover(item.id)}
+                      className="absolute inset-x-0 bottom-0 bg-background/90 py-0.5 text-[9px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100"
                     >
-                      <X className="h-3 w-3" />
+                      Set cover
                     </button>
+                  )}
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      )}
 
-                    {item.status === 'done' && (
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-background/90 px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button type="button" onClick={() => onMove(item.id, -1)} aria-label="Move left">
-                          <ChevronLeft className="h-3.5 w-3.5" />
-                        </button>
-                        {!isCover && (
-                          <button
-                            type="button"
-                            onClick={() => onSetCover(item.id)}
-                            className="text-[9px] font-medium text-primary"
-                          >
-                            Set cover
-                          </button>
-                        )}
-                        <button type="button" onClick={() => onMove(item.id, 1)} aria-label="Move right">
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-    </div>
+      <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+        <Upload className="mr-1.5 h-3.5 w-3.5" />
+        Add Photos
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) onFilesSelected(e.target.files);
+          e.target.value = '';
+        }}
+      />
+    </Accordion>
   );
 }
 

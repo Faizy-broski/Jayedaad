@@ -5,10 +5,13 @@ import { agenciesRepository, OnboardingDocumentType, useAgentProfileViewModel } 
 import { Button, theme, useToast } from '@jayedaad/ui-native';
 import { useAuthGate } from '../../auth/AuthGateContext';
 
+// Owner ID + Company Registration are mandatory (Document Verification
+// spec) — tax_certificate remains a valid upload type but is optional,
+// no longer part of REQUIRED_ONBOARDING_DOCUMENT_TYPES server-side.
 const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
-  { type: 'owner_id_card', label: 'ID Card (front and back)' },
-  { type: 'company_registration', label: 'Company Registration (if applicable)' },
-  { type: 'tax_certificate', label: 'Tax Certificate' },
+  { type: 'owner_id_card', label: 'Owner ID Card (front and back)' },
+  { type: 'company_registration', label: 'Company Registration ID' },
+  { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
 ];
 
 // Mirrors web's become-an-agent/page.tsx DocumentUploadStep, scoped to the

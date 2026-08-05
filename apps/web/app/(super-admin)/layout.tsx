@@ -16,6 +16,7 @@ import {
   Building,
   LogOut,
   Landmark,
+  UserCheck,
 } from 'lucide-react';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { href: '/admin/agencies', label: 'Agencies', icon: Building2 },
   { href: '/admin/agents', label: 'Agents', icon: UserCircle2 },
+  { href: '/admin/owners', label: 'Owners', icon: UserCheck },
   { href: '/admin/plans', label: 'Plans', icon: CreditCard },
   { href: '/admin/crm', label: 'CRM', icon: Inbox },
   { href: '/admin/listings', label: 'Listings', icon: Home },

@@ -10,8 +10,10 @@ import {
   IsString,
   IsUrl,
   IsUUID,
+  Matches,
   ValidateNested,
 } from 'class-validator';
+import { LISTING_MEDIA_CATEGORY_SLUG_PATTERN } from '../listing-media-categories';
 
 const AREA_UNITS = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'] as const;
 const FURNISHING_STATUSES = ['unfurnished', 'semi_furnished', 'furnished'] as const;
@@ -69,6 +71,12 @@ export class CreateListingMediaDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  // Airbnb-style room category (Document Verification Phase 4) — omitted
+  // for videos and optional-category photos.
+  @IsOptional()
+  @Matches(LISTING_MEDIA_CATEGORY_SLUG_PATTERN)
+  category?: string;
 }
 
 // First real DTO class in this codebase — establishes the pattern for

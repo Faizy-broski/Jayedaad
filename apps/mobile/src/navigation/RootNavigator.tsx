@@ -16,8 +16,12 @@ import { MyProjectsScreen } from '../screens/MyProjectsScreen';
 import { PostProjectScreen } from '../screens/PostProjectScreen';
 import { ProjectAmenitiesScreen } from '../screens/ProjectAmenitiesScreen';
 import { AgencyStaffScreen } from '../screens/AgencyStaffScreen';
+import { OwnerIdentityVerificationScreen } from '../screens/OwnerIdentityVerificationScreen';
+import { ListingDocumentsScreen } from '../screens/ListingDocumentsScreen';
+import { CalendarScreen } from '../screens/CalendarScreen';
 import { AllPropertiesScreen } from '../screens/AllPropertiesScreen';
 import { ListingDetailScreen } from '../screens/ListingDetailScreen';
+import type { AllPropertiesFilterState } from '../lib/allPropertiesFilters';
 import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import { AnimatedSplashScreen } from '../components/AnimatedSplashScreen';
 
@@ -38,6 +42,9 @@ export type RootStackParamList = {
   ProfileSettings: undefined;
   MyProperties: { initialTab?: 'drafts' | 'uploaded' } | undefined;
   PostListing: { editListingId?: string } | undefined;
+  OwnerIdentityVerification: undefined;
+  ListingDocuments: { listingId: string };
+  Calendar: undefined;
   Plan: undefined;
   // initialSelection/onDone passed as plain JS values via navigation params —
   // standard RN pattern (in-memory navigation, not URL-based deep linking),
@@ -50,7 +57,7 @@ export type RootStackParamList = {
   MyProjects: undefined;
   AgencyStaff: undefined;
   ListingDetail: { listingId: string };
-  AllProperties: undefined;
+  AllProperties: { initialFilters?: Partial<AllPropertiesFilterState> } | undefined;
   ProjectDetail: { projectSlug: string };
   PostProject: { editProjectId?: string; viewOnly?: boolean } | undefined;
   ProjectAmenities: {
@@ -83,6 +90,13 @@ function MainStack() {
       <Stack.Screen name="AddFeatures" component={AddFeaturesScreen} options={{ title: 'Add Features' }} />
       <Stack.Screen name="MyProjects" component={MyProjectsScreen} options={{ title: 'My Projects' }} />
       <Stack.Screen name="AgencyStaff" component={AgencyStaffScreen} options={{ title: 'Agency Staff' }} />
+      <Stack.Screen
+        name="OwnerIdentityVerification"
+        component={OwnerIdentityVerificationScreen}
+        options={{ title: 'Verify Identity' }}
+      />
+      <Stack.Screen name="ListingDocuments" component={ListingDocumentsScreen} options={{ title: 'Ownership Documents' }} />
+      <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
       <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ title: 'Property Details' }} />
       <Stack.Screen name="AllProperties" component={AllPropertiesScreen} options={{ title: 'All Properties' }} />
       <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} options={{ title: 'Project Details' }} />

@@ -9,6 +9,7 @@ import {
   ListingStatus,
   MyListingsFilters,
   formatPrice,
+  useAuthViewModel,
   useMyListingsViewModel,
   usePreferencesViewModel,
   useTaxonomyViewModel,
@@ -102,6 +103,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
 
   const { listings, isLoading, remove } = useMyListingsViewModel(filters);
   const { preferences } = usePreferencesViewModel();
+  const { role } = useAuthViewModel();
   const { showToast } = useToast();
   const activeLabel = STATUS_TABS.find((s) => s.id === status)?.label ?? '';
 
@@ -259,6 +261,20 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   <Text style={styles.actionTextPrimary}>Edit details</Text>
                 </Pressable>
 
+                {/* Ownership proof/utility bill are only required for
+                    individual owners (agents are exempt) — the only re-entry
+                    point back into ListingDocumentsScreen after skipping it
+                    right after creation. */}
+                {role === 'owner' && (
+                  <Pressable
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
+                  >
+                    <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
+                    <Text style={styles.actionTextPrimary}>Documents</Text>
+                  </Pressable>
+                )}
+
                 <Pressable
                   style={styles.actionButton}
                   disabled={remove.isPending}
@@ -285,6 +301,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
     pageSize: 20,
   });
   const { preferences } = usePreferencesViewModel();
+  const { role } = useAuthViewModel();
   const { showToast } = useToast();
 
   function handleDelete(listingId: string, title: string) {
@@ -363,6 +380,16 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               <Ionicons name="send-outline" size={16} color={theme.colors.primary} />
               <Text style={styles.actionTextPrimary}>Submit</Text>
             </Pressable>
+
+            {role === 'owner' && (
+              <Pressable
+                style={styles.actionButton}
+                onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
+              >
+                <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
+                <Text style={styles.actionTextPrimary}>Documents</Text>
+              </Pressable>
+            )}
 
             <Pressable
               style={styles.actionButton}

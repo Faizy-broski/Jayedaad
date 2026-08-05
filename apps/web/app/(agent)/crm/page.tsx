@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useLeadInboxViewModel } from '@jayedaad/core';
+import { useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
 import { Button } from '@jayedaad/ui-web';
 import {
   Inbox,
@@ -140,7 +140,11 @@ function relativeTime(iso: string): string {
 // animations — for the filter pill's sliding indicator and staggered
 // list enter/exit as leads move between status filters.
 export default function CrmPage() {
-  const { leads: realLeads, isLoading, updateStatus, addNote } = useLeadInboxViewModel({});
+  const { profile } = useAgentProfileViewModel();
+  const [agencyScope, setAgencyScope] = useState(false);
+  const { leads: realLeads, isLoading, updateStatus, addNote } = useLeadInboxViewModel({
+    scope: agencyScope ? 'agency' : 'own',
+  });
   // Falls back to MOCK_LEADS whenever the real inbox is empty — lets this
   // page be reviewed/tested with a populated list before there's real lead
   // data to look at. Remove once the CRM has genuine traffic to rely on.
@@ -185,11 +189,24 @@ export default function CrmPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Inquiry Inbox</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {leads.length} total inquiries · {leads.filter((l) => l.status === 'new').length} new
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Inquiry Inbox</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {leads.length} total inquiries · {leads.filter((l) => l.status === 'new').length} new
+          </p>
+        </div>
+        {profile?.isAgencyAdmin && (
+          <button
+            type="button"
+            onClick={() => setAgencyScope((v) => !v)}
+            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+              agencyScope ? 'border-primary bg-primary text-primary-foreground' : 'border-input text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {agencyScope ? 'Showing: Whole Agency' : 'Show Whole Agency'}
+          </button>
+        )}
       </div>
 
       {/* Status filter pills — motion.span with a shared layoutId slides

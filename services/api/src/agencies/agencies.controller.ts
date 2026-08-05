@@ -144,6 +144,17 @@ export class AgenciesController {
     return this.agencies.listStaff(id);
   }
 
+  // Admin-only rollup — "full control and visibility to their overall
+  // performance, analytics, and their sales associates" (Document
+  // Verification Phase 3). Reuses assertCanManageStaff's admin-flag check.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/analytics')
+  async getStaffAnalytics(@Req() req: any, @Param('id') id: string) {
+    await this.assertCanManageStaff(req, id);
+    return this.agencies.getStaffAnalytics(id);
+  }
+
   @UseGuards(ScopeGuard)
   @Roles('agent', 'super_admin')
   @Post(':id/staff')

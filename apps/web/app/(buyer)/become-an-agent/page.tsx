@@ -13,10 +13,13 @@ import {
 } from '@jayedaad/core';
 import { Button, Card, CardContent, Input, Label, Select } from '@jayedaad/ui-web';
 
+// Owner ID + Company Registration are mandatory (Document Verification
+// spec) — tax_certificate remains a valid upload type but is optional,
+// no longer part of REQUIRED_ONBOARDING_DOCUMENT_TYPES server-side.
 const DOCUMENT_TYPES: { type: 'company_registration' | 'owner_id_card' | 'tax_certificate'; label: string }[] = [
-  { type: 'owner_id_card', label: 'ID Card (front and back)' },
-  { type: 'company_registration', label: 'Company Registration (if applicable)' },
-  { type: 'tax_certificate', label: 'Tax Certificate' },
+  { type: 'owner_id_card', label: 'Owner ID Card (front and back)' },
+  { type: 'company_registration', label: 'Company Registration ID' },
+  { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
 ];
 
 // Self-service agent application — a logged-in buyer applies here, lands in

@@ -158,6 +158,10 @@ export interface ListingMediaItem {
   compressedUrl: string | null;
   isCover: boolean;
   sortOrder: number;
+  // Airbnb-style room category (e.g. 'bedroom_1', 'living_room') — null for
+  // pre-Phase-4 rows and optional-category uploads. See
+  // utils/listingMediaCategories.ts.
+  category: string | null;
 }
 
 // Confirmed real on the live Profolio "Post Listing" form (screenshot): a
@@ -475,6 +479,7 @@ export interface Agency {
   address: string | null; // confirmed real on a scraped Zameen agency profile page
   businessHours: string | null; // plain display string, e.g. "Monday to Sunday, 9AM-6PM"
   verificationStatus: AgencyVerificationStatus;
+  salesAssociateCount: number;
 }
 
 // Super Admin agency CRUD inputs — mirror services/api/src/agencies/dto/*
@@ -537,6 +542,9 @@ export interface RegisterAgencyInput {
   agencyCity?: string;
   displayName?: string;
   agentPhone?: string;
+  // Mandatory at onboarding — how many sales associates the agency expects
+  // to add (see Document Verification spec, Phase 2).
+  salesAssociateCount: number;
 }
 
 // Property inventory by type/purpose shown on a real Zameen agency page —
@@ -615,6 +623,15 @@ export interface AgentAnalytics {
   whatsapp: number;
   sms: number;
   emails: number;
+}
+
+// Same real listing_engagement_events/leads rows AgentAnalytics sums into
+// one total, bucketed by calendar day instead — backs mobile's Dashboard
+// charts (Listing performance / Leads captured).
+export interface AgentDailyAnalyticsPoint {
+  date: string;
+  views: number;
+  leads: number;
 }
 
 export type ListingEngagementType = 'view' | 'click' | 'call' | 'whatsapp' | 'sms' | 'email';
@@ -1020,4 +1037,101 @@ export interface DocumentCompleteness<T extends string = string> {
 // SetAgencyVerificationStatusInput.
 export interface SetAgentVerificationStatusInput {
   status: 'verified' | 'rejected';
+}
+
+// --- Owner Identity Verification (Document Verification Phase 1) ---------------
+// A one-time CNIC+selfie check for individual owners, staff-reviewed exactly
+// like agent verification — separate from ListingDocumentType above, which
+// is now just per-listing ownership proof (id_card_front/back moved here).
+
+export type OwnerIdentityDocumentType = 'cnic_front' | 'cnic_back' | 'selfie';
+export type OwnerVerificationStatus = 'pending' | 'verified' | 'rejected';
+
+export interface OwnerIdentityDocument {
+  id: string;
+  documentType: OwnerIdentityDocumentType;
+  url: string;
+  uploadedAt: string;
+}
+
+// status is null when the owner has never uploaded anything yet — distinct
+// from 'pending' (uploaded, awaiting staff review).
+export interface OwnerVerificationSummary {
+  status: OwnerVerificationStatus | null;
+  documents: OwnerIdentityDocument[];
+  reviewedAt: string | null;
+}
+
+export interface PendingOwnerVerification {
+  userId: string;
+  displayName: string | null;
+  email: string | null;
+  status: OwnerVerificationStatus;
+  createdAt: string;
+  documents: DocumentCompleteness<OwnerIdentityDocumentType>;
+}
+
+// --- Appointments / Calendar (Document Verification Phase 3) -------------------
+// "Book a Visit" on a listing also creates one of these ('requested') on the
+// listing's agent's calendar, alongside the lead it already creates — see
+// leadsRepository.ts's CreateLeadInput.isVisitRequest. Agents can also
+// create/manage appointments manually.
+
+export type AppointmentStatus = 'requested' | 'confirmed' | 'completed' | 'cancelled';
+
+export interface Appointment {
+  id: string;
+  agentId: string | null;
+  ownerId: string | null;
+  leadId: string | null;
+  listingId: string | null;
+  title: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: AppointmentStatus;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CreateAppointmentInput {
+  title: string;
+  scheduledAt: string;
+  durationMinutes?: number;
+  leadId?: string;
+  listingId?: string;
+  notes?: string;
+  status?: AppointmentStatus;
+}
+
+export interface UpdateAppointmentInput {
+  title?: string;
+  scheduledAt?: string;
+  durationMinutes?: number;
+  notes?: string;
+  status?: AppointmentStatus;
+}
+
+// --- Agency-wide staff analytics (Document Verification Phase 3) ---------------
+// Backs the Agency Admin's "full visibility to their overall performance,
+// analytics, and their sales associates" dashboard section — GET
+// /agencies/:id/analytics, admin-only server-side.
+
+export interface AgencyStaffAnalyticsEntry {
+  agentId: string;
+  displayName: string | null;
+  isAgencyAdmin: boolean;
+  stats: AgentStats;
+  analytics: AgentAnalytics;
+  closingsCount: number;
+}
+
+export interface AgencyStaffAnalytics {
+  associates: AgencyStaffAnalyticsEntry[];
+  totals: {
+    forSaleCount: number;
+    forRentCount: number;
+    leads: number;
+    views: number;
+    closingsCount: number;
+  };
 }

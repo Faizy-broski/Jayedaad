@@ -28,6 +28,12 @@ export function useAgentDashboardViewModel(analyticsFilters: AgentAnalyticsFilte
     enabled: !!agentId,
   });
 
+  const dailyAnalyticsQuery = useQuery({
+    queryKey: ['agents', agentId, 'analytics', 'daily'],
+    queryFn: () => agentsRepository.getDailyAnalytics(agentId!),
+    enabled: !!agentId,
+  });
+
   const recentListingsQuery = useQuery({
     queryKey: ['listings', 'mine', 'recent'],
     queryFn: () => listingsRepository.findMine({ page: 1, pageSize: 5 }),
@@ -41,6 +47,8 @@ export function useAgentDashboardViewModel(analyticsFilters: AgentAnalyticsFilte
     isCreditsLoading: creditsQuery.isLoading,
     analytics: analyticsQuery.data,
     isAnalyticsLoading: analyticsQuery.isLoading,
+    dailyAnalytics: dailyAnalyticsQuery.data ?? [],
+    isDailyAnalyticsLoading: dailyAnalyticsQuery.isLoading,
     recentListings: recentListingsQuery.data?.items ?? [],
     isRecentListingsLoading: recentListingsQuery.isLoading,
   };

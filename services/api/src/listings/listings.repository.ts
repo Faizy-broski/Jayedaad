@@ -5,18 +5,16 @@ import { UpdateListingDto } from './dto/update-listing.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { Role } from '../common/types';
 import { DocumentsService } from '../documents/documents.service';
+import { getRequiredMediaCategories } from './listing-media-categories';
 
 export type ListingDocumentType = 'id_card_front' | 'id_card_back' | 'ownership_proof' | 'utility_bill';
 
-// Real business requirement: these 4 documents are required for property
-// verification. "Required" = the full literal list — no separate
-// optional-vs-required catalog.
-export const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = [
-  'id_card_front',
-  'id_card_back',
-  'ownership_proof',
-  'utility_bill',
-];
+// id_card_front/id_card_back moved to the one-time owner identity
+// verification flow (owner_identity_documents, see owners module) — the
+// per-listing requirement is now just proof of ownership for that specific
+// property. The two enum values stay in ListingDocumentType for schema
+// compatibility with any already-uploaded rows.
+export const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownership_proof', 'utility_bill'];
 
 // Confirmed real on the Profolio "My Listings" filter panel: Listing ID,
 // Category (property_type_categories) and Property Type (property_types) as
@@ -121,7 +119,7 @@ const PUBLIC_LISTING_COLUMNS = `
   development_fee_applicable, development_fee_amount,
   status, created_at,
   property_types!inner (slug, label, property_type_categories (slug, label)),
-  listing_media (url, type, compressed_url, is_cover, sort_order),
+  listing_media (url, type, compressed_url, is_cover, sort_order, category),
   listing_amenities (value, text_value, amenities (slug, label, category, value_type, value_unit, options)),
   listing_contact_numbers (type, country_code, number),
   agent_profiles (
@@ -293,6 +291,27 @@ export class ListingsRepository {
   // only ever passed by ListingsController's dedicated POST /listings/draft
   // path — never reachable from the public create() endpoint's DTO.
   async create(input: CreateListingDto & { ownerId: string; agentId?: string; status?: 'draft' | 'pending_verification' }) {
+    // Hard gate — real business requirement (Document Verification Phase
+    // 4): categorized photos are mandatory before a listing can be
+    // submitted. Applies to every listing regardless of owner/agent (photo
+    // quality isn't an ownership-verification concern, unlike
+    // getDocumentCompleteness above); drafts are exempt since they're
+    // explicitly in-progress.
+    if (input.status !== 'draft') {
+      const required = getRequiredMediaCategories(input.bedrooms, input.bathrooms);
+      const uploadedCounts = new Map<string, number>();
+      for (const m of input.media ?? []) {
+        if (!m.category) continue;
+        uploadedCounts.set(m.category, (uploadedCounts.get(m.category) ?? 0) + 1);
+      }
+      const missing = required.filter((c) => c.required && (uploadedCounts.get(c.slug) ?? 0) < c.minCount);
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          `Cannot submit listing — missing required photos: ${missing.map((c) => c.label).join(', ')}`,
+        );
+      }
+    }
+
     const { data: listing, error } = await this.supabase.client
       .from('listings')
       .insert({
@@ -365,6 +384,7 @@ export class ListingsRepository {
           type: m.type,
           is_cover: m.isCover ?? (!hasCover && index === 0),
           sort_order: m.sortOrder ?? index,
+          category: m.category ?? null,
         })),
       );
       if (mediaError) throw mediaError;
@@ -477,6 +497,7 @@ export class ListingsRepository {
             type: m.type,
             is_cover: m.isCover ?? (!hasCover && index === 0),
             sort_order: m.sortOrder ?? index,
+            category: m.category ?? null,
           })),
         );
         if (mediaError) throw mediaError;
@@ -767,7 +788,25 @@ export class ListingsRepository {
     );
   }
 
+  // Real business requirement (Document Verification spec): "The agents do
+  // not need to upload property ownership documents (their own
+  // responsibility, continuously monitored by Jayedaad)." — only an
+  // individual owner posting without an agent is required to upload
+  // ownership_proof/utility_bill, mirroring the exact "independent vs.
+  // covered-elsewhere" distinction agents.repository.ts:439 already makes
+  // for agent_profiles.agency_id.
   async getDocumentCompleteness(listingId: string) {
+    const { data: listing, error: listingError } = await this.supabase.client
+      .from('listings')
+      .select('agent_id')
+      .eq('id', listingId)
+      .single();
+    if (listingError) throw listingError;
+
+    if (listing.agent_id) {
+      return { required: [] as ListingDocumentType[], uploaded: [] as ListingDocumentType[], missing: [] as ListingDocumentType[] };
+    }
+
     const { data, error } = await this.supabase.client
       .from('listing_documents')
       .select('document_type')
@@ -845,6 +884,7 @@ function mapPublicListingRow(row: any) {
       compressedUrl: m.compressed_url,
       isCover: m.is_cover,
       sortOrder: m.sort_order,
+      category: m.category ?? null,
     })),
     // value/textValue: confirmed real on a scraped Zameen detail page —
     // some amenities carry a number, free text, or a chosen dropdown option,

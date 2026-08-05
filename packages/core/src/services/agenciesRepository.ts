@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import {
   Agency,
+  AgencyStaffAnalytics,
   AgencyStaffMember,
   AgencyStats,
   CreateAgencyInput,
@@ -28,6 +29,7 @@ function mapAgencyRow(row: any): Agency {
     address: row.address,
     businessHours: row.business_hours,
     verificationStatus: row.verification_status,
+    salesAssociateCount: row.sales_associate_count,
   };
 }
 
@@ -112,6 +114,12 @@ export const agenciesRepository = {
 
   removeStaff: async (agencyId: string, agentId: string): Promise<{ id: string }> => {
     const { data } = await httpClient.delete(`/agencies/${agencyId}/staff/${agentId}`);
+    return data;
+  },
+
+  // Admin-only agency-wide rollup (Document Verification Phase 3).
+  getStaffAnalytics: async (agencyId: string): Promise<AgencyStaffAnalytics> => {
+    const { data } = await httpClient.get(`/agencies/${agencyId}/analytics`);
     return data;
   },
 };

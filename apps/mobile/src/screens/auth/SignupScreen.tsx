@@ -42,6 +42,7 @@ export function SignupScreen() {
   const [passwordMismatch, setPasswordMismatch] = useState(false);
   const [agencyName, setAgencyName] = useState('');
   const [agencyCity, setAgencyCity] = useState('');
+  const [salesAssociateCount, setSalesAssociateCount] = useState('');
   // Everything after the initial signUp() used to run with no error
   // handling at all — a failure partway through (registerAgency or sendOtp)
   // left an unhandled promise rejection: the auth.users row was already
@@ -61,6 +62,11 @@ export function SignupScreen() {
       return;
     }
     setPasswordMismatch(false);
+    // Mandatory at agency onboarding per the Document Verification spec.
+    if (accountType === 'agency' && !(Number(salesAssociateCount) > 0)) {
+      setSubmitError('Enter the number of sales associates in your company.');
+      return;
+    }
     setSubmitError('');
     // rememberMeStorage's flag is module-level and only exposed as a toggle
     // on LoginScreen — a signed-up account should persist normally, in case
@@ -70,14 +76,21 @@ export function SignupScreen() {
 
     setIsSubmitting(true);
     try {
+      // Captures whichever branch below actually authenticates, so the
+      // agency-registration decision after it can be based on this
+      // specific account's real state (JWT app_metadata), not on guessing
+      // from an error message — see the note further down on why that
+      // matters.
+      let resumedUser: any;
       try {
-        await signUp.mutateAsync({
+        const result = await signUp.mutateAsync({
           email,
           password,
           name,
           phone: formattedPhone,
           termsAcceptedAt: new Date().toISOString(),
         });
+        resumedUser = result.user;
       } catch (err: any) {
         // Resume instead of dead-ending: if this email is "already
         // registered" it's most likely this exact scenario — a previous
@@ -88,27 +101,31 @@ export function SignupScreen() {
         // and the real error below still surfaces.
         const alreadyRegistered = err?.status === 422 || /already registered/i.test(err?.message ?? '');
         if (!alreadyRegistered) throw err;
-        await signIn.mutateAsync({ email, password });
+        const result = await signIn.mutateAsync({ email, password });
+        resumedUser = result.user;
       }
 
       // Agency registration needs an authenticated session first (it's a
       // self-scoped POST /agencies/register) — signUp()/signIn() above
       // already returns an active session (Confirm email is off), so this
       // can run right after.
-      if (accountType === 'agency') {
-        try {
-          await registerAgency.mutateAsync({
-            agencyName,
-            agencySlug: slugify(agencyName),
-            agencyCity: agencyCity || undefined,
-            displayName: name,
-            agentPhone: formattedPhone,
-          });
-        } catch (err: any) {
-          // Same resume reasoning as above — a prior attempt may have
-          // already created the agency before failing on sendOtp.
-          if (!/already/i.test(err?.response?.data?.message ?? '')) throw err;
-        }
+      // Skip re-registering only when THIS account's own JWT already shows
+      // it as an agent with an agency (a prior attempt's registerAgency
+      // call already succeeded before a later step failed). Deliberately
+      // NOT based on matching "already" in the error message — the server
+      // returns that exact wording for a genuinely different agency owning
+      // the requested name too, and swallowing that case would silently
+      // skip agency creation while telling the user signup succeeded.
+      const alreadyHasAgency = resumedUser?.app_metadata?.role === 'agent' && !!resumedUser?.app_metadata?.agent_id;
+      if (accountType === 'agency' && !alreadyHasAgency) {
+        await registerAgency.mutateAsync({
+          agencyName,
+          agencySlug: slugify(agencyName),
+          agencyCity: agencyCity || undefined,
+          displayName: name,
+          agentPhone: formattedPhone,
+          salesAssociateCount: Number(salesAssociateCount),
+        });
       }
 
       // A failed OTP send isn't fatal to the flow — VerifyEmailScreen has
@@ -244,6 +261,15 @@ export function SignupScreen() {
                     onChange={setAgencyCity}
                   />
                 </View>
+                <TextInput
+                  label="Number of Sales Associates"
+                  icon="people-outline"
+                  variant="pill"
+                  placeholder="e.g. 5"
+                  value={salesAssociateCount}
+                  onChangeText={(v) => setSalesAssociateCount(v.replace(/\D/g, ''))}
+                  keyboardType="number-pad"
+                />
                 <Text style={styles.agencyHelper}>
                   Your agency will be reviewed before it goes live — upload verification documents right after signing
                   up.

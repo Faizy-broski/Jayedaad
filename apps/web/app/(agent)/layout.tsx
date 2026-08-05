@@ -26,6 +26,7 @@ import {
   Bell,
   Sparkles,
   ChevronsUpDown,
+  CalendarDays,
 } from 'lucide-react';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
   { href: '/property-management', label: 'Property Management', icon: Building2, roles: ['agent', 'super_admin'] },
   { href: '/projects', label: 'Projects', icon: Landmark, roles: ['agent', 'super_admin'] },
   { href: '/crm', label: 'Inbox', icon: Inbox, roles: ['agent', 'super_admin'] },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['owner', 'agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
   { href: '/plan', label: 'Plan', icon: CreditCard, roles: ['agent', 'super_admin'] },
 ];

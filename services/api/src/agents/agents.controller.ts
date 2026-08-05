@@ -97,6 +97,18 @@ export class AgentsController {
     return this.agents.getAnalytics(id, { purpose, since: since ? new Date(since) : undefined });
   }
 
+  // Same real listing_engagement_events/leads rows getAnalytics above sums
+  // into one 30-day total, just bucketed by day instead — backs the mobile
+  // Dashboard's "Listing performance"/"Leads captured" charts. Same
+  // ownership check as getAnalytics.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/analytics/daily')
+  getDailyAnalytics(@Req() req: any, @Param('id') id: string, @Query('days') days?: string) {
+    this.assertOwnAgentOrAdmin(req, id);
+    return this.agents.getDailyAnalytics(id, days ? Number(days) : undefined);
+  }
+
   @UseGuards(ScopeGuard)
   @Roles('agent', 'super_admin')
   @Get(':id/credits')

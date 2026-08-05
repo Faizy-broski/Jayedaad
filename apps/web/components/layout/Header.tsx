@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useAuthViewModel } from '@jayedaad/core';
 
 const LIST_A_HOME_CLASSES =
   'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90';
@@ -96,13 +97,48 @@ export function Header() {
   );
 }
 
+// Mirrors apps/web/app/(auth)/login/page.tsx's DEFAULT_LANDING_BY_ROLE —
+// same duplication convention already used there, in
+// verify-email/page.tsx, and in auth/callback/route.ts. Used here for the
+// signed-in user menu's "Dashboard" link.
+const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
+  super_admin: '/admin/dashboard',
+  verification_staff: '/verification',
+  agent: '/dashboard',
+  owner: '/submit',
+  buyer: '/search',
+};
+
 function HeaderInner() {
+  const router = useRouter();
+  const { isAuthenticated, user, role, signOut } = useAuthViewModel();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const isLinkActive = useIsLinkActive();
   const hasHero = isHeroRoute(pathname);
+
+  const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Account';
+  const initials = displayName.slice(0, 2).toUpperCase();
+  const dashboardHref = DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/search';
+
+  function handleLogout() {
+    setUserMenuOpen(false);
+    setMobileOpen(false);
+    signOut.mutate(undefined, { onSuccess: () => router.push('/') });
+  }
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [userMenuOpen]);
 
   useEffect(() => {
     if (!hasHero) return;
@@ -174,9 +210,51 @@ function HeaderInner() {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900">
-            Sign in
-          </Link>
+          {isAuthenticated ? (
+            <div ref={userMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+              >
+                {initials}
+              </button>
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute right-0 top-full z-10 mt-2 w-56 origin-top-right overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+                  >
+                    <p className="truncate px-3 py-2 text-sm font-medium text-slate-900">{displayName}</p>
+                    <Link
+                      href={dashboardHref}
+                      onClick={() => setUserMenuOpen(false)}
+                      className="block rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={signOut.isPending}
+                      className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {signOut.isPending ? 'Logging out…' : 'Log out'}
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900">
+              Sign in
+            </Link>
+          )}
           <Link href="/submit" className={LIST_A_HOME_CLASSES}>
             List a home
           </Link>
@@ -232,18 +310,44 @@ function HeaderInner() {
                 </motion.div>
               );
             })}
-            <div className="mt-2 flex items-center gap-3 border-t border-slate-200 px-2 pt-3">
-              <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900" onClick={() => setMobileOpen(false)}>
-                Sign in
-              </Link>
-              <Link
-                href="/submit"
-                onClick={() => setMobileOpen(false)}
-                className={`ml-auto ${LIST_A_HOME_CLASSES}`}
-              >
-                List a home
-              </Link>
-            </div>
+            {isAuthenticated ? (
+              <div className="mt-2 space-y-1 border-t border-slate-200 px-2 pt-3">
+                <p className="truncate px-0 py-1 text-sm font-medium text-slate-900">{displayName}</p>
+                <Link
+                  href={dashboardHref}
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-md px-0 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+                >
+                  Dashboard
+                </Link>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={signOut.isPending}
+                    className="text-sm font-medium text-red-600 disabled:opacity-50"
+                  >
+                    {signOut.isPending ? 'Logging out…' : 'Log out'}
+                  </button>
+                  <Link href="/submit" onClick={() => setMobileOpen(false)} className={`ml-auto ${LIST_A_HOME_CLASSES}`}>
+                    List a home
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center gap-3 border-t border-slate-200 px-2 pt-3">
+                <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900" onClick={() => setMobileOpen(false)}>
+                  Sign in
+                </Link>
+                <Link
+                  href="/submit"
+                  onClick={() => setMobileOpen(false)}
+                  className={`ml-auto ${LIST_A_HOME_CLASSES}`}
+                >
+                  List a home
+                </Link>
+              </div>
+            )}
           </motion.nav>
         )}
       </AnimatePresence>

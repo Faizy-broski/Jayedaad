@@ -6,11 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQueries } from '@tanstack/react-query';
 import {
   Listing,
   Project,
   ProjectStatus,
   formatPrice,
+  listingsRepository,
   useAuthViewModel,
   useListingSearchViewModel,
   usePreferencesViewModel,
@@ -45,7 +47,12 @@ const PURPOSE_TABS: { value: Purpose; icon: keyof typeof Ionicons.glyphMap }[] =
   { value: 'Rent', icon: 'key' },
 ];
 
-type Category = { id: string; title: string; listings: string; image: number };
+// isArea: lahore/karachi/islamabad are real `city` column values; DHA/
+// Bahria/Gulberg are real neighborhoods that span multiple cities, so they
+// filter on the `area` column instead — both are genuine ListingSearchFilters
+// fields, just scoped to whichever one actually matches how the value is
+// stored on a listing.
+type Category = { id: string; title: string; image: number; isArea?: boolean };
 
 // Icons here map to real property-type slugs from the taxonomy (Homes/Plots/
 // Commercial categories, supabase/migrations/0005_taxonomy_seed.sql) — House,
@@ -56,26 +63,25 @@ type Category = { id: string; title: string; listings: string; image: number };
 type PropertyCategory = {
   id: string;
   title: string;
-  count: string;
   icon: keyof typeof Ionicons.glyphMap;
 };
 
 const PROPERTY_CATEGORIES: PropertyCategory[] = [
-  { id: 'house', title: 'Homes', count: '12,480', icon: 'home' },
-  { id: 'flat', title: 'Apartments', count: '8,120', icon: 'business' },
-  { id: 'residential_plot', title: 'Plots', count: '5,660', icon: 'flag' },
-  { id: 'office', title: 'Offices', count: '1,940', icon: 'briefcase' },
-  { id: 'shop', title: 'Shops', count: '2,310', icon: 'storefront' },
-  { id: 'farm_house', title: 'Farmhouse', count: '480', icon: 'leaf' },
+  { id: 'house', title: 'Homes', icon: 'home' },
+  { id: 'flat', title: 'Apartments', icon: 'business' },
+  { id: 'residential_plot', title: 'Plots', icon: 'flag' },
+  { id: 'office', title: 'Offices', icon: 'briefcase' },
+  { id: 'shop', title: 'Shops', icon: 'storefront' },
+  { id: 'farm_house', title: 'Farmhouse', icon: 'leaf' },
 ];
 
 const CITIES: Category[] = [
-  { id: 'lahore', title: 'Lahore', listings: '1,240 listings', image: lahoreImage },
-  { id: 'karachi', title: 'Karachi', listings: '986 listings', image: karachiImage },
-  { id: 'islamabad', title: 'Islamabad', listings: '742 listings', image: islamabadImage },
-  { id: 'dha', title: 'DHA', listings: '615 listings', image: dhaImage },
-  { id: 'bahria', title: 'Bahria', listings: '528 listings', image: bahriaImage },
-  { id: 'gulberg', title: 'Gulberg', listings: '340 listings', image: gulbergImage },
+  { id: 'lahore', title: 'Lahore', image: lahoreImage },
+  { id: 'karachi', title: 'Karachi', image: karachiImage },
+  { id: 'islamabad', title: 'Islamabad', image: islamabadImage },
+  { id: 'dha', title: 'DHA', image: dhaImage, isArea: true },
+  { id: 'bahria', title: 'Bahria', image: bahriaImage, isArea: true },
+  { id: 'gulberg', title: 'Gulberg', image: gulbergImage, isArea: true },
 ];
 
 type BlogPost = { id: string; tag: string; title: string; readTime: string; image: number };
@@ -154,6 +160,24 @@ export const HomeScreen = memo(function HomeScreen() {
     }, []),
   );
 
+  // Real per-category/per-location listing counts — previously hardcoded
+  // strings ("12,480", "1,240 listings"). One lightweight count-only query
+  // per tile (pageSize: 1, only `total` is read) rather than a bare array
+  // map, since these are a fixed, known set of tiles, not dynamic data.
+  const categoryCountQueries = useQueries({
+    queries: PROPERTY_CATEGORIES.map((category) => ({
+      queryKey: ['listings', 'public', 'count', 'propertyType', category.id],
+      queryFn: () => listingsRepository.searchPublic({ propertyTypeSlug: category.id, pageSize: 1 }),
+    })),
+  });
+  const cityCountQueries = useQueries({
+    queries: CITIES.map((city) => ({
+      queryKey: ['listings', 'public', 'count', city.isArea ? 'area' : 'city', city.title],
+      queryFn: () =>
+        listingsRepository.searchPublic(city.isArea ? { area: city.title, pageSize: 1 } : { city: city.title, pageSize: 1 }),
+    })),
+  });
+
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right']}>
       <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
@@ -223,8 +247,15 @@ export const HomeScreen = memo(function HomeScreen() {
           <Text style={styles.browseCategoryTitle}>Browse by category</Text>
 
           <View style={styles.propertyCategoryGrid}>
-            {PROPERTY_CATEGORIES.map((category) => (
-              <PropertyCategoryCard key={category.id} category={category} />
+            {PROPERTY_CATEGORIES.map((category, i) => (
+              <PropertyCategoryCard
+                key={category.id}
+                category={category}
+                count={categoryCountQueries[i].data?.total ?? 0}
+                onPress={() =>
+                  navigation.navigate('AllProperties', { initialFilters: { propertyTypeSlug: category.id } })
+                }
+              />
             ))}
           </View>
         </View>
@@ -235,10 +266,6 @@ export const HomeScreen = memo(function HomeScreen() {
               <Text style={styles.sectionTitle}>Popular locations</Text>
               <Text style={styles.sectionSubtitleTight}>Where Pakistan is buying</Text>
             </View>
-            <Pressable style={styles.seeAllRow}>
-              <Text style={styles.viewAllLink}>Map</Text>
-              <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
-            </Pressable>
           </View>
 
           <FlatList
@@ -247,7 +274,18 @@ export const HomeScreen = memo(function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.cityList}
-            renderItem={({ item }) => <CategoryCard category={item} />}
+            renderItem={({ item, index }) => (
+              <CategoryCard
+                category={item}
+                listingsCount={cityCountQueries[index].data?.total ?? 0}
+                onPress={() =>
+                  navigation.navigate(
+                    'AllProperties',
+                    { initialFilters: item.isArea ? { area: item.title } : { city: item.title } },
+                  )
+                }
+              />
+            )}
           />
         </View>
 
@@ -438,9 +476,17 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
 // circles (a bigger pale one, a smaller mid-tone one offset toward a
 // corner), clipped by the card's own overflow:hidden bounds, which reads
 // as the same soft-gradient-blob look without hand-rolled SVG paths.
-function PropertyCategoryCard({ category }: { category: PropertyCategory }) {
+function PropertyCategoryCard({
+  category,
+  count,
+  onPress,
+}: {
+  category: PropertyCategory;
+  count: number;
+  onPress: () => void;
+}) {
   return (
-    <Pressable style={styles.propertyCategoryCard}>
+    <Pressable style={styles.propertyCategoryCard} onPress={onPress}>
       <View style={styles.propertyCategoryIconWrap}>
         <View style={styles.propertyCategoryBlobBack} />
         <View style={styles.propertyCategoryBlobFront} />
@@ -449,14 +495,22 @@ function PropertyCategoryCard({ category }: { category: PropertyCategory }) {
         </View>
       </View>
       <Text style={styles.propertyCategoryTitle}>{category.title}</Text>
-      <Text style={styles.propertyCategoryCount}>{category.count}</Text>
+      <Text style={styles.propertyCategoryCount}>{count.toLocaleString('en-PK')}</Text>
     </Pressable>
   );
 }
 
-function CategoryCard({ category }: { category: Category }) {
+function CategoryCard({
+  category,
+  listingsCount,
+  onPress,
+}: {
+  category: Category;
+  listingsCount: number;
+  onPress: () => void;
+}) {
   return (
-    <Pressable style={styles.categoryCard}>
+    <Pressable style={styles.categoryCard} onPress={onPress}>
       <Image source={category.image} style={styles.categoryImage} contentFit="cover" transition={150} />
       <LinearGradient
         colors={['transparent', 'rgba(15,23,42,0.85)']}
@@ -464,7 +518,7 @@ function CategoryCard({ category }: { category: Category }) {
       />
       <View style={styles.categoryTextRow}>
         <Text style={styles.categoryTitle}>{category.title}</Text>
-        <Text style={styles.categoryListings}>{category.listings}</Text>
+        <Text style={styles.categoryListings}>{listingsCount.toLocaleString('en-PK')} listings</Text>
       </View>
     </Pressable>
   );

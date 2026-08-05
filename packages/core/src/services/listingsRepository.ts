@@ -122,6 +122,8 @@ export interface CreateListingMediaInput {
   type: 'image' | 'video';
   isCover?: boolean;
   sortOrder?: number;
+  // Airbnb-style room category — see utils/listingMediaCategories.ts.
+  category?: string;
 }
 
 export const listingsRepository = {

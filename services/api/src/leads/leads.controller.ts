@@ -31,8 +31,9 @@ export class LeadsController {
     // Super Admin-only in practice — the repository ignores this filter for
     // scoped roles (agent), same discipline as every other scope check.
     @Query('agentId') agentId?: string,
+    @Query('scope') scope?: 'own' | 'agency',
   ) {
-    return this.leads.list(req.user, { status, listingId, agentId });
+    return this.leads.list(req.user, { status, listingId, agentId, scope });
   }
 
   @UseGuards(ScopeGuard)

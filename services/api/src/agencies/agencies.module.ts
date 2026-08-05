@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { AgenciesController } from './agencies.controller';
 import { AgenciesRepository } from './agencies.repository';
 import { DocumentsModule } from '../documents/documents.module';
+import { AgentsModule } from '../agents/agents.module';
 
 @Module({
-  imports: [DocumentsModule],
+  imports: [DocumentsModule, AgentsModule],
   controllers: [AgenciesController],
   providers: [AgenciesRepository],
 })

@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import {
   AgentAnalytics,
+  AgentDailyAnalyticsPoint,
   AgentCredit,
   AgentProfileSummary,
   AgentStats,
@@ -47,6 +48,11 @@ export const agentsRepository = {
 
   getAnalytics: async (agentId: string, filters: AgentAnalyticsFilters = {}): Promise<AgentAnalytics> => {
     const { data } = await httpClient.get(`/agents/${agentId}/analytics`, { params: filters });
+    return data;
+  },
+
+  getDailyAnalytics: async (agentId: string, days = 7): Promise<AgentDailyAnalyticsPoint[]> => {
+    const { data } = await httpClient.get(`/agents/${agentId}/analytics/daily`, { params: { days } });
     return data;
   },
 

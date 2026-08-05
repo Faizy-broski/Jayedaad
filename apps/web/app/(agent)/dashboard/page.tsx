@@ -19,6 +19,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  useAgencyAnalyticsViewModel,
   useAgentDashboardViewModel,
   useSubscriptionViewModel,
   usePreferencesViewModel,
@@ -128,6 +129,9 @@ export default function AgentDashboardPage() {
   const { current: currentPlan } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
   const { leads, isLoading: isLeadsLoading } = useLeadInboxViewModel({});
+  // Agency Admin's "full visibility to their overall performance, analytics,
+  // and their sales associates" (Document Verification Phase 3).
+  const { analytics: agencyAnalytics } = useAgencyAnalyticsViewModel(profile?.isAgencyAdmin ? profile.agency?.id : undefined);
 
   const displayName = profile?.displayName || (user?.user_metadata?.display_name as string | undefined) || 'there';
   const hour = new Date().getHours();
@@ -216,6 +220,37 @@ export default function AgentDashboardPage() {
           </>
         )}
       </div>
+
+      {/* Agency Performance — Admin-only rollup across every sales associate */}
+      {profile?.isAgencyAdmin && agencyAnalytics && (
+        <Reveal>
+          <Card className="p-4 sm:p-6">
+            <h2 className="text-base font-semibold text-foreground">Agency Performance</h2>
+            <p className="text-sm text-muted-foreground">Every sales associate in your agency</p>
+
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatTile index={0} icon={Home} label="Listings" value={agencyAnalytics.totals.forSaleCount + agencyAnalytics.totals.forRentCount} sub="For sale & rent" />
+              <StatTile index={1} icon={Users} label="Leads" value={agencyAnalytics.totals.leads} sub="Last 30 days" />
+              <StatTile index={2} icon={Users} label="Closings" value={agencyAnalytics.totals.closingsCount} sub="All time" />
+              <StatTile index={3} icon={Eye} label="Views" value={agencyAnalytics.totals.views} sub="Last 30 days" />
+            </div>
+
+            <ul className="mt-4 divide-y divide-border">
+              {agencyAnalytics.associates.map((a) => (
+                <li key={a.agentId} className="flex items-center justify-between gap-3 py-3">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {a.displayName ?? 'Unnamed'}
+                    {a.isAgencyAdmin && <span className="ml-1.5 text-xs text-muted-foreground">(Admin)</span>}
+                  </p>
+                  <p className="shrink-0 text-xs text-muted-foreground">
+                    {a.stats.forSaleCount + a.stats.forRentCount} listings · {a.analytics.leads} leads · {a.closingsCount} closed
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </Reveal>
+      )}
 
       {/* Charts: engagement bar chart, credits radial gauge, listings mix donut */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">

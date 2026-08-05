@@ -4,21 +4,20 @@ import { CreateAgencyDto } from './dto/create-agency.dto';
 import { UpdateAgencyDto } from './dto/update-agency.dto';
 import { RegisterAgencyDto } from './dto/register-agency.dto';
 import { DocumentsService } from '../documents/documents.service';
+import { AgentsRepository } from '../agents/agents.repository';
 
 const AGENCY_COLUMNS =
-  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status';
+  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count';
 
 export type OnboardingDocumentType = 'company_registration' | 'owner_id_card' | 'tax_certificate';
 
-// Real business requirement: these 3 documents are required to onboard a
-// company/agency — same literal list used for independent agents
-// (agents.repository.ts), since an agency-affiliated agent is covered by
-// their agency's own documents.
-export const REQUIRED_ONBOARDING_DOCUMENT_TYPES: OnboardingDocumentType[] = [
-  'company_registration',
-  'owner_id_card',
-  'tax_certificate',
-];
+// Real business requirement: Owner ID + Company Registration ID are
+// mandatory to onboard a company/agency — same literal list used for
+// independent agents (agents.repository.ts), since an agency-affiliated
+// agent is covered by their agency's own documents. tax_certificate stays a
+// valid OnboardingDocumentType (optional upload) but is no longer required
+// for the verification gate.
+export const REQUIRED_ONBOARDING_DOCUMENT_TYPES: OnboardingDocumentType[] = ['company_registration', 'owner_id_card'];
 
 // Zameen.com distinguishes an Agency (company) from an individual Agent, who
 // may belong to one or work independently — agent_profiles.agency_id is
@@ -30,7 +29,55 @@ export class AgenciesRepository {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly documents: DocumentsService,
+    private readonly agents: AgentsRepository,
   ) {}
+
+  // Agency Admin's "full visibility to their overall performance, analytics,
+  // and their sales associates" (Document Verification Phase 3) — reuses
+  // AgentsRepository.getStats/getAnalytics per associate rather than a new
+  // SQL aggregate, so this always matches what each associate sees on their
+  // own dashboard. Closings (leads.status = 'closed') queried directly since
+  // AgentsRepository has no equivalent method.
+  async getStaffAnalytics(agencyId: string) {
+    const staff = await this.listStaff(agencyId);
+
+    const associates = await Promise.all(
+      staff.map(async (member) => {
+        const [stats, analytics, { count: closingsCount, error: closingsError }] = await Promise.all([
+          this.agents.getStats(member.id),
+          this.agents.getAnalytics(member.id),
+          this.supabase.client
+            .from('leads')
+            .select('id', { count: 'exact', head: true })
+            .eq('agent_id', member.id)
+            .eq('status', 'closed'),
+        ]);
+        if (closingsError) throw closingsError;
+
+        return {
+          agentId: member.id,
+          displayName: member.displayName,
+          isAgencyAdmin: member.isAgencyAdmin,
+          stats,
+          analytics,
+          closingsCount: closingsCount ?? 0,
+        };
+      }),
+    );
+
+    const totals = associates.reduce(
+      (acc, a) => ({
+        forSaleCount: acc.forSaleCount + a.stats.forSaleCount,
+        forRentCount: acc.forRentCount + a.stats.forRentCount,
+        leads: acc.leads + a.analytics.leads,
+        views: acc.views + a.analytics.views,
+        closingsCount: acc.closingsCount + a.closingsCount,
+      }),
+      { forSaleCount: 0, forRentCount: 0, leads: 0, views: 0, closingsCount: 0 },
+    );
+
+    return { associates, totals };
+  }
 
   async list(filters: { city?: string } = {}) {
     let query = this.supabase.client
@@ -289,6 +336,7 @@ export class AgenciesRepository {
         phone: input.agencyPhone,
         city: input.agencyCity,
         verification_status: 'pending',
+        sales_associate_count: input.salesAssociateCount,
       })
       .select(AGENCY_COLUMNS)
       .single();

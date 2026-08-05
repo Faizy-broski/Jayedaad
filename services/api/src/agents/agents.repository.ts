@@ -242,6 +242,62 @@ export class AgentsRepository {
     return { ...counts, leads: leadsCount ?? 0 };
   }
 
+  // Same real listing_engagement_events ("view" rows) + leads rows as
+  // getAnalytics above, just grouped by calendar day instead of summed into
+  // one total — backs the mobile Dashboard's real "Listing performance"
+  // (views/day) and "Leads captured" (leads/day) charts. Days with no
+  // activity still appear in the result with 0s, so charts render a full,
+  // evenly-spaced axis rather than skipping empty days.
+  async getDailyAnalytics(agentId: string, days = 7): Promise<{ date: string; views: number; leads: number }[]> {
+    const since = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
+    since.setHours(0, 0, 0, 0);
+
+    const { data: listingRows, error: listingsError } = await this.supabase.client
+      .from('listings')
+      .select('id')
+      .eq('agent_id', agentId);
+    if (listingsError) throw listingsError;
+
+    const byDate = new Map<string, { views: number; leads: number }>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(since);
+      d.setDate(d.getDate() + i);
+      byDate.set(d.toISOString().slice(0, 10), { views: 0, leads: 0 });
+    }
+
+    const listingIds = (listingRows ?? []).map((r: any) => r.id);
+    if (listingIds.length === 0) return Array.from(byDate, ([date, counts]) => ({ date, ...counts }));
+
+    const [{ data: eventRows, error: eventsError }, { data: leadRows, error: leadsError }] = await Promise.all([
+      this.supabase.client
+        .from('listing_engagement_events')
+        .select('type, created_at')
+        .in('listing_id', listingIds)
+        .eq('type', 'view')
+        .gte('created_at', since.toISOString()),
+      this.supabase.client
+        .from('leads')
+        .select('created_at')
+        .in('listing_id', listingIds)
+        .gte('created_at', since.toISOString()),
+    ]);
+    if (eventsError) throw eventsError;
+    if (leadsError) throw leadsError;
+
+    for (const row of eventRows ?? []) {
+      const date = (row as any).created_at.slice(0, 10);
+      const bucket = byDate.get(date);
+      if (bucket) bucket.views++;
+    }
+    for (const row of leadRows ?? []) {
+      const date = (row as any).created_at.slice(0, 10);
+      const bucket = byDate.get(date);
+      if (bucket) bucket.leads++;
+    }
+
+    return Array.from(byDate, ([date, counts]) => ({ date, ...counts }));
+  }
+
   // Confirmed real on the Profolio "Quota and Credits" card: separate
   // Available/Used/Total pools per credit type, not a single quota number.
   async getCredits(agentId: string) {

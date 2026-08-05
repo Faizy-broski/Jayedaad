@@ -1,20 +1,23 @@
+import { useCallback, useState } from 'react';
 import { Alert, Image, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
+import { useAgentProfileViewModel, useAuthViewModel, useFavoritesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
 import { Card, CardContent, theme } from '@jayedaad/ui-native';
+import { getRecentlyViewed } from '../lib/recentlyViewedStorage';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
+import settingsBannerImage from '../../assets/images/settings-banner.webp';
 
 type CombinedParamList = RootStackParamList & BottomTabParamList;
 
-type QuickAction = {
+type ListAction = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  route?: keyof CombinedParamList;
+  route: keyof CombinedParamList;
   params?: CombinedParamList['Favorites'] | CombinedParamList['MyProperties'];
   agentOnly?: boolean;
   // Matches web's agent-settings layout.tsx NAV_ITEMS filter
@@ -23,17 +26,25 @@ type QuickAction = {
   agencyAdminOnly?: boolean;
 };
 
-const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'Profile Settings', icon: 'settings-outline', route: 'ProfileSettings' },
-  { label: 'My Saved Searches', icon: 'search-outline', route: 'Favorites', params: { initialTab: 'saved' } },
+const ACCOUNT_ITEMS: ListAction[] = [
+  { label: 'Personal Information', icon: 'person-outline', route: 'ProfileSettings' },
+  { label: 'Saved Searches', icon: 'search-outline', route: 'Favorites', params: { initialTab: 'saved' } },
   { label: 'My Favourites', icon: 'heart-outline', route: 'Favorites', params: { initialTab: 'favorites' } },
+];
+
+const SELLING_ITEMS: ListAction[] = [
   { label: 'My Properties', icon: 'home-outline', route: 'MyProperties' },
-  { label: 'Dashboard', icon: 'stats-chart-outline', route: 'AgentDashboard', agentOnly: true },
-  { label: 'My Projects', icon: 'business-outline', route: 'MyProjects', agentOnly: true },
-  { label: 'Agency Staff', icon: 'people-outline', route: 'AgencyStaff', agentOnly: true, agencyAdminOnly: true },
-  { label: 'Inbox', icon: 'mail-unread-outline', route: 'AgentCRM', agentOnly: true },
   { label: 'Drafts', icon: 'document-text-outline', route: 'MyProperties', params: { initialTab: 'drafts' } },
+  { label: 'Realtor Dashboard', icon: 'stats-chart-outline', route: 'AgentDashboard', agentOnly: true },
+  { label: 'My Projects', icon: 'business-outline', route: 'MyProjects', agentOnly: true },
+  { label: 'Inbox', icon: 'mail-unread-outline', route: 'AgentCRM', agentOnly: true },
+  { label: 'Agency Staff', icon: 'people-outline', route: 'AgencyStaff', agentOnly: true, agencyAdminOnly: true },
   { label: 'Plan', icon: 'card-outline', route: 'Plan', agentOnly: true },
+];
+
+const SUPPORT_ITEMS: ListAction[] = [
+  { label: 'Contact Us', icon: 'chatbubble-ellipses-outline', route: 'Contact' },
+  { label: 'Terms and Privacy Policy', icon: 'document-outline', route: 'Terms' },
 ];
 
 // No premium/basic concept exists on user accounts anywhere in the data
@@ -56,7 +67,25 @@ export function ProfileScreen() {
   // same field web's Profolio layout reads) — enabled: !!agentId internally,
   // so this is a no-op for buyer/owner accounts.
   const { profile: agentProfile } = useAgentProfileViewModel();
+  const { favorites } = useFavoritesViewModel();
+  const { savedSearches } = useSavedSearchesViewModel();
   const isAgent = role === 'agent' || role === 'super_admin';
+
+  // No buyer-side view-history backend exists — tracked on-device instead,
+  // same source HomeScreen's "Recent properties" section reads. Re-read on
+  // every focus so the count stays current after viewing more listings.
+  const [recentlyViewedCount, setRecentlyViewedCount] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getRecentlyViewed().then((data) => {
+        if (active) setRecentlyViewedCount(data.length);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const email = user?.email || '';
   const rawName = user?.user_metadata?.display_name as string | undefined;
@@ -76,70 +105,76 @@ export function ProfileScreen() {
     ]);
   }
 
+  function visibleItems(items: ListAction[]): ListAction[] {
+    return items.filter(
+      (action) =>
+        (!action.agentOnly || isAgent) &&
+        (!action.agencyAdminOnly || role === 'super_admin' || agentProfile?.isAgencyAdmin),
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
-            {!!email && <Text style={styles.email} numberOfLines={1}>{email}</Text>}
-            
-            {roleLabel && (
-              <LinearGradient
-                colors={theme.gradients.gold.colors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.badgeGradient}
-              >
-                <Text style={styles.badgeTextWhite}>{roleLabel}</Text>
-              </LinearGradient>
-            )}
-          </View>
+        {/* HEADER */}
+        <Image source={settingsBannerImage} style={styles.headerBanner} resizeMode="cover" />
+        <View style={styles.headerBody}>
           <View style={styles.avatar}>
             {agentProfile?.photoUrl ? (
               <Image source={{ uri: agentProfile.photoUrl }} style={styles.avatarImage} />
             ) : (
-              <Ionicons name="person-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="person-outline" size={30} color={theme.colors.primary} />
             )}
+          </View>
+          <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+          {!!email && <Text style={styles.email} numberOfLines={1}>{email}</Text>}
+          {roleLabel && (
+            <LinearGradient
+              colors={theme.gradients.gold.colors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.badgeGradient}
+            >
+              <Text style={styles.badgeTextWhite}>{roleLabel}</Text>
+            </LinearGradient>
+          )}
+        </View>
+
+        {/* STAT TILES — real counts, every role */}
+        <View style={styles.statRow}>
+          <Pressable
+            style={styles.statTile}
+            onPress={() => navigation.navigate('Favorites', { initialTab: 'favorites' })}
+          >
+            <Text style={styles.statValue}>{favorites.length}</Text>
+            <Text style={styles.statLabel}>Saved</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.statTile, styles.statTileActive]}
+            onPress={() => navigation.navigate('Favorites', { initialTab: 'saved' })}
+          >
+            <Text style={styles.statValueLight}>{savedSearches.length}</Text>
+            <Text style={styles.statLabelLight}>Searches</Text>
+          </Pressable>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{recentlyViewedCount}</Text>
+            <Text style={styles.statLabel}>Viewed</Text>
           </View>
         </View>
 
-        {/* Quick Actions Grid */}
-        <View style={styles.grid}>
-          {QUICK_ACTIONS.filter(
-            (action) =>
-              (!action.agentOnly || isAgent) &&
-              (!action.agencyAdminOnly || role === 'super_admin' || agentProfile?.isAgencyAdmin),
-          ).map((action) => (
-            <Pressable
-              key={action.label}
-              disabled={!action.route}
-              onPress={action.route ? () => navigation.navigate(action.route as any, action.params as any) : undefined}
-              style={({ pressed }) => [
-                styles.gridCard,
-                pressed && styles.gridCardPressed,
-              ]}
-            >
-              {/* Changed icon color from gray to theme.colors.primary */}
-              <Ionicons name={action.icon} size={28} color={theme.colors.primary} />
-              <Text style={styles.gridLabel}>{action.label}</Text>
-            </Pressable>
-          ))}
-          <View style={styles.gridSpacer} />
-        </View>
+        <Section title="Account" items={visibleItems(ACCOUNT_ITEMS)} navigation={navigation} />
+        <Section title="Selling" items={visibleItems(SELLING_ITEMS)} navigation={navigation} />
+        <Section title="Support" items={visibleItems(SUPPORT_ITEMS)} navigation={navigation} />
 
-        {/* Premium Promo Banner */}
+        {/* PROMO CTA — shown right before Log Out */}
         <LinearGradient
-          // Mixed Primary color with Secondary (Gold)
           colors={[theme.colors.primary, theme.gradients.gold.colors[0]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.promoGradientCard}
         >
           <CardContent style={styles.promoContent}>
-            <Ionicons name="business" size={42} color={theme.colors.bg} style={styles.promoIcon} />
+            <Ionicons name="business" size={36} color={theme.colors.bg} style={styles.promoIcon} />
             <Text style={styles.promoTextWhite}>Looking to sell or rent out your property?</Text>
             <Pressable
               style={({ pressed }) => [styles.promoButtonWhite, pressed && { opacity: 0.85 }]}
@@ -150,31 +185,10 @@ export function ProfileScreen() {
           </CardContent>
         </LinearGradient>
 
-        {/* General Settings List */}
-        <Card style={styles.listCard}>
-          <CardContent style={styles.listContent}>
-            
-            <ListRow
-              icon="chatbubble-ellipses-outline"
-              label="Contact Us"
-              onPress={() => navigation.navigate('Contact')}
-            />
-            <ListRow
-              icon="document-outline"
-              label="Terms and Privacy Policy"
-              onPress={() => navigation.navigate('Terms')}
-              isLast
-            />
-          </CardContent>
-        </Card>
-
-        {/* Account Actions List */}
+        {/* ACCOUNT ACTIONS */}
         <Card style={[styles.listCard, styles.lastListCard]}>
           <CardContent style={styles.listContent}>
-            <Pressable 
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} 
-              onPress={handleLogOut}
-            >
+            <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={handleLogOut}>
               <Ionicons name="log-out-outline" size={22} color={DESTRUCTIVE_COLOR} />
               <View style={styles.rowTextWrap}>
                 <Text style={[styles.rowLabel, styles.logOutLabel]}>Log Out</Text>
@@ -189,13 +203,42 @@ export function ProfileScreen() {
             </View>
           </CardContent>
         </Card>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 // --- Helper Components ---
+
+function Section({
+  title,
+  items,
+  navigation,
+}: {
+  title: string;
+  items: ListAction[];
+  navigation: NativeStackNavigationProp<CombinedParamList>;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Card style={styles.listCard}>
+        <CardContent style={styles.listContent}>
+          {items.map((action, i) => (
+            <ListRow
+              key={action.label}
+              icon={action.icon}
+              label={action.label}
+              onPress={() => navigation.navigate(action.route as any, action.params as any)}
+              isLast={i === items.length - 1}
+            />
+          ))}
+        </CardContent>
+      </Card>
+    </View>
+  );
+}
 
 function ListRow({
   icon,
@@ -213,13 +256,9 @@ function ListRow({
   isLast?: boolean;
 }) {
   return (
-    <Pressable 
-      style={({ pressed }) => [
-        styles.row, 
-        isLast && styles.rowLast,
-        pressed && !disabled && styles.rowPressed
-      ]} 
-      onPress={onPress} 
+    <Pressable
+      style={({ pressed }) => [styles.row, isLast && styles.rowLast, pressed && !disabled && styles.rowPressed]}
+      onPress={onPress}
       disabled={disabled || !onPress}
     >
       <Ionicons name={icon} size={22} color={theme.colors.muted} />
@@ -235,41 +274,42 @@ function ListRow({
 // --- Styles ---
 
 const styles = StyleSheet.create({
-  root: { 
-    flex: 1, 
-    backgroundColor: theme.colors.bg
+  root: { flex: 1, backgroundColor: theme.colors.bg },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+
+  headerBanner: {
+    height: 96,
+    marginHorizontal: -20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  content: { 
-    paddingHorizontal: 20, 
-    paddingTop: 12, 
-    paddingBottom: 40 
-  },
-  
-  // Header
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  headerBody: { alignItems: 'center', marginTop: -44 },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: theme.colors.bg,
+    borderWidth: 3,
+    borderColor: theme.colors.bg,
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  headerTextContainer: { 
-    flex: 1, 
-    paddingRight: 16,
     justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  name: { 
-    fontSize: 22, 
-    fontWeight: '700', 
+  avatarImage: { width: 88, height: 88 },
+  name: {
+    fontSize: 20,
+    fontWeight: '700',
     color: theme.colors.text,
     textTransform: 'capitalize',
+    marginTop: theme.spacing.sm,
   },
-  email: {
-    fontSize: 14,
-    color: theme.colors.muted,
-    marginTop: 2,
-  },
+  email: { fontSize: 13, color: theme.colors.muted, marginTop: 2 },
   badgeGradient: {
-    alignSelf: 'flex-start',
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -279,96 +319,35 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  badgeTextWhite: { 
-    fontSize: 10, 
-    fontWeight: '800', 
-    color: theme.colors.bg, 
-    letterSpacing: 1,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.bg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  avatarImage: {
-    width: 48,
-    height: 48,
-  },
+  badgeTextWhite: { fontSize: 10, fontWeight: '800', color: theme.colors.bg, letterSpacing: 1 },
 
-  // Grid
-  grid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    justifyContent: 'space-between',
-    rowGap: 16,
-    marginBottom: 12,
-  },
-  gridCard: {
-    width: '31%',
-    aspectRatio: 1,
-    backgroundColor: theme.colors.bg,
-    borderRadius: 16,
+  statRow: { flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.lg },
+  statTile: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceAlt,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    gap: 2,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
   },
-  gridCardPressed: {
-    backgroundColor: theme.colors.surface,
-  },
-  gridLabel: { 
-    fontSize: 12, 
-    fontWeight: '600', 
-    color: theme.colors.text, 
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 16,
-  },
-  gridSpacer: {
-    width: '31%',
-  },
+  statTileActive: { backgroundColor: theme.colors.primary },
+  statValue: { fontSize: 20, fontWeight: '800', color: theme.colors.text },
+  statLabel: { fontSize: 12, color: theme.colors.muted, fontWeight: '600' },
+  statValueLight: { fontSize: 20, fontWeight: '800', color: theme.colors.bg },
+  statLabelLight: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
 
-  // Premium Promo Card
-  promoGradientCard: { 
+  promoGradientCard: {
     borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#09573D', 
+    marginTop: theme.spacing.lg,
+    shadowColor: '#09573D',
     shadowOpacity: 0.25,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
-  promoContent: { 
-    alignItems: 'center', 
-    padding: 20, 
-  },
-  promoIcon: {
-    marginBottom: 12,
-  },
-  promoTextWhite: { 
-    fontSize: 17, 
-    fontWeight: '800', 
-    color: theme.colors.bg, 
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  promoContent: { alignItems: 'center', padding: 20 },
+  promoIcon: { marginBottom: 12 },
+  promoTextWhite: { fontSize: 16, fontWeight: '800', color: theme.colors.bg, textAlign: 'center', marginBottom: 16 },
   promoButtonWhite: {
     backgroundColor: theme.colors.bg,
     borderRadius: 999,
@@ -382,13 +361,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  promoButtonTextPrimary: { 
-    color: theme.colors.primary, 
-    fontWeight: '800',
-    fontSize: 15,
+  promoButtonTextPrimary: { color: theme.colors.primary, fontWeight: '800', fontSize: 15 },
+
+  section: { marginTop: theme.spacing.xl },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: theme.spacing.sm,
   },
 
-  // Lists
   listCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -398,14 +382,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 1,
-    marginBottom: 12,
   },
-  lastListCard: {
-    marginBottom: 24,
-  },
-  listContent: { 
-    padding: 0 
-  },
+  lastListCard: { marginTop: theme.spacing.xl },
+  listContent: { padding: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,40 +394,13 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.surfaceAlt,
     backgroundColor: theme.colors.bg,
   },
-  rowPressed: {
-    backgroundColor: theme.colors.surface,
-  },
-  rowLast: { 
-    borderBottomWidth: 0 
-  },
-  rowTextWrap: { 
-    flex: 1,
-    marginLeft: 16,
-  },
-  rowLabel: { 
-    fontSize: 15, 
-    fontWeight: '600', 
-    color: theme.colors.text 
-  },
-  rowValue: { 
-    fontSize: 12, 
-    color: theme.colors.primary, 
-    fontWeight: '600', 
-    marginTop: 2 
-  },
-  
-  // Specific Elements
-  logOutLabel: { 
-    color: DESTRUCTIVE_COLOR 
-  },
-  versionLabel: { 
-    fontSize: 15, 
-    fontWeight: '600', 
-    color: theme.colors.text,
-  },
-  versionValue: { 
-    fontSize: 13, 
-    color: theme.colors.muted, 
-    marginTop: 2 
-  },
+  rowPressed: { backgroundColor: theme.colors.surface },
+  rowLast: { borderBottomWidth: 0 },
+  rowTextWrap: { flex: 1, marginLeft: 16 },
+  rowLabel: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
+  rowValue: { fontSize: 12, color: theme.colors.primary, fontWeight: '600', marginTop: 2 },
+
+  logOutLabel: { color: DESTRUCTIVE_COLOR },
+  versionLabel: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
+  versionValue: { fontSize: 13, color: theme.colors.muted, marginTop: 2 },
 });

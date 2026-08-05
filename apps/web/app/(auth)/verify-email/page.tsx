@@ -28,6 +28,7 @@ export default function VerifyEmailPage() {
 
   const [code, setCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendError, setResendError] = useState('');
 
   // A fresh agent (self-service agent application OR agency registration)
   // hasn't uploaded onboarding documents yet — send them to
@@ -61,15 +62,29 @@ export default function VerifyEmailPage() {
 
   async function handleVerify(e: FormEvent) {
     e.preventDefault();
-    // No explicit redirect here — verifyOtp's onSuccess refetches
-    // isEmailVerified (see useAuthViewModel.ts), which flips the effect
-    // above and redirects once role/profile state has settled.
-    await verifyOtp.mutateAsync(code);
+    try {
+      // No explicit redirect here — verifyOtp's onSuccess refetches
+      // isEmailVerified (see useAuthViewModel.ts), which flips the effect
+      // above and redirects once role/profile state has settled.
+      await verifyOtp.mutateAsync(code);
+    } catch {
+      // verifyOtp.isError already renders the message below — this just
+      // stops the rejection from also surfacing as an unhandled-error overlay.
+    }
   }
 
   async function handleResend() {
-    await sendOtp.mutateAsync();
-    setResendCooldown(60);
+    setResendError('');
+    try {
+      await sendOtp.mutateAsync();
+      setResendCooldown(60);
+    } catch (err: any) {
+      // Same class of bug the signup page had: an unguarded mutateAsync call
+      // whose rejection was never caught — a real send failure (e.g. SMTP
+      // misconfigured/down, surfaced as a 503) crashed the page instead of
+      // showing a normal error.
+      setResendError(err?.response?.data?.message || 'Could not send the code — please try again in a moment.');
+    }
   }
 
   return (
@@ -152,6 +167,8 @@ export default function VerifyEmailPage() {
                 </span>
               )}
             </Button>
+
+            {!!resendError && <p className="text-center text-sm text-destructive">{resendError}</p>}
 
             <button
               type="button"

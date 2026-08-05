@@ -40,9 +40,9 @@ export class VerificationRepository {
     action: 'approve' | 'reject' | 'request_info',
     note?: string,
   ) {
-    // Hard gate — real business requirement: a listing can't be verified
-    // without its required documents (ID card front/back, ownership proof,
-    // last utility bill) already uploaded.
+    // Hard gate — real business requirement: an individual owner's listing
+    // can't be verified without ownership proof/utility bill uploaded.
+    // Agent-posted listings are exempt (see getDocumentCompleteness).
     if (action === 'approve') {
       await this.listings.assertDocumentsComplete(listingId);
     }

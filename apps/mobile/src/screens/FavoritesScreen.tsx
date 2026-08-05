@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,16 @@ const DESTRUCTIVE_COLOR = theme.colors.danger;
 export function FavoritesScreen() {
   const route = useRoute<RouteProp<BottomTabParamList, 'Favorites'>>();
   const [tab, setTab] = useState<TabId>(route.params?.initialTab ?? 'favorites');
+
+  // This screen lives in the bottom tab bar, so it's mounted once and kept
+  // alive — re-navigating to it (e.g. from Profile's "Saved Searches" row)
+  // only updates route.params, it doesn't remount the component, so the
+  // useState initializer above never re-runs on its own. Without this,
+  // tapping "Saved Searches" after already having opened "My Favourites"
+  // once left the tab stuck on Favorites.
+  useEffect(() => {
+    if (route.params?.initialTab) setTab(route.params.initialTab);
+  }, [route.params?.initialTab]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>

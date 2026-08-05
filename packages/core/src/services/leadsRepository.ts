@@ -7,6 +7,10 @@ export interface LeadListFilters {
   // Super Admin-only — filters the otherwise-unscoped cross-agent result set
   // GET /crm/leads returns for super_admin down to one agent at a time.
   agentId?: string;
+  // Agency Admin-only (Document Verification Phase 3) — widens the result
+  // set to every associate's leads in the caller's agency. Ignored for a
+  // non-admin agent or super_admin.
+  scope?: 'own' | 'agency';
 }
 
 // Mirrors services/api/src/leads/dto/create-lead.dto.ts — the public
@@ -20,6 +24,9 @@ export interface CreateLeadInput {
   source: LeadSource;
   inquirerType?: LeadInquirerType;
   wantsSimilarAlerts?: boolean;
+  // Set for the "Book a Visit" action (vs. plain "Send Enquiry") — also
+  // creates a linked 'requested' appointment on the agent's calendar.
+  isVisitRequest?: boolean;
 }
 
 export const leadsRepository = {
