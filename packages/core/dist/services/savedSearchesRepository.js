@@ -11,13 +11,18 @@ function mapRow(row) {
         createdAt: row.created_at,
     };
 }
-// Self-scoped via the caller's own JWT (no id param), any authenticated
-// role. create() intentionally not wired here — no "save this search" entry
-// point exists yet on mobile.
+// Self-scoped via the caller's own JWT (no id param), any authenticated role.
 export const savedSearchesRepository = {
     list: async () => {
         const { data } = await httpClient.get('/saved-searches');
         return data.map(mapRow);
+    },
+    // filters is whatever ListingSearchFilters shape the caller was searching
+    // with — stored as jsonb server-side, replayed verbatim on future alert
+    // matching (see services/api/src/saved-searches/dto/create-saved-search.dto.ts).
+    create: async (input) => {
+        const { data } = await httpClient.post('/saved-searches', input);
+        return mapRow(data);
     },
     remove: async (id) => {
         await httpClient.delete(`/saved-searches/${id}`);

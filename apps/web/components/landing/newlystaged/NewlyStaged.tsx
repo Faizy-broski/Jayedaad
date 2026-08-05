@@ -47,7 +47,7 @@ export function NewlyStaged({ properties }: NewlyStagedProps) {
   }, [emblaApi, onSelect]);
 
   return (
-    <section className="py-16 sm:py-16">
+    <section className="py-8 sm:pb-12">
       <div className="mx-auto max-w-6xl px-4">
         <div className="flex items-start justify-between gap-4">
           <Reveal>

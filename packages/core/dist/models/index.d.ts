@@ -13,7 +13,7 @@ export interface PropertyTypeCategorySummary {
     slug: string;
     label: string;
 }
-export type AmenityCategory = 'main_features' | 'rooms' | 'business_communication' | 'community_features' | 'healthcare_recreation' | 'nearby_locations' | 'other_facilities';
+export type AmenityCategory = 'main_features' | 'rooms' | 'business_communication' | 'community_features' | 'healthcare_recreation' | 'nearby_locations' | 'other_facilities' | 'plot_features';
 export type ListingBoostTier = 'basic' | 'premium' | 'hot' | 'super_hot';
 export interface PropertyType {
     id: string;
@@ -477,7 +477,8 @@ export interface ListingSearchFiltersJson {
     maxAreaValue?: number;
     areaUnit?: AreaUnit;
 }
-export type ProjectStatus = 'planned' | 'under_construction' | 'ready';
+export type ProjectStatus = 'planned' | 'under_construction' | 'ready' | 'draft';
+export type ProjectVerificationStatus = 'pending' | 'verified' | 'rejected' | 'draft';
 export interface Developer {
     id: string;
     name: string;
@@ -553,9 +554,16 @@ export interface Project {
     status: ProjectStatus;
     possessionDate: string | null;
     coverImageUrl: string | null;
-    unitTypes: ProjectUnitType[];
-    paymentPlans: ProjectPaymentPlan[];
-    amenities: AmenitySummary[];
+    galleryImageUrls: string[];
+    floorPlanUrls: string[];
+    videoUrl: string | null;
+    brochureUrl: string | null;
+    verificationStatus: ProjectVerificationStatus;
+    createdBy: string | null;
+    unitTypeCount: number;
+    unitTypes?: ProjectUnitType[];
+    paymentPlans?: ProjectPaymentPlan[];
+    amenities?: AmenitySummary[];
     priceRange: ProjectPriceRange | null;
 }
 export interface ProjectSearchFilters {
@@ -617,10 +625,37 @@ export interface CreateProjectInput {
     status?: ProjectStatus;
     possessionDate?: string;
     coverImageUrl?: string;
+    galleryImageUrls?: string[];
+    floorPlanUrls?: string[];
+    videoUrl?: string;
+    brochureUrl?: string;
     unitTypes?: CreateProjectUnitTypeInput[];
     paymentPlans?: CreateProjectPaymentPlanInput[];
     amenitySlugs?: string[];
 }
+export interface SetProjectVerificationStatusInput {
+    status: 'verified' | 'rejected';
+}
+export interface UpdateProjectInput {
+    name?: string;
+    slug?: string;
+    developerId?: string;
+    description?: string;
+    city?: string;
+    area?: string;
+    status?: ProjectStatus;
+    possessionDate?: string;
+    coverImageUrl?: string;
+    galleryImageUrls?: string[];
+    floorPlanUrls?: string[];
+    videoUrl?: string;
+    brochureUrl?: string;
+    unitTypes?: CreateProjectUnitTypeInput[];
+    paymentPlans?: CreateProjectPaymentPlanInput[];
+    amenitySlugs?: string[];
+}
+export declare function canEditProject(project: Project, role: Role | undefined, userId: string | undefined): boolean;
+export declare function canDeleteProject(project: Project, role: Role | undefined, userId: string | undefined): boolean;
 export type NotificationType = 'price_drop' | 'new_match' | 'inquiry_reply' | 'verification_status' | 'lead_assigned' | 'reminder';
 export interface Notification {
     id: string;

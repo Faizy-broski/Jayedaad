@@ -142,3 +142,67 @@ export interface FAQ {
   question: string;
   answer: string;
 }
+
+/**
+ * Mirrors the fields the agent-portal Projects dashboard (@jayedaad/core's
+ * `Project`) exposes — trimmed to what the public /projects/[slug] page
+ * renders. Kept as a local, sample-data-only type instead of importing the
+ * real `Project` since this page isn't wired to the API yet.
+ */
+export type ProjectStatusOption = 'planned' | 'under_construction' | 'ready' | 'draft';
+export type ProjectVerificationOption = 'pending' | 'verified' | 'rejected' | 'draft';
+
+export interface ProjectDeveloper {
+  id: string;
+  name: string;
+  logoUrl: string;
+  description: string;
+  phone: string;
+  whatsapp: string;
+  city: string;
+}
+
+export interface ProjectUnitType {
+  id: string;
+  label: string;
+  propertyType: string;
+  areaValueMin: number;
+  areaValueMax: number;
+  areaUnit: string;
+  priceMin: number;
+  priceMax: number;
+  bedrooms: number;
+  bathrooms: number;
+}
+
+export interface ProjectPaymentPlan {
+  id: string;
+  label: string;
+  bookingPercent: number;
+  installmentCount: number;
+  installmentFrequency: string;
+  balloonPaymentCount: number;
+  description: string;
+}
+
+export interface DisplayProject {
+  id: string;
+  name: string;
+  slug: string;
+  developer: ProjectDeveloper;
+  description: string;
+  city: string;
+  area: string;
+  status: ProjectStatusOption;
+  possessionDate: string;
+  coverImageUrl: string;
+  galleryImageUrls: string[];
+  floorPlanUrls: string[];
+  videoUrl: string | null;
+  brochureUrl: string | null;
+  verificationStatus: ProjectVerificationOption;
+  unitTypes: ProjectUnitType[];
+  paymentPlans: ProjectPaymentPlan[];
+  amenities: string[];
+  priceRange: { min: number; max: number };
+}

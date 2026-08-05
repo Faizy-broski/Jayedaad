@@ -9,7 +9,7 @@ const STATS = [
 
 export function OurStory() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-20">
 
       <div className="mt-10 grid grid-cols-1 gap-10 sm:grid-cols-12">
       <Reveal className="sm:col-span-4">

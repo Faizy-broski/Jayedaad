@@ -6,6 +6,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { Toaster } from 'react-hot-toast';
 import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken } from '@jayedaad/core';
 import { getClientEnv } from '@/lib/env';
+import { TopProgressBar } from '@/components/TopProgressBar';
 
 // Guarded to the browser only: Next.js also executes 'use client' modules
 // during server-side prerendering, where there's no real Supabase session to
@@ -35,6 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
   return (
     <QueryClientProvider client={queryClient}>
+      <TopProgressBar />
       {children}
       <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
     </QueryClientProvider>

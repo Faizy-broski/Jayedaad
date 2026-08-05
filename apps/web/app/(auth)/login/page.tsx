@@ -45,19 +45,29 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  // Covers the whole submit flow, not just signIn.isPending — without this,
+  // the button flips back to its idle "Sign in" label the instant the auth
+  // call resolves, then goes dead again for the refetchEmailVerified() +
+  // router.push() beat that follows, reading as an unresponsive click.
+  const [redirecting, setRedirecting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const { user } = await signIn.mutateAsync({ email, password });
-    makeSessionOnlyIfNotRemembered(rememberMe);
-    const { data: emailVerified } = await refetchEmailVerified();
-    if (!emailVerified) {
-      router.push('/verify-email');
-      return;
+    setRedirecting(true);
+    try {
+      const { user } = await signIn.mutateAsync({ email, password });
+      makeSessionOnlyIfNotRemembered(rememberMe);
+      const { data: emailVerified } = await refetchEmailVerified();
+      if (!emailVerified) {
+        router.push('/verify-email');
+        return;
+      }
+      const redirectTo = searchParams.get('redirectTo');
+      const role = user?.app_metadata?.role as string | undefined;
+      router.push(redirectTo || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/');
+    } catch {
+      setRedirecting(false);
     }
-    const redirectTo = searchParams.get('redirectTo');
-    const role = user?.app_metadata?.role as string | undefined;
-    router.push(redirectTo || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/');
   }
 
   function handleGoogle() {
@@ -208,11 +218,14 @@ function LoginForm() {
 
             <Button
               type="submit"
-              disabled={signIn.isPending}
+              disabled={redirecting}
               className="bg-heading-gradient h-12 w-full rounded-full text-base font-semibold text-primary-foreground hover:opacity-90"
             >
-              {signIn.isPending ? (
-                'Signing in…'
+              {redirecting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  {signIn.isPending ? 'Signing in…' : 'Redirecting…'}
+                </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
                   Sign in <ArrowRight className="h-4 w-4" />
@@ -230,17 +243,22 @@ function LoginForm() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              disabled={signInWithGoogle.isPending}
+              disabled={signInWithGoogle.isPending || redirecting}
               onClick={handleGoogle}
               className="flex h-12 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
             >
-              <GoogleIcon className="h-4 w-4" />
+              {signInWithGoogle.isPending ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-foreground" />
+              ) : (
+                <GoogleIcon className="h-4 w-4" />
+              )}
               Google
             </button>
             <button
               type="button"
+              disabled={redirecting}
               onClick={handleApple}
-              className="flex h-12 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent"
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
             >
               <AppleIcon className="h-4 w-4" />
               Apple

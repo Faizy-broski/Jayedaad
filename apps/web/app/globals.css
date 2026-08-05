@@ -202,4 +202,15 @@
   .body-text-sm {
     @apply text-xs leading-relaxed sm:text-sm;
   }
+
+  /* Keeps scroll behavior but hides the scrollbar chrome — used on the
+     Modal body so long forms (e.g. Agency create/edit + document upload)
+     scroll without an ugly bar interrupting the rounded panel. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

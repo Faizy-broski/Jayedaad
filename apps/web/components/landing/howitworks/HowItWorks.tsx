@@ -1,17 +1,19 @@
-import Image from 'next/image';
-import { HOW_IT_WORKS_STEPS } from '@/data/howItWorks';
-import { StepCard } from './StepCard';
-import { Reveal } from '@/components/Reveal';
+import Image from "next/image";
+import { HOW_IT_WORKS_STEPS } from "@/data/howItWorks";
+import { StepCard } from "./StepCard";
+import { Reveal } from "@/components/Reveal";
 
 // Card positions are hand-placed (not derived from a grid) since each one
 // anchors to a specific spot around the house photo, matching the reference
 // layout exactly. Pull the step by id rather than looping, since each
 // position needs different inset/translate values.
-const stepById = Object.fromEntries(HOW_IT_WORKS_STEPS.map((step) => [step.id, step]));
+const stepById = Object.fromEntries(
+  HOW_IT_WORKS_STEPS.map((step) => [step.id, step]),
+);
 
 export function HowItWorks() {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-24">
+    <section className="relative overflow-hidden py-8 sm:py-12">
       {/* Background layer: faint "subtract" shape centered, plus the wordmark
           logo mirrored large and faint on both far edges. */}
       <div className="pointer-events-none absolute inset-0 lg:flex hidden items-center justify-between">
@@ -43,8 +45,12 @@ export function HowItWorks() {
 
       <div className="relative z-10 mx-auto max-w-6xl px-4">
         <Reveal>
-          <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">How It Works</span>
-          <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Four steps to your keys</h2>
+          <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">
+            How It Works
+          </span>
+          <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">
+            Four steps to your keys
+          </h2>
         </Reveal>
 
         {/* Desktop / tablet: house centered with 4 cards + connecting arc
@@ -52,7 +58,6 @@ export function HowItWorks() {
             simple stacked list since absolute anchoring around a shrinking
             image breaks down at narrow widths. */}
         <div className="relative mt-14 hidden lg:block">
-
           <div className="relative mx-auto aspect-[4/3] w-full max-w-xl">
             <Image
               src="/images/how-it-works-house.png"
@@ -87,7 +92,7 @@ export function HowItWorks() {
 
         {/* Mobile / tablet fallback: house up top, steps stacked in order below. */}
         <div className="mt-10 lg:hidden">
-          <div className="relative mx-auto aspect-[4/3] w-full max-w-sm">
+          <div className="relative mx-auto lg:aspect-[4/3] w-full max-w-sm">
             <Image
               src="/images/how-it-works-house.png"
               alt="Modern two-storey house"
@@ -97,9 +102,9 @@ export function HowItWorks() {
             />
           </div>
 
-          <div className="mt-8 grid grid-cols-1 place-items-center gap-4 sm:grid-cols-2">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 sm:grid-cols-2 lg:grid-cols-4">
             {HOW_IT_WORKS_STEPS.map((step, index) => (
-              <Reveal key={step.id} delay={(index % 2) * 0.08}>
+              <Reveal key={step.number} delay={index * 0.08}>
                 <StepCard step={step} />
               </Reveal>
             ))}
