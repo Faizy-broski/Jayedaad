@@ -4,7 +4,7 @@ import { OurStory } from "@/components/about-us/OurStory";
 import { OurValues } from "@/components/about-us/OurValues";
 import { OurProcess } from "@/components/about-us/OurProcess";
 import { TrustBanner } from "@/components/shared/TrustBanner";
-import { FeaturedLocations } from "@/components/about-us/FeaturedLocations";
+import { FeaturedLocationsSection } from "@/components/about-us/FeaturedLocationsSection";
 import { RealStories } from "@/components/landing/testimonials/RealStories";
 import { TESTIMONIALS } from "@/data/testimonials";
 import React from "react";
@@ -30,7 +30,7 @@ verified listings, trusted professionals and intelligent technology."
           <Image src="/images/about-bg.png" alt="" fill sizes="100vw" className="object-contain object-center" />
         </div>
 
-        <FeaturedLocations embedded />
+        <FeaturedLocationsSection embedded />
         <RealStories testimonials={TESTIMONIALS} embedded />
       </section>
     </>

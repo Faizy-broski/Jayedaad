@@ -1,6 +1,6 @@
+import { Suspense } from 'react';
 import { SearchHero } from '@/components/shared/SearchHero';
-import { ListingsBrowser } from '@/components/listings/ListingsBrowser';
-import { LISTINGS } from '@/data/listings';
+import { ListingsBrowserSection } from '@/components/listings/ListingsBrowserSection';
 
 export default function ListingsPage() {
   return (
@@ -12,7 +12,12 @@ export default function ListingsPage() {
         defaultPurpose="buy"
       />
 
-      <ListingsBrowser listings={LISTINGS} />
+      {/* ListingsBrowserSection reads ?propertyTypeCategory=/?city= via
+          useSearchParams(), which requires a Suspense boundary in the app
+          router. */}
+      <Suspense fallback={<div className="py-20 text-center text-sm text-slate-500">Loading listings…</div>}>
+        <ListingsBrowserSection />
+      </Suspense>
     </main>
   );
 }

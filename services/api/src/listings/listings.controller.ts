@@ -120,6 +120,16 @@ export class ListingsController {
     return this.listings.trackEngagement(id, body);
   }
 
+  // Sitewide "most visited" listings, ranked by real 'view' events off
+  // listing_engagement_events. Declared before the bare `:id` route below
+  // for the same reason as 'mine'/'mine/status-counts' — Nest/Express match
+  // routes in declaration order, and `:id` would otherwise swallow this.
+  @Public()
+  @Get('trending')
+  findMostViewed(@Query('limit') limit?: string) {
+    return this.listings.findMostViewed(limit ? Number(limit) : undefined);
+  }
+
   // Owner/seller dashboard ("manage submissions, track verification status"
   // [Spec §8]) AND the agent Profolio "My Listings" page — role-aware:
   // owners see what they submitted, agents see what they're assigned to,

@@ -1,12 +1,13 @@
 import { CityCard } from '@/components/landing/city/CityCard';
-import { CITIES } from '@/data/cities';
 import { Reveal } from '@/components/Reveal';
+import type { City } from '@/lib/types';
 
 interface FeaturedLocationsProps {
+  cities: City[];
   embedded?: boolean;
 }
 
-export function FeaturedLocations({ embedded = false }: FeaturedLocationsProps) {
+export function FeaturedLocations({ cities, embedded = false }: FeaturedLocationsProps) {
   const content = (
     <>
       <Reveal>
@@ -19,7 +20,7 @@ export function FeaturedLocations({ embedded = false }: FeaturedLocationsProps) 
       </Reveal>
 
       <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {CITIES.map((city, index) => (
+        {cities.map((city, index) => (
           <Reveal key={city.id} delay={(index % 3) * 0.08}>
             <CityCard city={city} />
           </Reveal>

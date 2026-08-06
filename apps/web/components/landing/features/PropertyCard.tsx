@@ -8,6 +8,7 @@ import {
   Heart,
   ArrowRight,
   MapPin,
+  Eye,
 } from "lucide-react";
 import type { Property } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export function PropertyCard({ property }: { property: Property }) {
     beds,
     baths,
     areaSqft,
+    viewCount,
   } = property;
 
   return (
@@ -55,6 +57,12 @@ export function PropertyCard({ property }: { property: Property }) {
           <span className="rounded-full bg-heading-gradient px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
             {listingType === "sale" ? "For Sale" : "For Rent"}
           </span>
+          {typeof viewCount === "number" && (
+            <span className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
+              <Eye className="h-3 w-3 text-primary" />
+              {viewCount.toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
 

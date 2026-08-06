@@ -13,20 +13,22 @@ export interface Property {
   beds: number;
   baths: number;
   areaSqft: number;
+  /** Only set for the homepage's Most Visited carousel (GET /listings/trending). */
+  viewCount?: number;
 }
 
-export type PropertyTypeOption = 'Villa' | 'Apartment' | 'Penthouse' | 'Townhouse' | 'House' | 'Bungalow';
-
-export type AmenityOption = 'Swimming Pool' | 'Parking' | 'Garden' | 'Gym' | 'Security' | 'Elevator';
-
 export interface ListingProperty extends Property {
-  propertyType: PropertyTypeOption;
+  /** Real property_types.label (e.g. "Flat/Apartment") — Super Admin-managed, not a fixed enum. */
+  propertyType: string;
+  propertyTypeSlug: string;
+  /** Real property_type_categories.slug ("residential" | "plot" | "commercial") — used to filter by category. */
+  propertyTypeCategorySlug: string;
   /** Numeric PKR value backing `price`, used for range filtering/sorting. */
   priceValue: number;
   furnished: boolean;
-  newProject: boolean;
   readyToMove: boolean;
-  amenities: AmenityOption[];
+  /** Real amenities.label values — Super Admin-managed, not a fixed enum. */
+  amenities: string[];
   lat: number;
   lng: number;
   /** Everything below is only used by the /listings/[slug] detail page. */
@@ -205,4 +207,25 @@ export interface DisplayProject {
   paymentPlans: ProjectPaymentPlan[];
   amenities: string[];
   priceRange: { min: number; max: number };
+}
+
+/**
+ * What a project card needs on a *list* (browse grid, similar projects) —
+ * deliberately lighter than DisplayProject: the real GET /projects search
+ * endpoint only returns unitTypeCount (a number) and a nullable priceRange
+ * on list rows, not the full unitTypes/paymentPlans/amenities arrays (those
+ * are detail-only). Keeping this separate avoids either N+1-fetching every
+ * card's full detail or faking arrays just to read `.length`.
+ */
+export interface ProjectCardData {
+  id: string;
+  slug: string;
+  name: string;
+  coverImageUrl: string;
+  city: string;
+  area: string;
+  status: ProjectStatusOption;
+  verificationStatus: ProjectVerificationOption;
+  unitTypeCount: number;
+  priceRangeMin: number;
 }

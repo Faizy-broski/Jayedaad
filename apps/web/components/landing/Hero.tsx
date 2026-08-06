@@ -16,7 +16,7 @@ type Purpose = "buy" | "rent" | "commercial";
 const PURPOSE_TABS: { label: string; value: Purpose }[] = [
   { label: "Buy", value: "buy" },
   { label: "Rent", value: "rent" },
-  { label: "Commercial", value: "commercial" },
+  // { label: "Commercial", value: "commercial" },
 ];
 
 const BUDGET_OPTIONS = [

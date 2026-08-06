@@ -5,7 +5,7 @@ import { Reveal } from '@/components/Reveal';
 
 export function AboutSection() {
   return (
-    <section className="relative overflow-hidden py-14 sm:py-20 lg:py-28">
+    <section className="relative overflow-hidden py-14 sm:py-20 lg:py-8">
 
       <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-full max-w-6xl sm:block">
         <Image

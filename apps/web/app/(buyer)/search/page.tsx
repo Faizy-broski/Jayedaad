@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useQueries } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react';
 import {
   AreaUnit,
   FurnishingStatus,
   Listing,
   ListingPurpose,
+  ListingSearchFilters,
   PAKISTAN_CITIES,
   formatPrice,
   listingsRepository,
@@ -100,14 +103,27 @@ const fieldClasses =
 // Keyword, More Options (furnishing/video, folded in since Zameen's own
 // "More Options" is itself an expandable extra-filters panel).
 export default function SearchPage() {
+  // useSearchParams() requires a Suspense boundary in the app router, or
+  // the build fails — the homepage's Browse by Category / Where We Live
+  // cards link here with ?propertyTypeCategory=/?city=, so the initial
+  // filters have to come from the URL, not just local state.
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-6xl px-4 py-12">Loading…</main>}>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
+  const searchParams = useSearchParams();
   const { propertyTypes } = useTaxonomyViewModel();
   const { preferences } = usePreferencesViewModel();
 
   const [purpose, setPurpose] = useState<ListingPurpose>('sale');
-  const [city, setCity] = useState('');
+  const [city, setCity] = useState(() => searchParams.get('city') ?? '');
   const [area, setArea] = useState('');
-  const [categorySlug, setCategorySlug] = useState('');
-  const [propertyTypeSlug, setPropertyTypeSlug] = useState('');
+  const [categorySlug, setCategorySlug] = useState(() => searchParams.get('propertyTypeCategory') ?? '');
+  const [propertyTypeSlug, setPropertyTypeSlug] = useState(() => searchParams.get('propertyTypeSlug') ?? '');
   const [minAreaValue, setMinAreaValue] = useState('');
   const [maxAreaValue, setMaxAreaValue] = useState('');
   const [areaUnit, setAreaUnit] = useState<AreaUnit>('marla');
@@ -128,10 +144,9 @@ export default function SearchPage() {
   }, []);
   const typesInSelectedCategory = categorySlug ? propertyTypes.filter((t) => t.category?.slug === categorySlug) : propertyTypes;
 
-  const { listings, isLoading } = useListingSearchViewModel({
+  const baseFilters: Omit<ListingSearchFilters, 'propertyTypeSlug'> = {
     city: city || undefined,
     area: area || undefined,
-    propertyTypeSlug: propertyTypeSlug || undefined,
     purpose,
     bedrooms: bedrooms ? Number(bedrooms.replace('+', '')) : undefined,
     minBathrooms: minBathrooms ? Number(minBathrooms.replace('+', '')) : undefined,
@@ -143,7 +158,33 @@ export default function SearchPage() {
     keyword: keyword || undefined,
     furnishingStatus: furnishingStatus || undefined,
     hasVideo: hasVideo || undefined,
+  };
+
+  const singleTypeResult = useListingSearchViewModel({
+    ...baseFilters,
+    propertyTypeSlug: propertyTypeSlug || undefined,
   });
+
+  // A category alone (e.g. arriving from the homepage's Browse by Category
+  // cards) has no single propertyTypeSlug to filter by — GET /listings only
+  // accepts one. So this fans out one request per real property type under
+  // the selected category and merges the pages client-side, instead of
+  // silently ignoring the category and showing everything.
+  const categoryTypeSlugs = categorySlug && !propertyTypeSlug ? typesInSelectedCategory.map((t) => t.slug) : [];
+  const categoryQueries = useQueries({
+    queries: categoryTypeSlugs.map((slug) => ({
+      queryKey: ['listings', 'public', 'category', slug, baseFilters],
+      queryFn: () => listingsRepository.searchPublic({ ...baseFilters, propertyTypeSlug: slug, pageSize: 50 }),
+    })),
+  });
+
+  const isCategoryMode = categoryTypeSlugs.length > 0;
+  const listings = isCategoryMode
+    ? categoryQueries
+        .flatMap((q) => q.data?.items ?? [])
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : singleTypeResult.listings;
+  const isLoading = isCategoryMode ? categoryQueries.some((q) => q.isLoading) : singleTypeResult.isLoading;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
