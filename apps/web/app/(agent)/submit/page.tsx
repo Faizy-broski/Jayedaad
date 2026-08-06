@@ -13,12 +13,11 @@ import {
   CreateListingInput,
   FurnishingStatus,
   getMaxPhoneDigits,
+  getMissingMediaCategories,
   getRequiredMediaCategories,
-  ListingDocumentType,
   ListingPurpose,
   PAKISTAN_CITIES,
   listingsRepository,
-  useAgentProfileViewModel,
   useAuthViewModel,
   useListingSubmissionViewModel,
   useOwnerVerificationViewModel,
@@ -96,19 +95,6 @@ const BATHROOM_OPTIONS = ['1', '2', '3', '4', '5', '6+'];
 const SCROLLBAR_HIDE =
   '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
-// overflow-x-auto alone only responds to horizontal drag/trackpad-shift —
-// a plain vertical mouse wheel does nothing over these strips (no visible
-// scrollbar either, since SCROLLBAR_HIDE removes that affordance too), so
-// there was no way to reach hidden tabs with a mouse. Converts vertical
-// wheel delta into horizontal scroll, same trick used on most horizontal
-// tab/pill strips. Safe to omit preventDefault: neither strip this is
-// attached to has any vertical overflow of its own, so there's nothing
-// for the page to also scroll at the same time.
-function scrollHorizontally(e: React.WheelEvent<HTMLDivElement>) {
-  if (e.deltaY === 0) return;
-  e.currentTarget.scrollLeft += e.deltaY;
-}
-
 interface MediaItem {
   id: string;
   previewUrl: string;
@@ -149,18 +135,10 @@ const PROPERTY_TYPE_ICONS: Record<string, LucideIcon> = {
   other: MoreHorizontal,
 };
 
-// Wizard shell — mirrors the reference's step-by-step "List a property"
-// flow. Every step maps 1:1 onto the same form/state fields the single-page
+// Wizard shell — mirrors the reference's 9-step "List a property" flow.
+// Every step maps 1:1 onto the same form/state fields the single-page
 // version used; nothing here changes what data is collected or how it's
 // submitted, only how it's grouped and presented.
-//
-// 'documents' (step 7) is a real, always-present step — not a separate
-// post-submit redirect — so ownership proof/utility bill are visibly part
-// of "the steps" for every listing, not a surprise screen afterward. It
-// renders differently per role (see step === 6 below): required and
-// blocking for an individual owner and an independent agent (no agency),
-// a pass-through no-op for an agency-affiliated agent (their agency's own
-// onboarding docs cover them).
 const STEPS = [
   { key: 'purpose', label: 'Purpose', question: 'What are you listing today?' },
   { key: 'basics', label: 'Basics', question: 'Basics' },
@@ -168,13 +146,10 @@ const STEPS = [
   { key: 'amenities', label: 'Amenities', question: "What's included?" },
   { key: 'media', label: 'Media', question: 'Upload media' },
   { key: 'pricing', label: 'Pricing', question: 'Pricing' },
-  { key: 'documents', label: 'Documents', question: 'Ownership documents' },
   { key: 'agent', label: 'Agent', question: 'Agent information' },
   { key: 'preview', label: 'Preview', question: 'Preview your listing' },
   { key: 'publish', label: 'Publish', question: 'Ready to go live?' },
 ] as const;
-
-const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownership_proof', 'utility_bill'];
 
 // Owner/agent listing submission — the write side of the Manual Verification
 // vertical slice [Spec §7]. Every field here maps 1:1 to CreateListingDto
@@ -187,15 +162,6 @@ export default function SubmitListingPage() {
   const { user, role } = useAuthViewModel();
   const { propertyTypes, isLoading: propertyTypesLoading } = useTaxonomyViewModel();
   const { submit, saveDraft, update: updateMutation } = useListingSubmissionViewModel();
-  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
-  const { profile: agentProfile } = useAgentProfileViewModel();
-  // Ownership proof/utility bill exemption only extends to an
-  // AGENCY-affiliated agent (the agency's own onboarding verification
-  // covers its staff) — an independent agent (no agency) isn't vetted by
-  // anyone else, so they're required to upload the same as an owner.
-  // Mirrors the identical agency_id distinction the server now makes in
-  // getDocumentCompleteness.
-  const isIndependentAgent = role === 'agent' && !agentProfile?.agency;
   // Individual owners need a one-time CNIC+selfie identity check before
   // their first listing — agents are exempt (their own agency-level
   // onboarding-document flow covers them instead). Document Verification
@@ -284,24 +250,6 @@ export default function SubmitListingPage() {
   const [activeAmenityTab, setActiveAmenityTab] = useState<string | undefined>(undefined);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [coverId, setCoverId] = useState<string | undefined>(undefined);
-
-  // Ownership proof/utility bill — deferred-upload pattern (same as blog
-  // cover images and agency onboarding docs elsewhere this session): a
-  // brand-new listing has no id yet, so a picked file is held here and only
-  // actually uploaded once handleSubmit/handleSaveDraft has a real id.
-  // uploadedDocTypes tracks what's already on the server for an existing
-  // (editId) listing, fetched below.
-  const [documentFiles, setDocumentFiles] = useState<Partial<Record<ListingDocumentType, File>>>({});
-  const [uploadedDocTypes, setUploadedDocTypes] = useState<Set<ListingDocumentType>>(new Set());
-  const [isUploadingDoc, setIsUploadingDoc] = useState<ListingDocumentType | null>(null);
-
-  useEffect(() => {
-    if (!editId) return;
-    listingsRepository
-      .listDocuments(editId)
-      .then((docs) => setUploadedDocTypes(new Set(docs.map((d) => d.documentType))))
-      .catch(() => undefined);
-  }, [editId]);
 
   // Prefills every field from the fetched listing exactly once — a Listing's
   // fields map 1:1 onto this form's state (propertyType.id -> propertyTypeId,
@@ -393,13 +341,15 @@ export default function SubmitListingPage() {
   }, []);
   const activeCategoryTab = selectedCategoryTab ?? categories[0]?.slug;
   const typesInActiveCategory = propertyTypes.filter((type) => type.category?.slug === activeCategoryTab);
-  // Airbnb-style categorized media guidance — derived from bedrooms/
-  // bathrooms already collected in the Details step, not property type
-  // (property_type_categories is admin-configurable data, not a fixed
-  // enum). No longer a hard requirement (product decision): the per-room
-  // minimums still render as counts/checkmarks in the Media step, they
-  // just never block Continue or the final submit.
+  // Airbnb-style categorized mandatory media (Document Verification Phase
+  // 4) — derived from bedrooms/bathrooms already collected in the Details
+  // step, not property type (property_type_categories is admin-configurable
+  // data, not a fixed enum).
   const requiredMediaCategories = getRequiredMediaCategories(form.bedrooms, form.bathrooms);
+  const mediaCategoryCounts = mediaItems.reduce<Record<string, number>>((acc, m) => {
+    if (m.status === 'done' && m.category) acc[m.category] = (acc[m.category] ?? 0) + 1;
+    return acc;
+  }, {});
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -514,17 +464,6 @@ export default function SubmitListingPage() {
     };
   }
 
-  // Uploads whatever was picked in the Documents step (deferred until now
-  // since a brand-new listing has no id beforehand) — a no-op loop when
-  // documentFiles is empty (e.g. an agent, or a draft saved before reaching
-  // that step).
-  async function uploadPendingDocuments(listingId: string) {
-    const entries = Object.entries(documentFiles) as [ListingDocumentType, File][];
-    for (const [documentType, file] of entries) {
-      await listingsRepository.uploadDocument(listingId, documentType, file);
-    }
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const input = buildInput();
@@ -532,14 +471,19 @@ export default function SubmitListingPage() {
     try {
       if (editId) {
         await updateMutation.mutateAsync({ listingId: editId, input });
-        await uploadPendingDocuments(editId);
         toast.success('Listing updated.');
+        router.push('/property-management');
       } else {
         const created = await submit.mutateAsync(input);
-        await uploadPendingDocuments(created.id);
         toast.success('Listing submitted for verification.');
+        // Ownership proof/utility bill are only required for individual
+        // owners posting without an agent — agents are exempt.
+        if (role === 'owner') {
+          router.push(`/submit/documents?listingId=${created.id}`);
+        } else {
+          router.push('/property-management');
+        }
       }
-      router.push('/property-management');
     } catch {
       toast.error('Something went wrong — please try again.');
     }
@@ -549,9 +493,12 @@ export default function SubmitListingPage() {
     const input = buildInput();
     try {
       const created = await saveDraft.mutateAsync(input);
-      await uploadPendingDocuments(created.id);
       toast.success('Draft saved.');
-      router.push('/property-management');
+      if (role === 'owner') {
+        router.push(`/submit/documents?listingId=${created.id}`);
+      } else {
+        router.push('/property-management');
+      }
     } catch {
       toast.error('Something went wrong — please try again.');
     }
@@ -569,24 +516,12 @@ export default function SubmitListingPage() {
   // just checked per-step instead of all at once. This now also drives the
   // Continue button's disabled state and which step pills are unlocked, not
   // just the toast shown on a blocked click.
-  // Required for owners AND independent agents (no agency) — only an
-  // agency-affiliated agent is exempt, mirrors the server's
-  // getDocumentCompleteness exemption.
-  const documentsRequired = role === 'owner' || isIndependentAgent;
-  const documentsComplete =
-    !documentsRequired ||
-    REQUIRED_LISTING_DOCUMENT_TYPES.every((type) => uploadedDocTypes.has(type) || !!documentFiles[type]);
-
   function canContinue(index: number): boolean {
     if (index === 0) return form.propertyTypeId.trim() !== '';
     if (index === 1) return form.title.trim() !== '' && form.city.trim() !== '' && form.area.trim() !== '';
     if (index === 2) return form.areaValue.trim() !== '';
-    // Per-room photo minimums (requiredMediaCategories) are guidance only,
-    // not a hard block — product decision: a listing can be published with
-    // any amount of media, including none. The counts/checkmarks still
-    // render in the step below so the requirement stays visible.
+    if (index === 4) return getMissingMediaCategories(requiredMediaCategories, mediaCategoryCounts).length === 0;
     if (index === 5) return form.price.trim() !== '';
-    if (index === 6) return documentsComplete;
     return true;
   }
 
@@ -678,7 +613,7 @@ export default function SubmitListingPage() {
       </Reveal>
 
       <Reveal>
-        <div className={`flex gap-1.5 overflow-x-auto pb-1 ${SCROLLBAR_HIDE}`} onWheel={scrollHorizontally}>
+        <div className={`flex gap-1.5 overflow-x-auto pb-1 ${SCROLLBAR_HIDE}`}>
           {STEPS.map((s, index) => {
             const active = index === step;
             const done = index < step;
@@ -1022,7 +957,7 @@ export default function SubmitListingPage() {
                 {step === 4 && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">
-                      Photo counts below are recommended, not required — add as many or as few as you have.
+                      Upload at least the required photos for each room before continuing.
                     </p>
                     {requiredMediaCategories.map((cat) => (
                       <CategoryMediaSection
@@ -1141,67 +1076,6 @@ export default function SubmitListingPage() {
 
                 {step === 6 && (
                   <>
-                    {!documentsRequired ? (
-                      <p className="text-sm text-muted-foreground">
-                        Not required for your account — your agency&apos;s own verification covers this.
-                      </p>
-                    ) : (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          Upload proof of ownership so our team can verify this listing. Both documents are
-                          required before you can publish.
-                        </p>
-                        <DocumentUploadRow
-                          label="Ownership Document"
-                          uploaded={uploadedDocTypes.has('ownership_proof')}
-                          pendingFile={documentFiles.ownership_proof}
-                          isUploading={isUploadingDoc === 'ownership_proof'}
-                          onSelect={async (file) => {
-                            if (!editId) {
-                              setDocumentFiles((prev) => ({ ...prev, ownership_proof: file }));
-                              return;
-                            }
-                            setIsUploadingDoc('ownership_proof');
-                            try {
-                              await listingsRepository.uploadDocument(editId, 'ownership_proof', file);
-                              setUploadedDocTypes((prev) => new Set(prev).add('ownership_proof'));
-                              toast.success('Ownership Document uploaded.');
-                            } catch {
-                              toast.error('Upload failed — please try again.');
-                            } finally {
-                              setIsUploadingDoc(null);
-                            }
-                          }}
-                        />
-                        <DocumentUploadRow
-                          label="Utility Bill"
-                          uploaded={uploadedDocTypes.has('utility_bill')}
-                          pendingFile={documentFiles.utility_bill}
-                          isUploading={isUploadingDoc === 'utility_bill'}
-                          onSelect={async (file) => {
-                            if (!editId) {
-                              setDocumentFiles((prev) => ({ ...prev, utility_bill: file }));
-                              return;
-                            }
-                            setIsUploadingDoc('utility_bill');
-                            try {
-                              await listingsRepository.uploadDocument(editId, 'utility_bill', file);
-                              setUploadedDocTypes((prev) => new Set(prev).add('utility_bill'));
-                              toast.success('Utility Bill uploaded.');
-                            } catch {
-                              toast.error('Upload failed — please try again.');
-                            } finally {
-                              setIsUploadingDoc(null);
-                            }
-                          }}
-                        />
-                      </>
-                    )}
-                  </>
-                )}
-
-                {step === 7 && (
-                  <>
                     <FieldRow icon={Mail} label="Email">
                       <Input value={user?.email ?? ''} disabled className="rounded-full bg-muted" />
                     </FieldRow>
@@ -1224,7 +1098,7 @@ export default function SubmitListingPage() {
                   </>
                 )}
 
-                {step === 8 && (
+                {step === 7 && (
                   <>
                     {(form.title || form.price) && (
                       <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-3">
@@ -1246,7 +1120,7 @@ export default function SubmitListingPage() {
                   </>
                 )}
 
-                {step === 9 && (
+                {step === 8 && (
                   <div className="flex flex-col items-center gap-5 py-6 text-center">
                     <p className="max-w-sm text-sm text-muted-foreground">
                       Your listing is ready. Once published it appears instantly on Jayedaad and is reviewed by our verification team.
@@ -1257,7 +1131,7 @@ export default function SubmitListingPage() {
                           {saveDraft.isPending ? 'Saving…' : 'Save draft'}
                         </Button>
                       )}
-                      <Button type="button" variant="secondary" disabled={isPending} onClick={() => setStep(8)}>
+                      <Button type="button" variant="secondary" disabled={isPending} onClick={() => setStep(7)}>
                         Preview again
                       </Button>
                       <Button type="submit" disabled={isPending}>
@@ -1459,54 +1333,6 @@ function CategoryMediaSection({
   );
 }
 
-// One row per required document type in the Documents step. `pendingFile`
-// (deferred, new-listing case) and `uploaded` (already on the server,
-// editing case) are mutually exclusive in practice but both checked so the
-// row reads correctly either way.
-function DocumentUploadRow({
-  label,
-  uploaded,
-  pendingFile,
-  isUploading,
-  onSelect,
-}: {
-  label: string;
-  uploaded: boolean;
-  pendingFile: File | undefined;
-  isUploading: boolean;
-  onSelect: (file: File) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const done = uploaded || !!pendingFile;
-
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-border px-4 py-3">
-      <div className="flex items-center gap-2">
-        <FileText className="h-4 w-4 text-muted-foreground" />
-        <div>
-          <p className="text-sm font-medium">{label}</p>
-          {uploaded && <p className="text-xs text-primary">Uploaded</p>}
-          {!uploaded && pendingFile && <p className="text-xs text-muted-foreground">Selected — uploads when you publish</p>}
-        </div>
-      </div>
-      <Button type="button" size="sm" variant="outline" disabled={isUploading} onClick={() => inputRef.current?.click()}>
-        {isUploading ? 'Uploading…' : done ? 'Replace' : 'Upload'}
-      </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = '';
-          if (file) onSelect(file);
-        }}
-      />
-    </div>
-  );
-}
-
 function FieldRow({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[40px_1fr] gap-4">
@@ -1641,7 +1467,7 @@ function AmenitiesModal({
           </button>
         </div>
 
-        <div className={`flex gap-1 overflow-x-auto border-b border-border px-5 ${SCROLLBAR_HIDE}`} onWheel={scrollHorizontally}>
+        <div className={`flex gap-1 overflow-x-auto border-b border-border px-5 ${SCROLLBAR_HIDE}`}>
           {categories.map((category) => (
             <button
               key={category}

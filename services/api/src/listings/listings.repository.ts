@@ -5,6 +5,7 @@ import { UpdateListingDto } from './dto/update-listing.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { Role } from '../common/types';
 import { DocumentsService } from '../documents/documents.service';
+import { getRequiredMediaCategories } from './listing-media-categories';
 
 export type ListingDocumentType = 'id_card_front' | 'id_card_back' | 'ownership_proof' | 'utility_bill';
 
@@ -290,13 +291,26 @@ export class ListingsRepository {
   // only ever passed by ListingsController's dedicated POST /listings/draft
   // path — never reachable from the public create() endpoint's DTO.
   async create(input: CreateListingDto & { ownerId: string; agentId?: string; status?: 'draft' | 'pending_verification' }) {
-    // Per-room photo counts (getRequiredMediaCategories) are no longer a
-    // hard gate here — product decision: a listing can be submitted with
-    // any amount of media, including none. The category minimums still
-    // exist and are shown as guidance client-side (packages/core's own
-    // copy of getRequiredMediaCategories), just never block. Previously a
-    // BadRequestException here mirrored the Document Verification Phase 4
-    // spec's "mandatory photos" requirement.
+    // Hard gate — real business requirement (Document Verification Phase
+    // 4): categorized photos are mandatory before a listing can be
+    // submitted. Applies to every listing regardless of owner/agent (photo
+    // quality isn't an ownership-verification concern, unlike
+    // getDocumentCompleteness above); drafts are exempt since they're
+    // explicitly in-progress.
+    if (input.status !== 'draft') {
+      const required = getRequiredMediaCategories(input.bedrooms, input.bathrooms);
+      const uploadedCounts = new Map<string, number>();
+      for (const m of input.media ?? []) {
+        if (!m.category) continue;
+        uploadedCounts.set(m.category, (uploadedCounts.get(m.category) ?? 0) + 1);
+      }
+      const missing = required.filter((c) => c.required && (uploadedCounts.get(c.slug) ?? 0) < c.minCount);
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          `Cannot submit listing — missing required photos: ${missing.map((c) => c.label).join(', ')}`,
+        );
+      }
+    }
 
     const { data: listing, error } = await this.supabase.client
       .from('listings')
@@ -816,22 +830,20 @@ export class ListingsRepository {
 
   // Real business requirement (Document Verification spec): "The agents do
   // not need to upload property ownership documents (their own
-  // responsibility, continuously monitored by Jayedaad)." — but that trust
-  // only extends to an AGENCY-affiliated agent (the agency's own onboarding
-  // verification covers its staff, see agents.repository.ts:439's identical
-  // agency_id distinction). An independent agent (no agency_id) isn't
-  // vetted by anyone else, so they're treated like an owner here — only an
-  // agency-affiliated agent's listings are exempt.
+  // responsibility, continuously monitored by Jayedaad)." — only an
+  // individual owner posting without an agent is required to upload
+  // ownership_proof/utility_bill, mirroring the exact "independent vs.
+  // covered-elsewhere" distinction agents.repository.ts:439 already makes
+  // for agent_profiles.agency_id.
   async getDocumentCompleteness(listingId: string) {
     const { data: listing, error: listingError } = await this.supabase.client
       .from('listings')
-      .select('agent_id, agent_profiles (agency_id)')
+      .select('agent_id')
       .eq('id', listingId)
       .single();
     if (listingError) throw listingError;
 
-    const isAgencyAffiliatedAgent = !!(listing.agent_id && (listing as any).agent_profiles?.agency_id);
-    if (isAgencyAffiliatedAgent) {
+    if (listing.agent_id) {
       return { required: [] as ListingDocumentType[], uploaded: [] as ListingDocumentType[], missing: [] as ListingDocumentType[] };
     }
 

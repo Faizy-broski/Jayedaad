@@ -27,7 +27,6 @@ import {
   Sparkles,
   ChevronsUpDown,
   CalendarDays,
-  AlertTriangle,
 } from 'lucide-react';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
@@ -364,25 +363,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden p-4 sm:p-6">
-          {/* Persistent re-entry point for required onboarding documents
-              (Owner ID + Company Registration) — become-an-agent/page.tsx's
-              DocumentUploadStep otherwise only ever appears once, right
-              after fresh signup/registration, so an agency admin who
-              navigated away before finishing it would have no way back in.
-              Mirrors AuthGateProvider's needsAgencyDocuments condition on
-              mobile's SideDrawer. */}
-          {profile?.agency && profile.agency.verificationStatus !== 'verified' && (
-            <Link
-              href="/become-an-agent"
-              className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
-            >
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              Your agency verification is incomplete — upload the required documents to continue.
-            </Link>
-          )}
-          {children}
-        </main>
+        <main className="flex-1 overflow-x-hidden p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
   agenciesRepository,
   agentsRepository,
-  OnboardingDocumentType,
   PAKISTAN_CITIES,
   useAgentApplicationViewModel,
   useAgentProfileViewModel,
@@ -17,12 +16,11 @@ import { Button, Card, CardContent, Input, Label, Select } from '@jayedaad/ui-we
 // Owner ID + Company Registration are mandatory (Document Verification
 // spec) — tax_certificate remains a valid upload type but is optional,
 // no longer part of REQUIRED_ONBOARDING_DOCUMENT_TYPES server-side.
-const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
+const DOCUMENT_TYPES: { type: 'company_registration' | 'owner_id_card' | 'tax_certificate'; label: string }[] = [
   { type: 'owner_id_card', label: 'Owner ID Card (front and back)' },
   { type: 'company_registration', label: 'Company Registration ID' },
   { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
 ];
-const REQUIRED_ONBOARDING_DOCUMENT_TYPES: OnboardingDocumentType[] = ['owner_id_card', 'company_registration'];
 
 // Self-service agent application — a logged-in buyer applies here, lands in
 // the same 'pending' review queue a super_admin-created agent would (see
@@ -94,7 +92,6 @@ export default function BecomeAnAgentPage() {
 }
 
 function DocumentUploadStep({ agentId }: { agentId: string }) {
-  const router = useRouter();
   const { profile } = useAgentProfileViewModel();
   // An agency-registered admin uploads the AGENCY's documents (the agency's
   // own verification covers its staff — see
@@ -106,55 +103,27 @@ function DocumentUploadStep({ agentId }: { agentId: string }) {
     : { type: 'agent', id: agentId };
   const status = profile?.agency ? profile.agency.verificationStatus : profile?.verificationStatus;
 
-  // Fetched from the server (not tracked locally per-row) — a returning
-  // visitor to this page (it stays reachable as long as role stays
-  // 'agent') previously saw every row reset to "not uploaded" even if the
-  // documents were already there, since state lived only in each
-  // DocumentRow's own useState.
-  const [uploadedTypes, setUploadedTypes] = useState<Set<OnboardingDocumentType>>(new Set());
-  const [isLoadingDocs, setIsLoadingDocs] = useState(true);
-
-  useEffect(() => {
-    const repository = scope.type === 'agency' ? agenciesRepository : agentsRepository;
-    repository
-      .listDocuments(scope.id)
-      .then((docs) => setUploadedTypes(new Set(docs.map((d) => d.documentType))))
-      .catch(() => undefined)
-      .finally(() => setIsLoadingDocs(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.type, scope.id]);
-
-  const isComplete = REQUIRED_ONBOARDING_DOCUMENT_TYPES.every((type) => uploadedTypes.has(type));
-
   return (
     <div className="mx-auto max-w-lg space-y-6 py-12">
       <div>
         <h1 className="text-2xl font-semibold">Application Submitted</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {profile?.agency ? 'Your agency' : 'Your application'} is <span className="font-medium">{status ?? 'pending'}</span>.
-          Owner ID and Company Registration are required before you can continue — our team reviews everything
-          once uploaded.
+          Upload the documents below so our team can review and approve your account.
         </p>
       </div>
 
       <Card>
         <CardContent className="space-y-4 p-6">
           {DOCUMENT_TYPES.map((doc) => (
-            <DocumentRow
-              key={doc.type}
-              scope={scope}
-              documentType={doc.type}
-              label={doc.label}
-              uploaded={uploadedTypes.has(doc.type)}
-              onUploaded={() => setUploadedTypes((prev) => new Set(prev).add(doc.type))}
-            />
+            <DocumentRow key={doc.type} scope={scope} documentType={doc.type} label={doc.label} />
           ))}
         </CardContent>
       </Card>
 
-      <Button className="w-full" disabled={!isComplete || isLoadingDocs} onClick={() => router.push('/dashboard')}>
-        {isComplete ? 'Continue to Dashboard' : 'Upload Owner ID and Company Registration to continue'}
-      </Button>
+      <Link href="/dashboard">
+        <Button className="w-full">Continue to Dashboard</Button>
+      </Link>
     </div>
   );
 }
@@ -163,15 +132,12 @@ function DocumentRow({
   scope,
   documentType,
   label,
-  uploaded,
-  onUploaded,
 }: {
   scope: { type: 'agency' | 'agent'; id: string };
-  documentType: OnboardingDocumentType;
+  documentType: 'company_registration' | 'owner_id_card' | 'tax_certificate';
   label: string;
-  uploaded: boolean;
-  onUploaded: () => void;
 }) {
+  const [uploaded, setUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -181,7 +147,7 @@ function DocumentRow({
     try {
       const repository = scope.type === 'agency' ? agenciesRepository : agentsRepository;
       await repository.uploadDocument(scope.id, documentType, file);
-      onUploaded();
+      setUploaded(true);
       toast.success(`${label} uploaded.`);
     } catch {
       toast.error('Upload failed — please try again.');

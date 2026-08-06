@@ -43,7 +43,7 @@ export type RootStackParamList = {
   MyProperties: { initialTab?: 'drafts' | 'uploaded' } | undefined;
   PostListing: { editListingId?: string } | undefined;
   OwnerIdentityVerification: undefined;
-  ListingDocuments: { listingId: string; submitOnComplete?: boolean };
+  ListingDocuments: { listingId: string };
   Calendar: undefined;
   Plan: undefined;
   // initialSelection/onDone passed as plain JS values via navigation params —

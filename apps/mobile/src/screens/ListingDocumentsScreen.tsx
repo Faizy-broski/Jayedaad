@@ -12,20 +12,16 @@ const DOCUMENT_TYPES: { type: ListingDocumentType; label: string }[] = [
   { type: 'utility_bill', label: 'Utility Bill' },
 ];
 
-// Reached from two places: MyPropertiesScreen's "Documents" re-entry
-// button (any status), and its "Submit" action on a draft whose documents
-// are still incomplete (see submitOnComplete below) — PostListingScreen
-// now collects these documents inline as its own section, so this screen
-// only matters for a listing that already exists outside that flow.
-// Mirrors BecomeAnAgentScreen.tsx's DocumentRow pattern, using the
-// listing-scoped listingsRepository.uploadDocument instead of the agency one.
+// Reached right after a listing is created (PostListingScreen's submit/save-draft
+// success handler) — listing_documents requires an existing listingId, so this
+// can't be a pre-submit section the way Photos/Videos is. Mirrors
+// BecomeAnAgentScreen.tsx's DocumentRow pattern, using the listing-scoped
+// listingsRepository.uploadDocument instead of the agency one.
 export function ListingDocumentsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'ListingDocuments'>>();
-  const { listingId, submitOnComplete } = route.params;
-  const { showToast } = useToast();
+  const { listingId } = route.params;
   const [uploadedTypes, setUploadedTypes] = useState<Set<ListingDocumentType>>(new Set());
-  const [isFinishing, setIsFinishing] = useState(false);
 
   useEffect(() => {
     listingsRepository
@@ -34,35 +30,13 @@ export function ListingDocumentsScreen() {
       .catch(() => undefined);
   }, [listingId]);
 
-  const isComplete = DOCUMENT_TYPES.every((doc) => uploadedTypes.has(doc.type));
-
-  // Once both documents are uploaded, "Done" also has to actually move the
-  // listing into pending_verification (submitDraft) when reached via the
-  // one-click "Submit" path — that transition never happened yet there.
-  async function handleDone() {
-    if (!submitOnComplete) {
-      navigation.reset({ index: 0, routes: [{ name: 'MyProperties' }] });
-      return;
-    }
-    setIsFinishing(true);
-    try {
-      await listingsRepository.submitDraft(listingId);
-      showToast('Submitted for verification.');
-      navigation.reset({ index: 0, routes: [{ name: 'MyProperties' }] });
-    } catch (err: any) {
-      showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error');
-    } finally {
-      setIsFinishing(false);
-    }
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Ownership Documents</Text>
         <Text style={styles.subtitle}>
-          Upload proof of ownership so our team can verify this listing. Both documents are required before this
-          listing can be submitted for review.
+          Upload proof of ownership so our team can verify this listing. You can also do this later from My
+          Properties.
         </Text>
 
         <View style={styles.list}>
@@ -81,11 +55,16 @@ export function ListingDocumentsScreen() {
         </View>
 
         <Button
-          label={isFinishing ? 'Submitting…' : isComplete ? 'Done' : 'Upload both documents to continue'}
-          onPress={handleDone}
-          disabled={!isComplete || isFinishing}
+          label="Done"
+          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'MyProperties' }] })}
           size="lg"
         />
+        <Pressable
+          style={styles.skip}
+          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'MyProperties' }] })}
+        >
+          <Text style={styles.skipText}>Skip for now</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,4 +148,6 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
   },
   uploadButtonText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
+  skip: { alignItems: 'center', marginTop: theme.spacing.md },
+  skipText: { fontSize: 13, fontWeight: '600', color: theme.colors.muted },
 });

@@ -69,17 +69,6 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
 
   const dismissAgentGate = useCallback(() => setAgentGateDismissed(true), []);
 
-  // Persistent re-entry point for SideDrawer's "Complete Agency
-  // Verification" row — re-opens the sheet directly at BecomeAnAgentScreen
-  // regardless of agentGateDismissed, so force-quitting mid-nag (or having
-  // pressed Continue before this screen enforced completeness) doesn't
-  // permanently strand a user with incomplete required documents.
-  const reopenAgentGate = useCallback(() => {
-    setAgentGateDismissed(false);
-    setGateRouteAtOpen('BecomeAnAgent');
-    setVisible(true);
-  }, []);
-
   const requireAuth = useCallback(
     (onSuccess?: () => void) => {
       if (isVerified) {
@@ -114,7 +103,7 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthGateContext.Provider value={{ requireAuth, dismissAgentGate, reopenAgentGate }}>
+    <AuthGateContext.Provider value={{ requireAuth, dismissAgentGate }}>
       {children}
       <AuthSheet visible={visible} onClose={handleClose} initialRouteName={gateRouteAtOpen} />
     </AuthGateContext.Provider>

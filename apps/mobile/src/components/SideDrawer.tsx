@@ -9,7 +9,6 @@ import { theme } from '@jayedaad/ui-native';
 import logoImage from '../../assets/images/jayedaad.webp';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
-import { useAuthGate } from '../auth/AuthGateContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList & BottomTabParamList>;
 
@@ -39,14 +38,6 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
   const { profile: agentProfile } = useAgentProfileViewModel();
   const canManageAgency = role === 'super_admin' || !!agentProfile?.isAgencyAdmin;
-  // Persistent re-entry point for BecomeAnAgentScreen's required onboarding
-  // documents (Owner ID + Company Registration) — that screen otherwise
-  // only ever appears once, right after fresh signup, so a user who
-  // force-quit before finishing it would have no way back in. Shown for
-  // any not-yet-verified agency admin, mirrors AuthGateProvider's own
-  // needsAgencyDocuments condition.
-  const { reopenAgentGate } = useAuthGate();
-  const needsAgencyDocuments = !!agentProfile?.agency && agentProfile.agency.verificationStatus !== 'verified';
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
   useEffect(() => {
@@ -108,16 +99,6 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
               <NavRow icon="calendar-outline" label="Calendar" onPress={() => go('Calendar')} />
             )}
             {canManageAgency && <NavRow icon="people-outline" label="Agency Staff" onPress={() => go('AgencyStaff')} />}
-            {needsAgencyDocuments && (
-              <NavRow
-                icon="alert-circle-outline"
-                label="Complete Agency Verification"
-                onPress={() => {
-                  onClose();
-                  reopenAgentGate();
-                }}
-              />
-            )}
 
             <SectionLabel>App Controls</SectionLabel>
             <NavRow icon="settings-outline" label="Settings" onPress={() => go('ProfileSettings')} />

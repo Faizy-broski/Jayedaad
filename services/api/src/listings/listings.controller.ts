@@ -237,19 +237,11 @@ export class ListingsController {
   // verification queue. Only meaningful from status='draft'; setStatus()
   // itself doesn't enforce a from-state, so this is a thin, deliberately
   // narrow entry point rather than exposing the general setStatus write path.
-  // assertDocumentsComplete() is the same hard gate already used at
-  // approval time (VerificationRepository.recordAction) — without it here,
-  // a draft finished via this endpoint (the Property Management/My
-  // Properties "Submit" button) could reach pending_verification without
-  // ever being routed through the ownership-documents screen, unlike the
-  // direct-create path in create() below. Correctly a no-op for
-  // agent-authored listings (getDocumentCompleteness exempts them).
   @UseGuards(ScopeGuard)
   @Roles('owner', 'agent', 'super_admin')
   @Post(':id/submit')
   async submitDraft(@Req() req: any, @Param('id') id: string) {
     await this.assertOwnListing(req, id);
-    await this.listings.assertDocumentsComplete(id);
     return this.listings.setStatus(id, 'pending_verification');
   }
 
