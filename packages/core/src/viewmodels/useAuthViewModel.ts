@@ -5,12 +5,14 @@ import {
   changePassword,
   confirmPasswordReset,
   exchangeCodeForSession,
+  getAppleOAuthUrl,
   getEmailVerified,
   getGoogleOAuthUrl,
   getUserAgentId,
   getUserRole,
   requestPasswordReset,
   sendOtpCode,
+  signInWithApple,
   signInWithGoogle,
   signInWithPassword,
   signOut,
@@ -44,8 +46,14 @@ export function useAuthViewModel() {
   const signInWithGoogleMutation = useMutation({
     mutationFn: (redirectTo: string) => signInWithGoogle(redirectTo),
   });
+  const signInWithAppleMutation = useMutation({
+    mutationFn: (redirectTo: string) => signInWithApple(redirectTo),
+  });
   const getGoogleOAuthUrlMutation = useMutation({
     mutationFn: (redirectTo: string) => getGoogleOAuthUrl(redirectTo),
+  });
+  const getAppleOAuthUrlMutation = useMutation({
+    mutationFn: (redirectTo: string) => getAppleOAuthUrl(redirectTo),
   });
   const exchangeCodeMutation = useMutation({
     mutationFn: (code: string) => exchangeCodeForSession(code),
@@ -105,7 +113,9 @@ export function useAuthViewModel() {
     signUp: signUpMutation,
     signOut: signOutMutation,
     signInWithGoogle: signInWithGoogleMutation,
+    signInWithApple: signInWithAppleMutation,
     getGoogleOAuthUrl: getGoogleOAuthUrlMutation,
+    getAppleOAuthUrl: getAppleOAuthUrlMutation,
     exchangeCodeForSession: exchangeCodeMutation,
     sendOtp,
     verifyOtp,

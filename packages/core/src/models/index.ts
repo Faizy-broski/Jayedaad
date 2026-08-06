@@ -504,6 +504,9 @@ export interface CreateAgencyInput {
   address?: string;
   businessHours?: string;
   logoUrl?: string;
+  // Optional — falls back to the DB default (1) when omitted, unlike
+  // RegisterAgencyInput's mandatory version.
+  salesAssociateCount?: number;
 }
 
 export interface UpdateAgencyInput {
@@ -515,6 +518,7 @@ export interface UpdateAgencyInput {
   address?: string;
   businessHours?: string;
   logoUrl?: string;
+  salesAssociateCount?: number;
 }
 
 export interface SetAgencyVerificationStatusInput {
@@ -768,6 +772,82 @@ export interface DeveloperSummary {
   logoUrl: string | null;
   phone: string | null;
   whatsapp: string | null;
+}
+
+// --- Blog / Property Tips CMS ---------------------------------------------------
+// Replaces the hardcoded mock data both homepages used to show. Super
+// Admin-authored (TipTap HTML content), draft/publish workflow.
+
+export type BlogPostStatus = 'draft' | 'published';
+
+// Admin-managed lookup table, not a hardcoded enum — same "Super Admin
+// manages taxonomy at runtime" convention as PropertyTypeCategory.
+export interface BlogCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface BlogPost {
+  id: string;
+  authorId: string;
+  title: string;
+  slug: string;
+  category: BlogCategory | null;
+  excerpt: string | null;
+  content: string; // TipTap HTML
+  coverImageUrl: string | null;
+  readTime: string | null;
+  status: BlogPostStatus;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBlogPostInput {
+  title: string;
+  slug: string;
+  content: string;
+  categoryId?: string;
+  excerpt?: string;
+  coverImageUrl?: string;
+  readTime?: string;
+  status?: BlogPostStatus;
+}
+
+export interface UpdateBlogPostInput {
+  title?: string;
+  content?: string;
+  categoryId?: string;
+  excerpt?: string;
+  coverImageUrl?: string;
+  readTime?: string;
+}
+
+export interface CreateBlogCategoryInput {
+  name: string;
+  slug: string;
+}
+
+// Server-side paginated admin list result — same shape as ListingSearchResult,
+// backs the admin/blog table (thousands of posts can't ship in one response).
+export interface BlogPostListResult {
+  items: BlogPost[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// What the homepage's Market Insights/Property Tips sections embed — no
+// content/status, mirrors DeveloperSummary's "display-relevant fields only" split.
+export interface BlogPostSummary {
+  id: string;
+  title: string;
+  slug: string;
+  category: BlogCategory | null;
+  coverImageUrl: string | null;
+  readTime: string | null;
+  publishedAt: string | null;
 }
 
 // Verified against a real Zameen "New Projects" page: price and area are

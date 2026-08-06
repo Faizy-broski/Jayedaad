@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateAgencyDto {
   @IsString()
@@ -34,4 +34,12 @@ export class CreateAgencyDto {
   @IsOptional()
   @IsString()
   logoUrl?: string;
+
+  // Optional here (unlike RegisterAgencyDto's mandatory version) — an
+  // admin-created agency falls back to the sales_associate_count column's
+  // DB default (1) when omitted (see 0032_agency_sales_associate_count.sql).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  salesAssociateCount?: number;
 }
