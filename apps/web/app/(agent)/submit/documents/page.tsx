@@ -11,16 +11,24 @@ const DOCUMENT_TYPES: { type: ListingDocumentType; label: string }[] = [
   { type: 'utility_bill', label: 'Utility Bill' },
 ];
 
-// Reached right after a listing is created — listing_documents requires an
-// existing listingId, so this can't be a pre-submit step. Web counterpart
-// to apps/mobile's ListingDocumentsScreen.tsx (Document Verification Phase
-// 1, backfilled onto web in Phase 4). Only individual owners are routed
-// here (see submit/page.tsx's handleSubmit) — agents are exempt.
+// Reached from two places: property-management/page.tsx's "Documents"
+// re-entry button (any status), and its "Submit" action on a draft whose
+// documents are still incomplete (see submitOnComplete below) — the full
+// /submit wizard now collects these documents inline as its own step, so
+// this page only matters for a listing that already exists outside that
+// wizard. Web counterpart to apps/mobile's ListingDocumentsScreen.tsx.
+// Only individual owners are ever routed here — agents are exempt.
 export default function SubmitDocumentsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const listingId = searchParams.get('listingId');
+  // Set when reached from property-management's one-click "Submit" on a
+  // draft — once both documents are uploaded, "Done" also has to actually
+  // move the listing into pending_verification (submitDraft), not just
+  // navigate away, since that transition never happened yet for this path.
+  const submitOnComplete = searchParams.get('submitOnComplete') === '1';
   const [uploadedTypes, setUploadedTypes] = useState<Set<ListingDocumentType>>(new Set());
+  const [isFinishing, setIsFinishing] = useState(false);
 
   useEffect(() => {
     if (!listingId) return;
@@ -29,6 +37,8 @@ export default function SubmitDocumentsPage() {
       .then((docs) => setUploadedTypes(new Set(docs.map((d) => d.documentType))))
       .catch(() => undefined);
   }, [listingId]);
+
+  const isComplete = DOCUMENT_TYPES.every((doc) => uploadedTypes.has(doc.type));
 
   if (!listingId) {
     return (
@@ -42,13 +52,31 @@ export default function SubmitDocumentsPage() {
     );
   }
 
+  async function handleDone() {
+    if (!listingId) return;
+    if (!submitOnComplete) {
+      router.push('/property-management');
+      return;
+    }
+    setIsFinishing(true);
+    try {
+      await listingsRepository.submitDraft(listingId);
+      toast.success('Submitted for verification.');
+      router.push('/property-management');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Something went wrong — please try again.');
+    } finally {
+      setIsFinishing(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-6 py-12">
       <div>
         <h1 className="text-2xl font-semibold">Ownership Documents</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Upload proof of ownership so our team can verify this listing. You can also do this later from My
-          Properties.
+          Upload proof of ownership so our team can verify this listing. Both documents are required before this
+          listing can be submitted for review.
         </p>
       </div>
 
@@ -69,14 +97,9 @@ export default function SubmitDocumentsPage() {
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={() => router.push('/property-management')}>
-          Skip for now
-        </Button>
-        <Button className="flex-1" onClick={() => router.push('/property-management')}>
-          Done
-        </Button>
-      </div>
+      <Button className="w-full" disabled={!isComplete || isFinishing} onClick={handleDone}>
+        {isFinishing ? 'Submitting…' : isComplete ? 'Done' : 'Upload both documents to continue'}
+      </Button>
     </div>
   );
 }
