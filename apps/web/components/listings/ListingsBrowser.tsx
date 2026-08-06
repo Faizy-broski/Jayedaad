@@ -77,9 +77,9 @@ export function ListingsBrowser({ listings }: ListingsBrowserProps) {
         <div>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-heading-gradient">{filtered.length} Verified Properties</h1>
+              <h1 className="text-2xl font-bold text-heading-gradient">{filtered.length} Properties</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Handpicked estates across Pakistan. Every listing is agent-verified.
+                Handpicked estates across Pakistan. Every listing&apos;s ownership is verified.
               </p>
             </div>
 

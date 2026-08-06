@@ -10,7 +10,6 @@ import { ServicesAndProjects } from '@/components/landing/services/ServicesAndPr
 import { NewlyStaged } from '@/components/landing/newlystaged/NewlyStaged';
 import { NEWLY_STAGED_PROPERTIES } from '@/data/newlyStaged';
 import { MarketInsights } from '@/components/landing/article/MarketInsights';
-import { ARTICLES } from '@/data/articles';
 import { HowItWorks } from '@/components/landing/howitworks/HowItWorks';
 import { RealStories } from '@/components/landing/testimonials/RealStories';
 import { TESTIMONIALS } from '@/data/testimonials';
@@ -21,8 +20,8 @@ export default function HomePage() {
   return (
     <main>
       <Hero />
-      <FeaturedProperties properties={FEATURED_PROPERTIES} />
       <BrowseByCategory categories={CATEGORIES} />
+      <FeaturedProperties properties={FEATURED_PROPERTIES} />
       <AboutSection />
       <WhereWeLive cities={CITIES} />
       <ServicesAndProjects />
@@ -31,7 +30,7 @@ export default function HomePage() {
       <RealStories testimonials={TESTIMONIALS} />
       <CommonQuestions />
       <AppPromo />
-      <MarketInsights articles={ARTICLES} />
+      <MarketInsights />
     </main>
   );
 }

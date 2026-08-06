@@ -10,7 +10,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 // listings/listings.repository.ts.
 export interface ProjectSearchFilters {
   city?: string;
-  status?: 'planned' | 'under_construction' | 'ready';
+  status?: 'planned' | 'under_construction' | 'ready' | 'draft';
   propertyTypeSlug?: string;
   developerSlug?: string;
   minPrice?: number;
