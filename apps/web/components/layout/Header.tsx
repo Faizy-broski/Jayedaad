@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { label: 'Buy & Sell', href: '/search?purpose=sale' },
   { label: 'Rent', href: '/search?purpose=rent' },
   { label: 'About', href: '/about-us' },
-  // { label: 'Commercial', href: '/search?type=commercial' },
+  { label: 'Commercial', href: '/search?type=commercial' },
   { label: 'Agents', href: '#' },
   { label: 'Services', href: '/services' },
   { label: 'Contact', href: '/contact-us' },

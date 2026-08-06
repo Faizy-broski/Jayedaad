@@ -6,6 +6,7 @@ import {
   ProjectCategoryCount,
   ProjectCityCount,
   ProjectSearchFilters,
+  ProjectStatus,
   SetProjectVerificationStatusInput,
   UpdateProjectInput,
 } from '../models';
@@ -19,7 +20,9 @@ export const projectsRepository = {
   // Agent/Super Admin "manage" list — every project regardless of
   // verification_status, unlike searchPublic above (verified-only). Backs
   // both /admin/projects and the agent-portal /projects list.
-  listAll: async (filters: { city?: string; page?: number; pageSize?: number } = {}): Promise<PaginatedProjects> => {
+  listAll: async (
+    filters: { city?: string; status?: ProjectStatus; keyword?: string; page?: number; pageSize?: number } = {},
+  ): Promise<PaginatedProjects> => {
     const { data } = await httpClient.get('/projects/manage', { params: filters });
     return data;
   },

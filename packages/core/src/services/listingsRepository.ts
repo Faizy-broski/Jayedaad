@@ -8,7 +8,6 @@ import {
   ListingDocumentType,
   ListingPurpose,
   ListingStatus,
-  TrendingListing,
 } from '../models';
 
 export interface ListingSearchFilters {
@@ -158,22 +157,15 @@ export const listingsRepository = {
     return data;
   },
 
-  // Sitewide "most visited" ranking, off real listing_engagement_events
-  // 'view' rows — GET /listings/trending.
-  findMostViewed: async (limit?: number): Promise<TrendingListing[]> => {
-    const { data } = await httpClient.get('/listings/trending', { params: { limit } });
-    return data;
-  },
-
-  // Backs the agent dashboard's Calls/WhatsApp/SMS analytics, and now also
-  // GET /listings/trending's "most visited" ranking via 'view' — public,
+  // Backs the agent dashboard's Calls/WhatsApp/SMS analytics — public,
   // fire-and-forget from the caller (a failed track shouldn't block the
-  // real tel:/wa.me/sms: action, or the page rendering for a 'view').
-  // Mirrors services/api's TrackEngagementDto; 'email' is still not exposed
-  // here — no listing-level email action exists yet for it to attach to.
+  // real tel:/wa.me/sms: action). Mirrors services/api's TrackEngagementDto
+  // exactly; 'view'/'email' are deliberately not exposed here — no
+  // listing-detail page or listing-level email exists yet for either to
+  // attach to honestly.
   trackEngagement: async (
     listingId: string,
-    input: { type: 'view' | 'call' | 'whatsapp' | 'sms'; platform: 'web' | 'mobile'; viewerSessionId: string },
+    input: { type: 'call' | 'whatsapp' | 'sms'; platform: 'web' | 'mobile'; viewerSessionId: string },
   ): Promise<void> => {
     await httpClient.post(`/listings/${listingId}/track`, input);
   },

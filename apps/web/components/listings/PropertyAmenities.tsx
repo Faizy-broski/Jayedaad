@@ -1,11 +1,7 @@
-import { Waves, Car, Trees, Dumbbell, ShieldCheck, ArrowUpDown, Sparkles, type LucideIcon } from 'lucide-react';
+import { Waves, Car, Trees, Dumbbell, ShieldCheck, ArrowUpDown, type LucideIcon } from 'lucide-react';
+import type { AmenityOption } from '@/lib/types';
 
-// Real amenities.label values (Super Admin-managed, supabase/migrations/
-// 0005_taxonomy_seed.sql onward) are not a fixed enum — only a few have a
-// dedicated icon here, everything else falls back to Sparkles rather than
-// crashing on an unrecognized label. Same fallback discipline as the
-// projects detail page's ProjectAmenities.
-const AMENITY_ICONS: Record<string, LucideIcon> = {
+const AMENITY_ICONS: Record<AmenityOption, LucideIcon> = {
   'Swimming Pool': Waves,
   Parking: Car,
   Garden: Trees,
@@ -15,14 +11,14 @@ const AMENITY_ICONS: Record<string, LucideIcon> = {
 };
 
 interface PropertyAmenitiesProps {
-  amenities: string[];
+  amenities: AmenityOption[];
 }
 
 export function PropertyAmenities({ amenities }: PropertyAmenitiesProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {amenities.map((amenity) => {
-        const Icon = AMENITY_ICONS[amenity] ?? Sparkles;
+        const Icon = AMENITY_ICONS[amenity];
         return (
           <div
             key={amenity}

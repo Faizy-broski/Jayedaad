@@ -4,7 +4,6 @@ import { ServicesOverview } from "@/components/services/ServicesOverview";
 import { FeaturedServicesList } from "@/components/services/FeaturedServicesList";
 import { OurPromise } from "@/components/services/OurPromise";
 import { MarketInsights } from "@/components/landing/article/MarketInsights";
-import { ARTICLES } from "@/data/articles";
 import React from "react";
 
 const page = () => {
@@ -21,7 +20,7 @@ const page = () => {
       <FeaturedServicesList />
       <TrustBanner />
       <OurPromise />
-      <MarketInsights articles={ARTICLES} />
+      <MarketInsights />
     </>
   );
 };

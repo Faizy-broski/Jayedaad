@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AreaUnit,
+  ListingDocumentType,
   ListingPurpose,
   ListingStatus,
   MyListingsFilters,
   PAKISTAN_CITIES,
   formatPrice,
+  listingsRepository,
   useMyListingsViewModel,
   usePreferencesViewModel,
   useTaxonomyViewModel,
@@ -22,6 +24,7 @@ import {
   Building2,
   Copy,
   Eye,
+  FileCheck2,
   ImageOff,
   MapPin,
   PlusCircle,
@@ -29,6 +32,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+
+// Same set the server enforces (REQUIRED_LISTING_DOCUMENT_TYPES in
+// listings.repository.ts) — kept in sync manually, same convention as
+// submit/documents/page.tsx's own DOCUMENT_TYPES array.
+const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownership_proof', 'utility_bill'];
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 const AREA_UNIT_LABELS: Record<AreaUnit, string> = {
@@ -166,13 +174,31 @@ export default function PropertyManagementPage() {
     pageSize: 20,
   };
 
+  const router = useRouter();
   const { listings, total, pageSize, isLoading, statusCounts, isStatusCountsLoading, remove, submitForVerification } =
     useMyListingsViewModel(filters);
 
-  function handleSubmitForVerification(listingId: string) {
-    submitForVerification.mutate(listingId, {
+  // Ownership proof/utility bill are required for individual owners and
+  // independent agents (no agency) — only an agency-affiliated agent's
+  // listing is exempt, mirrors the server's getDocumentCompleteness. If
+  // incomplete, route to the documents screen instead of submitting
+  // directly — closes the bug where finishing a draft from this page
+  // skipped ownership-proof entirely (the server now also hard-rejects
+  // this via assertDocumentsComplete, this is just so the user lands on
+  // the right screen instead of a raw error toast).
+  async function handleSubmitForVerification(listing: (typeof listings)[number]) {
+    if (!listing.agent?.agency) {
+      const docs = await listingsRepository.listDocuments(listing.id);
+      const uploadedTypes = new Set(docs.map((d) => d.documentType));
+      const incomplete = REQUIRED_LISTING_DOCUMENT_TYPES.some((type) => !uploadedTypes.has(type));
+      if (incomplete) {
+        router.push(`/submit/documents?listingId=${listing.id}&submitOnComplete=1`);
+        return;
+      }
+    }
+    submitForVerification.mutate(listing.id, {
       onSuccess: () => toast.success('Submitted for verification.'),
-      onError: () => toast.error('Something went wrong — please try again.'),
+      onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
     });
   }
 
@@ -580,11 +606,26 @@ export default function PropertyManagementPage() {
                             View / Edit
                           </Button>
                         </Link>
+                        {/* Re-entry point for ownership proof/utility bill —
+                            was promised in submit/documents/page.tsx's own
+                            copy ("you can also do this later from My
+                            Properties") but never actually existed here;
+                            mobile's MyPropertiesScreen already has this.
+                            Owner and independent-agent listings only — an
+                            agency-affiliated agent's listing is exempt. */}
+                        {!listing.agent?.agency && (
+                          <Link href={`/submit/documents?listingId=${listing.id}`}>
+                            <Button variant="outline" size="sm">
+                              <FileCheck2 className="mr-1.5 h-3.5 w-3.5" />
+                              Documents
+                            </Button>
+                          </Link>
+                        )}
                         {activeTab === 'draft' && (
                           <Button
                             size="sm"
                             disabled={submitForVerification.isPending}
-                            onClick={() => handleSubmitForVerification(listing.id)}
+                            onClick={() => handleSubmitForVerification(listing)}
                           >
                             Submit
                           </Button>

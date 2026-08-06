@@ -13,6 +13,8 @@ import {
 } from '@jayedaad/core';
 import { Button, CountryCodeField, PickerField, TextInput, theme } from '@jayedaad/ui-native';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
+import { useAppleSignIn } from '../../hooks/useAppleSignIn';
+import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { setRememberMe } from '../../lib/rememberMeStorage';
 import { AuthBrandHeader } from '../../components/AuthBrandHeader';
@@ -31,6 +33,7 @@ export function SignupScreen() {
   const { signUp, signIn, sendOtp } = useAuthViewModel();
   const { register: registerAgency } = useAgencyRegistrationViewModel();
   const { signInWithGoogle, isPending: isGooglePending } = useGoogleSignIn();
+  const { signInWithApple, isPending: isApplePending } = useAppleSignIn();
 
   const [accountType, setAccountType] = useState<AccountType>('individual');
   const [name, setName] = useState('');
@@ -158,14 +161,18 @@ export function SignupScreen() {
   // Only offered for Individual signups — Agency always goes through the
   // password path so agencyName/agencyCity can be collected and
   // registerAgency() called with an authenticated session, same reasoning
-  // as web's signup page hiding "Continue with Google" once Agency is
-  // selected. Google's session is already email_verified=true (Google
-  // accounts are pre-verified server-side, see handle_new_user() in
-  // supabase/migrations/0013_profiles_email_verified.sql), so there's no
+  // as web's signup page hiding "Continue with Google"/"Continue with
+  // Apple" once Agency is selected. Both providers' sessions are already
+  // email_verified=true (pre-verified server-side, see handle_new_user()
+  // in supabase/migrations/0013_profiles_email_verified.sql), so there's no
   // OTP step to chain through here — AuthGateProvider auto-closes the sheet
   // once its isEmailVerified check picks up the new session.
   async function handleGoogleSignUp() {
     await signInWithGoogle();
+  }
+
+  async function handleAppleSignUp() {
+    await signInWithApple();
   }
 
   const isPending = isSubmitting || signUp.isPending || signIn.isPending || sendOtp.isPending || registerAgency.isPending;
@@ -317,13 +324,26 @@ export function SignupScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Button
-                label="Google"
-                variant="secondary"
-                size="lg"
-                onPress={handleGoogleSignUp}
-                disabled={isGooglePending}
-              />
+              <View style={styles.socialButtons}>
+                <Button
+                  label="Google"
+                  icon={<GoogleIcon />}
+                  variant="secondary"
+                  size="lg"
+                  style={styles.socialButton}
+                  onPress={handleGoogleSignUp}
+                  disabled={isGooglePending}
+                />
+                <Button
+                  label="Apple"
+                  icon={<AppleIcon />}
+                  variant="secondary"
+                  size="lg"
+                  style={styles.socialButton}
+                  onPress={handleAppleSignUp}
+                  disabled={isApplePending}
+                />
+              </View>
             </>
           )}
 
@@ -384,6 +404,8 @@ const styles = StyleSheet.create({
   agencyHelper: { fontSize: 12, color: theme.colors.muted },
   error: { fontSize: 13, color: theme.colors.danger },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginVertical: theme.spacing.lg },
+  socialButtons: { flexDirection: 'row', gap: theme.spacing.sm },
+  socialButton: { flex: 1 },
   dividerLine: { flex: 1, height: 1, backgroundColor: theme.colors.border },
   dividerText: { fontSize: 12, color: theme.colors.muted },
   footer: { textAlign: 'center', marginTop: theme.spacing.xl, color: theme.colors.muted },

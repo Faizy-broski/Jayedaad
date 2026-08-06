@@ -27,6 +27,7 @@ import {
   Bell,
   ChevronsUpDown,
   PlusCircle,
+  Newspaper,
 } from 'lucide-react';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
@@ -51,6 +52,7 @@ const NAV_ITEMS = [
   { href: '/admin/taxonomy', label: 'Taxonomy', icon: ListTree },
   { href: '/admin/developers', label: 'Developers', icon: Building },
   { href: '/admin/projects', label: 'Projects', icon: Landmark },
+  { href: '/admin/blog', label: 'Blog', icon: Newspaper },
 ];
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {

@@ -44,20 +44,3 @@ export function useInfiniteListingSearchViewModel(filters: ListingSearchFilters)
     error: query.error,
   };
 }
-
-// Sitewide "most visited" — GET /listings/trending, ranked by real 'view'
-// events off listing_engagement_events. Backs the homepage's Most Visited
-// section, distinct from the "newest" proxy FeaturedPropertiesSection uses.
-export function useTrendingListingsViewModel(limit?: number) {
-  const query = useQuery({
-    queryKey: ['listings', 'trending', limit],
-    queryFn: () => listingsRepository.findMostViewed(limit),
-    staleTime: 5 * 60_000,
-  });
-
-  return {
-    listings: query.data ?? [],
-    isLoading: query.isLoading,
-    error: query.error,
-  };
-}

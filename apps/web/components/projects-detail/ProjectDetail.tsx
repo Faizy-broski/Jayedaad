@@ -12,7 +12,7 @@ import { ProjectUnitTypes } from './ProjectUnitTypes';
 import { ProjectPaymentPlans } from './ProjectPaymentPlans';
 import { ProjectAmenities } from './ProjectAmenities';
 import { SimilarProjects } from './SimilarProjects';
-import type { DisplayProject, ProjectCardData } from '@/lib/types';
+import type { DisplayProject } from '@/lib/types';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -37,7 +37,7 @@ function formatPrice(value: number): string {
 
 interface ProjectDetailProps {
   project: DisplayProject;
-  similar: ProjectCardData[];
+  similar: DisplayProject[];
 }
 
 export function ProjectDetail({ project, similar }: ProjectDetailProps) {

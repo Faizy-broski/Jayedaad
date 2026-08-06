@@ -120,16 +120,6 @@ export class ListingsController {
     return this.listings.trackEngagement(id, body);
   }
 
-  // Sitewide "most visited" listings, ranked by real 'view' events off
-  // listing_engagement_events. Declared before the bare `:id` route below
-  // for the same reason as 'mine'/'mine/status-counts' — Nest/Express match
-  // routes in declaration order, and `:id` would otherwise swallow this.
-  @Public()
-  @Get('trending')
-  findMostViewed(@Query('limit') limit?: string) {
-    return this.listings.findMostViewed(limit ? Number(limit) : undefined);
-  }
-
   // Owner/seller dashboard ("manage submissions, track verification status"
   // [Spec §8]) AND the agent Profolio "My Listings" page — role-aware:
   // owners see what they submitted, agents see what they're assigned to,
@@ -237,11 +227,19 @@ export class ListingsController {
   // verification queue. Only meaningful from status='draft'; setStatus()
   // itself doesn't enforce a from-state, so this is a thin, deliberately
   // narrow entry point rather than exposing the general setStatus write path.
+  // assertDocumentsComplete() is the same hard gate already used at
+  // approval time (VerificationRepository.recordAction) — without it here,
+  // a draft finished via this endpoint (the Property Management/My
+  // Properties "Submit" button) could reach pending_verification without
+  // ever being routed through the ownership-documents screen, unlike the
+  // direct-create path in create() below. Correctly a no-op for
+  // agent-authored listings (getDocumentCompleteness exempts them).
   @UseGuards(ScopeGuard)
   @Roles('owner', 'agent', 'super_admin')
   @Post(':id/submit')
   async submitDraft(@Req() req: any, @Param('id') id: string) {
     await this.assertOwnListing(req, id);
+    await this.listings.assertDocumentsComplete(id);
     return this.listings.setStatus(id, 'pending_verification');
   }
 

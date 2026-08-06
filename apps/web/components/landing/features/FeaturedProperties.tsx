@@ -1,19 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PropertyCard } from './PropertyCard';
 import type { Property } from '@/lib/types';
+import { TrustFeatures } from './TrustFeatures';
 import { Reveal } from '@/components/Reveal';
 
 interface FeaturedPropertiesProps {
   properties: Property[];
-  children?: React.ReactNode;
 }
 
-export function FeaturedProperties({ properties, children }: FeaturedPropertiesProps) {
+export function FeaturedProperties({ properties }: FeaturedPropertiesProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     loop: false,
@@ -52,15 +53,23 @@ export function FeaturedProperties({ properties, children }: FeaturedPropertiesP
   }, [emblaApi, onSelect]);
 
   return (
-    <section className="py-16 bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4">
+    <section className="relative overflow-hidden py-4">
+      {/* Faint building silhouette bleeding in from the right, behind the
+          heading/cards — matches the reference screenshot's watermark bg. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 -bottom-20 w-full max-w-3xl">
+        <Image src="/images/bg-image.png" alt="" fill sizes="768px" className="object-cover object-left" />
+      </div>
+
+    <TrustFeatures />
+
+      <div className="relative z-10 mx-auto max-w-6xl px-4">
         <div className="flex items-end justify-between gap-4">
           <Reveal>
             <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">Handpicked</span>
             <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Featured properties</h2>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              A curated selection of Pakistan&apos;s most desirable homes — verified, photographed, and ready to move
-              in.
+              A curated selection of Pakistan&apos;s most desirable homes — ownership-verified, photographed, and
+              ready to move in.
             </p>
           </Reveal>
 
@@ -140,8 +149,6 @@ export function FeaturedProperties({ properties, children }: FeaturedPropertiesP
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-
-        {children}
       </div>
     </section>
   );

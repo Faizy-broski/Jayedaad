@@ -1,12 +1,20 @@
-import { ProjectDetailSection } from '@/components/projects-detail/ProjectDetailSection';
+import { notFound } from 'next/navigation';
+import { ProjectDetail } from '@/components/projects-detail/ProjectDetail';
+import { PROJECTS } from '@/data/projects';
 
 interface ProjectDetailPageProps {
   params: { slug: string };
 }
 
-// Real projects are dynamic rows (GET /projects/:slug), not a fixed static
-// set — no generateStaticParams/notFound() here anymore; ProjectDetailSection
-// fetches client-side and renders its own not-found state if the slug 404s.
+export function generateStaticParams() {
+  return PROJECTS.map((project) => ({ slug: project.slug }));
+}
+
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
-  return <ProjectDetailSection slug={params.slug} />;
+  const project = PROJECTS.find((item) => item.slug === params.slug);
+  if (!project) notFound();
+
+  const similar = PROJECTS.filter((item) => item.id !== project.id).slice(0, 4);
+
+  return <ProjectDetail project={project} similar={similar} />;
 }

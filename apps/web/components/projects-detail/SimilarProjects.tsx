@@ -3,10 +3,10 @@
 import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
-import type { ProjectCardData } from '@/lib/types';
+import type { DisplayProject } from '@/lib/types';
 
 interface SimilarProjectsProps {
-  projects: ProjectCardData[];
+  projects: DisplayProject[];
 }
 
 export function SimilarProjects({ projects }: SimilarProjectsProps) {

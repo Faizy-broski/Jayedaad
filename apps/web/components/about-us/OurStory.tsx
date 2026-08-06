@@ -35,12 +35,13 @@ export function OurStory() {
             unverified, agents unaccountable, information scattered across corners of the internet.
           </p>
           <p>
-            Jayedaad exists to change that. Every property is verified. Every professional vetted. Every decision
-            supported by technology built for how families actually live and buy.
+            Jayedaad exists to change that. Every property&apos;s ownership is verified before it&apos;s listed.
+            Every professional vetted. Every decision supported by technology built for how families actually live
+            and buy.
           </p>
           <p>
-            We think of ourselves less as a platform and more as a standard — a quiet promise that the home you
-            find here is the home you were shown.
+            We think of ourselves less as a platform and more as a standard — starting with knowing that the person
+            listing a property actually owns it.
           </p>
         </Reveal>
       </div>

@@ -9,7 +9,7 @@ export type SearchPurpose = 'buy' | 'rent' | 'commercial';
 const PURPOSE_TABS: { label: string; value: SearchPurpose }[] = [
   { label: 'Buy', value: 'buy' },
   { label: 'Rent', value: 'rent' },
-  // { label: 'Commercial', value: 'commercial' },
+  { label: 'Commercial', value: 'commercial' },
 ];
 
 const BUDGET_OPTIONS = ['Any', 'Under 50 Lac', '50 Lac - 1 Cr', '1 Cr - 3 Cr', '3 Cr+'];
