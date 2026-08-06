@@ -59,8 +59,8 @@ export function FeaturedProperties({ properties, children }: FeaturedPropertiesP
             <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">Handpicked</span>
             <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Featured properties</h2>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              A curated selection of Pakistan&apos;s most desirable homes — ownership-verified, photographed, and
-              ready to move in.
+              A curated selection of Pakistan&apos;s most desirable homes — verified, photographed, and ready to move
+              in.
             </p>
           </Reveal>
 

@@ -1,12 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsRepository } from '../services/projectsRepository';
-import {
-  CreateProjectInput,
-  ProjectSearchFilters,
-  ProjectStatus,
-  SetProjectVerificationStatusInput,
-  UpdateProjectInput,
-} from '../models';
+import { CreateProjectInput, ProjectSearchFilters, SetProjectVerificationStatusInput, UpdateProjectInput } from '../models';
 
 // Public search — verified projects only (see
 // ProjectsRepository.findPublic's includeUnverified gate server-side).
@@ -55,9 +49,7 @@ export function useInfiniteProjectsViewModel(filters: ProjectSearchFilters = {})
 // verification_status, plus create + approve/reject. Backs both
 // /admin/projects and the agent-portal /projects list (both share
 // apps/web/components/projects/ProjectsListView.tsx and ProjectForm.tsx).
-export function useManageProjectsViewModel(
-  filters: { city?: string; status?: ProjectStatus; keyword?: string; page?: number; pageSize?: number } = {},
-) {
+export function useManageProjectsViewModel(filters: { city?: string } = {}) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -91,8 +83,6 @@ export function useManageProjectsViewModel(
   return {
     projects: query.data?.items ?? [],
     total: query.data?.total ?? 0,
-    page: query.data?.page ?? filters.page ?? 1,
-    pageSize: query.data?.pageSize ?? filters.pageSize ?? 20,
     isLoading: query.isLoading,
     error: query.error,
     create,

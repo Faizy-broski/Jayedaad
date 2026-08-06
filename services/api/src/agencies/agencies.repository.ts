@@ -169,7 +169,6 @@ export class AgenciesRepository {
         address: input.address,
         business_hours: input.businessHours,
         logo_url: input.logoUrl,
-        sales_associate_count: input.salesAssociateCount,
         verification_status: 'pending',
       })
       .select()
@@ -212,7 +211,6 @@ export class AgenciesRepository {
         address: input.address,
         business_hours: input.businessHours,
         logo_url: input.logoUrl,
-        sales_associate_count: input.salesAssociateCount,
       })
       .eq('id', id)
       .select(AGENCY_COLUMNS)

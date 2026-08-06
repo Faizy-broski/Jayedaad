@@ -7,7 +7,7 @@ const FEATURES = [
     id: 'verified-listings',
     icon: ShieldCheck,
     title: 'Verified Listings',
-    description: "Every property's ownership is verified before it ever appears on-site.",
+    description: 'Every property inspected and confirmed before it ever appears on-site.',
   },
   {
     id: 'trusted-agents',

@@ -8,14 +8,12 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueries } from '@tanstack/react-query';
 import {
-  BlogPost,
   Listing,
   Project,
   ProjectStatus,
   formatPrice,
   listingsRepository,
   useAuthViewModel,
-  useBlogViewModel,
   useListingSearchViewModel,
   usePreferencesViewModel,
   useProjectsViewModel,
@@ -30,6 +28,9 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
 import heroLogoImage from '../../assets/images/hero-logo.webp';
 import heroBannerImage from '../../assets/images/home-banner.webp';
+import skyViewVillaImage from '../../assets/images/Sky View Villa.webp';
+import gulbergResidenceImage from '../../assets/images/Container.webp';
+import dhaTownhouseImage from '../../assets/images/Ocean Residence.webp';
 import lahoreImage from '../../assets/images/lahore.webp';
 import karachiImage from '../../assets/images/karachi.webp';
 import islamabadImage from '../../assets/images/islamabad.webp';
@@ -83,6 +84,35 @@ const CITIES: Category[] = [
   { id: 'gulberg', title: 'Gulberg', image: gulbergImage, isArea: true },
 ];
 
+type BlogPost = { id: string; tag: string; title: string; readTime: string; image: number };
+
+// No CMS/blog backend exists yet — same placeholder-data convention as
+// FEATURED_PROPERTIES/CITIES above, reusing existing property photos
+// as thumbnails rather than adding new blog-specific image assets.
+const BLOG_POSTS: BlogPost[] = [
+  {
+    id: 'verify-title',
+    tag: 'Legal',
+    title: 'How to verify a property title in Pakistan',
+    readTime: '6 min read',
+    image: skyViewVillaImage,
+  },
+  {
+    id: 'rent-vs-buy',
+    tag: 'Finance',
+    title: 'Rent vs buy: the 2026 math',
+    readTime: '4 min read',
+    image: gulbergResidenceImage,
+  },
+  {
+    id: 'negotiating-dha',
+    tag: 'Guide',
+    title: 'Negotiating like a pro in DHA',
+    readTime: '5 min read',
+    image: dhaTownhouseImage,
+  },
+];
+
 const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: 'Planned',
   under_construction: 'Under Construction',
@@ -112,9 +142,6 @@ export const HomeScreen = memo(function HomeScreen() {
   // projects, newest first, tappable to the real ProjectDetailScreen.
   const { projects: newProjects } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
   const { preferences } = usePreferencesViewModel();
-  // Previously BLOG_POSTS was hardcoded mock data — real published posts
-  // from the Blog CMS, newest first.
-  const { posts: blogPosts, isLoading: blogLoading } = useBlogViewModel({ limit: 3 });
 
   // No buyer-side view-history backend exists — tracked on-device instead
   // (ListingDetailScreen writes to it on view). Re-read on every focus, not
@@ -160,26 +187,6 @@ export const HomeScreen = memo(function HomeScreen() {
           sections below it scrolled underneath. */}
       <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
         <HomeHeader onMenuPress={() => setDrawerVisible(true)} />
-
-        {/* Placed immediately below the Buy/Rent toggle in HomeHeader for
-            quick access — client requirement: Browse by Categories is the
-            first section on both platforms. */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.browseCategoryTitle}>Browse by category</Text>
-
-          <View style={styles.propertyCategoryGrid}>
-            {PROPERTY_CATEGORIES.map((category, i) => (
-              <PropertyCategoryCard
-                key={category.id}
-                category={category}
-                count={categoryCountQueries[i].data?.total ?? 0}
-                onPress={() =>
-                  navigation.navigate('AllProperties', { initialFilters: { propertyTypeSlug: category.id } })
-                }
-              />
-            ))}
-          </View>
-        </View>
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
@@ -237,6 +244,23 @@ export const HomeScreen = memo(function HomeScreen() {
         )}
 
         <View style={styles.sectionCard}>
+          <Text style={styles.browseCategoryTitle}>Browse by category</Text>
+
+          <View style={styles.propertyCategoryGrid}>
+            {PROPERTY_CATEGORIES.map((category, i) => (
+              <PropertyCategoryCard
+                key={category.id}
+                category={category}
+                count={categoryCountQueries[i].data?.total ?? 0}
+                onPress={() =>
+                  navigation.navigate('AllProperties', { initialFilters: { propertyTypeSlug: category.id } })
+                }
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeaderText}>
               <Text style={styles.sectionTitle}>Popular locations</Text>
@@ -289,30 +313,16 @@ export const HomeScreen = memo(function HomeScreen() {
           />
         </View>
 
-        {(blogLoading || blogPosts.length > 0) && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={styles.sectionHeaderText}>
-                <Text style={styles.blogTitle}>Property tips</Text>
-                <Text style={styles.sectionSubtitleTight}>Read before you sign</Text>
-              </View>
-              <Pressable style={styles.seeAllRow} onPress={() => navigation.navigate('BlogList')}>
-                <Text style={styles.viewAllLink}>See all</Text>
-                <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
-              </Pressable>
-            </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.blogTitle}>Property tips</Text>
+          <Text style={styles.sectionSubtitleTight}>Read before you sign</Text>
 
-            <View style={styles.blogList}>
-              {blogPosts.map((post) => (
-                <BlogCard
-                  key={post.id}
-                  post={post}
-                  onPress={() => navigation.navigate('BlogDetail', { slug: post.slug })}
-                />
-              ))}
-            </View>
+          <View style={styles.blogList}>
+            {BLOG_POSTS.map((post) => (
+              <BlogCard key={post.id} post={post} />
+            ))}
           </View>
-        )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -518,28 +528,20 @@ function CategoryCard({
 // overlapping low-opacity tinted circles, clipped by the card's own
 // overflow:hidden) — here sitting behind the text column instead of behind
 // an icon.
-function BlogCard({ post, onPress }: { post: BlogPost; onPress: () => void }) {
+function BlogCard({ post }: { post: BlogPost }) {
   return (
-    <Pressable style={styles.blogCard} onPress={onPress}>
+    <Pressable style={styles.blogCard}>
       <View style={styles.blogBlobBack} />
       <View style={styles.blogBlobFront} />
-      {post.coverImageUrl ? (
-        <Image source={{ uri: post.coverImageUrl }} style={styles.blogThumb} contentFit="cover" transition={150} />
-      ) : (
-        <View style={[styles.blogThumb, styles.blogThumbPlaceholder]}>
-          <Ionicons name="newspaper-outline" size={20} color={theme.colors.muted} />
-        </View>
-      )}
+      <Image source={post.image} style={styles.blogThumb} contentFit="cover" transition={150} />
       <View style={styles.blogBody}>
-        {post.category && (
-          <View style={styles.blogTag}>
-            <Text style={styles.blogTagText}>{post.category.name}</Text>
-          </View>
-        )}
+        <View style={styles.blogTag}>
+          <Text style={styles.blogTagText}>{post.tag}</Text>
+        </View>
         <Text style={styles.blogPostTitle} numberOfLines={2}>
           {post.title}
         </Text>
-        {post.readTime && <Text style={styles.blogReadTime}>{post.readTime}</Text>}
+        <Text style={styles.blogReadTime}>{post.readTime}</Text>
       </View>
     </Pressable>
   );
@@ -858,7 +860,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(13,99,75,0.08)',
   },
   blogThumb: { width: 64, height: 64, borderRadius: 14 },
-  blogThumbPlaceholder: { backgroundColor: theme.colors.bg, alignItems: 'center', justifyContent: 'center' },
   blogBody: { flex: 1, gap: 4 },
   blogTag: {
     alignSelf: 'flex-start',

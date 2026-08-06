@@ -79,15 +79,10 @@ export class ProjectsController {
   @Get('manage')
   findAll(
     @Query('city') city?: string,
-    @Query('status') status?: 'planned' | 'under_construction' | 'ready' | 'draft',
-    @Query('keyword') keyword?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
-    return this.projects.findPublic(
-      { city, status, keyword, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined },
-      true,
-    );
+    return this.projects.findPublic({ city, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined }, true);
   }
 
   // Backs "Browse Projects by City" (Islamabad 285, Lahore 219, ...).

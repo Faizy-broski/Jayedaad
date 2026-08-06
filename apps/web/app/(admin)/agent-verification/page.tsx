@@ -16,11 +16,7 @@ export default function AgentVerificationQueuePage() {
       { agentId, status },
       {
         onSuccess: () => toast.success(status === 'verified' ? 'Agent approved.' : 'Agent rejected.'),
-        // Surface the API's real 400 message (e.g. which required
-        // documents are still missing) instead of a generic one — same
-        // convention as admin/agents/page.tsx's handleVerify.
-        onError: (err: any) =>
-          toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
       },
     );
   }

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Agency, agenciesRepository, CreateAgencyInput, OnboardingDocumentType, useAgencyManagementViewModel } from '@jayedaad/core';
+import { Agency, agenciesRepository, CreateAgencyInput, useAgencyManagementViewModel } from '@jayedaad/core';
 import { Badge, Button, cn, Input, Label, Modal } from '@jayedaad/ui-web';
 import {
   Building2,
@@ -25,18 +25,9 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
-const EMPTY_FORM: CreateAgencyInput = {
-  name: '',
-  slug: '',
-  description: '',
-  phone: '',
-  email: '',
-  city: '',
-  address: '',
-  salesAssociateCount: 1,
-};
+const EMPTY_FORM: CreateAgencyInput = { name: '', slug: '', description: '', phone: '', email: '', city: '', address: '' };
 
-const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
+const DOCUMENT_TYPES: { type: 'company_registration' | 'owner_id_card' | 'tax_certificate'; label: string }[] = [
   { type: 'company_registration', label: 'Company Registration' },
   { type: 'owner_id_card', label: "Owner's ID Card" },
   { type: 'tax_certificate', label: 'Tax Certificate' },
@@ -68,13 +59,6 @@ export default function AgenciesPage() {
   const [form, setForm] = useState<CreateAgencyInput>(EMPTY_FORM);
   const [activeTab, setActiveTab] = useState<'all' | Agency['verificationStatus']>('all');
   const [search, setSearch] = useState('');
-  // Deferred-upload pattern (same as the blog cover image editor): a
-  // brand-new agency has no id to upload documents against yet, so files
-  // picked while creating are held here and only actually uploaded once
-  // `create` resolves and a real agency id exists. Cleared whenever the
-  // modal (re)opens.
-  const [pendingDocs, setPendingDocs] = useState<Partial<Record<OnboardingDocumentType, File>>>({});
-  const [isSaving, setIsSaving] = useState(false);
 
   const counts = useMemo(
     () => ({
@@ -98,7 +82,6 @@ export default function AgenciesPage() {
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setPendingDocs({});
     setModalOpen(true);
   }
 
@@ -114,31 +97,30 @@ export default function AgenciesPage() {
       address: agency.address ?? '',
       businessHours: agency.businessHours ?? '',
       logoUrl: agency.logoUrl ?? '',
-      salesAssociateCount: agency.salesAssociateCount,
     });
-    setPendingDocs({});
     setModalOpen(true);
   }
 
-  async function handleSave() {
-    setIsSaving(true);
-    try {
-      if (editing) {
-        await update.mutateAsync({ id: editing.id, input: form });
-        toast.success('Agency updated.');
-      } else {
-        const created = await create.mutateAsync(form);
-        const uploads = Object.entries(pendingDocs) as [OnboardingDocumentType, File][];
-        for (const [documentType, file] of uploads) {
-          await agenciesRepository.uploadDocument(created.id, documentType, file);
-        }
-        toast.success('Agency created.');
-      }
-      setModalOpen(false);
-    } catch {
-      toast.error('Something went wrong — please try again.');
-    } finally {
-      setIsSaving(false);
+  function handleSave() {
+    if (editing) {
+      update.mutate(
+        { id: editing.id, input: form },
+        {
+          onSuccess: () => {
+            toast.success('Agency updated.');
+            setModalOpen(false);
+          },
+          onError: () => toast.error('Something went wrong — please try again.'),
+        },
+      );
+    } else {
+      create.mutate(form, {
+        onSuccess: () => {
+          toast.success('Agency created.');
+          setModalOpen(false);
+        },
+        onError: () => toast.error('Something went wrong — please try again.'),
+      });
     }
   }
 
@@ -365,33 +347,18 @@ export default function AgenciesPage() {
               <Label>Address</Label>
               <Input value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
             </div>
-            <div className="space-y-1.5">
-              <Label>Sales Associate Count</Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.salesAssociateCount ?? 1}
-                onChange={(e) => setForm((prev) => ({ ...prev, salesAssociateCount: Number(e.target.value) || 1 }))}
-              />
-            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Description</Label>
             <Input value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
           </div>
-          <Button onClick={handleSave} disabled={isSaving} className="w-full">
-            {isSaving ? 'Saving…' : 'Save'}
+          <Button onClick={handleSave} disabled={create.isPending || update.isPending} className="w-full">
+            {create.isPending || update.isPending ? 'Saving…' : 'Save'}
           </Button>
 
-          {/* Same fields the self-service onboarding flow (become-an-agent)
-              collects, available up front here too — for a brand-new agency
-              (no id yet) files are held locally and uploaded right after
-              create() resolves; for an existing one they upload immediately. */}
-          <AgencyDocumentsSection
-            agencyId={editing?.id}
-            pendingDocs={pendingDocs}
-            onPendingFileChange={(type, file) => setPendingDocs((prev) => ({ ...prev, [type]: file }))}
-          />
+          {/* A brand-new agency has no id to upload documents against yet —
+              save it first, then reopen Edit to attach documents. */}
+          {editing && <AgencyDocumentsSection agencyId={editing.id} />}
         </div>
       </Modal>
     </div>
@@ -425,26 +392,13 @@ function StatTile({
   );
 }
 
-// Two modes in one component: with an agencyId (editing), files upload
-// immediately, same as before. Without one (creating), file picks are just
-// reported up to the parent's pendingDocs state via onPendingFileChange —
-// the parent uploads them right after create() resolves in handleSave.
-function AgencyDocumentsSection({
-  agencyId,
-  pendingDocs,
-  onPendingFileChange,
-}: {
-  agencyId?: string;
-  pendingDocs: Partial<Record<OnboardingDocumentType, File>>;
-  onPendingFileChange: (type: OnboardingDocumentType, file: File) => void;
-}) {
+function AgencyDocumentsSection({ agencyId }: { agencyId: string }) {
   const queryClient = useQueryClient();
   const queryKey = ['admin', 'agencies', agencyId, 'documents'];
 
   const { data: documents, isLoading } = useQuery({
     queryKey,
-    queryFn: () => agenciesRepository.listDocuments(agencyId!),
-    enabled: !!agencyId,
+    queryFn: () => agenciesRepository.listDocuments(agencyId),
   });
 
   const uploadedTypes = new Set((documents ?? []).map((d) => d.documentType));
@@ -456,7 +410,7 @@ function AgencyDocumentsSection({
         Verification Documents
       </h3>
       <p className="text-xs text-muted-foreground">All three documents are required before this agency can be verified.</p>
-      {agencyId && isLoading ? (
+      {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         DOCUMENT_TYPES.map((doc) => (
@@ -466,9 +420,7 @@ function AgencyDocumentsSection({
             documentType={doc.type}
             label={doc.label}
             uploaded={uploadedTypes.has(doc.type)}
-            pendingFile={pendingDocs[doc.type]}
             onUploaded={() => queryClient.invalidateQueries({ queryKey })}
-            onPendingFileChange={onPendingFileChange}
           />
         ))
       )}
@@ -481,30 +433,19 @@ function AgencyDocumentRow({
   documentType,
   label,
   uploaded,
-  pendingFile,
   onUploaded,
-  onPendingFileChange,
 }: {
-  agencyId?: string;
-  documentType: OnboardingDocumentType;
+  agencyId: string;
+  documentType: 'company_registration' | 'owner_id_card' | 'tax_certificate';
   label: string;
   uploaded: boolean;
-  pendingFile: File | undefined;
   onUploaded: () => void;
-  onPendingFileChange: (type: OnboardingDocumentType, file: File) => void;
 }) {
   const [isUploading, setIsUploading] = useState(false);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    e.target.value = '';
     if (!file) return;
-
-    if (!agencyId) {
-      onPendingFileChange(documentType, file);
-      return;
-    }
-
     setIsUploading(true);
     try {
       await agenciesRepository.uploadDocument(agencyId, documentType, file);
@@ -514,11 +455,9 @@ function AgencyDocumentRow({
       toast.error('Upload failed — please try again.');
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
   }
-
-  const isDone = uploaded || !!pendingFile;
-  const actionLabel = isUploading ? 'Uploading…' : pendingFile ? 'Change' : isDone ? 'Replace' : 'Upload';
 
   return (
     <div className="flex items-center justify-between">
@@ -530,12 +469,11 @@ function AgencyDocumentRow({
             Uploaded
           </span>
         )}
-        {!uploaded && pendingFile && <span className="text-xs text-muted-foreground">Uploads when you save</span>}
       </span>
       <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
         <UploadCloud className="h-3.5 w-3.5" />
-        {actionLabel}
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleFileChange} />
+        {isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}
+        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleUpload} />
       </label>
     </div>
   );

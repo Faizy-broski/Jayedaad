@@ -6,8 +6,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, TextInput, theme } from '@jayedaad/ui-native';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
-import { useAppleSignIn } from '../../hooks/useAppleSignIn';
-import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { setRememberMe } from '../../lib/rememberMeStorage';
 import { AuthBrandHeader } from '../../components/AuthBrandHeader';
@@ -33,14 +31,13 @@ function describeSignInError(error: unknown): string {
 // same pairing used on the marketing "Verified First" splash, just light
 // instead of dark-green. Field order mirrors the Zameen mobile reference
 // (brand mark -> title -> email/password -> Forgot Password -> Log In ->
-// divider -> Google/Apple -> Sign Up prompt). Facebook remains omitted (no
-// sign-in flow wired up for it); Apple was added to match web's parity
-// requirement — Google and Apple ID sign-in on both platforms.
+// divider -> Google -> Sign Up prompt). Facebook/Apple omitted per the
+// "Google only" scope decision already applied to web — no sign-in flow is
+// wired up for them.
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const { signIn } = useAuthViewModel();
   const { signInWithGoogle, isPending: isGooglePending } = useGoogleSignIn();
-  const { signInWithApple, isPending: isApplePending } = useAppleSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -114,33 +111,16 @@ export function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.socialButtons}>
-            <Button
-              label="Google"
-              icon={<GoogleIcon />}
-              variant="secondary"
-              size="lg"
-              style={styles.socialButton}
-              onPress={() => {
-                setRememberMe(rememberMe);
-                signInWithGoogle();
-              }}
-              disabled={isGooglePending}
-            />
-
-            <Button
-              label="Apple"
-              icon={<AppleIcon />}
-              variant="secondary"
-              size="lg"
-              style={styles.socialButton}
-              onPress={() => {
-                setRememberMe(rememberMe);
-                signInWithApple();
-              }}
-              disabled={isApplePending}
-            />
-          </View>
+          <Button
+            label="Google"
+            variant="secondary"
+            size="lg"
+            onPress={() => {
+              setRememberMe(rememberMe);
+              signInWithGoogle();
+            }}
+            disabled={isGooglePending}
+          />
 
           <Text style={styles.footer}>
             New to Jayedaad?{' '}
@@ -174,8 +154,6 @@ const styles = StyleSheet.create({
   error: { fontSize: 13, color: theme.colors.danger },
   link: { color: theme.colors.primary, fontWeight: '600' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginVertical: theme.spacing.lg },
-  socialButtons: { flexDirection: 'row', gap: theme.spacing.sm },
-  socialButton: { flex: 1 },
   dividerLine: { flex: 1, height: 1, backgroundColor: theme.colors.border },
   dividerText: { fontSize: 12, color: theme.colors.muted },
   footer: { textAlign: 'center', marginTop: theme.spacing.xl, color: theme.colors.muted },

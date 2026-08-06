@@ -1,11 +1,9 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
 import { ArrowUpRight, CheckCircle2 } from 'lucide-react';
-import { useContactViewModel } from '@jayedaad/core';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -26,32 +24,7 @@ const MAP_EMBED_SRC =
   'https://www.google.com/maps?q=Gulberg+III,+Lahore,+Pakistan&output=embed';
 
 export function ConsultationSection() {
-  const { submit } = useContactViewModel();
-  const [submitted, setSubmitted] = useState(false);
-
-  // Uncontrolled form (every field already has a matching `name` attribute)
-  // read via FormData at submit time — this was previously entirely fake
-  // (e.setPreventDefault() + local state only, no backend call at all).
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const data = new FormData(form);
-    try {
-      await submit.mutateAsync({
-        name: String(data.get('fullName') ?? '') || undefined,
-        email: String(data.get('email') ?? '') || undefined,
-        phone: String(data.get('phone') ?? ''),
-        purpose: String(data.get('purpose') ?? '') || undefined,
-        city: String(data.get('city') ?? '') || undefined,
-        budget: String(data.get('budget') ?? '') || undefined,
-        message: String(data.get('message') ?? '') || undefined,
-      });
-      setSubmitted(true);
-      form.reset();
-    } catch {
-      toast.error('Something went wrong — please try again.');
-    }
-  }
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20 lg:py-28">
@@ -130,26 +103,30 @@ export function ConsultationSection() {
             />
           </div>
 
-          <form className="relative z-10 flex flex-col gap-6" onSubmit={handleSubmit}>
+          <form
+            className="relative z-10 flex flex-col gap-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setSubmitting(true);
+            }}
+          >
             <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Full name <span className="normal-case text-slate-300">(optional)</span>
-                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Full name</span>
                 <input
                   name="fullName"
+                  required
                   placeholder="Your full name"
                   className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
                 />
               </label>
 
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Email <span className="normal-case text-slate-300">(optional)</span>
-                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Email</span>
                 <input
                   type="email"
                   name="email"
+                  required
                   placeholder="you@email.com"
                   className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
                 />
@@ -160,22 +137,22 @@ export function ConsultationSection() {
                 <input
                   type="tel"
                   name="phone"
-                  required
                   placeholder="+92 300 000 0000"
                   className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
                 />
               </label>
 
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Purpose <span className="normal-case text-slate-300">(optional)</span>
-                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purpose</span>
                 <select
                   name="purpose"
                   defaultValue=""
+                  required
                   className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 focus:border-primary focus:outline-none [&:required:invalid]:text-slate-400"
                 >
-                  <option value="">Select...</option>
+                  <option value="" disabled>
+                    Select...
+                  </option>
                   {PURPOSE_OPTIONS.map((option) => (
                     <option key={option} value={option} className="text-slate-800">
                       {option}
@@ -229,16 +206,14 @@ export function ConsultationSection() {
 
             <button
               type="submit"
-              disabled={submit.isPending || submitted}
+              disabled={submitting}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-6 py-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {submitted ? (
+              {submitting ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
                   Request received
                 </>
-              ) : submit.isPending ? (
-                'Sending…'
               ) : (
                 <>
                   Schedule consultation

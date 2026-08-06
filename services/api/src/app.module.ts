@@ -25,7 +25,6 @@ import { AccountModule } from './account/account.module';
 import { AdminModule } from './admin/admin.module';
 import { DevelopersModule } from './developers/developers.module';
 import { ContactModule } from './contact/contact.module';
-import { BlogModule } from './blog/blog.module';
 
 @Module({
   imports: [
@@ -55,7 +54,6 @@ import { BlogModule } from './blog/blog.module';
     AdminModule,
     DevelopersModule,
     ContactModule,
-    BlogModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

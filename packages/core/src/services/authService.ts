@@ -66,43 +66,12 @@ export async function signInWithGoogle(redirectTo: string) {
   return data;
 }
 
-// Web: same shape as signInWithGoogle above, just provider: 'apple'. Apple
-// requires its own setup in both the Apple Developer portal (a Services ID
-// with "Sign in with Apple" configured, using this same
-// /auth/callback route as its redirect_uri, plus a private key/JWT client
-// secret) and Supabase's dashboard (Authentication -> Providers -> Apple) —
-// this function assumes that's already done; it's otherwise identical to
-// the Google path.
-export async function signInWithApple(redirectTo: string) {
-  const { data, error } = await getSupabaseClient().auth.signInWithOAuth({
-    provider: 'apple',
-    options: { redirectTo },
-  });
-  if (error) throw error;
-  return data;
-}
-
 // Mobile: skipBrowserRedirect so Supabase just returns the authorize URL —
 // Expo's WebBrowser.openAuthSessionAsync drives the actual browser, since
 // there's no window.location for the SDK to redirect in React Native.
 export async function getGoogleOAuthUrl(redirectTo: string): Promise<string> {
   const { data, error } = await getSupabaseClient().auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo, skipBrowserRedirect: true },
-  });
-  if (error) throw error;
-  if (!data.url) throw new Error('Supabase did not return an OAuth URL');
-  return data.url;
-}
-
-// Mobile Apple sign-in — same skipBrowserRedirect shape as getGoogleOAuthUrl
-// above, just provider: 'apple'. No native expo-apple-authentication SDK
-// needed: this goes through the same generic Supabase OAuth + Expo
-// WebBrowser flow Google already uses (real Apple OAuth via a browser
-// sheet, not a native "Sign in with Apple" button).
-export async function getAppleOAuthUrl(redirectTo: string): Promise<string> {
-  const { data, error } = await getSupabaseClient().auth.signInWithOAuth({
-    provider: 'apple',
     options: { redirectTo, skipBrowserRedirect: true },
   });
   if (error) throw error;

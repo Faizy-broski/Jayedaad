@@ -35,7 +35,7 @@ function slugify(name: string): string {
 // landing.
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp, signIn, sendOtp, signInWithGoogle, signInWithApple } = useAuthViewModel();
+  const { signUp, signIn, sendOtp, signInWithGoogle } = useAuthViewModel();
   const { register: registerAgency } = useAgencyRegistrationViewModel();
 
   const [accountType, setAccountType] = useState<AccountType>('individual');
@@ -162,10 +162,6 @@ export default function SignupPage() {
     signInWithGoogle.mutate(`${window.location.origin}/auth/callback`);
   }
 
-  function handleApple() {
-    signInWithApple.mutate(`${window.location.origin}/auth/callback`);
-  }
-
   const isPending = isSubmitting || signUp.isPending || signIn.isPending || sendOtp.isPending || registerAgency.isPending;
 
   return (
@@ -241,33 +237,22 @@ export default function SignupPage() {
             </p>
           </div>
 
-          {/* Google/Apple's OAuth round-trip has no way to collect the
-              agency name/city/associate-count fields first, so both are
-              only offered for Individual signups — matches
+          {/* Google's OAuth round-trip has no way to collect the agency
+              name/city/associate-count fields first, so it's only offered
+              for Individual signups — matches
               apps/mobile/src/screens/auth/SignupScreen.tsx's existing
               accountType === 'individual' guard around its own Google button. */}
           {accountType === 'individual' && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  disabled={signInWithGoogle.isPending}
-                  onClick={handleGoogle}
-                  className="flex h-10 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
-                >
-                  <GoogleIcon className="h-4 w-4" />
-                  Google
-                </button>
-                <button
-                  type="button"
-                  disabled={signInWithApple.isPending}
-                  onClick={handleApple}
-                  className="flex h-10 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
-                >
-                  <AppleIcon className="h-4 w-4" />
-                  Apple
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={signInWithGoogle.isPending}
+                onClick={handleGoogle}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
+              >
+                <GoogleIcon className="h-4 w-4" />
+                Continue with Google
+              </button>
 
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-border" />
@@ -538,14 +523,6 @@ function GoogleIcon({ className }: { className?: string }) {
         fill="#EA4335"
         d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.27 6.61l4 3.11C6.22 6.88 8.87 4.77 12 4.77z"
       />
-    </svg>
-  );
-}
-
-function AppleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <path d="M16.36 1.4c.09 1.1-.32 2.13-1.02 2.9-.72.79-1.9 1.4-3 1.32-.11-1.06.36-2.16 1.03-2.87.75-.8 2.03-1.4 2.99-1.35zM20.2 17.02c-.53 1.22-.78 1.76-1.46 2.83-.95 1.5-2.29 3.37-3.95 3.39-1.48.02-1.86-.97-3.87-.96-2 .01-2.42.98-3.9.96-1.66-.02-2.93-1.7-3.88-3.2C1 16.6.68 12.7 2.02 10.62c.95-1.48 2.46-2.34 3.87-2.34 1.44 0 2.34.97 3.53.97 1.15 0 1.85-.97 3.53-.97 1.26 0 2.6.68 3.55 1.86-3.12 1.71-2.61 6.16.7 6.88z" />
     </svg>
   );
 }

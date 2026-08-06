@@ -1,4 +1,4 @@
-import { Pressable, Text, View, PressableProps, StyleSheet } from 'react-native';
+import { Pressable, Text, PressableProps, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from './theme';
 
@@ -11,10 +11,6 @@ export interface ButtonProps extends PressableProps {
   // default md height reads as too heavy. Omit for the existing compact
   // rounded-rectangle size everywhere else.
   size?: 'sm' | 'md' | 'lg';
-  // Optional leading glyph (e.g. a provider logo for "Continue with
-  // Google"/"Apple" buttons) — rendered in a row before the label. Absent
-  // by default so every existing call site's layout is unaffected.
-  icon?: React.ReactNode;
 }
 
 // RN counterpart to @jayedaad/ui-web's Button — same props/variant shape as
@@ -23,7 +19,7 @@ export interface ButtonProps extends PressableProps {
 // backgroundColor can't render a gradient string. Pressable stays the outer
 // interactive/style-override wrapper so every existing call site's `style`
 // prop passthrough keeps working; LinearGradient is just the visual fill.
-export function Button({ label, variant = 'primary', size = 'md', icon, style, disabled, ...props }: ButtonProps) {
+export function Button({ label, variant = 'primary', size = 'md', style, disabled, ...props }: ButtonProps) {
   const gradient = variant === 'secondary' ? theme.gradients.gold : theme.gradients.primary;
 
   return (
@@ -41,10 +37,7 @@ export function Button({ label, variant = 'primary', size = 'md', icon, style, d
         end={gradient.end}
         style={[styles.base, size === 'lg' && styles.baseLg, size === 'sm' && styles.baseSm]}
       >
-        <View style={styles.content}>
-          {icon}
-          <Text style={variant === 'secondary' ? styles.textSecondary : styles.text}>{label}</Text>
-        </View>
+        <Text style={variant === 'secondary' ? styles.textSecondary : styles.text}>{label}</Text>
       </LinearGradient>
     </Pressable>
   );
@@ -75,11 +68,6 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
   },
   text: {
     color: '#ffffff',

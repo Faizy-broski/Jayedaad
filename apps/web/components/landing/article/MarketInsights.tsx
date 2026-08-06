@@ -1,19 +1,14 @@
-'use client';
-
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { useBlogViewModel } from '@jayedaad/core';
 import { ArticleCard } from './ArticleCard';
+import type { Article } from '@/lib/types';
 import { Reveal } from '@/components/Reveal';
 
-// Real data now (was a static `articles` prop backed by data/articles.ts
-// mock content) — latest 3 published posts from the Blog CMS, shared
-// between the homepage and the Services page.
-export function MarketInsights() {
-  const { posts, isLoading } = useBlogViewModel({ limit: 3 });
+interface MarketInsightsProps {
+  articles: Article[];
+}
 
-  if (!isLoading && posts.length === 0) return null;
-
+export function MarketInsights({ articles }: MarketInsightsProps) {
   return (
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-4">
@@ -33,13 +28,11 @@ export function MarketInsights() {
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {isLoading
-            ? [0, 1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100" />)
-            : posts.map((post, index) => (
-                <Reveal key={post.id} delay={(index % 3) * 0.08}>
-                  <ArticleCard post={post} />
-                </Reveal>
-              ))}
+          {articles.map((article, index) => (
+            <Reveal key={article.id} delay={(index % 3) * 0.08}>
+              <ArticleCard article={article} />
+            </Reveal>
+          ))}
         </div>
 
         <Link

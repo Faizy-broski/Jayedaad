@@ -66,9 +66,9 @@ export function AboutSection() {
 
           <div className="mt-8 flex items-start gap-4 sm:gap-5">
             <p className="max-w-6xl sm:max-w-5xl flex-1 text-sm leading-relaxed text-muted-foreground">
-              At Jayedaad, every listing&apos;s ownership is carefully verified before it goes live, giving you peace
-              of mind from the start. Whether you&apos;re searching for your first home, a luxury residence, or your
-              next investment opportunity, we deliver a seamless experience backed by trust and innovation.
+              At Jayedaad, every listing is carefully verified to ensure transparency, accuracy, and peace of mind.
+              Whether you&apos;re searching for your first home, a luxury residence, or your next investment
+              opportunity, we deliver a seamless experience backed by trust and innovation.
             </p>
 
             <div className="relative hidden h-[10rem] w-[14rem] shrink-0 overflow-hidden rounded-xl lg:block md:h-24 md:w-32 lg:h-[10rem] lg:w-[12rem]">

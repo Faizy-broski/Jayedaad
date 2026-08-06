@@ -15,9 +15,6 @@ export class ContactRepository {
         email: input.email,
         subject: input.subject,
         message: input.message,
-        city: input.city,
-        purpose: input.purpose,
-        budget: input.budget,
       })
       .select()
       .single();

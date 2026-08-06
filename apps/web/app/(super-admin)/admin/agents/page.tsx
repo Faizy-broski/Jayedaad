@@ -1,21 +1,22 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AgentCreditType, AgentOverview, agentsRepository, OnboardingDocumentType, useAdminAgentsViewModel } from '@jayedaad/core';
-import { Badge, Button, cn, Input, Label, Modal, Select, Table, TableColumn } from '@jayedaad/ui-web';
+import { AgentCreditType, AgentOverview, useAdminAgentsViewModel } from '@jayedaad/core';
+import { Badge, Button, cn, Input, Label, Modal, Select } from '@jayedaad/ui-web';
 import {
+  Briefcase,
   Building2,
   CheckCircle2,
   Clock,
   CreditCard,
-  FileCheck2,
+  Home,
+  MapPin,
+  Phone,
   Search,
   ShieldCheck,
   ShieldX,
-  UploadCloud,
   User,
   Users,
   XCircle,
@@ -23,16 +24,6 @@ import {
 import { Reveal } from '@/components/Reveal';
 
 const CREDIT_TYPES: AgentCreditType[] = ['listing_quota', 'refresh', 'hot', 'super_hot'];
-
-// Same set required for an independent agent's own onboarding (agents.repository.ts's
-// getDocumentCompleteness), an agency-affiliated agent is covered by the
-// agency's own documents instead — see AgentsPage's "Documents" button,
-// only shown for agents with no agency.
-const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
-  { type: 'owner_id_card', label: "Owner's ID Card" },
-  { type: 'company_registration', label: 'Company Registration' },
-  { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
-];
 
 const STATUS_TABS: { id: 'all' | 'pending' | 'verified' | 'rejected'; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -55,7 +46,6 @@ function initials(name: string): string {
 export default function AgentsPage() {
   const { agents, isLoading, grantCredits, setVerificationStatus } = useAdminAgentsViewModel();
   const [creditsModalAgent, setCreditsModalAgent] = useState<AgentOverview | null>(null);
-  const [docsModalAgent, setDocsModalAgent] = useState<AgentOverview | null>(null);
   const [creditType, setCreditType] = useState<AgentCreditType>('listing_quota');
   const [creditTotal, setCreditTotal] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
@@ -89,15 +79,7 @@ export default function AgentsPage() {
       { agentId, status },
       {
         onSuccess: () => toast.success(`Agent ${status}.`),
-        // The API's 400 here is usually a real, specific reason — e.g.
-        // AgentsRepository.setVerificationStatus rejects verifying an
-        // independent agent (no agency_id) who hasn't uploaded all
-        // required onboarding documents yet, and returns exactly which
-        // ones are missing in the response body. Surface that instead of
-        // a generic message, same convention as signup/verify-email's
-        // error handling.
-        onError: (err: any) =>
-          toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
       },
     );
   }
@@ -116,78 +98,6 @@ export default function AgentsPage() {
       },
     );
   }
-
-  const columns: TableColumn<AgentOverview>[] = [
-    {
-      key: 'agent',
-      header: 'Agent',
-      render: (agent) => (
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-            {agent.displayName ? initials(agent.displayName) : <User className="h-4 w-4" />}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{agent.displayName ?? 'Unnamed agent'}</p>
-            <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-              <Building2 className="h-3 w-3 shrink-0" />
-              {agent.agency?.name ?? 'Independent'}
-            </p>
-          </div>
-        </div>
-      ),
-    },
-    { key: 'city', header: 'City', render: (agent) => agent.city ?? '—' },
-    { key: 'phone', header: 'Phone', render: (agent) => agent.phone ?? '—' },
-    { key: 'plan', header: 'Plan', render: (agent) => agent.subscription?.tierName ?? 'No active plan' },
-    {
-      key: 'listings',
-      header: 'Listings',
-      render: (agent) => `${agent.listingCounts.verified} / ${agent.listingCounts.total} verified`,
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (agent) => (
-        <Badge variant={agent.verificationStatus === 'verified' ? 'success' : agent.verificationStatus === 'rejected' ? 'destructive' : 'warning'}>
-          {agent.verificationStatus}
-        </Badge>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      className: 'text-right',
-      render: (agent) => (
-        <div className="flex justify-end gap-2">
-          {agent.verificationStatus !== 'verified' && (
-            <Button size="sm" variant="outline" className="text-primary" onClick={() => handleVerify(agent.id, 'verified')}>
-              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-              Verify
-            </Button>
-          )}
-          {agent.verificationStatus !== 'rejected' && (
-            <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleVerify(agent.id, 'rejected')}>
-              <XCircle className="mr-1 h-3.5 w-3.5" />
-              Reject
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => setCreditsModalAgent(agent)}>
-            <CreditCard className="mr-1 h-3.5 w-3.5" />
-            Credits
-          </Button>
-          {/* Agency-affiliated agents are covered by the agency's own
-              documents (see AgenciesPage) — only independent agents need
-              their own uploaded here. */}
-          {!agent.agency && (
-            <Button size="sm" variant="outline" onClick={() => setDocsModalAgent(agent)}>
-              <FileCheck2 className="mr-1 h-3.5 w-3.5" />
-              Documents
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -257,17 +167,94 @@ export default function AgentsPage() {
         </div>
       </Reveal>
 
-      <Reveal>
-        <Table
-          columns={columns}
-          rows={visibleAgents}
-          rowKey={(agent) => agent.id}
-          isLoading={isLoading}
-          emptyMessage={
-            search || activeTab !== 'all' ? 'No agents match your search or filter.' : 'New agents will appear here once registered.'
-          }
-        />
-      </Reveal>
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-48 animate-pulse rounded-xl border border-border bg-muted/40" />
+          ))}
+        </div>
+      ) : visibleAgents.length === 0 ? (
+        <Reveal>
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
+            <Users className="mb-3 h-10 w-10 text-muted-foreground/50" />
+            <h3 className="text-sm font-semibold text-foreground">No agents found</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {search || activeTab !== 'all' ? 'Try a different search or filter.' : 'New agents will appear here once registered.'}
+            </p>
+          </div>
+        </Reveal>
+      ) : (
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleAgents.map((agent, index) => (
+            <motion.li
+              key={agent.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: Math.min(index, 8) * 0.05 }}
+            >
+              <div className="flex h-full flex-col rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                      {agent.displayName ? initials(agent.displayName) : <User className="h-5 w-5" />}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{agent.displayName ?? 'Unnamed agent'}</p>
+                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        <Building2 className="h-3 w-3 shrink-0" />
+                        {agent.agency?.name ?? 'Independent'}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant={agent.verificationStatus === 'verified' ? 'success' : agent.verificationStatus === 'rejected' ? 'destructive' : 'warning'}
+                  >
+                    {agent.verificationStatus}
+                  </Badge>
+                </div>
+
+                <div className="mt-4 flex-1 space-y-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    {agent.city ?? '—'}
+                  </p>
+                  <p className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    {agent.phone ?? '—'}
+                  </p>
+                  <p className="flex items-center gap-1.5">
+                    <Briefcase className="h-3.5 w-3.5 shrink-0" />
+                    {agent.subscription?.tierName ?? 'No active plan'}
+                  </p>
+                  <p className="flex items-center gap-1.5">
+                    <Home className="h-3.5 w-3.5 shrink-0" />
+                    {agent.listingCounts.verified} / {agent.listingCounts.total} listings verified
+                  </p>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 items-center gap-2 border-t border-border pt-3">
+                  {agent.verificationStatus !== 'verified' && (
+                    <Button size="sm" variant="outline" className="text-primary" onClick={() => handleVerify(agent.id, 'verified')}>
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                      Verify
+                    </Button>
+                  )}
+                  {agent.verificationStatus !== 'rejected' && (
+                    <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleVerify(agent.id, 'rejected')}>
+                      <XCircle className="mr-1 h-3.5 w-3.5" />
+                      Reject
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="" onClick={() => setCreditsModalAgent(agent)}>
+                    <CreditCard className="mr-1 h-3.5 w-3.5" />
+                    Credits
+                  </Button>
+                </div>
+              </div>
+            </motion.li>
+          ))}
+        </ul>
+      )}
 
       <Modal
         open={!!creditsModalAgent}
@@ -294,99 +281,6 @@ export default function AgentsPage() {
           </Button>
         </div>
       </Modal>
-
-      {/* On behalf of an independent agent who has no way back into their
-          own upload step (become-an-agent/page.tsx's DocumentUploadStep
-          only renders once, right after applying) — lets a Super Admin
-          unblock a stuck "missing required documents" Verify failure
-          directly, per services/api's own @Roles('agent', 'super_admin')
-          allowance on POST /agents/:id/documents. */}
-      <Modal open={!!docsModalAgent} onClose={() => setDocsModalAgent(null)} title={`Documents — ${docsModalAgent?.displayName ?? ''}`}>
-        {docsModalAgent && <AgentDocumentsSection agentId={docsModalAgent.id} />}
-      </Modal>
-    </div>
-  );
-}
-
-function AgentDocumentsSection({ agentId }: { agentId: string }) {
-  const queryClient = useQueryClient();
-  const queryKey = ['admin', 'agents', agentId, 'documents'];
-
-  const { data: documents, isLoading } = useQuery({
-    queryKey,
-    queryFn: () => agentsRepository.listDocuments(agentId),
-  });
-
-  const uploadedTypes = new Set((documents ?? []).map((d) => d.documentType));
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">Owner ID Card and Company Registration are required before this agent can be verified.</p>
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (
-        DOCUMENT_TYPES.map((doc) => (
-          <AgentDocumentRow
-            key={doc.type}
-            agentId={agentId}
-            documentType={doc.type}
-            label={doc.label}
-            uploaded={uploadedTypes.has(doc.type)}
-            onUploaded={() => queryClient.invalidateQueries({ queryKey })}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
-function AgentDocumentRow({
-  agentId,
-  documentType,
-  label,
-  uploaded,
-  onUploaded,
-}: {
-  agentId: string;
-  documentType: OnboardingDocumentType;
-  label: string;
-  uploaded: boolean;
-  onUploaded: () => void;
-}) {
-  const [isUploading, setIsUploading] = useState(false);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      await agentsRepository.uploadDocument(agentId, documentType, file);
-      onUploaded();
-      toast.success(`${label} uploaded.`);
-    } catch {
-      toast.error('Upload failed — please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-1.5 text-sm">
-        {label}
-        {uploaded && (
-          <span className="flex items-center gap-1 text-primary">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Uploaded
-          </span>
-        )}
-      </span>
-      <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-        <UploadCloud className="h-3.5 w-3.5" />
-        {isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleUpload} />
-      </label>
     </div>
   );
 }

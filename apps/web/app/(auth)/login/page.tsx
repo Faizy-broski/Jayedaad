@@ -39,7 +39,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signInWithGoogle, signInWithApple, refetchEmailVerified } = useAuthViewModel();
+  const { signIn, signInWithGoogle, refetchEmailVerified } = useAuthViewModel();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -70,22 +70,21 @@ function LoginForm() {
     }
   }
 
-  // Left blank (not '/') when there's no explicit redirectTo for both of
-  // these — the callback route falls back to a role-based landing once it
-  // knows who signed in, resolved server-side since the OAuth round-trip
-  // means the role isn't known yet at this point.
-  function oauthRedirectUrl(): string {
+  function handleGoogle() {
+    // Left blank (not '/') when there's no explicit redirectTo — the
+    // callback route falls back to a role-based landing once it knows who
+    // signed in, same as handleSubmit's redirectTo || DEFAULT_LANDING_BY_ROLE
+    // above, just resolved server-side since Google's round-trip means the
+    // role isn't known yet at this point.
     const redirectTo = searchParams.get('redirectTo');
     const query = redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : '';
-    return `${window.location.origin}/auth/callback${query}`;
+    signInWithGoogle.mutate(`${window.location.origin}/auth/callback${query}`);
   }
 
-  function handleGoogle() {
-    signInWithGoogle.mutate(oauthRedirectUrl());
-  }
-
+  // TODO: wire up once an Apple OAuth mutation exists on useAuthViewModel
+  // (e.g. signInWithApple), mirroring handleGoogle's redirect flow.
   function handleApple() {
-    signInWithApple.mutate(oauthRedirectUrl());
+    console.warn('Apple sign-in is not yet implemented.');
   }
 
   return (
@@ -257,15 +256,11 @@ function LoginForm() {
             </button>
             <button
               type="button"
-              disabled={signInWithApple.isPending || redirecting}
+              disabled={redirecting}
               onClick={handleApple}
               className="flex h-12 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
             >
-              {signInWithApple.isPending ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-foreground" />
-              ) : (
-                <AppleIcon className="h-4 w-4" />
-              )}
+              <AppleIcon className="h-4 w-4" />
               Apple
             </button>
           </div>

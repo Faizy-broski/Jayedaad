@@ -1,15 +1,12 @@
 import { Hero } from '../components/landing/Hero';
-import { FeaturedProperties } from '@/components/landing/features/FeaturedProperties';
-import { FEATURED_PROPERTIES } from '@/data/properties';
-import { BrowseByCategory } from '@/components/landing/category/BrowseByCategory';
-import { CATEGORIES } from '@/data/categories';
+import { FeaturedPropertiesSection } from '@/components/landing/features/FeaturedPropertiesSection';
+import { BrowseByCategorySection } from '@/components/landing/category/BrowseByCategorySection';
 import { AboutSection } from '@/components/landing/about/AboutSection';
-import { WhereWeLive } from '@/components/landing/city/WhereWeLive';
-import { CITIES } from '@/data/cities';
+import { WhereWeLiveSection } from '@/components/landing/city/WhereWeLiveSection';
 import { ServicesAndProjects } from '@/components/landing/services/ServicesAndProjects';
-import { NewlyStaged } from '@/components/landing/newlystaged/NewlyStaged';
-import { NEWLY_STAGED_PROPERTIES } from '@/data/newlyStaged';
+import { NewProjectsSection } from '@/components/landing/newprojects/NewProjectsSection';
 import { MarketInsights } from '@/components/landing/article/MarketInsights';
+import { ARTICLES } from '@/data/articles';
 import { HowItWorks } from '@/components/landing/howitworks/HowItWorks';
 import { RealStories } from '@/components/landing/testimonials/RealStories';
 import { TESTIMONIALS } from '@/data/testimonials';
@@ -20,17 +17,17 @@ export default function HomePage() {
   return (
     <main>
       <Hero />
-      <BrowseByCategory categories={CATEGORIES} />
-      <FeaturedProperties properties={FEATURED_PROPERTIES} />
+      <BrowseByCategorySection />
+      <FeaturedPropertiesSection />
       <AboutSection />
-      <WhereWeLive cities={CITIES} />
+      <WhereWeLiveSection />
       <ServicesAndProjects />
-      <NewlyStaged properties={NEWLY_STAGED_PROPERTIES} />
+      <NewProjectsSection />
       <HowItWorks />
       <RealStories testimonials={TESTIMONIALS} />
       <CommonQuestions />
       <AppPromo />
-      <MarketInsights />
+      <MarketInsights articles={ARTICLES} />
     </main>
   );
 }

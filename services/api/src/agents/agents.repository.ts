@@ -439,12 +439,6 @@ export class AgentsRepository {
       if (!agent.agency_id) {
         const { missing } = await this.getDocumentCompleteness(agentId);
         if (missing.length > 0) {
-          // DEBUG — remove once the 400 on PATCH /agents/:id/verify is
-          // confirmed diagnosed. Frontend now surfaces this same message
-          // via err.response.data.message (see admin/agents/page.tsx and
-          // agent-verification/page.tsx), but logging it here too pins
-          // down exactly which agent/documents triggered it server-side.
-          console.warn(`[agents.verify] blocked — agentId=${agentId} missing=[${missing.join(', ')}]`);
           throw new BadRequestException(`Cannot verify agent — missing required documents: ${missing.join(', ')}`);
         }
       }
