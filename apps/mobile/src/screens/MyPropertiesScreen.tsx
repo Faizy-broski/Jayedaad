@@ -5,10 +5,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import {
+  ListingDocumentType,
   ListingPurpose,
   ListingStatus,
   MyListingsFilters,
   formatPrice,
+  listingsRepository,
+  useAgentProfileViewModel,
   useAuthViewModel,
   useMyListingsViewModel,
   usePreferencesViewModel,
@@ -26,6 +29,11 @@ const PURPOSE_OPTIONS: { id: ListingPurpose | ''; label: string }[] = [
 function formatListingCode(listingNumber: number): string {
   return `JYD-${String(listingNumber).padStart(5, '0')}`;
 }
+
+// Same set the server enforces (REQUIRED_LISTING_DOCUMENT_TYPES in
+// listings.repository.ts) — kept in sync manually, same convention as
+// ListingDocumentsScreen.tsx's own DOCUMENT_TYPES array.
+const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownership_proof', 'utility_bill'];
 
 type TopTab = 'drafts' | 'uploaded';
 
@@ -104,6 +112,12 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   const { listings, isLoading, remove } = useMyListingsViewModel(filters);
   const { preferences } = usePreferencesViewModel();
   const { role } = useAuthViewModel();
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  // Required for owners AND independent agents (no agency) — only an
+  // agency-affiliated agent is exempt, mirrors the server's
+  // getDocumentCompleteness exemption.
+  const documentsRequired = role === 'owner' || (role === 'agent' && !agentProfile?.agency);
   const { showToast } = useToast();
   const activeLabel = STATUS_TABS.find((s) => s.id === status)?.label ?? '';
 
@@ -261,11 +275,12 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   <Text style={styles.actionTextPrimary}>Edit details</Text>
                 </Pressable>
 
-                {/* Ownership proof/utility bill are only required for
-                    individual owners (agents are exempt) — the only re-entry
-                    point back into ListingDocumentsScreen after skipping it
-                    right after creation. */}
-                {role === 'owner' && (
+                {/* Ownership proof/utility bill are required for owners and
+                    independent agents (agency-affiliated agents are exempt)
+                    — the only re-entry point back into
+                    ListingDocumentsScreen after skipping it right after
+                    creation. */}
+                {documentsRequired && (
                   <Pressable
                     style={styles.actionButton}
                     onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
@@ -302,6 +317,12 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
   });
   const { preferences } = usePreferencesViewModel();
   const { role } = useAuthViewModel();
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  // Required for owners AND independent agents (no agency) — only an
+  // agency-affiliated agent is exempt, mirrors the server's
+  // getDocumentCompleteness exemption.
+  const documentsRequired = role === 'owner' || (role === 'agent' && !agentProfile?.agency);
   const { showToast } = useToast();
 
   function handleDelete(listingId: string, title: string) {
@@ -319,10 +340,24 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
     ]);
   }
 
-  function handleSubmit(listingId: string) {
+  // Route to the documents screen instead of submitting directly when
+  // ownership proof/utility bill are incomplete — closes the bug where
+  // finishing a draft from this tab skipped ownership-proof entirely (the
+  // server now also hard-rejects this via assertDocumentsComplete, this is
+  // just so the user lands on the right screen instead of a raw error).
+  async function handleSubmit(listingId: string) {
+    if (documentsRequired) {
+      const docs = await listingsRepository.listDocuments(listingId);
+      const uploadedTypes = new Set(docs.map((d) => d.documentType));
+      const incomplete = REQUIRED_LISTING_DOCUMENT_TYPES.some((type) => !uploadedTypes.has(type));
+      if (incomplete) {
+        navigation.navigate('ListingDocuments', { listingId, submitOnComplete: true });
+        return;
+      }
+    }
     submitForVerification.mutate(listingId, {
       onSuccess: () => showToast('Submitted for verification.'),
-      onError: () => showToast('Something went wrong — please try again.', 'error'),
+      onError: (err: any) => showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error'),
     });
   }
 
@@ -381,7 +416,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               <Text style={styles.actionTextPrimary}>Submit</Text>
             </Pressable>
 
-            {role === 'owner' && (
+            {documentsRequired && (
               <Pressable
                 style={styles.actionButton}
                 onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}

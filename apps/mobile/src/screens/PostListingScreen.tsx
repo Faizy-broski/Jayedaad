@@ -10,12 +10,13 @@ import {
   CreateListingInput,
   FurnishingStatus,
   Listing,
+  ListingDocumentType,
   ListingPurpose,
   PAKISTAN_CITIES,
   getMaxPhoneDigits,
-  getMissingMediaCategories,
   getRequiredMediaCategories,
   listingsRepository,
+  useAgentProfileViewModel,
   useAuthViewModel,
   useListingSubmissionViewModel,
   useOwnerVerificationViewModel,
@@ -34,6 +35,7 @@ const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre']
 const FURNISHING_STATUSES: FurnishingStatus[] = ['unfurnished', 'semi_furnished', 'furnished'];
 const BEDROOM_OPTIONS = ['Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const BATHROOM_OPTIONS = ['1', '2', '3', '4', '5', '6+'];
+const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownership_proof', 'utility_bill'];
 
 interface MediaItem {
   id: string;
@@ -53,6 +55,15 @@ export function PostListingScreen() {
   const { role } = useAuthViewModel();
   const { propertyTypes, isLoading: propertyTypesLoading } = useTaxonomyViewModel();
   const { submit, saveDraft, update } = useListingSubmissionViewModel();
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  // Ownership proof/utility bill exemption only extends to an
+  // AGENCY-affiliated agent (the agency's own onboarding verification
+  // covers its staff) — an independent agent (no agency) isn't vetted by
+  // anyone else, so they're required to upload the same as an owner.
+  // Mirrors the identical agency_id distinction the server now makes in
+  // getDocumentCompleteness.
+  const isIndependentAgent = role === 'agent' && !agentProfile?.agency;
   // Individual owners need a one-time CNIC+selfie identity check before
   // their first listing — agents are unaffected, they have their own
   // agency-level onboarding-document flow instead.
@@ -124,6 +135,31 @@ export function PostListingScreen() {
   // Same as apps/web's submit page: undefined = first item is cover by
   // default, otherwise whichever id was explicitly picked via "Set cover".
   const [coverId, setCoverId] = useState<string | undefined>(undefined);
+
+  // Ownership proof/utility bill — deferred-upload pattern (same as
+  // apps/web's submit page): a brand-new listing has no id yet, so a picked
+  // file is held here and only actually uploaded once handleSubmit/
+  // handleSaveDraft has a real id. uploadedDocTypes tracks what's already
+  // on the server for an existing (editId) listing, fetched below.
+  const [documentFiles, setDocumentFiles] = useState<Partial<Record<ListingDocumentType, { uri: string; name: string; type: string }>>>({});
+  const [uploadedDocTypes, setUploadedDocTypes] = useState<Set<ListingDocumentType>>(new Set());
+  const [uploadingDocType, setUploadingDocType] = useState<ListingDocumentType | null>(null);
+
+  useEffect(() => {
+    if (!editId) return;
+    listingsRepository
+      .listDocuments(editId)
+      .then((docs) => setUploadedDocTypes(new Set(docs.map((d) => d.documentType))))
+      .catch(() => undefined);
+  }, [editId]);
+
+  // Required for owners AND independent agents (no agency) — only an
+  // agency-affiliated agent is exempt, mirrors the server's
+  // getDocumentCompleteness exemption.
+  const documentsRequired = role === 'owner' || isIndependentAgent;
+  const documentsComplete =
+    !documentsRequired ||
+    REQUIRED_LISTING_DOCUMENT_TYPES.every((type) => uploadedDocTypes.has(type) || !!documentFiles[type]);
 
   const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, type) => {
     if (type.category && !acc.some((c) => c.slug === type.category.slug)) acc.push(type.category);
@@ -312,39 +348,41 @@ export function PostListingScreen() {
     };
   }
 
+  // Uploads whatever was picked in the Ownership Documents section
+  // (deferred until now since a brand-new listing has no id beforehand) —
+  // a no-op loop when documentFiles is empty (e.g. an agent, or a draft
+  // saved before picking any files).
+  async function uploadPendingDocuments(listingId: string) {
+    const entries = Object.entries(documentFiles) as [ListingDocumentType, { uri: string; name: string; type: string }][];
+    for (const [documentType, file] of entries) {
+      await listingsRepository.uploadDocument(listingId, documentType, file);
+    }
+  }
+
   async function handleSubmit() {
-    if (requiredMediaCategories.length > 0) {
-      const counts: Record<string, number> = {};
-      for (const m of mediaItems) {
-        if (m.status === 'done' && m.category) counts[m.category] = (counts[m.category] ?? 0) + 1;
-      }
-      const missing = getMissingMediaCategories(requiredMediaCategories, counts);
-      if (missing.length > 0) {
-        showToast(`Add photos for: ${missing.map((c) => c.label).join(', ')}`, 'error');
-        return;
-      }
+    // Per-room photo minimums (requiredMediaCategories) are guidance only,
+    // not a hard block — product decision: a listing can be published with
+    // any amount of media, including none.
+    // Ownership proof/utility bill are only required for individual owners
+    // posting without an agent — agents are exempt (spec: "The agents do
+    // not need to upload property ownership documents").
+    if (!documentsComplete) {
+      showToast('Upload both ownership documents before submitting.', 'error');
+      return;
     }
 
     const input = buildInput();
     try {
       if (editId) {
         await update.mutateAsync({ listingId: editId, input });
+        await uploadPendingDocuments(editId);
         showToast('Listing updated.');
-        navigation.navigate('MyProperties');
       } else {
         const created = await submit.mutateAsync(input);
+        await uploadPendingDocuments(created.id);
         showToast('Listing submitted for verification.');
-        // Ownership proof/utility bill are only required for individual
-        // owners posting without an agent — agents are exempt (spec: "The
-        // agents do not need to upload property ownership documents").
-        // listing_documents requires an existing listingId, so this is
-        // collected here, right after creation, not as a pre-submit section.
-        if (role === 'owner') {
-          navigation.navigate('ListingDocuments', { listingId: created.id });
-        } else {
-          navigation.navigate('MyProperties');
-        }
       }
+      navigation.navigate('MyProperties');
     } catch {
       showToast('Something went wrong — please try again.', 'error');
     }
@@ -354,12 +392,9 @@ export function PostListingScreen() {
     const input = buildInput();
     try {
       const created = await saveDraft.mutateAsync(input);
+      await uploadPendingDocuments(created.id);
       showToast('Draft saved.');
-      if (role === 'owner') {
-        navigation.navigate('ListingDocuments', { listingId: created.id });
-      } else {
-        navigation.navigate('MyProperties', { initialTab: 'drafts' });
-      }
+      navigation.navigate('MyProperties', { initialTab: 'drafts' });
     } catch {
       showToast('Something went wrong — please try again.', 'error');
     }
@@ -565,7 +600,7 @@ export function PostListingScreen() {
       {/* PHOTOS & VIDEOS — Airbnb-style categorized mandatory media */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Photos and Videos</Text>
-        <Text style={styles.mutedText}>Upload at least the required photos for each room before submitting.</Text>
+        <Text style={styles.mutedText}>Photo counts below are recommended, not required — add as many or as few as you have.</Text>
         {requiredMediaCategories.map((cat) => {
           const items = mediaItems.filter((m) => m.category === cat.slug);
           const doneCount = items.filter((m) => m.status === 'done').length;
@@ -593,6 +628,63 @@ export function PostListingScreen() {
       </View>
 
       <View style={styles.divider} />
+
+      {/* OWNERSHIP DOCUMENTS — required for owners and independent agents
+          (no agency); an agency-affiliated agent doesn't see this section
+          at all, their agency's own onboarding docs cover them. */}
+      {documentsRequired && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ownership Documents</Text>
+          <Text style={styles.gateSubtitle}>
+            Upload proof of ownership so our team can verify this listing. Both documents are required before you
+            can submit.
+          </Text>
+          <DocumentUploadRow
+            label="Ownership Document"
+            uploaded={uploadedDocTypes.has('ownership_proof')}
+            hasPendingFile={!!documentFiles.ownership_proof}
+            isUploading={uploadingDocType === 'ownership_proof'}
+            onPick={async (file) => {
+              if (!editId) {
+                setDocumentFiles((prev) => ({ ...prev, ownership_proof: file }));
+                return;
+              }
+              setUploadingDocType('ownership_proof');
+              try {
+                await listingsRepository.uploadDocument(editId, 'ownership_proof', file);
+                setUploadedDocTypes((prev) => new Set(prev).add('ownership_proof'));
+                showToast('Ownership Document uploaded.');
+              } catch {
+                showToast('Upload failed — please try again.', 'error');
+              } finally {
+                setUploadingDocType(null);
+              }
+            }}
+          />
+          <DocumentUploadRow
+            label="Utility Bill"
+            uploaded={uploadedDocTypes.has('utility_bill')}
+            hasPendingFile={!!documentFiles.utility_bill}
+            isUploading={uploadingDocType === 'utility_bill'}
+            onPick={async (file) => {
+              if (!editId) {
+                setDocumentFiles((prev) => ({ ...prev, utility_bill: file }));
+                return;
+              }
+              setUploadingDocType('utility_bill');
+              try {
+                await listingsRepository.uploadDocument(editId, 'utility_bill', file);
+                setUploadedDocTypes((prev) => new Set(prev).add('utility_bill'));
+                showToast('Utility Bill uploaded.');
+              } catch {
+                showToast('Upload failed — please try again.', 'error');
+              } finally {
+                setUploadingDocType(null);
+              }
+            }}
+          />
+        </View>
+      )}
 
       {/* CONTACT INFO */}
       <View style={styles.section}>
@@ -660,6 +752,59 @@ function MediaCategoryGrid({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+// One row per required document type in the Ownership Documents section.
+// hasPendingFile (deferred, new-listing case) and uploaded (already on the
+// server, editing case) are mutually exclusive in practice but both
+// checked so the row reads correctly either way. Mirrors
+// ListingDocumentsScreen.tsx's DocumentRow picker/permission flow.
+function DocumentUploadRow({
+  label,
+  uploaded,
+  hasPendingFile,
+  isUploading,
+  onPick,
+}: {
+  label: string;
+  uploaded: boolean;
+  hasPendingFile: boolean;
+  isUploading: boolean;
+  onPick: (file: { uri: string; name: string; type: string }) => void;
+}) {
+  const { showToast } = useToast();
+  const done = uploaded || hasPendingFile;
+
+  async function handlePick() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast('Photo library permission is required.', 'error');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const filename = asset.uri.split('/').pop() ?? 'document.jpg';
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    onPick({ uri: asset.uri, name: filename, type: mimeType });
+  }
+
+  return (
+    <View style={styles.docRow}>
+      <View>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {uploaded && <Text style={styles.docUploaded}>Uploaded</Text>}
+        {!uploaded && hasPendingFile && <Text style={styles.docPending}>Selected — uploads when you submit</Text>}
+      </View>
+      <Pressable style={styles.docUploadButton} onPress={handlePick} disabled={isUploading}>
+        <Text style={styles.docUploadButtonText}>{isUploading ? 'Uploading…' : done ? 'Replace' : 'Upload'}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -739,13 +884,32 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
-  fieldLabel: { 
-    fontSize: 12, 
+  fieldLabel: {
+    fontSize: 12,
     fontWeight: '700',
-    color: theme.colors.muted, 
+    color: theme.colors.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  docRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+  },
+  docUploaded: { fontSize: 12, color: theme.colors.primary, marginTop: 2 },
+  docPending: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
+  docUploadButton: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.inputBorder,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  docUploadButtonText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   mutedText: { 
     fontSize: 13, 
     fontWeight: '500',

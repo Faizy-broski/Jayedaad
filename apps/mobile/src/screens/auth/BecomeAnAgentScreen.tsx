@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { agenciesRepository, OnboardingDocumentType, useAgentProfileViewModel } from '@jayedaad/core';
@@ -13,6 +13,7 @@ const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
   { type: 'company_registration', label: 'Company Registration ID' },
   { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
 ];
+const REQUIRED_ONBOARDING_DOCUMENT_TYPES: OnboardingDocumentType[] = ['owner_id_card', 'company_registration'];
 
 // Mirrors web's become-an-agent/page.tsx DocumentUploadStep, scoped to the
 // one case mobile signup can produce: a freshly self-registered agency
@@ -22,7 +23,8 @@ const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
 // AuthNavigator routes here from VerifyEmailScreen once verified, and
 // AuthGateProvider holds the sheet open (via needsAgencyDocuments) until
 // dismissAgentGate() is called below, same as web staying on this route
-// until "Continue to Dashboard" is pressed.
+// until "Continue to Dashboard" is pressed — now disabled until both
+// required documents are actually uploaded, not just skippable.
 export function BecomeAnAgentScreen() {
   const { profile } = useAgentProfileViewModel();
   const { dismissAgentGate } = useAuthGate();
@@ -30,22 +32,50 @@ export function BecomeAnAgentScreen() {
   const agencyId = profile?.agency?.id;
   const status = profile?.agency?.verificationStatus ?? 'pending';
 
+  // Fetched from the server (not tracked locally per-row) — a returning
+  // visitor to this screen previously saw every row reset to "not
+  // uploaded" even if the documents were already there, since state lived
+  // only in each DocumentRow's own useState.
+  const [uploadedTypes, setUploadedTypes] = useState<Set<OnboardingDocumentType>>(new Set());
+
+  useEffect(() => {
+    if (!agencyId) return;
+    agenciesRepository
+      .listDocuments(agencyId)
+      .then((docs) => setUploadedTypes(new Set(docs.map((d) => d.documentType))))
+      .catch(() => undefined);
+  }, [agencyId]);
+
+  const isComplete = REQUIRED_ONBOARDING_DOCUMENT_TYPES.every((type) => uploadedTypes.has(type));
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Application Submitted</Text>
         <Text style={styles.subtitle}>
-          Your agency is <Text style={styles.status}>{status}</Text>. Upload the documents below so our team can
-          review and approve your account.
+          Your agency is <Text style={styles.status}>{status}</Text>. Owner ID and Company Registration are
+          required before you can continue — our team reviews everything once uploaded.
         </Text>
 
         <View style={styles.list}>
           {DOCUMENT_TYPES.map((doc) => (
-            <DocumentRow key={doc.type} agencyId={agencyId} documentType={doc.type} label={doc.label} />
+            <DocumentRow
+              key={doc.type}
+              agencyId={agencyId}
+              documentType={doc.type}
+              label={doc.label}
+              uploaded={uploadedTypes.has(doc.type)}
+              onUploaded={() => setUploadedTypes((prev) => new Set(prev).add(doc.type))}
+            />
           ))}
         </View>
 
-        <Button label="Continue to Dashboard" onPress={dismissAgentGate} size="lg" />
+        <Button
+          label={isComplete ? 'Continue to Dashboard' : 'Upload Owner ID and Company Registration to continue'}
+          onPress={dismissAgentGate}
+          disabled={!isComplete}
+          size="lg"
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -55,13 +85,16 @@ function DocumentRow({
   agencyId,
   documentType,
   label,
+  uploaded,
+  onUploaded,
 }: {
   agencyId?: string;
   documentType: OnboardingDocumentType;
   label: string;
+  uploaded: boolean;
+  onUploaded: () => void;
 }) {
   const { showToast } = useToast();
-  const [uploaded, setUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   async function handleUpload() {
@@ -83,7 +116,7 @@ function DocumentRow({
     setIsUploading(true);
     try {
       await agenciesRepository.uploadDocument(agencyId, documentType, { uri: asset.uri, name: filename, type: mimeType });
-      setUploaded(true);
+      onUploaded();
       showToast(`${label} uploaded.`);
     } catch {
       showToast('Upload failed — please try again.', 'error');

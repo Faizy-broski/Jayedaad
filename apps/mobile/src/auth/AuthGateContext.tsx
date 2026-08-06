@@ -6,6 +6,11 @@ export type AuthGateContextValue = {
   // regardless of upload completeness, same as web — see
   // AuthGateProvider.tsx's needsAgencyDocuments for what it overrides.
   dismissAgentGate: () => void;
+  // Persistent re-entry point (SideDrawer's "Complete Agency Verification"
+  // row) — without this, a user who force-quits mid-nag before uploading
+  // required onboarding documents has no way back into BecomeAnAgentScreen
+  // at all (it's only otherwise reached once, right after fresh signup).
+  reopenAgentGate: () => void;
 };
 
 // Split out of AuthGateProvider.tsx so screens deep inside the auth sheet
