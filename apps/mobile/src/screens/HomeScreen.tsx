@@ -334,9 +334,13 @@ export const HomeScreen = memo(function HomeScreen() {
 function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
-  const { user } = useAuthViewModel();
+  const { user, isAuthenticated } = useAuthViewModel();
   const [purpose, setPurpose] = useState<Purpose>('Buy');
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  // enabled effectively no-op (empty result) for a signed-out user — the
+  // dot below just never shows. Real unread count, was previously a
+  // permanently-on hardcoded dot with no onPress at all.
+  const { unreadCount } = useNotificationsViewModel();
 
   const displayName = user?.user_metadata?.display_name as string | undefined;
   const firstName = displayName?.split(' ')[0];
