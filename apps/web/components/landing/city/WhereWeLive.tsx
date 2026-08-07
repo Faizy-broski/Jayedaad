@@ -29,10 +29,10 @@ export function WhereWeLive({ cities }: WhereWeLiveProps) {
           </Reveal>
 
           <Link
-            href="/search"
+            href="/listings"
             className="whitespace-nowrap border-b border-white/40 pb-0.5 text-xs font-medium text-white/80 transition-colors hover:border-white hover:text-white"
           >
-            All 24 cities
+            All cities
           </Link>
         </div>
 

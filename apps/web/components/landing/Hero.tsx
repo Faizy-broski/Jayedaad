@@ -1,40 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import {
-  MapPin,
-  Wallet,
-  BedDouble,
-  Home,
-  Search as SearchIcon,
-} from "lucide-react";
-
-type Purpose = "buy" | "rent" | "commercial";
-
-const PURPOSE_TABS: { label: string; value: Purpose }[] = [
-  { label: "Buy", value: "buy" },
-  { label: "Rent", value: "rent" },
-  { label: "Commercial", value: "commercial" },
-];
-
-const BUDGET_OPTIONS = [
-  "Any",
-  "Under 50 Lac",
-  "50 Lac - 1 Cr",
-  "1 Cr - 3 Cr",
-  "3 Cr+",
-];
-const BEDROOM_OPTIONS = ["Any", "1", "2", "3", "4", "5+"];
-const TYPE_OPTIONS = [
-  "Any",
-  "House",
-  "Apartment",
-  "Villa",
-  "Plot",
-  "Commercial",
-];
+import { PropertySearchBar } from "@/components/shared/PropertySearchBar";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -61,153 +29,14 @@ const wordmarkReveal = {
   },
 };
 
-const wordmarkRevealMobile = {
-  hidden: { opacity: 0, y: 44 },
-  show: {
-    opacity: 0.9,
-    y: 0,
-    transition: { duration: 1, ease: EASE, delay: 0.3 },
-  },
-};
-
-function PurposeTabs({
-  purpose,
-  onChange,
-  layoutId,
-  className = "",
-}: {
-  purpose: Purpose;
-  onChange: (p: Purpose) => void;
-  layoutId: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`pointer-events-auto inline-flex items-center gap-1 self-center rounded-full border border-white/25 bg-white/10 p-1 backdrop-blur-md ${className}`}
-    >
-      {PURPOSE_TABS.map((tab) => (
-        <button
-          key={tab.value}
-          type="button"
-          onClick={() => onChange(tab.value)}
-          className="relative rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-6 sm:py-2 sm:text-sm"
-        >
-          {purpose === tab.value && (
-            <motion.span
-              layoutId={layoutId}
-              className="absolute inset-0 rounded-full bg-white shadow-sm"
-              transition={{ type: "spring", stiffness: 500, damping: 35 }}
-            />
-          )}
-          <span
-            className={`relative z-10 whitespace-nowrap ${purpose === tab.value ? "text-brand-dark" : "text-white"}`}
-          >
-            {tab.label}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SearchFields({ purpose }: { purpose: Purpose }) {
-  return (
-    <>
-      <input type="hidden" name="purpose" value={purpose} />
-
-      <div className="flex flex-1 flex-col divide-y divide-slate-100 sm:flex-row sm:items-center sm:divide-y-0 sm:divide-x sm:divide-slate-200 sm:gap-0">
-        <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
-          <MapPin className="h-4 w-4 shrink-0 text-primary" />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Where
-            </span>
-            <input
-              name="location"
-              placeholder="Lahore, DHA..."
-              className="w-full bg-transparent text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none"
-            />
-          </span>
-        </label>
-
-        <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
-          <Wallet className="h-4 w-4 shrink-0 text-primary" />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Budget
-            </span>
-            <select
-              name="budget"
-              defaultValue={BUDGET_OPTIONS[0]}
-              className="w-full bg-transparent text-sm font-medium text-slate-800 focus:outline-none"
-            >
-              {BUDGET_OPTIONS.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-          </span>
-        </label>
-
-        <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
-          <BedDouble className="h-4 w-4 shrink-0 text-primary" />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Bedrooms
-            </span>
-            <select
-              name="bedrooms"
-              defaultValue={BEDROOM_OPTIONS[0]}
-              className="w-full bg-transparent text-sm font-medium text-slate-800 focus:outline-none"
-            >
-              {BEDROOM_OPTIONS.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-          </span>
-        </label>
-
-        <label className="flex flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 text-left sm:rounded-none sm:py-2">
-          <Home className="h-4 w-4 shrink-0 text-primary" />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Type
-            </span>
-            <select
-              name="type"
-              defaultValue={TYPE_OPTIONS[0]}
-              className="w-full bg-transparent text-sm font-medium text-slate-800 focus:outline-none"
-            >
-              {TYPE_OPTIONS.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-          </span>
-        </label>
-      </div>
-
-      <div className="flex items-center justify-center px-1 pt-1 sm:pl-2 sm:pt-0">
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-7 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
-        >
-          <SearchIcon className="h-4 w-4" />
-          Search
-        </button>
-      </div>
-    </>
-  );
-}
-
 export function Hero() {
-  const [purpose, setPurpose] = useState<Purpose>("buy");
-
   return (
     <section className="relative">
       {/* ————————————————————————————————————————————————————————————
           Desktop (lg+) — own image heights/paddings/overlap technique,
           kept as a self-contained block so responsive work below lg can
           never leak into how this renders at lg+. */}
-      <div className="relative mb-16 hidden lg:block">
+      <div className="relative mb-28 hidden lg:block">
         <div className="pt-16 sm:pt-[68px] lg:pt-0">
           <div className="relative h-[480px] w-full overflow-hidden sm:h-[620px] md:h-[680px]">
             <motion.div
@@ -274,37 +103,26 @@ export function Hero() {
                 Pakistan&apos;s smartest real estate platform for buying,
                 selling and renting verified properties.
               </motion.p>
-
-              <motion.div variants={textItem} className="flex justify-center">
-                <PurposeTabs
-                  purpose={purpose}
-                  onChange={setPurpose}
-                  layoutId="purpose-pill-desktop"
-                  className="mt-12 sm:mt-[200px]"
-                />
-              </motion.div>
             </motion.div>
           </div>
         </div>
 
-        <motion.form
-          action="/search"
-          method="get"
+        <motion.div
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.5 }}
-          className="absolute inset-x-4 -bottom-24 mx-auto flex max-w-4xl flex-col gap-3 rounded-3xl bg-white p-3 shadow-2xl sm:-bottom-16 sm:flex-row sm:items-center sm:gap-0 sm:rounded-full sm:p-2 md:-bottom-10"
+          className="pointer-events-auto absolute inset-x-4 -bottom-28 mx-auto flex max-w-4xl flex-col sm:-bottom-10"
         >
-          <SearchFields purpose={purpose} />
-        </motion.form>
+          <PropertySearchBar defaultPurpose="buy" />
+        </motion.div>
       </div>
 
       {/* ————————————————————————————————————————————————————————————
           Mobile/tablet (below lg) — redesigned for real screen space
           instead of reusing the desktop's fixed pixel heights: the hero
-          photo scales with a responsive height, the wordmark/tabs sit in
-          a comfortable flex column instead of magic-number padding, and
-          the search card sits in normal flow (pulled up with a negative
+          photo scales with a responsive height, the wordmark sits in a
+          comfortable flex column instead of magic-number padding, and the
+          search card sits in normal flow (pulled up with a negative
           margin) rather than the desktop's absolute-overlap technique,
           which only really works with a fixed-height hero. */}
       {/* All screens - same hero composition */}
@@ -430,34 +248,11 @@ export function Hero() {
                 Pakistan&apos;s smartest real estate platform for buying,
                 selling and renting verified properties.
               </motion.p>
-
-              <motion.div
-                variants={textItem}
-                className="
-  pointer-events-auto
-  mt-auto
-  flex
-  justify-center
-
-  pb-6
-
-  sm:pb-10
-  md:pb-12
-"
-              >
-                <PurposeTabs
-                  purpose={purpose}
-                  onChange={setPurpose}
-                  layoutId="purpose-pill-all"
-                />
-              </motion.div>
             </motion.div>
           </div>
 
           {/* Floating Search */}
-          <motion.form
-            action="/search"
-            method="get"
+          <motion.div
             initial={{
               opacity: 0,
               y: 24,
@@ -478,29 +273,14 @@ export function Hero() {
         mx-4
         -mt-8
 
-        flex
-        flex-col
-        gap-2
-
-        rounded-3xl
-        bg-white
-        p-3
-
-        shadow-2xl
-
         sm:-mt-12
 
         md:mx-auto
         md:max-w-4xl
-        md:flex-row
-        md:items-center
-        md:gap-0
-        md:rounded-full
-        md:p-2
       "
           >
-            <SearchFields purpose={purpose} />
-          </motion.form>
+            <PropertySearchBar defaultPurpose="buy" />
+          </motion.div>
         </div>
 
         <div className="h-10 sm:h-12" />

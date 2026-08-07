@@ -8,6 +8,16 @@ const config: Config = {
   // .dark class is stamped on <html> by that provider.
   darkMode: 'class',
   theme: {
+    // Adds the `xs` breakpoint several carousels (RecentlyVisitedProperties,
+    // FeaturedProperties, NewProjects, NewlyStaged, Footer) already style
+    // against via `xs:*` classes — Tailwind has no built-in `xs` screen, so
+    // without this those classes silently compiled to nothing and every
+    // "xs:" tweak was dead between the default 0px and the next real
+    // breakpoint (sm, 640px).
+    screens: {
+      xs: '475px',
+      ...defaultTheme.screens,
+    },
     extend: {
       // Wires Tailwind's `font-sans` (applied to <body> in app/layout.tsx)
       // to the Plus_Jakarta_Sans variable exposed there via next/font —

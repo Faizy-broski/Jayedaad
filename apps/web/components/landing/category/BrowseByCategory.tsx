@@ -1,6 +1,8 @@
+import Image from 'next/image';
 import { CategoryCard } from '@/components/landing/category/CategoryCards';
 import type { Category } from '@/lib/types';
 import { Reveal } from '@/components/Reveal';
+import { TrustFeatures } from '@/components/landing/features/TrustFeatures';
 
 interface BrowseByCategoryProps {
   categories: Category[];
@@ -8,8 +10,16 @@ interface BrowseByCategoryProps {
 
 export function BrowseByCategory({ categories }: BrowseByCategoryProps) {
   return (
-    <section className="py-16 bg-[#F3F5F966]">
-      <div className="mx-auto max-w-6xl px-4">
+<section className="relative overflow-hidden py-4">
+      {/* Faint building silhouette bleeding in from the right, behind the
+          heading/cards — matches the reference screenshot's watermark bg. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 -bottom-20 w-full max-w-3xl">
+        <Image src="/images/bg-image.png" alt="" fill sizes="768px" className="object-cover object-left" />
+      </div>
+
+      <TrustFeatures />
+
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-8">
         <Reveal>
           <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">Explore</span>
           <h2 className="mt-2 text-3xl font-bold text-heading-gradient sm:text-4xl">Browse by category</h2>

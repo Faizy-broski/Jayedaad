@@ -23,7 +23,7 @@ import {
   Select,
   Switch,
 } from '@jayedaad/ui-web';
-import { Camera, Eye, EyeOff, Loader2, SlidersHorizontal, UserCog, KeyRound } from 'lucide-react';
+import { Building2, Camera, Eye, EyeOff, Loader2, SlidersHorizontal, UserCog, KeyRound, type LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
@@ -47,11 +47,11 @@ function parsePhone(stored: string | null | undefined): { dialCode: string; numb
 
 type SettingsTab = 'user' | 'agency' | 'preferences' | 'password';
 
-const SUB_NAV: { id: SettingsTab; label: string }[] = [
-  { id: 'user', label: 'User Settings' },
-  { id: 'agency', label: 'Agency Details' },
-  { id: 'preferences', label: 'Preferences' },
-  { id: 'password', label: 'Change Password' },
+const SUB_NAV: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
+  { id: 'user', label: 'User Settings', icon: UserCog },
+  { id: 'agency', label: 'Agency Details', icon: Building2 },
+  { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
+  { id: 'password', label: 'Change Password', icon: KeyRound },
 ];
 
 // Profolio Settings reference: left sub-nav switching between independent

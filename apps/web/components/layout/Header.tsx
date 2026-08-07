@@ -11,19 +11,20 @@ const LIST_A_HOME_CLASSES =
   'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90';
 
 const NAV_LINKS = [
-  { label: 'Buy & Sell', href: '/search?purpose=sale' },
-  { label: 'Rent', href: '/search?purpose=rent' },
+  { label: 'Buy & Sell', href: '/buy-sell' },
+  { label: 'Rent', href: '/rent' },
   { label: 'About', href: '/about-us' },
-  { label: 'Commercial', href: '/search?type=commercial' },
+  // { label: 'Commercial', href: '/search?type=commercial' },
   { label: 'Agents', href: '#' },
   { label: 'Services', href: '/services' },
   { label: 'Contact', href: '/contact-us' },
 ];
 
 // Matches a nav link against the current URL — pathname must match exactly,
-// and if the link carries query params (the /search variants), every one of
-// those must also match the current search params, so "Buy & Sell" and
-// "Rent" don't both light up just because they share a pathname.
+// and if the link carries query params, every one of those must also match
+// the current search params, so a link with extra filters attached (e.g. a
+// PropertySearchBar redirect) doesn't still read as "active" once the query
+// no longer matches the bare nav href.
 function useIsLinkActive() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -80,14 +81,20 @@ const DESKTOP_QUERY = '(min-width: 1024px)';
 // Routes whose first section is a full-bleed hero (Hero/PageHero/SearchHero)
 // for the floating bar to overlap. Everything else (auth, dashboards, etc.)
 // keeps the plain in-flow sticky bar.
-const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings']);
+const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings', '/buy-sell', '/rent', '/blog']);
 
-// Listing/project detail pages (/listings/[slug], /developments/[slug]) have
-// no hero banner, but still get the floating treatment — PropertyDetail/
-// ProjectDetail reserve top clearance themselves (rather than a hero
-// backdrop) so the pill doesn't sit over the breadcrumb.
+// Listing/project/blog detail pages (/listings/[slug], /developments/[slug],
+// /blog/[slug]) have no hero banner, but still get the floating treatment —
+// PropertyDetail/ProjectDetail/BlogDetailPage reserve top clearance
+// themselves (rather than a hero backdrop) so the pill doesn't sit over the
+// breadcrumb.
 function isHeroRoute(pathname: string): boolean {
-  return HERO_ROUTES.has(pathname) || pathname.startsWith('/listings/') || pathname.startsWith('/developments/');
+  return (
+    HERO_ROUTES.has(pathname) ||
+    pathname.startsWith('/listings/') ||
+    pathname.startsWith('/developments/') ||
+    pathname.startsWith('/blog/')
+  );
 }
 
 export function Header() {

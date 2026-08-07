@@ -254,6 +254,14 @@ export interface Listing {
   agent: ListingAgentSummary | null;
 }
 
+// GET /listings/trending only — a real per-listing 'view' event count off
+// listing_engagement_events, computed at query time (never stored) like
+// every other stats figure on this platform. Regular Listing responses
+// (findPublic/findById/findSimilar) never carry this.
+export interface TrendingListing extends Listing {
+  viewCount: number;
+}
+
 // What a listing embeds inline — subscriptionTierName is the agent's own
 // active subscription's tier, not an agency-level field (this schema's
 // subscriptions are keyed to agent_id, not agency_id).
