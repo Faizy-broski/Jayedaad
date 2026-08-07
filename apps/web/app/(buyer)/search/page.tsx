@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useQueries } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react';
 import {
   AreaUnit,
   FurnishingStatus,
   Listing,
   ListingPurpose,
+  ListingSearchFilters,
   PAKISTAN_CITIES,
   formatPrice,
   listingsRepository,
@@ -15,6 +18,7 @@ import {
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import { getViewerSessionId } from '@/lib/viewerSession';
+import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
 
 // Fires the real engagement-tracking event (backs the agent dashboard's
 // Calls/WhatsApp/SMS analytics, which were previously always 0 — nothing
@@ -23,7 +27,7 @@ import { getViewerSessionId } from '@/lib/viewerSession';
 function trackAndOpen(listingId: string, type: 'call' | 'whatsapp' | 'sms', url: string) {
   listingsRepository
     .trackEngagement(listingId, { type, platform: 'web', viewerSessionId: getViewerSessionId() })
-    .catch(() => {});
+    .catch(() => { });
   window.location.href = url;
 }
 
@@ -100,19 +104,32 @@ const fieldClasses =
 // Keyword, More Options (furnishing/video, folded in since Zameen's own
 // "More Options" is itself an expandable extra-filters panel).
 export default function SearchPage() {
+  // useSearchParams() requires a Suspense boundary in the app router, or
+  // the build fails — the homepage's Browse by Category / Where We Live
+  // cards link here with ?propertyTypeCategory=/?city=, so the initial
+  // filters have to come from the URL, not just local state.
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-6xl px-4 py-12">Loading…</main>}>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
+  const searchParams = useSearchParams();
   const { propertyTypes } = useTaxonomyViewModel();
   const { preferences } = usePreferencesViewModel();
 
-  const [purpose, setPurpose] = useState<ListingPurpose>('sale');
-  const [city, setCity] = useState('');
+  const [purpose, setPurpose] = useState<ListingPurpose>(() => (searchParams.get('purpose') === 'rent' ? 'rent' : 'sale'));
+  const [city, setCity] = useState(() => searchParams.get('city') ?? '');
   const [area, setArea] = useState('');
-  const [categorySlug, setCategorySlug] = useState('');
-  const [propertyTypeSlug, setPropertyTypeSlug] = useState('');
-  const [minAreaValue, setMinAreaValue] = useState('');
-  const [maxAreaValue, setMaxAreaValue] = useState('');
-  const [areaUnit, setAreaUnit] = useState<AreaUnit>('marla');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [categorySlug, setCategorySlug] = useState(() => searchParams.get('propertyTypeCategory') ?? '');
+  const [propertyTypeSlug, setPropertyTypeSlug] = useState(() => searchParams.get('propertyTypeSlug') ?? '');
+  const [minAreaValue, setMinAreaValue] = useState(() => searchParams.get('minAreaValue') ?? '');
+  const [maxAreaValue, setMaxAreaValue] = useState(() => searchParams.get('maxAreaValue') ?? '');
+  const [areaUnit, setAreaUnit] = useState<AreaUnit>(() => (searchParams.get('areaUnit') as AreaUnit) || 'marla');
+  const [minPrice, setMinPrice] = useState(() => searchParams.get('minPrice') ?? '');
+  const [maxPrice, setMaxPrice] = useState(() => searchParams.get('maxPrice') ?? '');
   const [bedrooms, setBedrooms] = useState('');
   const [minBathrooms, setMinBathrooms] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -128,10 +145,9 @@ export default function SearchPage() {
   }, []);
   const typesInSelectedCategory = categorySlug ? propertyTypes.filter((t) => t.category?.slug === categorySlug) : propertyTypes;
 
-  const { listings, isLoading } = useListingSearchViewModel({
+  const baseFilters: Omit<ListingSearchFilters, 'propertyTypeSlug'> = {
     city: city || undefined,
     area: area || undefined,
-    propertyTypeSlug: propertyTypeSlug || undefined,
     purpose,
     bedrooms: bedrooms ? Number(bedrooms.replace('+', '')) : undefined,
     minBathrooms: minBathrooms ? Number(minBathrooms.replace('+', '')) : undefined,
@@ -143,7 +159,33 @@ export default function SearchPage() {
     keyword: keyword || undefined,
     furnishingStatus: furnishingStatus || undefined,
     hasVideo: hasVideo || undefined,
+      };
+
+  const singleTypeResult = useListingSearchViewModel({
+    ...baseFilters,
+    propertyTypeSlug: propertyTypeSlug || undefined,
   });
+
+  // A category alone (e.g. arriving from the homepage's Browse by Category
+  // cards) has no single propertyTypeSlug to filter by — GET /listings only
+  // accepts one. So this fans out one request per real property type under
+  // the selected category and merges the pages client-side, instead of
+  // silently ignoring the category and showing everything.
+  const categoryTypeSlugs = categorySlug && !propertyTypeSlug ? typesInSelectedCategory.map((t) => t.slug) : [];
+  const categoryQueries = useQueries({
+    queries: categoryTypeSlugs.map((slug) => ({
+      queryKey: ['listings', 'public', 'category', slug, baseFilters],
+      queryFn: () => listingsRepository.searchPublic({ ...baseFilters, propertyTypeSlug: slug, pageSize: 50 }),
+    })),
+  });
+
+  const isCategoryMode = categoryTypeSlugs.length > 0;
+  const listings = isCategoryMode
+    ? categoryQueries
+        .flatMap((q) => q.data?.items ?? [])
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : singleTypeResult.listings;
+  const isLoading = isCategoryMode ? categoryQueries.some((q) => q.isLoading) : singleTypeResult.isLoading;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
@@ -234,23 +276,33 @@ export default function SearchPage() {
         <div className="grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
           <FilterCell label="Price (PKR)">
             <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min="0"
+              <select
                 value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                placeholder="0"
-                className={`${fieldClasses} w-14`}
-              />
+                onChange={(e) => {
+                  const nextMin = e.target.value;
+                  // Selecting a Min above the current Max clears Max instead
+                  // of silently sending minPrice > maxPrice to the API.
+                  if (maxPrice && Number(maxPrice) <= Number(nextMin)) setMaxPrice('');
+                  setMinPrice(nextMin);
+                }}
+                className={`${fieldClasses} w-16`}
+              >
+                <option value="" className="text-black">No Min</option>
+                {PRICE_OPTIONS.map((p) => (
+                  <option key={p} value={p} className="text-black">
+                    {priceOptionLabel(p)}
+                  </option>
+                ))}
+              </select>
               <span className="text-xs text-white/40">to</span>
-              <input
-                type="number"
-                min="0"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                placeholder="Any"
-                className={`${fieldClasses} w-14`}
-              />
+              <select value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className={`${fieldClasses} w-16`}>
+                <option value="" className="text-black">Any</option>
+                {PRICE_OPTIONS.filter((p) => !minPrice || p > Number(minPrice)).map((p) => (
+                  <option key={p} value={p} className="text-black">
+                    {priceOptionLabel(p)}
+                  </option>
+                ))}
+              </select>
             </div>
           </FilterCell>
           <FilterCell label="Beds">

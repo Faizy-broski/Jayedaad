@@ -16,10 +16,14 @@ const nextConfig = {
   // node_modules tree instead of just what's actually used at runtime.
   // No effect on Vercel (which does its own equivalent tracing already).
   output: 'standalone',
+  // Real listing media now renders on the homepage (Featured/Newly Staged
+  // sections fetch from GET /listings) — photos live in Supabase Storage,
+  // and seed data (supabase/seed/sample_listings.sql) uses picsum.photos.
   images: {
-    remotePatterns: supabaseHostname
-      ? [{ protocol: 'https', hostname: supabaseHostname, pathname: '/storage/v1/object/public/**' }]
-      : [],
+    remotePatterns: [
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: 'picsum.photos' },
+    ],
   },
 };
 

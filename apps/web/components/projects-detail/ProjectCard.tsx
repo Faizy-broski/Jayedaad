@@ -1,9 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { BadgeCheck, MapPin, Layers, ArrowRight } from 'lucide-react';
-import type { DisplayProject } from '@/lib/types';
+import type { ProjectCardData } from '@/lib/types';
 
-const STATUS_LABEL: Record<DisplayProject['status'], string> = {
+const STATUS_LABEL: Record<ProjectCardData['status'], string> = {
   planned: 'Planned',
   under_construction: 'Under Construction',
   ready: 'Ready',
@@ -16,7 +16,7 @@ function formatPrice(value: number): string {
   return `PKR ${value.toLocaleString()}`;
 }
 
-export function ProjectCard({ project }: { project: DisplayProject }) {
+export function ProjectCard({ project }: { project: ProjectCardData }) {
   return (
     <article className="w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
       <div className="relative aspect-[4/3] w-full overflow-hidden">
@@ -47,9 +47,9 @@ export function ProjectCard({ project }: { project: DisplayProject }) {
         <div className="flex items-center justify-between text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <Layers className="h-3.5 w-3.5" />
-            {project.unitTypes.length} unit type{project.unitTypes.length === 1 ? '' : 's'}
+            {project.unitTypeCount} unit type{project.unitTypeCount === 1 ? '' : 's'}
           </span>
-          <span className="text-sm font-semibold text-primary">{formatPrice(project.priceRange.min)}+</span>
+           <span className="text-sm font-semibold text-primary">{formatPrice(project.priceRangeMin)}+</span>
         </div>
 
         <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">

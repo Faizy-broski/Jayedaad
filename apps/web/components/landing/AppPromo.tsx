@@ -4,7 +4,7 @@ import { Reveal } from "@/components/Reveal";
 
 export function AppPromo() {
   return (
-    <section className="py-10 sm:py-14 lg:py-20">
+    <section className="py-10 sm:py-14 lg:py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-[28px] bg-brand-dark sm:rounded-[40px]">
           {/* Glow */}

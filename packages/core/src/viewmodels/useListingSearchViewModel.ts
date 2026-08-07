@@ -21,6 +21,23 @@ export function useListingSearchViewModel(filters: ListingSearchFilters) {
   };
 }
 
+// Sitewide "most visited" — GET /listings/trending, ranked by real 'view'
+// events off listing_engagement_events. Backs the homepage's Most Visited
+// section, distinct from the "newest" proxy FeaturedPropertiesSection uses.
+export function useTrendingListingsViewModel(limit?: number) {
+  const query = useQuery({
+    queryKey: ['listings', 'trending', limit],
+    queryFn: () => listingsRepository.findMostViewed(limit),
+    staleTime: 5 * 60_000,
+  });
+
+  return {
+    listings: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
 // Infinite-scroll variant — backs mobile's AllPropertiesScreen/
 // BuyerSearchScreen "load more on scroll" results, fetching real 20-item
 // pages (the API's own DEFAULT_PAGE_SIZE) instead of one big unbounded

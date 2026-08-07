@@ -28,24 +28,29 @@ function hashToRange(id: string, min: number, max: number): number {
   return min + (hash % (max - min));
 }
 
+const PLACEHOLDER_GALLERY = [
+  '/images/images-gallery/1.jpg',
+  '/images/images-gallery/2.jpg',
+  '/images/images-gallery/3.jpg',
+  '/images/images-gallery/4.jpg',
+];
+
 interface PropertyDetailProps {
   listing: ListingProperty;
   similar: ListingProperty[];
+  /** Real listing photos (listing.media), in display order. Falls back to
+   *  generic placeholder photos when a listing has none uploaded yet. */
+  images?: string[];
 }
 
-export function PropertyDetail({ listing, similar }: PropertyDetailProps) {
+export function PropertyDetail({ listing, similar, images }: PropertyDetailProps) {
   const [saved, setSaved] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   const city = listing.location.split(',').pop()?.trim() ?? listing.location;
   const views = hashToRange(listing.id, 800, 3200);
   const referenceId = `JYD-${hashToRange(listing.id, 100, 999)}`;
-  const gallery = [
-    '/images/images-gallery/1.jpg',
-    '/images/images-gallery/2.jpg',
-    '/images/images-gallery/3.jpg',
-    '/images/images-gallery/4.jpg',
-  ];
+  const gallery = images && images.length > 0 ? images : PLACEHOLDER_GALLERY;
 
   return (
     // pt is clearance for the Header, which is fixed/floating (out of flow)
@@ -161,12 +166,12 @@ export function PropertyDetail({ listing, similar }: PropertyDetailProps) {
             </div>
           </Reveal>
 
-          <Reveal delay={0.1}>
+           {/* <Reveal delay={0.1}>
             <h2 className="heading-2 text-heading-gradient">Mortgage calculator</h2>
             <div className="mt-4">
               <MortgageCalculator priceValue={listing.priceValue} />
             </div>
-          </Reveal>
+          </Reveal> */}
 
           <Reveal delay={0.1}>
             <h2 className="heading-2 text-heading-gradient">Investment analysis</h2>

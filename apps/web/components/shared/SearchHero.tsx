@@ -2,14 +2,15 @@
 
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { SearchBar, type SearchPurpose } from './SearchBar';
+import { PropertySearchBar, type SearchBarPurpose, type SearchBarVariant } from './PropertySearchBar';
 
 interface SearchHeroProps {
   backgroundImage: string;
   imageAlt?: string;
   eyebrow?: string;
   title?: string;
-  defaultPurpose?: SearchPurpose;
+  defaultPurpose?: SearchBarPurpose;
+  variant?: SearchBarVariant;
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -26,6 +27,7 @@ export function SearchHero({
   eyebrow,
   title,
   defaultPurpose = 'buy',
+  variant = 'listings',
 }: SearchHeroProps) {
   return (
     // pt-16/pt-[68px] roughly match the header's real rendered height (logo
@@ -66,7 +68,7 @@ export function SearchHero({
           transition={{ duration: 0.7, ease: EASE, delay: 0.3 }}
           className="relative z-10 mx-auto -mt-10 flex w-full max-w-4xl flex-col px-4 sm:absolute sm:inset-x-4 sm:-bottom-16 sm:mt-0 sm:px-0 md:-bottom-10"
         >
-          <SearchBar defaultPurpose={defaultPurpose} />
+          <PropertySearchBar variant={variant} defaultPurpose={defaultPurpose} />
         </motion.div>
       </section>
     </div>

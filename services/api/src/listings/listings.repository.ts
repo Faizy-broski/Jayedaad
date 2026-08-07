@@ -591,6 +591,46 @@ export class ListingsRepository {
     return (data ?? []).map(mapPublicListingRow);
   }
 
+// Sitewide "most visited" ranking — listing_engagement_events has been
+  // capturing real 'view' rows since trackEngagement() was wired up (see
+  // above) but nothing ever queried them back per-listing before this;
+  // the only existing reader (AgentsRepository.getAnalytics) sums views
+  // per-agent, not per-listing. Counted client-side rather than a SQL
+  // GROUP BY, same pragmatic style already used in listCities()/
+  // listAreas() above — fine at MVP event volume, worth a materialized
+  // view once it isn't.
+  async findMostViewed(limit = 12) {
+    const { data: events, error: eventsError } = await this.supabase.client
+      .from('listing_engagement_events')
+      .select('listing_id')
+      .eq('type', 'view');
+    if (eventsError) throw eventsError;
+
+    const viewCounts = new Map<string, number>();
+    for (const row of events ?? []) {
+      viewCounts.set(row.listing_id, (viewCounts.get(row.listing_id) ?? 0) + 1);
+    }
+    if (viewCounts.size === 0) return [];
+
+    const topIds = Array.from(viewCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([listingId]) => listingId);
+
+    const { data, error } = await this.supabase.client
+      .from('listings')
+      .select(PUBLIC_LISTING_COLUMNS)
+      .eq('status', 'verified')
+      .in('id', topIds);
+    if (error) throw error;
+
+    // .in() doesn't preserve the id order given to it — re-sort by the
+    // actual view count so "most visited" isn't silently scrambled.
+    return (data ?? [])
+      .map((row: any) => ({ ...mapPublicListingRow(row), viewCount: viewCounts.get(row.id) ?? 0 }))
+      .sort((a, b) => b.viewCount - a.viewCount);
+  }
+
   // Replaces the old owner-only findOwnListings(ownerId), which locked
   // agents out of "my listings" entirely and, even for owners, had no
   // filters and returned every row unbounded. Role-aware: owners scope by
