@@ -1,87 +1,153 @@
-import { useState } from 'react';
-import { FlatList, Pressable, SafeAreaView, Text, View, StyleSheet } from 'react-native';
-import { LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
-import { Button, theme, useToast } from '@jayedaad/ui-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, SafeAreaView, Text, View, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
+import { Button, TextInput, theme } from '@jayedaad/ui-native';
+import { RootStackParamList } from '../navigation/RootNavigator';
 
 type StatusFilter = 'all' | LeadStatus;
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'closed', label: 'Closings' },
+  { value: 'new', label: 'New' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'negotiating', label: 'Negotiating' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'lost', label: 'Lost' },
 ];
 
+const SOURCE_LABEL: Record<string, string> = {
+  chatbot: 'Chatbot',
+  contact_form: 'Contact form',
+  call_request: 'Call request',
+};
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 // Same viewmodel as apps/web's (agent)/crm page.tsx — mobile agents get the
-// same optimistic-update CRM behavior as the web J.Dashboard [Dev Instr §1].
-// Closings filter + Agency scope toggle added for Document Verification
-// Phase 3 — Sales Associates get a "Closings" view of their own won deals,
-// Agency Admins can widen the list to every associate's leads.
+// same optimistic-update CRM behavior as the web dashboard [Dev Instr §1].
+// Previously a stripped-down stub (name + status only, one hardcoded "Mark
+// Contacted" button, no contact info, no notes, no detail view) — now a
+// real inbox: full status filters, search, tap-through to LeadDetailScreen
+// for contact info/notes/call/WhatsApp, real error state, pull-to-refresh.
 export function AgentCRMScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile } = useAgentProfileViewModel();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [agencyScope, setAgencyScope] = useState(false);
-  const { leads, isLoading, updateStatus } = useLeadInboxViewModel({
+  const [search, setSearch] = useState('');
+  const { leads, isLoading, isError, refetch } = useLeadInboxViewModel({
     status: statusFilter === 'all' ? undefined : statusFilter,
     scope: agencyScope ? 'agency' : 'own',
+    pageSize: 50,
   });
-  const { showToast } = useToast();
+
+  const visibleLeads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return leads;
+    return leads.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.phone.toLowerCase().includes(q) ||
+        l.email.toLowerCase().includes(q) ||
+        l.message.toLowerCase().includes(q),
+    );
+  }, [leads, search]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.filterRow}>
-        {STATUS_FILTERS.map((f) => (
-          <Pressable
-            key={f.value}
-            style={[styles.filterChip, statusFilter === f.value && styles.filterChipActive]}
-            onPress={() => setStatusFilter(f.value)}
-          >
-            <Text style={[styles.filterChipText, statusFilter === f.value && styles.filterChipTextActive]}>
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
-        {profile?.isAgencyAdmin && (
-          <Pressable
-            style={[styles.filterChip, agencyScope && styles.filterChipActive]}
-            onPress={() => setAgencyScope((v) => !v)}
-          >
-            <Text style={[styles.filterChipText, agencyScope && styles.filterChipTextActive]}>Agency</Text>
-          </Pressable>
-        )}
-      </View>
-      {isLoading && <Text>Loading…</Text>}
-      <FlatList
-        data={leads}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={!isLoading ? <Text style={styles.empty}>No leads yet.</Text> : null}
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <View>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.status}>{item.status}</Text>
-            </View>
-            <Button
-              label="Mark Contacted"
-              variant="secondary"
-              onPress={() =>
-                updateStatus.mutate(
-                  { leadId: item.id, status: 'contacted' },
-                  {
-                    onSuccess: () => showToast('Lead marked as contacted.'),
-                    onError: () => showToast('Something went wrong — please try again.', 'error'),
-                  },
-                )
-              }
-            />
-          </View>
-        )}
+      <TextInput
+        icon="search-outline"
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search name, phone, email…"
+        style={styles.search}
       />
+
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterRowScroll}
+        contentContainerStyle={styles.filterRow}
+        data={profile?.isAgencyAdmin ? [...STATUS_FILTERS, { value: 'agency' as const, label: 'Agency' }] : STATUS_FILTERS}
+        keyExtractor={(f) => f.value}
+        renderItem={({ item: f }) => {
+          const active = f.value === 'agency' ? agencyScope : statusFilter === f.value;
+          return (
+            <Pressable
+              style={[styles.filterChip, active && styles.filterChipActive]}
+              onPress={() => (f.value === 'agency' ? setAgencyScope((v) => !v) : setStatusFilter(f.value as StatusFilter))}
+            >
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
+            </Pressable>
+          );
+        }}
+      />
+
+      {isLoading && <Text style={styles.loading}>Loading…</Text>}
+
+      {!isLoading && isError && (
+        <View style={styles.errorState}>
+          <Ionicons name="alert-circle-outline" size={32} color={theme.colors.muted} />
+          <Text style={styles.errorText}>Couldn&apos;t load your inbox.</Text>
+          <Button label="Retry" variant="secondary" size="sm" onPress={() => refetch()} />
+        </View>
+      )}
+
+      {!isLoading && !isError && (
+        <FlatList
+          data={visibleLeads}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={() => refetch()} tintColor={theme.colors.primary} />}
+          ListEmptyComponent={
+            <Text style={styles.empty}>{search ? 'No leads match your search.' : 'No leads yet.'}</Text>
+          }
+          renderItem={({ item }: { item: Lead }) => (
+            <Pressable style={styles.row} onPress={() => navigation.navigate('LeadDetail', { leadId: item.id })}>
+              <View style={styles.rowMain}>
+                <View style={styles.rowHeader}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>{item.status}</Text>
+                  </View>
+                </View>
+                {item.message ? (
+                  <Text style={styles.message} numberOfLines={1}>
+                    {item.message}
+                  </Text>
+                ) : null}
+                <View style={styles.metaRow}>
+                  <Text style={styles.meta}>{item.phone}</Text>
+                  <Text style={styles.metaDot}>·</Text>
+                  <Text style={styles.meta}>{relativeTime(item.createdAt)}</Text>
+                  <Text style={styles.metaDot}>·</Text>
+                  <Text style={styles.meta}>{SOURCE_LABEL[item.source] ?? item.source}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+            </Pressable>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: theme.spacing.lg, backgroundColor: theme.colors.bg },
-  filterRow: { flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md },
+  search: { marginBottom: theme.spacing.sm },
+  filterRowScroll: { flexGrow: 0, marginBottom: theme.spacing.md },
+  filterRow: { flexDirection: 'row', gap: theme.spacing.sm },
   filterChip: {
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -92,15 +158,26 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
   filterChipText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   filterChipTextActive: { color: theme.colors.bg },
+  loading: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
+  errorState: { alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xl },
+  errorText: { color: theme.colors.muted, fontSize: 13 },
+  empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: theme.spacing.sm,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
     paddingVertical: theme.spacing.md,
   },
-  name: { fontWeight: '600' },
-  status: { color: theme.colors.muted, fontSize: 12, textTransform: 'capitalize' },
-  empty: { color: theme.colors.muted },
+  rowMain: { flex: 1, gap: 3 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  name: { fontWeight: '600', fontSize: 14, color: theme.colors.text },
+  statusBadge: { backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  statusBadgeText: { color: theme.colors.muted, fontSize: 11, textTransform: 'capitalize', fontWeight: '600' },
+  message: { color: theme.colors.text, fontSize: 12 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  meta: { color: theme.colors.muted, fontSize: 11 },
+  metaDot: { color: theme.colors.muted, fontSize: 11 },
 });

@@ -5,6 +5,7 @@ import { BottomTabNavigator } from './BottomTabNavigator';
 import { AboutUsScreen } from '../screens/AboutUsScreen';
 import { ContactScreen } from '../screens/ContactScreen';
 import { AgentCRMScreen } from '../screens/AgentCRMScreen';
+import { LeadDetailScreen } from '../screens/LeadDetailScreen';
 import { AgentDashboardScreen } from '../screens/AgentDashboardScreen';
 import { TermsScreen } from '../screens/auth/TermsScreen';
 import { ProfileSettingsScreen } from '../screens/ProfileSettingsScreen';
@@ -39,6 +40,7 @@ export type RootStackParamList = {
   AboutUs: undefined;
   Contact: undefined;
   AgentCRM: undefined;
+  LeadDetail: { leadId: string };
   AgentDashboard: undefined;
   Terms: undefined;
   ProfileSettings: undefined;
@@ -85,6 +87,7 @@ function MainStack() {
       <Stack.Screen name="AboutUs" component={AboutUsScreen} options={{ title: 'About Us' }} />
       <Stack.Screen name="Contact" component={ContactScreen} options={{ title: 'Contact' }} />
       <Stack.Screen name="AgentCRM" component={AgentCRMScreen} options={{ title: 'Inquiry Inbox' }} />
+      <Stack.Screen name="LeadDetail" component={LeadDetailScreen} options={{ title: 'Lead' }} />
       <Stack.Screen name="AgentDashboard" component={AgentDashboardScreen} options={{ title: 'Dashboard' }} />
       <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms and Conditions' }} />
       <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} options={{ title: 'Profile Settings' }} />

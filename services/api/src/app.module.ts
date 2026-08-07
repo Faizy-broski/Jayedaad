@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { SupabaseModule } from './supabase/supabase.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { AuthModule } from './auth/auth.module';
@@ -26,6 +27,8 @@ import { AdminModule } from './admin/admin.module';
 import { DevelopersModule } from './developers/developers.module';
 import { ContactModule } from './contact/contact.module';
 import { BlogModule } from './blog/blog.module';
+import { RemindersModule } from './reminders/reminders.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -33,6 +36,8 @@ import { BlogModule } from './blog/blog.module';
     // individual routes override it with stricter @Throttle() limits where
     // warranted (see auth/otp/otp.controller.ts).
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // Backs RemindersModule's @Cron firing job — registered once, here.
+    ScheduleModule.forRoot(),
     SupabaseModule,
     AuthModule,
     UsersModule,
@@ -56,6 +61,8 @@ import { BlogModule } from './blog/blog.module';
     DevelopersModule,
     ContactModule,
     BlogModule,
+    RemindersModule,
+    TasksModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

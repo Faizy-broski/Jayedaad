@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   Bar,
   BarChart,
@@ -26,10 +27,11 @@ import {
   useLeadInboxViewModel,
   useAgentProfileViewModel,
   useAuthViewModel,
+  useTasksViewModel,
   formatPrice,
   AgentCreditType,
 } from '@jayedaad/core';
-import { Card, Button } from '@jayedaad/ui-web';
+import { Card, Button, Input } from '@jayedaad/ui-web';
 import {
   Home,
   Flame,
@@ -49,6 +51,8 @@ import {
   Gauge,
   CreditCard as CreditCardIcon,
   TrendingUp,
+  Circle,
+  ListTodo,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
@@ -129,6 +133,8 @@ export default function AgentDashboardPage() {
   const { current: currentPlan } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
   const { leads, isLoading: isLeadsLoading } = useLeadInboxViewModel({});
+  const { openTasks, isLoading: isTasksLoading, create: createTask, complete: completeTask } = useTasksViewModel();
+  const [newTaskTitle, setNewTaskTitle] = useState('');
   // Agency Admin's "full visibility to their overall performance, analytics,
   // and their sales associates" (Document Verification Phase 3).
   const { analytics: agencyAnalytics } = useAgencyAnalyticsViewModel(profile?.isAgencyAdmin ? profile.agency?.id : undefined);
@@ -159,6 +165,18 @@ export default function AgentDashboardPage() {
     { name: 'For Rent', value: stats?.forRentCount ?? 0, color: 'hsl(var(--brand-emerald))' },
   ];
   const hasListingsMix = listingsMix.some((d) => d.value > 0);
+
+  function handleAddTask() {
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    createTask.mutate(
+      { title },
+      {
+        onSuccess: () => setNewTaskTitle(''),
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -487,6 +505,66 @@ export default function AgentDashboardPage() {
           </Card>
         </Reveal>
       </div>
+
+      {/* Follow-ups — services/api's tasks table previously had zero
+          backend/UI behind it; a personal to-do list, optionally linked to
+          a lead, complements the CRM's per-lead reminders (SetReminderPopover
+          on the /crm page). */}
+      <Reveal>
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-base font-semibold text-foreground">
+              <ListTodo className="h-4 w-4 text-muted-foreground" />
+              Follow-ups
+            </h2>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2">
+            <Input
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+              placeholder="Add a follow-up…"
+              className="h-9"
+            />
+            <Button size="sm" disabled={!newTaskTitle.trim() || createTask.isPending} onClick={handleAddTask}>
+              Add
+            </Button>
+          </div>
+
+          {isTasksLoading ? (
+            <div className="mt-4 space-y-3">
+              {[0, 1].map((i) => (
+                <div key={i} className="h-8 animate-pulse rounded-md bg-muted/40" />
+              ))}
+            </div>
+          ) : openTasks.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">Nothing on your list — nice.</p>
+          ) : (
+            <ul className="mt-4 space-y-2">
+              {openTasks.map((task) => (
+                <li key={task.id} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => completeTask.mutate(task.id)}
+                    disabled={completeTask.isPending}
+                    aria-label="Mark complete"
+                    className="text-muted-foreground hover:text-primary"
+                  >
+                    <Circle className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">{task.title}</span>
+                  {task.dueAt && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {new Date(task.dueAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </Reveal>
 
       {/* Insights + Plan + Promo */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

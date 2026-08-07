@@ -3,24 +3,33 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Lead, LeadStatus, useAdminAgentsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
-import { Button, cn } from '@jayedaad/ui-web';
+import { Lead, LeadStatus, useAdminAgentsViewModel, useAdminCrmStatsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
+import { Button, cn, Input } from '@jayedaad/ui-web';
 import {
+  AlertTriangle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Globe,
   Inbox,
   Mail,
+  MessageCircle,
   MessageSquare,
   MessagesSquare,
   Phone,
   PhoneCall,
+  Search,
   Send,
+  Trash2,
   UserCog,
   Users,
   UserX,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+import { SetReminderPopover } from '@/components/crm/SetReminderPopover';
+
+const PAGE_SIZE = 20;
 
 const STATUS_FILTERS: { id: LeadStatus | 'all'; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -55,6 +64,11 @@ function relativeTime(iso: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function whatsappHref(phone: string, name: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${name}, `)}`;
+}
+
 // Super Admin cross-agent CRM — same GET /crm/leads endpoint the agent
 // Inbox uses, unscoped, restyled to match the card-list/animation language
 // of the agent CRM inbox, with an agent filter/attribution/reassign layered
@@ -63,33 +77,45 @@ export default function AdminCrmPage() {
   const { agents } = useAdminAgentsViewModel();
   const [agentFilter, setAgentFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [openNoteFor, setOpenNoteFor] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
-  const { leads, isLoading, updateStatus, addNote, assign } = useAdminCrmViewModel({ agentId: agentFilter || undefined });
 
-  const agentName = (id: string | null) => (id ? agents.find((a) => a.id === id)?.displayName ?? id : 'Unassigned');
+  const { leads, total, isLoading, isError, refetch, updateStatus, addNote, assign, remove } = useAdminCrmViewModel({
+    agentId: agentFilter || undefined,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+  const stats = useAdminCrmStatsViewModel(agentFilter || undefined);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const counts = useMemo(
-    () => ({
-      total: leads.length,
-      new: leads.filter((l) => l.status === 'new').length,
-      unassigned: leads.filter((l) => !l.agentId).length,
-      closed: leads.filter((l) => l.status === 'closed').length,
-    }),
-    [leads],
-  );
+  const agentName = (id: string | null) => (id ? (agents.find((a) => a.id === id)?.displayName ?? id) : 'Unassigned');
 
-  const filteredLeads = useMemo(
-    () => (statusFilter === 'all' ? leads : leads.filter((l) => l.status === statusFilter)),
-    [leads, statusFilter],
-  );
+  const visibleLeads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return leads;
+    return leads.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.phone.toLowerCase().includes(q) ||
+        l.email.toLowerCase().includes(q) ||
+        l.message.toLowerCase().includes(q),
+    );
+  }, [leads, search]);
+
+  function handleTabChange(next: LeadStatus | 'all') {
+    setStatusFilter(next);
+    setPage(1);
+  }
 
   function changeStatus(leadId: string, status: LeadStatus) {
     updateStatus.mutate(
       { leadId, status },
       {
         onSuccess: () => toast.success(`Lead marked as ${status}.`),
-        onError: () => toast.error('Something went wrong — please try again.'),
+        onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
       },
     );
   }
@@ -103,6 +129,14 @@ export default function AdminCrmPage() {
         onError: () => toast.error('Something went wrong — please try again.'),
       },
     );
+  }
+
+  function handleDelete(leadId: string, name: string) {
+    if (!confirm(`Delete the lead from "${name}"? This cannot be undone.`)) return;
+    remove.mutate(leadId, {
+      onSuccess: () => toast.success('Lead deleted.'),
+      onError: () => toast.error('Something went wrong — please try again.'),
+    });
   }
 
   function submitNote(leadId: string) {
@@ -132,15 +166,18 @@ export default function AdminCrmPage() {
             </p>
             <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">Leads</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{counts.total}</span> total inquiries —{' '}
-              <span className="font-semibold text-foreground">{counts.new}</span> new since last check.
+              <span className="font-semibold text-foreground">{stats.total}</span> total inquiries —{' '}
+              <span className="font-semibold text-foreground">{stats.new}</span> new.
             </p>
           </div>
 
           <div className="relative w-full max-w-xs">
             <select
               value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
+              onChange={(e) => {
+                setAgentFilter(e.target.value);
+                setPage(1);
+              }}
               className="h-10 w-full appearance-none rounded-full border border-input bg-background px-4 pr-9 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">All agents</option>
@@ -156,40 +193,47 @@ export default function AdminCrmPage() {
       </Reveal>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {isLoading ? (
+        {stats.isLoading ? (
           [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Inbox} label="Total Leads" value={counts.total} sub="All inquiries" />
-            <StatTile index={1} icon={MessageSquare} label="New" value={counts.new} sub="Not yet contacted" />
-            <StatTile index={2} icon={UserX} label="Unassigned" value={counts.unassigned} sub="Needs an agent" />
-            <StatTile index={3} icon={Users} label="Closed" value={counts.closed} sub="Deals won" />
+            <StatTile index={0} icon={Inbox} label="Total Leads" value={stats.total} sub="All inquiries" />
+            <StatTile index={1} icon={MessageSquare} label="New" value={stats.new} sub="Not yet contacted" />
+            <StatTile index={2} icon={UserX} label="Unassigned" value={stats.unassigned} sub="Needs an agent" />
+            <StatTile index={3} icon={Users} label="Closed" value={stats.closed} sub="Deals won" />
           </>
         )}
       </div>
 
       <Reveal>
-        <div className="flex flex-wrap gap-1 rounded-full border border-border bg-muted/40 p-1">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setStatusFilter(f.id)}
-              className={cn(
-                'relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
-                statusFilter === f.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {statusFilter === f.id && (
-                <motion.span
-                  layoutId="adminCrmStatusPill"
-                  className="bg-heading-gradient absolute inset-0 rounded-full"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                />
-              )}
-              <span className="relative">{f.label}</span>
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-1 rounded-full border border-border bg-muted/40 p-1">
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => handleTabChange(f.id)}
+                className={cn(
+                  'relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                  statusFilter === f.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {statusFilter === f.id && (
+                  <motion.span
+                    layoutId="adminCrmStatusPill"
+                    className="bg-heading-gradient absolute inset-0 rounded-full"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative">{f.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, phone, email…" className="pl-9" />
+          </div>
         </div>
       </Reveal>
 
@@ -201,7 +245,20 @@ export default function AdminCrmPage() {
         </div>
       )}
 
-      {!isLoading && filteredLeads.length === 0 && (
+      {!isLoading && isError && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 py-12 text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load leads</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Something went wrong fetching the CRM.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!isLoading && !isError && visibleLeads.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -210,149 +267,201 @@ export default function AdminCrmPage() {
           <Inbox className="mb-3 h-10 w-10 text-muted-foreground/50" />
           <h3 className="text-sm font-semibold text-foreground">No leads here</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {statusFilter === 'all' ? 'New inquiries will show up here.' : `No ${statusFilter} inquiries right now.`}
+            {search ? 'Try a different search.' : statusFilter === 'all' ? 'New inquiries will show up here.' : `No ${statusFilter} inquiries right now.`}
           </p>
         </motion.div>
       )}
 
-      <ul className="space-y-3">
-        <AnimatePresence initial={false}>
-          {filteredLeads.map((lead: Lead, index) => {
-            const style = STATUS_STYLES[lead.status];
-            const SourceIcon = SOURCE_ICON[lead.source] ?? Globe;
-            const noteOpen = openNoteFor === lead.id;
+      {!isLoading && !isError && visibleLeads.length > 0 && (
+        <>
+          <ul className="space-y-3">
+            <AnimatePresence initial={false}>
+              {visibleLeads.map((lead: Lead, index) => {
+                const style = STATUS_STYLES[lead.status];
+                const SourceIcon = SOURCE_ICON[lead.source] ?? Globe;
+                const noteOpen = openNoteFor === lead.id;
 
-            return (
-              <motion.li
-                key={lead.id}
-                layout
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-                transition={{ duration: 0.25, delay: Math.min(index, 6) * 0.04 }}
-                whileHover={{ y: -2 }}
-                className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                      {lead.name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">{lead.name}</p>
-                        <span className={cn('flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize', style.badge)}>
-                          <span className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
-                          {lead.status}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {relativeTime(lead.createdAt)}
-                        </span>
-                        <span className="flex items-center gap-1 capitalize">
-                          <SourceIcon className="h-3 w-3" />
-                          {lead.source.replace('_', ' ')}
-                        </span>
-                        <span className={cn('flex items-center gap-1', !lead.agentId && 'font-medium text-amber-600 dark:text-amber-400')}>
-                          <UserCog className="h-3 w-3" />
-                          {agentName(lead.agentId)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <div className="relative">
-                      <select
-                        value={lead.status}
-                        onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
-                        disabled={updateStatus.isPending}
-                        className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                      >
-                        {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-
-                    <div className="relative">
-                      <select
-                        value=""
-                        onChange={(e) => handleReassign(lead.id, e.target.value)}
-                        disabled={assign.isPending}
-                        className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                      >
-                        <option value="">Reassign to…</option>
-                        {agents
-                          .filter((a) => a.id !== lead.agentId)
-                          .map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.displayName ?? a.id}
-                            </option>
-                          ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-                  </div>
-                </div>
-
-                {lead.message && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{lead.message}</p>}
-
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-foreground">
-                    <Phone className="h-3.5 w-3.5" />
-                    {lead.phone}
-                  </a>
-                  <a href={`mailto:${lead.email}`} className="flex items-center gap-1 hover:text-foreground">
-                    <Mail className="h-3.5 w-3.5" />
-                    {lead.email}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setOpenNoteFor(noteOpen ? null : lead.id)}
-                    className="ml-auto flex items-center gap-1 font-medium text-primary hover:underline"
+                return (
+                  <motion.li
+                    key={lead.id}
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+                    transition={{ duration: 0.25, delay: Math.min(index, 6) * 0.04 }}
+                    whileHover={{ y: -2 }}
+                    className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
                   >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    {noteOpen ? 'Cancel' : 'Add note'}
-                  </button>
-                </div>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                          {lead.name.slice(0, 2).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">{lead.name}</p>
+                            <span className={cn('flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize', style.badge)}>
+                              <span className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
+                              {lead.status}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {relativeTime(lead.createdAt)}
+                            </span>
+                            <span className="flex items-center gap-1 capitalize">
+                              <SourceIcon className="h-3 w-3" />
+                              {lead.source.replace('_', ' ')}
+                            </span>
+                            <span className={cn('flex items-center gap-1', !lead.agentId && 'font-medium text-amber-600 dark:text-amber-400')}>
+                              <UserCog className="h-3 w-3" />
+                              {agentName(lead.agentId)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                <AnimatePresence initial={false}>
-                  {noteOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
-                        <input
-                          autoFocus
-                          type="text"
-                          value={draftNotes[lead.id] ?? ''}
-                          onChange={(e) => setDraftNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
-                          onKeyDown={(e) => e.key === 'Enter' && submitNote(lead.id)}
-                          placeholder="Add a note…"
-                          className="h-9 flex-1 rounded-full border border-input bg-background px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        />
-                        <Button size="sm" disabled={!draftNotes[lead.id]?.trim() || addNote.isPending} onClick={() => submitNote(lead.id)}>
-                          <Send className="h-3.5 w-3.5" />
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <div className="relative">
+                          <select
+                            value={lead.status}
+                            onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
+                            disabled={updateStatus.isPending}
+                            className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                          >
+                            {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.label}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                        </div>
+
+                        <div className="relative">
+                          <select
+                            value=""
+                            onChange={(e) => handleReassign(lead.id, e.target.value)}
+                            disabled={assign.isPending}
+                            className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                          >
+                            <option value="">Reassign to…</option>
+                            {agents
+                              .filter((a) => a.id !== lead.agentId)
+                              .map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.displayName ?? a.id}
+                                </option>
+                              ))}
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive"
+                          disabled={remove.isPending}
+                          onClick={() => handleDelete(lead.id, lead.name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.li>
-            );
-          })}
-        </AnimatePresence>
-      </ul>
+                    </div>
+
+                    {lead.message && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{lead.message}</p>}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-foreground">
+                        <Phone className="h-3.5 w-3.5" />
+                        {lead.phone}
+                      </a>
+                      <a
+                        href={whatsappHref(lead.phone, lead.name)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        WhatsApp
+                      </a>
+                      <a href={`mailto:${lead.email}`} className="flex items-center gap-1 hover:text-foreground">
+                        <Mail className="h-3.5 w-3.5" />
+                        {lead.email}
+                      </a>
+                      <SetReminderPopover leadId={lead.id} />
+                      <button
+                        type="button"
+                        onClick={() => setOpenNoteFor(noteOpen ? null : lead.id)}
+                        className="ml-auto flex items-center gap-1 font-medium text-primary hover:underline"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        {noteOpen ? 'Close notes' : `Notes${lead.notes.length ? ` (${lead.notes.length})` : ''}`}
+                      </button>
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                      {noteOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 space-y-2 border-t border-border pt-3">
+                            {lead.notes.length > 0 && (
+                              <ul className="space-y-1.5">
+                                {lead.notes.map((note) => (
+                                  <li key={note.id} className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-foreground/90">
+                                    <p>{note.body}</p>
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(note.createdAt)}</p>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={draftNotes[lead.id] ?? ''}
+                                onChange={(e) => setDraftNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
+                                onKeyDown={(e) => e.key === 'Enter' && submitNote(lead.id)}
+                                placeholder="Add a note…"
+                                className="h-9 flex-1 rounded-full border border-input bg-background px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              />
+                              <Button size="sm" disabled={!draftNotes[lead.id]?.trim() || addNote.isPending} onClick={() => submitNote(lead.id)}>
+                                <Send className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
+          </ul>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Next
+                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

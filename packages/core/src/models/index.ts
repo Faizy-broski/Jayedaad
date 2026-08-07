@@ -270,6 +270,7 @@ export type LeadSource = 'chatbot' | 'contact_form' | 'call_request';
 // Verified against a real Zameen.com "Contact Agent" form's "I am a:"
 // dropdown — who the inquirer is, distinct from LeadSource (how they reached us).
 export type LeadInquirerType = 'buyer_tenant' | 'agent' | 'other';
+export type LeadActivityType = 'note' | 'status_change' | 'call' | 'assignment' | 'email' | 'whatsapp';
 
 export interface Lead {
   id: string;
@@ -284,6 +285,13 @@ export interface Lead {
   status: LeadStatus;
   source: LeadSource;
   createdAt: string;
+  // Embedded by GET /crm/leads' select('*, lead_status_history(*),
+  // lead_notes(*), lead_activity(*)') — previously fetched by the backend
+  // and dropped on the floor by the client (no fields for them here, and no
+  // UI ever read them), making note-taking effectively write-only.
+  notes: LeadNote[];
+  statusHistory: LeadStatusHistoryEntry[];
+  activity: LeadActivityEntry[];
 }
 
 export interface LeadNote {
@@ -292,6 +300,78 @@ export interface LeadNote {
   authorId: string;
   body: string;
   createdAt: string;
+}
+
+export interface LeadStatusHistoryEntry {
+  id: string;
+  leadId: string;
+  fromStatus: LeadStatus | null;
+  toStatus: LeadStatus;
+  changedBy: string;
+  changedAt: string;
+}
+
+export interface LeadActivityEntry {
+  id: string;
+  leadId: string;
+  type: LeadActivityType;
+  // References the lead_notes/lead_status_history/lead_assignments row this
+  // entry describes — plain text, no FK (0001_init.sql's lead_activity.ref_id
+  // is untyped), so this can't be joined further client-side, only displayed.
+  refId: string | null;
+  createdAt: string;
+}
+
+// Server-side paginated — mirrors BlogPostListResult/ListingSearchResult's
+// {items, total, page, pageSize} shape.
+export interface LeadListResult {
+  items: Lead[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// A reminder is always lead-scoped (0001_init.sql's reminders.lead_id is
+// `not null`) — fired by services/api's RemindersService (a @Cron job, not
+// real-time), which creates a `notifications` row for the lead's assigned
+// agent once remind_at passes. `channel` is stored/shown but delivery is
+// always in-app today regardless of its value.
+export type ReminderChannel = 'in_app' | 'push' | 'email';
+
+export interface Reminder {
+  id: string;
+  leadId: string;
+  remindAt: string;
+  channel: ReminderChannel;
+  firedAt: string | null;
+}
+
+export interface CreateReminderInput {
+  remindAt: string;
+  channel: ReminderChannel;
+}
+
+// Self-scoped personal to-do, optionally linked to a lead (a "follow up on
+// this" task) — unlike Lead/Reminder, ownerId IS the access scope, no
+// agency-sharing concept.
+export interface Task {
+  id: string;
+  leadId: string | null;
+  ownerId: string;
+  title: string;
+  dueAt: string | null;
+  completedAt: string | null;
+}
+
+export interface CreateTaskInput {
+  title: string;
+  dueAt?: string;
+  leadId?: string;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  dueAt?: string;
 }
 
 export interface SubscriptionUsage {
