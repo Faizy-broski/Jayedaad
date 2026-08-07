@@ -18,6 +18,7 @@ export class ContactRepository {
         city: input.city,
         purpose: input.purpose,
         budget: input.budget,
+        agency_id: input.agencyId,
       })
       .select()
       .single();

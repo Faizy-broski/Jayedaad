@@ -62,7 +62,7 @@ function initials(name: string): string {
 // analytics endpoint here) — same "compute from what's already loaded"
 // approach as ProjectsListView's status tabs.
 export default function AgenciesPage() {
-  const { agencies, isLoading, create, update, setVerificationStatus, remove } = useAgencyManagementViewModel();
+  const { agencies, isLoading, create, update, setVerificationStatus, setTier, remove } = useAgencyManagementViewModel();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Agency | null>(null);
   const [form, setForm] = useState<CreateAgencyInput>(EMPTY_FORM);
@@ -140,6 +140,20 @@ export default function AgenciesPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  // Titanium/Featured placement for the public Agents directory (/agents) —
+  // deliberately a separate action from the edit form, so an agency's own
+  // admin (who can also call `update`) can never self-promote into a paid
+  // placement tier; only Super Admin reaches this control.
+  function handleSetTier(id: string, tier: Agency['tier']) {
+    setTier.mutate(
+      { id, input: { tier } },
+      {
+        onSuccess: () => toast.success('Agency placement updated.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
   }
 
   function handleVerify(id: string, status: 'verified' | 'rejected') {
@@ -291,6 +305,22 @@ export default function AgenciesPage() {
                     {agency.verificationStatus}
                   </Badge>
                 </div>
+
+                {/* Public /agents directory placement — Titanium/Featured
+                    sit above the plain directory (AgencyCard grid). */}
+                <label className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  Placement
+                  <select
+                    value={agency.tier}
+                    onChange={(e) => handleSetTier(agency.id, e.target.value as Agency['tier'])}
+                    disabled={setTier.isPending}
+                    className="rounded-md border border-input bg-background px-2 py-1 text-xs font-medium text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="basic">Basic</option>
+                    <option value="featured">Featured</option>
+                    <option value="titanium">Titanium</option>
+                  </select>
+                </label>
 
                 <div className="mt-4 flex-1 space-y-1.5 text-xs text-muted-foreground">
                   <p className="flex items-center gap-1.5">

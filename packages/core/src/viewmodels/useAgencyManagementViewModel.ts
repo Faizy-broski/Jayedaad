@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { agenciesRepository } from '../services/agenciesRepository';
-import { CreateAgencyInput, SetAgencyVerificationStatusInput, UpdateAgencyInput } from '../models';
+import { CreateAgencyInput, SetAgencyTierInput, SetAgencyVerificationStatusInput, UpdateAgencyInput } from '../models';
 
 // Super Admin agency management — full CRUD + verification decision.
 export function useAgencyManagementViewModel(filters: { city?: string } = {}) {
@@ -35,12 +35,21 @@ export function useAgencyManagementViewModel(filters: { city?: string } = {}) {
     onSuccess: invalidate,
   });
 
+  // Titanium/Featured placement for the public Agents directory — Super
+  // Admin-only, separate write-mechanism from update() above (see
+  // AgenciesRepository.setTier).
+  const setTier = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: SetAgencyTierInput }) => agenciesRepository.setTier(id, input),
+    onSuccess: invalidate,
+  });
+
   return {
     agencies: query.data ?? [],
     isLoading: query.isLoading,
     create,
     update,
     setVerificationStatus,
+    setTier,
     remove,
   };
 }

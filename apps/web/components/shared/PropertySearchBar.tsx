@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  agenciesRepository,
   developersRepository,
   listingsRepository,
   projectsRepository,
@@ -12,6 +13,7 @@ import {
   type AreaUnit,
 } from '@jayedaad/core';
 import {
+  Briefcase,
   Building2,
   Check,
   ChevronDown,
@@ -29,13 +31,15 @@ import { AREA_UNITS, AREA_UNIT_OPTIONS, areaUnitLabel } from '@/lib/areaOptions'
 import { useClickOutside } from '@/lib/useClickOutside';
 
 export type SearchBarPurpose = 'buy' | 'rent';
-// 'listings' searches GET /listings (via /buy-sell or /rent, chosen by the
-// Buy/Rent tab below) — no Project/Developer fields (listings don't have
-// either). 'projects' searches GET /projects (via /developments) — no
+// 'listings' searches GET /listings (via /listings?purpose=sale|rent, chosen
+// by the Buy/Rent tab below) — no Project/Developer fields (listings don't
+// have either). 'projects' searches GET /projects (via /developments) — no
 // purpose (projects are never "for rent"), but gains the Project Title /
 // Developer fields GET /projects actually supports (see ProjectSearchFilters
-// in packages/core/models).
-export type SearchBarVariant = 'listings' | 'projects';
+// in packages/core/models). 'agencies' searches GET /agencies/search (via
+// /agents) — no Budget/Area (an agency has no price/size), gains Location
+// (address keyword) and Company Name fields instead.
+export type SearchBarVariant = 'listings' | 'projects' | 'agencies';
 
 interface PropertySearchBarProps {
   variant?: SearchBarVariant;
@@ -110,6 +114,44 @@ function FilterField({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// Plain free-text field, no dropdown panel — used by the 'agencies' variant's
+// Location (address keyword) and Company Name fields, which are direct
+// keyword filters rather than a pick-from-list value like City/Property Type.
+function InlineTextField({
+  icon: Icon,
+  label,
+  value,
+  onChange,
+  placeholder,
+  last = false,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  last?: boolean;
+}) {
+  return (
+    <div
+      className={`flex-1 border-b border-slate-100 sm:border-b-0 sm:border-r sm:border-slate-100 ${last ? 'sm:border-r-0' : ''}`}
+    >
+      <div className={FIELD_BUTTON}>
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+          {label}
+        </span>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full truncate bg-transparent text-sm font-medium text-primary placeholder:font-normal placeholder:text-slate-400 focus:outline-none"
+        />
+      </div>
     </div>
   );
 }
@@ -221,12 +263,18 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
   const [keyword, setKeyword] = useState('');
   const [developerInput, setDeveloperInput] = useState('');
   const [developerSlug, setDeveloperSlug] = useState('');
+  const [location, setLocation] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
   const toggleField = (key: string) => setOpenField((cur) => (cur === key ? null : key));
 
   const citiesQuery = useQuery({
     queryKey: ['searchbar', 'cities', variant],
-    queryFn: async () => (variant === 'projects' ? (await projectsRepository.listCities()).map((c) => c.city) : listingsRepository.listCities()),
+    queryFn: async () => {
+      if (variant === 'projects') return (await projectsRepository.listCities()).map((c) => c.city);
+      if (variant === 'agencies') return (await agenciesRepository.listCities()).map((c) => c.city);
+      return listingsRepository.listCities();
+    },
     staleTime: 5 * 60_000,
   });
   const filteredCities = useMemo(() => {
@@ -280,6 +328,14 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
     if (city) params.set('city', city);
     if (propertyTypeSlug) params.set('propertyTypeSlug', propertyTypeSlug);
     else if (categorySlug) params.set('propertyTypeCategory', categorySlug);
+
+    if (variant === 'agencies') {
+      if (location.trim()) params.set('location', location.trim());
+      if (companyName.trim()) params.set('search', companyName.trim());
+      router.push(`/agents?${params.toString()}`);
+      return;
+    }
+
     if (minPrice !== '') params.set('minPrice', String(minPrice));
     if (maxPrice !== '') params.set('maxPrice', String(maxPrice));
     if (minArea !== '') params.set('minAreaValue', String(minArea));
@@ -293,7 +349,8 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
       return;
     }
 
-    router.push(`${purpose === 'rent' ? '/rent' : '/buy-sell'}?${params.toString()}`);
+    params.set('purpose', purpose === 'rent' ? 'rent' : 'sale');
+    router.push(`/listings?${params.toString()}`);
   }
 
   return (
@@ -431,45 +488,67 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
             </div>
           </FilterField>
 
-          <FilterField
-            icon={Wallet}
-            label="Budget Range"
-            valueLabel={budgetLabel}
-            placeholder="0 – Any"
-            open={openField === 'budget'}
-            onToggle={() => toggleField('budget')}
-            panelClassName="w-80"
-          >
-            <RangeDropdown
-              minValue={minPrice}
-              maxValue={maxPrice}
-              options={PRICE_OPTIONS}
-              formatOption={priceOptionLabel}
-              onChangeMin={setMinPrice}
-              onChangeMax={setMaxPrice}
-            />
-          </FilterField>
+          {variant === 'agencies' ? (
+            <>
+              <InlineTextField
+                icon={MapPin}
+                label="Location"
+                value={location}
+                onChange={setLocation}
+                placeholder="Search area or address"
+              />
+              <InlineTextField
+                icon={Briefcase}
+                label="Company Name"
+                value={companyName}
+                onChange={setCompanyName}
+                placeholder="Search agency name"
+                last
+              />
+            </>
+          ) : (
+            <>
+              <FilterField
+                icon={Wallet}
+                label="Budget Range"
+                valueLabel={budgetLabel}
+                placeholder="0 – Any"
+                open={openField === 'budget'}
+                onToggle={() => toggleField('budget')}
+                panelClassName="w-80"
+              >
+                <RangeDropdown
+                  minValue={minPrice}
+                  maxValue={maxPrice}
+                  options={PRICE_OPTIONS}
+                  formatOption={priceOptionLabel}
+                  onChangeMin={setMinPrice}
+                  onChangeMax={setMaxPrice}
+                />
+              </FilterField>
 
-          <FilterField
-            icon={Ruler}
-            label="Area Range"
-            valueLabel={areaLabel}
-            placeholder="0 – Any"
-            open={openField === 'area'}
-            onToggle={() => toggleField('area')}
-            panelClassName="w-80"
-            last
-          >
-            <RangeDropdown
-              minValue={minArea}
-              maxValue={maxArea}
-              options={areaOptions}
-              formatOption={(v) => String(v)}
-              onChangeMin={setMinArea}
-              onChangeMax={setMaxArea}
-              unit={{ value: areaUnit, onChange: setAreaUnit }}
-            />
-          </FilterField>
+              <FilterField
+                icon={Ruler}
+                label="Area Range"
+                valueLabel={areaLabel}
+                placeholder="0 – Any"
+                open={openField === 'area'}
+                onToggle={() => toggleField('area')}
+                panelClassName="w-80"
+                last
+              >
+                <RangeDropdown
+                  minValue={minArea}
+                  maxValue={maxArea}
+                  options={areaOptions}
+                  formatOption={(v) => String(v)}
+                  onChangeMin={setMinArea}
+                  onChangeMax={setMaxArea}
+                  unit={{ value: areaUnit, onChange: setAreaUnit }}
+                />
+              </FilterField>
+            </>
+          )}
 
           <div className="flex items-center justify-center px-1 pt-2 sm:pl-2 sm:pt-0">
             <button

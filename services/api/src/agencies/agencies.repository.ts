@@ -7,7 +7,45 @@ import { DocumentsService } from '../documents/documents.service';
 import { AgentsRepository } from '../agents/agents.repository';
 
 const AGENCY_COLUMNS =
-  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count';
+  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count, tier';
+
+export type AgencyTier = 'titanium' | 'featured' | 'basic';
+
+// Confirmed shape for the public Agents directory (apps/web /agents):
+// Titanium/Featured tiers plus Property Type/City/Company-name search, all
+// server-side/paginated — mirrors ProjectSearchFilters in
+// projects/projects.repository.ts.
+export interface AgencySearchFilters {
+  city?: string;
+  location?: string; // free-text match against the agency's street address, distinct from city
+  tier?: AgencyTier;
+  propertyTypeSlug?: string;
+  search?: string; // company/agency name
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedAgencies {
+  items: (ReturnType<typeof mapAgencyStatsRow>)[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+
+function mapAgencyStatsRow(row: any, stats: { forSaleCount: number; forRentCount: number }) {
+  return { ...row, forSaleCount: stats.forSaleCount, forRentCount: stats.forRentCount };
+}
+
+// PostgREST's .or()/.ilike() are a small DSL — strip characters that are
+// syntactically significant in it rather than interpolate a raw user string
+// (same discipline as listings.repository.ts::sanitizeKeyword and
+// projects.repository.ts::sanitizeKeyword).
+function sanitizeKeyword(keyword: string): string {
+  return keyword.replace(/[,()%]/g, ' ').trim();
+}
 
 export type OnboardingDocumentType = 'company_registration' | 'owner_id_card' | 'tax_certificate';
 
@@ -93,10 +131,162 @@ export class AgenciesRepository {
     return data;
   }
 
-  async findBySlug(slug: string) {
+  // Public Agents directory (apps/web /agents) — Titanium/Featured tier
+  // strips plus the full paginated/searchable grid, with "X for Sale | Y for
+  // Rent" computed per-agency in one batched pass (getStatsForAgencies)
+  // rather than N+1 calls to getStats() per card.
+  async searchPublic(filters: AgencySearchFilters = {}): Promise<PaginatedAgencies> {
+    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
+    const pageSize = Math.min(
+      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
+      MAX_PAGE_SIZE,
+    );
+
+    // propertyTypeSlug filters on the agency's *inventory* (does this agency
+    // have any verified listing of this type), not a column on agencies
+    // itself — resolved as a pre-lookup of eligible agency ids, same pattern
+    // as projects.repository.ts's needsUnitTypeLookup.
+    let eligibleAgencyIds: string[] | undefined;
+    if (filters.propertyTypeSlug) {
+      const { data: listingRows, error: listingError } = await this.supabase.client
+        .from('listings')
+        .select('agent_id, property_types!inner (slug)')
+        .eq('status', 'verified')
+        .eq('property_types.slug', filters.propertyTypeSlug);
+      if (listingError) throw listingError;
+
+      const agentIds = Array.from(new Set((listingRows ?? []).map((r: any) => r.agent_id).filter(Boolean)));
+      if (agentIds.length === 0) return { items: [], total: 0, page, pageSize };
+
+      const { data: agentProfileRows, error: agentProfileError } = await this.supabase.client
+        .from('agent_profiles')
+        .select('agency_id')
+        .in('id', agentIds);
+      if (agentProfileError) throw agentProfileError;
+
+      eligibleAgencyIds = Array.from(
+        new Set((agentProfileRows ?? []).map((r: any) => r.agency_id).filter(Boolean)),
+      );
+      if (eligibleAgencyIds.length === 0) return { items: [], total: 0, page, pageSize };
+    }
+
+    let query = this.supabase.client
+      .from('agencies')
+      .select(AGENCY_COLUMNS, { count: 'exact' })
+      .eq('verification_status', 'verified');
+
+    if (filters.city) query = query.eq('city', filters.city);
+    if (filters.tier) query = query.eq('tier', filters.tier);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.ilike('name', `%${term}%`);
+    }
+    if (filters.location) {
+      const term = sanitizeKeyword(filters.location);
+      if (term) query = query.ilike('address', `%${term}%`);
+    }
+    if (eligibleAgencyIds) query = query.in('id', eligibleAgencyIds);
+
+    query = query.order('name', { ascending: true });
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    const rows = data ?? [];
+    const statsByAgency = await this.getStatsForAgencies(rows.map((r: any) => r.id));
+
+    return {
+      items: rows.map((row: any) =>
+        mapAgencyStatsRow(row, statsByAgency.get(row.id) ?? { forSaleCount: 0, forRentCount: 0 }),
+      ),
+      total: count ?? 0,
+      page,
+      pageSize,
+    };
+  }
+
+  // Batched counterpart to getStats() below — one pair of queries for every
+  // agency on the page instead of one round-trip per card.
+  private async getStatsForAgencies(
+    agencyIds: string[],
+  ): Promise<Map<string, { forSaleCount: number; forRentCount: number }>> {
+    const result = new Map<string, { forSaleCount: number; forRentCount: number }>();
+    if (agencyIds.length === 0) return result;
+
+    const { data: agentRows, error: agentError } = await this.supabase.client
+      .from('agent_profiles')
+      .select('id, agency_id')
+      .in('agency_id', agencyIds);
+    if (agentError) throw agentError;
+
+    const agencyByAgent = new Map((agentRows ?? []).map((r: any) => [r.id, r.agency_id]));
+    const agentIds = Array.from(agencyByAgent.keys());
+    if (agentIds.length === 0) return result;
+
+    const { data: listingRows, error: listingError } = await this.supabase.client
+      .from('listings')
+      .select('agent_id, purpose')
+      .eq('status', 'verified')
+      .in('agent_id', agentIds);
+    if (listingError) throw listingError;
+
+    for (const row of listingRows ?? []) {
+      const agencyId = agencyByAgent.get((row as any).agent_id);
+      if (!agencyId) continue;
+      const entry = result.get(agencyId) ?? { forSaleCount: 0, forRentCount: 0 };
+      if ((row as any).purpose === 'sale') entry.forSaleCount++;
+      else entry.forRentCount++;
+      result.set(agencyId, entry);
+    }
+    return result;
+  }
+
+  // Backs "Browse Agencies By City" — same shape as
+  // projects.repository.ts::listCitiesWithCounts.
+  async listCitiesWithCounts(): Promise<{ city: string; count: number }[]> {
     const { data, error } = await this.supabase.client
       .from('agencies')
-      .select(`${AGENCY_COLUMNS}, agent_profiles (id, display_name, title, photo_url)`)
+      .select('city')
+      .eq('verification_status', 'verified');
+    if (error) throw error;
+
+    const counts = new Map<string, number>();
+    for (const row of data ?? []) {
+      const city = (row as any).city as string | null;
+      if (!city) continue;
+      counts.set(city, (counts.get(city) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([city, count]) => ({ city, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  // Super Admin-curated placement — deliberately a separate action from
+  // update() (which agency admins can also call): an agency shouldn't be
+  // able to promote itself into Titanium/Featured by editing its own record.
+  async setTier(id: string, tier: AgencyTier) {
+    const { data, error } = await this.supabase.client
+      .from('agencies')
+      .update({ tier })
+      .eq('id', id)
+      .select(AGENCY_COLUMNS)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async findBySlug(slug: string) {
+    // phone/whatsapp added for the Agency detail page's "Agency Staff"
+    // Call/WhatsApp buttons (apps/web /agents/[slug]) — email deliberately
+    // not embedded, agent_profiles has no email column of its own (it lives
+    // on auth.users); the page falls back to the same fixed support address
+    // AgentCard.tsx already uses for that reason.
+    const { data, error } = await this.supabase.client
+      .from('agencies')
+      .select(`${AGENCY_COLUMNS}, agent_profiles (id, display_name, title, photo_url, phone, whatsapp)`)
       .eq('slug', slug)
       .single();
     if (error) throw error;
@@ -120,21 +310,26 @@ export class AgenciesRepository {
 
     const { data: listingRows, error: listingError } = await this.supabase.client
       .from('listings')
-      .select('purpose, boost_tier, property_types (label)')
+      .select('purpose, boost_tier, property_types (slug, label)')
       .eq('status', 'verified')
       .in('agent_id', agentIds);
     if (listingError) throw listingError;
 
     let forSaleCount = 0;
     let forRentCount = 0;
-    const byType = new Map<string, { forSale: number; forRent: number }>();
+    // Keyed by slug (not label) — labels aren't guaranteed unique, and slug
+    // is what the "Properties By [Agency]" stat tiles need to deep-link into
+    // GET /listings?agencySlug=&propertyTypeSlug= (apps/web /agents/[slug]).
+    const byType = new Map<string, { label: string; forSale: number; forRent: number }>();
     // Confirmed real on the Profolio dashboard's Listings card — boost tier
     // breakdown shown alongside purpose, mirrors AgentsRepository.getStats().
     const byBoostTier = new Map<string, number>();
 
     for (const row of listingRows ?? []) {
-      const label = (row as any).property_types?.label ?? 'Other';
-      const entry = byType.get(label) ?? { forSale: 0, forRent: 0 };
+      const propertyType = (row as any).property_types;
+      const slug = propertyType?.slug ?? 'other';
+      const label = propertyType?.label ?? 'Other';
+      const entry = byType.get(slug) ?? { label, forSale: 0, forRent: 0 };
       if ((row as any).purpose === 'sale') {
         forSaleCount++;
         entry.forSale++;
@@ -142,7 +337,7 @@ export class AgenciesRepository {
         forRentCount++;
         entry.forRent++;
       }
-      byType.set(label, entry);
+      byType.set(slug, entry);
 
       const tier = (row as any).boost_tier as string;
       byBoostTier.set(tier, (byBoostTier.get(tier) ?? 0) + 1);
@@ -151,7 +346,7 @@ export class AgenciesRepository {
     return {
       forSaleCount,
       forRentCount,
-      byPropertyType: Array.from(byType.entries()).map(([label, counts]) => ({ label, ...counts })),
+      byPropertyType: Array.from(byType.entries()).map(([propertyTypeSlug, counts]) => ({ propertyTypeSlug, ...counts })),
       byBoostTier: Array.from(byBoostTier.entries()).map(([tier, count]) => ({ tier, count })),
     };
   }

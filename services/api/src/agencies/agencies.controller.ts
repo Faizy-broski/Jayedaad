@@ -25,6 +25,8 @@ import { UploadOnboardingDocumentDto } from './dto/upload-document.dto';
 import { CreateAgencyStaffDto } from './dto/create-agency-staff.dto';
 import { SetAgencyStaffAdminDto } from './dto/set-agency-staff-admin.dto';
 import { RegisterAgencyDto } from './dto/register-agency.dto';
+import { SetAgencyTierDto } from './dto/set-agency-tier.dto';
+import type { AgencyTier } from './agencies.repository';
 
 @Controller('agencies')
 export class AgenciesController {
@@ -34,6 +36,49 @@ export class AgenciesController {
   @Get()
   list(@Query('city') city?: string) {
     return this.agencies.list({ city });
+  }
+
+  // Public Agents directory (apps/web /agents) — Titanium/Featured tier
+  // strips plus the searchable, paginated grid (Property Type, City,
+  // Company name). Declared before :slug below so 'search'/'cities' aren't
+  // swallowed as a slug value, same discipline as ProjectsController.
+  @Public()
+  @Get('search')
+  searchPublic(
+    @Query('city') city?: string,
+    @Query('location') location?: string,
+    @Query('tier') tier?: AgencyTier,
+    @Query('propertyTypeSlug') propertyTypeSlug?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.agencies.searchPublic({
+      city,
+      location,
+      tier,
+      propertyTypeSlug,
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
+  }
+
+  // Backs "Browse Agencies By City".
+  @Public()
+  @Get('cities')
+  listCities() {
+    return this.agencies.listCitiesWithCounts();
+  }
+
+  // Super Admin-curated Titanium/Featured placement — separate from the
+  // agency-admin-writable update() below on purpose (see
+  // AgenciesRepository.setTier).
+  @UseGuards(ScopeGuard)
+  @Roles('super_admin')
+  @Patch(':id/tier')
+  setTier(@Param('id') id: string, @Body() body: SetAgencyTierDto) {
+    return this.agencies.setTier(id, body.tier);
   }
 
   @Public()
