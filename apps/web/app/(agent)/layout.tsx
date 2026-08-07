@@ -23,12 +23,12 @@ import {
   Menu,
   X,
   HelpCircle,
-  Bell,
   Sparkles,
   ChevronsUpDown,
   CalendarDays,
   AlertTriangle,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
 // sidebar + topbar, matches every other route group's convention of one
@@ -340,13 +340,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             >
               <HelpCircle className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
             <Link
               href="/property-management"
               className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border border-input px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted sm:flex sm:text-sm"

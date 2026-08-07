@@ -24,11 +24,11 @@ import {
   Menu,
   X,
   HelpCircle,
-  Bell,
   ChevronsUpDown,
   PlusCircle,
   Newspaper,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
 // separate from apps/web/app/(agent)/layout.tsx (the agent Profolio shell)
@@ -266,13 +266,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             >
               <HelpCircle className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
             <a
               href="/"
               className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border border-input px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted sm:flex sm:text-sm"

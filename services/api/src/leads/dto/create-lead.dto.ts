@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsPhoneNumber, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsPhoneNumber, IsString, Length, IsUUID } from 'class-validator';
 
 const LEAD_SOURCES = ['chatbot', 'contact_form', 'call_request'] as const;
 const INQUIRER_TYPES = ['buyer_tenant', 'agent', 'other'] as const;
@@ -13,15 +13,22 @@ export class CreateLeadDto {
   listingId!: string;
 
   @IsString()
+  @Length(1, 120)
   name!: string;
 
-  @IsPhoneNumber()
+  // Region-locked — every real caller of this public endpoint is a Pakistani
+  // buyer/tenant inquiring about a Pakistani listing (same assumption
+  // PAKISTAN_CITIES/COUNTRIES-with-PK-default make elsewhere in this app).
+  // Unregioned @IsPhoneNumber() validates unpredictably against bare local
+  // numbers without a country code.
+  @IsPhoneNumber('PK')
   phone!: string;
 
   @IsEmail()
   email!: string;
 
   @IsString()
+  @Length(1, 2000)
   message!: string;
 
   @IsIn(LEAD_SOURCES)
