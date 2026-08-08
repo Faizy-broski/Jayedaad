@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUUID } from 'class-validator';
 
 // Public "Contact Us" intake — unauthenticated, no listing to attach to
 // (unlike leads/dto/create-lead.dto.ts, which requires a listingId). Shared
@@ -51,4 +51,10 @@ export class CreateContactMessageDto {
   @IsOptional()
   @IsString()
   budget?: string;
+
+  // Set when this message came from an Agency detail page's "Send Your
+  // Question" form (apps/web /agents/[slug]) — every other caller omits it.
+  @IsOptional()
+  @IsUUID()
+  agencyId?: string;
 }

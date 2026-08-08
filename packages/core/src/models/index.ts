@@ -615,6 +615,13 @@ export interface PaginatedAuditLog {
 
 export type AgencyVerificationStatus = 'pending' | 'verified' | 'rejected';
 
+// Super Admin-curated placement for the public Agents directory (apps/web
+// /agents) — 'titanium' and 'featured' sections sit above the plain
+// directory. Deliberately assigned (PATCH /agencies/:id/tier), not computed
+// from listing counts, so an agency can't game its way up by just posting
+// more listings. See supabase/migrations/0039_agency_tier.sql.
+export type AgencyTier = 'titanium' | 'featured' | 'basic';
+
 export interface Agency {
   id: string;
   name: string;
@@ -628,6 +635,66 @@ export interface Agency {
   businessHours: string | null; // plain display string, e.g. "Monday to Sunday, 9AM-6PM"
   verificationStatus: AgencyVerificationStatus;
   salesAssociateCount: number;
+  tier: AgencyTier;
+}
+
+// Public Agents directory search — mirrors ProjectSearchFilters in shape.
+// propertyTypeSlug filters on the agency's *inventory* (any verified listing
+// of that type), not a column on the agency itself.
+export interface AgencySearchFilters {
+  city?: string;
+  location?: string; // free-text match against the agency's street address, distinct from city
+  tier?: AgencyTier;
+  propertyTypeSlug?: string;
+  search?: string; // company/agency name
+  page?: number;
+  pageSize?: number;
+}
+
+// "X for Sale | Y for Rent" computed server-side per agency — never stored,
+// same single-source-of-truth principle as AgencyStats below.
+export interface AgencyWithStats extends Agency {
+  forSaleCount: number;
+  forRentCount: number;
+}
+
+// Mirrors services/api/src/agencies/agencies.repository.ts::PaginatedAgencies.
+export interface PaginatedAgencies {
+  items: AgencyWithStats[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Backs "Browse Agencies By City" (Karachi 1464, Lahore 1520, ...).
+export interface AgencyCityCount {
+  city: string;
+  count: number;
+}
+
+export interface SetAgencyTierInput {
+  tier: AgencyTier;
+}
+
+// Staff row embedded in GET /agencies/:slug (AgenciesRepository.findBySlug)
+// — a trimmed-down AgentProfileSummary, public-safe (no email — agent_profiles
+// has none of its own, it lives on auth.users). Backs the Agency detail
+// page's "Agency Staff" cards (apps/web /agents/[slug]).
+export interface AgencyStaffPreview {
+  id: string;
+  displayName: string | null;
+  title: string | null;
+  photoUrl: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+}
+
+// Full Agency detail page fetch — Agency's flat fields plus the embedded
+// staff roster. AgencyStats (forSaleCount/forRentCount/byPropertyType) is
+// fetched separately via GET /agencies/:slug/stats, same split as the plain
+// Agency + getStats() already had.
+export interface AgencyDetail extends Agency {
+  staff: AgencyStaffPreview[];
 }
 
 // Super Admin agency CRUD inputs — mirror services/api/src/agencies/dto/*
@@ -710,7 +777,9 @@ export interface RegisterAgencyInput {
 export interface AgencyStats {
   forSaleCount: number;
   forRentCount: number;
-  byPropertyType: { label: string; forSale: number; forRent: number }[];
+  // propertyTypeSlug backs the Agency detail page's clickable stat tiles —
+  // deep-links into GET /listings?agencySlug=&propertyTypeSlug=.
+  byPropertyType: { propertyTypeSlug: string; label: string; forSale: number; forRent: number }[];
   byBoostTier: { tier: ListingBoostTier; count: number }[];
 }
 

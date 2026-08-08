@@ -1,14 +1,21 @@
 import { httpClient } from './httpClient';
 import {
   Agency,
+  AgencyCityCount,
+  AgencyDetail,
+  AgencySearchFilters,
   AgencyStaffAnalytics,
   AgencyStaffMember,
+  AgencyStaffPreview,
   AgencyStats,
+  AgencyWithStats,
   CreateAgencyInput,
   CreateAgencyStaffInput,
   OnboardingDocument,
   OnboardingDocumentType,
+  PaginatedAgencies,
   RegisterAgencyInput,
+  SetAgencyTierInput,
   SetAgencyVerificationStatusInput,
   UpdateAgencyInput,
 } from '../models';
@@ -32,7 +39,35 @@ export function mapAgencyRow(row: any): Agency {
     businessHours: row.business_hours,
     verificationStatus: row.verification_status,
     salesAssociateCount: row.sales_associate_count,
+    tier: row.tier,
   };
+}
+
+// searchPublic's rows carry forSaleCount/forRentCount already computed
+// server-side (agencies.repository.ts::getStatsForAgencies) and merged onto
+// the raw snake_case row — those two keys are already camelCase there, only
+// the rest needs mapAgencyRow's snake->camel treatment.
+function mapAgencyStatsRow(row: any): AgencyWithStats {
+  return { ...mapAgencyRow(row), forSaleCount: row.forSaleCount ?? 0, forRentCount: row.forRentCount ?? 0 };
+}
+
+function mapAgencyStaffRow(row: any): AgencyStaffPreview {
+  return {
+    id: row.id,
+    displayName: row.display_name,
+    title: row.title,
+    photoUrl: row.photo_url,
+    phone: row.phone,
+    whatsapp: row.whatsapp,
+  };
+}
+
+// findBySlug's raw response embeds agent_profiles alongside the flat agency
+// columns (services/api/src/agencies/agencies.repository.ts::findBySlug) —
+// mapAgencyRow alone would silently drop it, same gap useMyAgencyViewModel's
+// caller never needed until the Agency detail page did.
+function mapAgencyDetailRow(row: any): AgencyDetail {
+  return { ...mapAgencyRow(row), staff: (row.agent_profiles ?? []).map(mapAgencyStaffRow) };
 }
 
 export const agenciesRepository = {
@@ -41,9 +76,28 @@ export const agenciesRepository = {
     return (data as any[]).map(mapAgencyRow);
   },
 
-  findBySlug: async (slug: string): Promise<Agency> => {
-    const { data } = await httpClient.get(`/agencies/${slug}`);
+  // Public Agents directory (apps/web /agents) — Titanium/Featured tier
+  // strips plus the searchable, paginated grid.
+  searchPublic: async (filters: AgencySearchFilters = {}): Promise<PaginatedAgencies> => {
+    const { data } = await httpClient.get('/agencies/search', { params: filters });
+    return { ...data, items: (data.items as any[]).map(mapAgencyStatsRow) };
+  },
+
+  // Backs "Browse Agencies By City".
+  listCities: async (): Promise<AgencyCityCount[]> => {
+    const { data } = await httpClient.get('/agencies/cities');
+    return data;
+  },
+
+  // Super Admin-curated Titanium/Featured placement.
+  setTier: async (id: string, input: SetAgencyTierInput): Promise<Agency> => {
+    const { data } = await httpClient.patch(`/agencies/${id}/tier`, input);
     return mapAgencyRow(data);
+  },
+
+  findBySlug: async (slug: string): Promise<AgencyDetail> => {
+    const { data } = await httpClient.get(`/agencies/${slug}`);
+    return mapAgencyDetailRow(data);
   },
 
   getStats: async (slug: string): Promise<AgencyStats> => {

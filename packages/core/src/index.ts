@@ -64,6 +64,7 @@ export * from './viewmodels/useAdminListingsViewModel';
 export * from './viewmodels/useUserManagementViewModel';
 export * from './viewmodels/useVerificationAuditLogViewModel';
 export * from './viewmodels/useTaxonomyManagementViewModel';
+export * from './viewmodels/useAgenciesViewModel';
 export * from './viewmodels/useDevelopersViewModel';
 export * from './viewmodels/useBlogViewModel';
 export * from './viewmodels/useAdminBlogViewModel';

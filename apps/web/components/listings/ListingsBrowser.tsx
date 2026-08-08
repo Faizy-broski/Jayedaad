@@ -61,6 +61,10 @@ interface ListingsBrowserProps {
    * it means switching pages via PropertySearchBar's Buy/Rent tabs. Omitted
    * entirely (undefined) on /listings, which deliberately shows both. */
   purpose?: ListingPurpose;
+  /** Scopes every query to one agency's listings — set only by a redirect
+   * from the Agency detail page (?agencySlug=, apps/web /agents/[slug]),
+   * never user-editable in the sidebar. */
+  agencySlug?: string;
 }
 
 // Real GET /listings, filtered server-side wherever the API supports it
@@ -69,7 +73,7 @@ interface ListingsBrowserProps {
 // yet, so those two narrow the already-server-filtered page client-side —
 // everything else genuinely round-trips to the backend on Apply, unlike the
 // old version of this page which fetched once and re-filtered a fixed pool.
-export function ListingsBrowser({ initialFilters, purpose }: ListingsBrowserProps) {
+export function ListingsBrowser({ initialFilters, purpose, agencySlug }: ListingsBrowserProps) {
   const seed = { ...DEFAULT_LISTING_FILTERS, ...initialFilters };
   const [draftFilters, setDraftFilters] = useState<ListingFiltersState>(seed);
   const [appliedFilters, setAppliedFilters] = useState<ListingFiltersState>(seed);
@@ -81,6 +85,7 @@ export function ListingsBrowser({ initialFilters, purpose }: ListingsBrowserProp
 
   const baseFilters: Omit<ListingSearchFilters, 'propertyTypeSlug'> = {
     purpose,
+    agencySlug,
     city: appliedFilters.city || undefined,
     area: appliedFilters.area || undefined,
     minPrice: appliedFilters.minPrice ? Number(appliedFilters.minPrice) : undefined,

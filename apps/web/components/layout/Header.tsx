@@ -11,11 +11,11 @@ const LIST_A_HOME_CLASSES =
   'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90';
 
 const NAV_LINKS = [
-  { label: 'Buy & Sell', href: '/buy-sell' },
-  { label: 'Rent', href: '/rent' },
+  { label: 'Buy & Sell', href: '/listings?purpose=sale' },
+  { label: 'Rent', href: '/listings?purpose=rent' },
   { label: 'About', href: '/about-us' },
   // { label: 'Commercial', href: '/search?type=commercial' },
-  { label: 'Agents', href: '#' },
+  { label: 'Agents', href: '/agents' },
   { label: 'Services', href: '/services' },
   { label: 'Contact', href: '/contact-us' },
 ];
@@ -81,18 +81,19 @@ const DESKTOP_QUERY = '(min-width: 1024px)';
 // Routes whose first section is a full-bleed hero (Hero/PageHero/SearchHero)
 // for the floating bar to overlap. Everything else (auth, dashboards, etc.)
 // keeps the plain in-flow sticky bar.
-const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings', '/buy-sell', '/rent', '/blog']);
+const HERO_ROUTES = new Set(['/', '/about-us', '/contact-us', '/services', '/listings', '/agents', '/blog']);
 
-// Listing/project/blog detail pages (/listings/[slug], /developments/[slug],
-// /blog/[slug]) have no hero banner, but still get the floating treatment —
-// PropertyDetail/ProjectDetail/BlogDetailPage reserve top clearance
-// themselves (rather than a hero backdrop) so the pill doesn't sit over the
-// breadcrumb.
+// Listing/project/agency/blog detail pages (/listings/[slug],
+// /developments/[slug], /agents/[slug], /blog/[slug]) have no hero banner,
+// but still get the floating treatment — PropertyDetail/ProjectDetail/
+// AgencyDetail/BlogDetailPage reserve top clearance themselves (rather than
+// a hero backdrop) so the pill doesn't sit over the breadcrumb.
 function isHeroRoute(pathname: string): boolean {
   return (
     HERO_ROUTES.has(pathname) ||
     pathname.startsWith('/listings/') ||
     pathname.startsWith('/developments/') ||
+    pathname.startsWith('/agents/') ||
     pathname.startsWith('/blog/')
   );
 }

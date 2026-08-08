@@ -16,6 +16,9 @@ export interface CreateContactMessageInput {
   city?: string;
   purpose?: string;
   budget?: string;
+  // Set by the Agency detail page's "Send Your Question" form (apps/web
+  // /agents/[slug]) — every other caller omits it.
+  agencyId?: string;
 }
 
 export const contactRepository = {
