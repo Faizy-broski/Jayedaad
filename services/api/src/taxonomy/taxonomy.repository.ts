@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreatePropertyTypeCategoryDto, UpdatePropertyTypeCategoryDto } from './dto/category.dto';
 import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto/property-type.dto';
 import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
+import { paginate, PaginationParams, resolvePagination, sanitizeKeyword } from '../common/pagination';
 
 // Property-type categories, property types, and amenities are all Super
 // Admin-managed lookup tables, not hardcoded enums — per [Reqs §9]
@@ -15,13 +16,36 @@ export class TaxonomyRepository {
 
   // --- Property type categories (Homes/Plots/Commercial) --------------------
 
-  async listCategories() {
-    const { data, error } = await this.supabase.client
+  // Dual-mode: called with no page/pageSize, returns the full unpaginated
+  // array exactly as before, uncapped — every listing/project submission
+  // form's category picker (useTaxonomyViewModel) depends on getting every
+  // row, not a page's worth. Called with page and/or pageSize (the
+  // Taxonomy admin table), it paginates and returns
+  // { items, total, page, pageSize }. See services/api/src/common/
+  // pagination.ts and admin.repository.ts::listAgentsOverview for the same
+  // pattern applied elsewhere.
+  async listCategories(filters: PaginationParams & { search?: string } = {}) {
+    const paginated = filters.page != null || filters.pageSize != null;
+
+    let query = this.supabase.client
       .from('property_type_categories')
-      .select('*')
+      .select('*', paginated ? { count: 'exact' } : undefined)
       .order('sort_order', { ascending: true });
-    if (error) throw error;
-    return data;
+
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    }
+
+    const pagination = resolvePagination(filters);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`label.ilike.%${term}%,slug.ilike.%${term}%`);
+    }
+    query = query.range(pagination.from, pagination.to);
+
+    return paginate(query, pagination);
   }
 
   async createCategory(input: CreatePropertyTypeCategoryDto) {
@@ -65,13 +89,32 @@ export class TaxonomyRepository {
     return { ...rest, category: property_type_categories };
   }
 
-  async listPropertyTypes() {
-    const { data, error } = await this.supabase.client
+  // Dual-mode — see listCategories' comment for why. The unpaginated branch
+  // backs every listing/project submission form's property-type picker
+  // (useTaxonomyViewModel), so it must return every row, uncapped.
+  async listPropertyTypes(filters: PaginationParams & { search?: string } = {}) {
+    const paginated = filters.page != null || filters.pageSize != null;
+
+    let query = this.supabase.client
       .from('property_types')
-      .select('*, property_type_categories (id, slug, label)')
+      .select('*, property_type_categories (id, slug, label)', paginated ? { count: 'exact' } : undefined)
       .order('sort_order', { ascending: true });
-    if (error) throw error;
-    return data.map((row) => this.mapPropertyTypeRow(row));
+
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []).map((row: any) => this.mapPropertyTypeRow(row));
+    }
+
+    const pagination = resolvePagination(filters);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`label.ilike.%${term}%,slug.ilike.%${term}%`);
+    }
+    query = query.range(pagination.from, pagination.to);
+
+    const page = await paginate(query, pagination);
+    return { ...page, items: page.items.map((row: any) => this.mapPropertyTypeRow(row)) };
   }
 
   async createPropertyType(input: CreatePropertyTypeDto) {
@@ -119,7 +162,15 @@ export class TaxonomyRepository {
   // amenities relevant to the property type being listed (confirmed a real
   // gap — every amenity used to be offered for every property type,
   // regardless of relevance, e.g. Drawing Room on a Plot submission).
-  async listAmenities(filters: { propertyTypeCategorySlug?: string } = {}) {
+  // Dual-mode — see listCategories' comment for why. The unpaginated branch
+  // (propertyTypeCategorySlug or no pagination params) backs every listing/
+  // project submission form's amenity picker (useTaxonomyViewModel), so it
+  // must return every matching row, uncapped — this is the highest-risk of
+  // the three taxonomy lists since amenities is realistically the largest
+  // set (50-150+ rows).
+  async listAmenities(filters: PaginationParams & { propertyTypeCategorySlug?: string; search?: string } = {}) {
+    const paginated = filters.page != null || filters.pageSize != null;
+
     let eligibleAmenityIds: string[] | undefined;
     if (filters.propertyTypeCategorySlug) {
       const { data: category, error: categoryError } = await this.supabase.client
@@ -128,7 +179,11 @@ export class TaxonomyRepository {
         .eq('slug', filters.propertyTypeCategorySlug)
         .maybeSingle();
       if (categoryError) throw categoryError;
-      if (!category) return [];
+      if (!category) {
+        if (!paginated) return [];
+        const { page, pageSize } = resolvePagination(filters);
+        return { items: [], total: 0, page, pageSize };
+      }
 
       const { data: links, error: linksError } = await this.supabase.client
         .from('amenity_property_type_categories')
@@ -137,18 +192,34 @@ export class TaxonomyRepository {
       if (linksError) throw linksError;
 
       eligibleAmenityIds = Array.from(new Set((links ?? []).map((r: any) => r.amenity_id)));
-      if (eligibleAmenityIds.length === 0) return [];
+      if (eligibleAmenityIds.length === 0) {
+        if (!paginated) return [];
+        const { page, pageSize } = resolvePagination(filters);
+        return { items: [], total: 0, page, pageSize };
+      }
     }
 
     let query = this.supabase.client
       .from('amenities')
-      .select(TaxonomyRepository.AMENITY_COLUMNS)
+      .select(TaxonomyRepository.AMENITY_COLUMNS, paginated ? { count: 'exact' } : undefined)
       .order('sort_order', { ascending: true });
     if (eligibleAmenityIds) query = query.in('id', eligibleAmenityIds);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data ?? []).map(mapAmenityRow);
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []).map(mapAmenityRow);
+    }
+
+    const pagination = resolvePagination(filters);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`label.ilike.%${term}%,slug.ilike.%${term}%`);
+    }
+    query = query.range(pagination.from, pagination.to);
+
+    const page = await paginate(query, pagination);
+    return { ...page, items: page.items.map(mapAmenityRow) };
   }
 
   async createAmenity(input: CreateAmenityDto) {

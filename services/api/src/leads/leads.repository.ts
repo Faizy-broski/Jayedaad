@@ -4,9 +4,8 @@ import { AuthenticatedUser } from '../auth/jwt-auth.guard';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { AppointmentsRepository } from '../appointments/appointments.repository';
 import { NotificationsRepository } from '../notifications/notifications.repository';
+import { paginate, resolvePagination, sanitizeKeyword } from '../common/pagination';
 
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
 const LEAD_COLUMNS = '*, lead_status_history(*), lead_notes(*), lead_activity(*)';
 
 type LeadStatus = 'new' | 'contacted' | 'negotiating' | 'closed' | 'lost';
@@ -39,6 +38,12 @@ export interface LeadListFilters {
   // Ignored for scoped roles (agent), same "ignored, not rejected"
   // discipline as agentId.
   unassigned?: boolean;
+  // Matches against name/phone/email server-side (before .range()) — the
+  // admin CRM page used to filter its search box client-side over only the
+  // currently-loaded page of results, so a lead on page 2 was unfindable
+  // while viewing page 1. See listings.repository.ts's keyword search for
+  // the same .or()/sanitizeKeyword() pattern.
+  search?: string;
   page?: number;
   pageSize?: number;
 }
@@ -59,13 +64,7 @@ export class LeadsRepository {
   // on every load, same "count: 'exact' + range()" pattern as
   // ListingsRepository.searchPublic/BlogRepository.listAll.
   async list(scope: AuthenticatedUser, filters: LeadListFilters) {
-    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
-    const pageSize = Math.min(
-      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
-      MAX_PAGE_SIZE,
-    );
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const pagination = resolvePagination(filters);
 
     let query = this.supabase.client
       .from('leads')
@@ -86,11 +85,13 @@ export class LeadsRepository {
     }
     if (filters.status) query = query.eq('status', filters.status);
     if (filters.listingId) query = query.eq('listing_id', filters.listingId);
-    query = query.range(from, to);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`);
+    }
+    query = query.range(pagination.from, pagination.to);
 
-    const { data, error, count } = await query;
-    if (error) throw error;
-    return { items: data ?? [], total: count ?? 0, page, pageSize };
+    return paginate(query, pagination);
   }
 
   // Single-lead fetch — backs LeadDetailScreen.tsx (mobile), which previously

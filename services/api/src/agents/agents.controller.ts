@@ -151,6 +151,25 @@ export class AgentsController {
     return this.agents.updatePhoto(id, url);
   }
 
+  // Uploads as it's picked on the "Add Agent" form — before the new staff
+  // member's agent_profiles row exists, so there's no :id yet (same reason
+  // listings.controller.ts's uploadMedia() is id-less). Self-scoped to the
+  // uploading admin's own user id (just a storage-path prefix, no ownership
+  // row to check), NOT the not-yet-created staff member's id — this is also
+  // why assertOwnAgentOrAdmin (self-or-super_admin-only) can't be reused
+  // here: an agency admin uploading a NEW staff member's photo has no
+  // agent_profiles row of their own to match against yet either way. The
+  // returned url is attached via CreateAgencyStaffDto.photoUrl on the
+  // subsequent POST /agencies/:id/staff call.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Post('photo/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadStandaloneAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
+    const url = await this.avatarMedia.upload(req.user.id, file);
+    return { url };
+  }
+
   private assertOwnAgentOrAdmin(req: any, agentId: string) {
     if (req.user.role === 'super_admin') return;
     if (req.user.agentId !== agentId) {

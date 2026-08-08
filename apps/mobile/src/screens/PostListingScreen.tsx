@@ -20,11 +20,13 @@ import {
   useAuthViewModel,
   useListingSubmissionViewModel,
   useOwnerVerificationViewModel,
+  useSubscriptionViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import { Accordion, Button, CountryCodeField, PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { AmenitySelectionMap } from './AddFeaturesScreen';
+import { PlacesAutocompleteInput } from '../components/PlacesAutocompleteInput';
 
 // Selected-state border for the property type chips — RN has no CSS
 // border-image, so the gradient is faked by wrapping the chip in a
@@ -53,6 +55,10 @@ export function PostListingScreen() {
   const editId = route.params?.editListingId;
   const { showToast } = useToast();
   const { role } = useAuthViewModel();
+  // Real quota enforcement (services/api's ListingsRepository.create()) only
+  // gates agent-submitted listings, not owner ones.
+  const { usage } = useSubscriptionViewModel();
+  const quotaReached = role === 'agent' && !editId && !!usage && usage.used >= usage.quota;
   const { propertyTypes, isLoading: propertyTypesLoading } = useTaxonomyViewModel();
   const { submit, saveDraft, update } = useListingSubmissionViewModel();
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
@@ -514,7 +520,7 @@ export function PostListingScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Location</Text>
         <PickerField value={form.city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={(v) => update_('city', v)} />
-        <TextInput label="Area / Location" value={form.area} onChangeText={(v) => update_('area', v)} />
+        <PlacesAutocompleteInput label="Area / Location" value={form.area} onChange={(v) => update_('area', v)} />
         <TextInput label="Society / Phase / Block" value={form.society} onChangeText={(v) => update_('society', v)} />
         <TextInput label="Sub-area" value={form.subArea} onChangeText={(v) => update_('subArea', v)} />
       </View>
@@ -693,6 +699,12 @@ export function PostListingScreen() {
         <PhoneField label="Landline" value={form.landline} onChangeText={(v) => update_('landline', v)} dialCode={form.landlineDialCode} onDialCodeChange={(v) => update_('landlineDialCode', v)} />
       </View>
 
+      {usage && role === 'agent' && !editId && (
+        <Text style={[styles.quotaText, quotaReached && styles.quotaTextReached]}>
+          {usage.used} of {usage.quota} listings used on your plan
+          {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+        </Text>
+      )}
       <View style={styles.submitContainer}>
         {!editId && (
           <Button
@@ -707,7 +719,7 @@ export function PostListingScreen() {
           label={isPending ? (editId ? 'Saving…' : 'Submitting…') : editId ? 'Save Changes' : 'Submit for Verification'}
           size="sm"
           onPress={handleSubmit}
-          disabled={isPending}
+          disabled={isPending || quotaReached}
         />
       </View>
     </ScrollView>
@@ -1089,6 +1101,9 @@ const styles = StyleSheet.create({
   phoneInput: { 
     flex: 1 
   },
+
+  quotaText: { marginTop: 16, fontSize: 12, fontWeight: '500', color: theme.colors.muted, textAlign: 'center' },
+  quotaTextReached: { color: theme.colors.danger },
 
   // Main Submit
   submitContainer: {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput as RNTextInput, View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +10,9 @@ import {
   useAgentProfileViewModel,
   useLeadInboxViewModel,
   usePreferencesViewModel,
+  useTasksViewModel,
 } from '@jayedaad/core';
-import { Button, Card, CardContent, theme } from '@jayedaad/ui-native';
+import { Button, Card, CardContent, theme, useToast } from '@jayedaad/ui-native';
 import { BarChart } from '../components/BarChart';
 import { DonutChart } from '../components/DonutChart';
 import { LineChart } from '../components/LineChart';
@@ -60,6 +61,9 @@ export function AgentDashboardScreen() {
   });
   const { preferences } = usePreferencesViewModel();
   const { leads: recentLeads } = useLeadInboxViewModel({});
+  const { openTasks, isLoading: isTasksLoading, create: createTask, complete: completeTask } = useTasksViewModel();
+  const { showToast } = useToast();
+  const [newTaskTitle, setNewTaskTitle] = useState('');
   // Agency Admin's "full visibility to their overall performance, analytics,
   // and their sales associates" (Document Verification Phase 3) — no-op
   // query for a non-admin (agencyId undefined disables it).
@@ -78,6 +82,18 @@ export function AgentDashboardScreen() {
     { label: 'SMS', value: analytics?.sms ?? 0 },
     { label: 'Emails', value: analytics?.emails ?? 0 },
   ];
+
+  function handleAddTask() {
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    createTask.mutate(
+      { title },
+      {
+        onSuccess: () => setNewTaskTitle(''),
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -224,6 +240,53 @@ export function AgentDashboardScreen() {
         </View>
       )}
 
+      {/* FOLLOW-UPS — services/api's tasks table previously had zero
+          backend/UI behind it; a personal to-do list, optionally linked to
+          a lead, complements the CRM's per-lead reminders (LeadDetailScreen's
+          Reminders section). */}
+      <View style={styles.sectionSpacing}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.sectionTitleLg}>Follow-ups</Text>
+        </View>
+        <Card>
+          <CardContent style={styles.followUpsContent}>
+            <View style={styles.followUpComposer}>
+              <RNTextInput
+                style={styles.followUpInput}
+                value={newTaskTitle}
+                onChangeText={setNewTaskTitle}
+                placeholder="Add a follow-up…"
+                placeholderTextColor={theme.colors.mutedLight}
+                onSubmitEditing={handleAddTask}
+              />
+              <Button label="Add" size="sm" disabled={!newTaskTitle.trim() || createTask.isPending} onPress={handleAddTask} />
+            </View>
+
+            {isTasksLoading ? (
+              <Text style={styles.centeredMuted}>Loading…</Text>
+            ) : openTasks.length === 0 ? (
+              <Text style={styles.muted}>Nothing on your list — nice.</Text>
+            ) : (
+              <View style={styles.followUpsList}>
+                {openTasks.map((task) => (
+                  <View key={task.id} style={styles.followUpRow}>
+                    <Pressable onPress={() => completeTask.mutate(task.id)} disabled={completeTask.isPending} hitSlop={8}>
+                      <Ionicons name="ellipse-outline" size={16} color={theme.colors.muted} />
+                    </Pressable>
+                    <Text style={styles.followUpTitle} numberOfLines={1}>{task.title}</Text>
+                    {task.dueAt && (
+                      <Text style={styles.followUpDue}>
+                        {new Date(task.dueAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </CardContent>
+        </Card>
+      </View>
+
       {/* MY LISTINGS */}
       <View style={styles.sectionSpacing}>
         <View style={styles.cardHeaderRow}>
@@ -346,6 +409,22 @@ const styles = StyleSheet.create({
   },
   purposeChipActive: { backgroundColor: theme.colors.primary, color: theme.colors.bg },
 
+  followUpsContent: { paddingVertical: theme.spacing.sm },
+  followUpComposer: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  followUpInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: theme.colors.text,
+  },
+  followUpsList: { gap: theme.spacing.sm },
+  followUpRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingVertical: 4 },
+  followUpTitle: { flex: 1, fontSize: 13, color: theme.colors.text },
+  followUpDue: { fontSize: 11, color: theme.colors.muted },
   recentListingsContent: { paddingVertical: theme.spacing.xl },
   centeredMuted: { fontSize: 13, color: theme.colors.muted, textAlign: 'center' },
   emptyState: { alignItems: 'center' },

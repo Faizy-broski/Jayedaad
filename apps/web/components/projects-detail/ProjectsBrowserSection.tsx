@@ -14,6 +14,7 @@ export function ProjectsBrowserSection() {
 
   const initialFilters: Partial<ProjectFiltersState> = {
     city: searchParams.get('city') ?? '',
+    area: searchParams.get('area') ?? '',
     propertyTypeSlug: searchParams.get('propertyTypeSlug') ?? '',
     minPrice: searchParams.get('minPrice') ?? '',
     maxPrice: searchParams.get('maxPrice') ?? '',

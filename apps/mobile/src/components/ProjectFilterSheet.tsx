@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatPrice, PAKISTAN_CITIES, useProjectsViewModel, useTaxonomyViewModel } from '@jayedaad/core';
 import { Button, PickerField, TextInput, theme } from '@jayedaad/ui-native';
 import { DeveloperPicker } from './DeveloperPicker';
+import { PlacesAutocompleteInput } from './PlacesAutocompleteInput';
 import { AREA_UNITS } from '../lib/searchFilters';
 import { DEFAULT_PROJECT_FILTERS, ProjectFilterState, toProjectSearchFilters } from '../lib/projectFilters';
 
@@ -14,8 +15,8 @@ export interface ProjectFilterSheetProps {
   onApply: (next: ProjectFilterState) => void;
 }
 
-// Full "Search Projects" drawer — City, Project Title, Developer Title,
-// Property Type, Price Range, Area Range — structurally identical to
+// Full "Search Projects" drawer — City, Location, Project Title, Developer
+// Title, Property Type, Price Range, Area Range — structurally identical to
 // SearchFilterSheet.tsx's draft-then-commit pattern, adapted to
 // ProjectFilterState/ProjectSearchFilters instead of listings'. Property
 // Type is a direct inline pill row rather than a sub-modal, matching
@@ -95,6 +96,13 @@ export function ProjectFilterSheet({ visible, onClose, value, onApply }: Project
               onChange={(v) => set('city', v)}
             />
           </View>
+
+          <PlacesAutocompleteInput
+            label="Area / Location"
+            placeholder="e.g. Bahria Town, DHA"
+            value={draft.area}
+            onChange={(v) => set('area', v)}
+          />
 
           <TextInput
             label="Project Title"

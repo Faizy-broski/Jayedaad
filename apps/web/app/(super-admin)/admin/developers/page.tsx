@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CreateDeveloperInput, Developer, useDevelopersViewModel } from '@jayedaad/core';
-import { Button, Input, Label, Modal, Table, TableColumn } from '@jayedaad/ui-web';
-import { Building2, ChevronLeft, ChevronRight, MapPin, Pencil, PhoneCall, PlusCircle, Search, Trash2 } from 'lucide-react';
+import { Button, Input, Label, Modal, Pagination, Table, TableColumn } from '@jayedaad/ui-web';
+import { Building2, MapPin, Pencil, PhoneCall, PlusCircle, Search, Trash2 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
 const EMPTY_FORM: CreateDeveloperInput = { name: '', slug: '', description: '', phone: '', whatsapp: '', city: '' };
@@ -20,34 +20,32 @@ function initials(name: string): string {
     .join('');
 }
 
-// Real counts derived from the fetched developers list — same "compute from
-// what's already loaded" approach as Agencies/Agents/Users.
+// Real server-side search + pagination — GET /developers now supports
+// page/pageSize/search (dual-mode: unfiltered callers elsewhere, like
+// ProjectForm's developer picker, still get the full unpaginated list). The
+// "total" tile reads the true platform count from the paginated response;
+// "Cities"/"Reachable" are necessarily scoped to the current page now that
+// the full set is never fetched at once — labeled accordingly, same
+// "On This Page" convention as the Verification Log.
 export default function DevelopersPage() {
-  const { developers, isLoading, create, update, remove } = useDevelopersViewModel();
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const { developers, total, isLoading, create, update, remove } = useDevelopersViewModel({
+    search: search.trim() || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Developer | null>(null);
   const [form, setForm] = useState<CreateDeveloperInput>(EMPTY_FORM);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
 
   const stats = useMemo(() => {
     const cities = new Set(developers.map((d) => d.city).filter((c): c is string => !!c));
     const reachable = developers.filter((d) => d.phone || d.whatsapp).length;
-    return { total: developers.length, cities: cities.size, reachable };
-  }, [developers]);
+    return { total, cities: cities.size, reachable };
+  }, [developers, total]);
 
-  // Client-side search + pagination — GET /developers returns the full,
-  // unpaginated list (no page/pageSize support server-side, and the
-  // dataset here is developer *companies*, not listings, so it's small
-  // enough to fetch in full and slice locally).
-  const filteredDevelopers = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return developers;
-    return developers.filter((d) => d.name.toLowerCase().includes(q) || (d.city ?? '').toLowerCase().includes(q));
-  }, [developers, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredDevelopers.length / PAGE_SIZE));
-  const visibleDevelopers = filteredDevelopers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -165,8 +163,8 @@ export default function DevelopersPage() {
         ) : (
           <>
             <StatTile index={0} icon={Building2} label="Total Developers" value={stats.total} sub="All registered" />
-            <StatTile index={1} icon={MapPin} label="Cities Covered" value={stats.cities} sub="Unique locations" />
-            <StatTile index={2} icon={PhoneCall} label="Reachable" value={stats.reachable} sub="Have a contact number" />
+            <StatTile index={1} icon={MapPin} label="Cities (This Page)" value={stats.cities} sub="Unique locations" />
+            <StatTile index={2} icon={PhoneCall} label="Reachable (This Page)" value={stats.reachable} sub="Have a contact number" />
           </>
         )}
       </div>
@@ -181,28 +179,14 @@ export default function DevelopersPage() {
       <Reveal>
         <Table
           columns={columns}
-          rows={visibleDevelopers}
+          rows={developers}
           rowKey={(dev) => dev.id}
           isLoading={isLoading}
           emptyMessage={search ? 'No developers match your search.' : 'New developer companies will appear here once added.'}
         />
       </Reveal>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-            Previous
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-            <ChevronRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Developer' : 'New Developer'}>
         <div className="space-y-4">

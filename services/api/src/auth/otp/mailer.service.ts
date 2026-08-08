@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
 import { paragraph, renderCodeBox, renderEmailHtml } from './email-template';
 
@@ -18,6 +18,7 @@ const LOGO_CID = 'jayedaad-logo';
 // construction, so the API still boots for developers not touching OTP yet.
 @Injectable()
 export class MailerService {
+  private readonly logger = new Logger(MailerService.name);
   private transporter: Transporter | null = null;
 
   private getTransporter(): Transporter {
@@ -26,8 +27,13 @@ export class MailerService {
     const host = process.env.SMTP_HOST;
     const user = process.env.SMTP_USER;
     const password = process.env.SMTP_PASSWORD;
+    const port = Number(process.env.SMTP_PORT ?? 587);
+    const secure = process.env.SMTP_SECURE === 'true';
 
     if (!host || !user || !password) {
+      this.logger.error(
+        `SMTP not configured — host=${host ?? 'unset'} user=${user ?? 'unset'} password=${password ? 'set' : 'unset'}`,
+      );
       // A typed HTTP exception (not a bare Error) so callers surface a
       // diagnosable 503 instead of an opaque unhandled 500 — the actual
       // fix is still external (real SMTP credentials in .env), this just
@@ -37,10 +43,17 @@ export class MailerService {
       );
     }
 
+    // DEBUG — temporary, requested to diagnose an OTP not arriving. Never
+    // logs the password itself, only enough to confirm which account/host
+    // an attempt is actually using (a stale process still running with the
+    // OLD SMTP_USER after an .env edit is a common cause of "I changed the
+    // config but nothing changed").
+    this.logger.log(`Creating SMTP transporter — host=${host} port=${port} secure=${secure} user=${user}`);
+
     this.transporter = nodemailer.createTransport({
       host,
-      port: Number(process.env.SMTP_PORT ?? 587),
-      secure: process.env.SMTP_SECURE === 'true',
+      port,
+      secure,
       auth: { user, pass: password },
     });
     return this.transporter;
@@ -85,13 +98,29 @@ export class MailerService {
   // getTransporter()'s missing-config check above), which would otherwise
   // still surface as an opaque 500.
   private async send(message: { to: string; subject: string; text: string; html: string }): Promise<void> {
+    const from = process.env.SMTP_FROM_EMAIL ?? 'no-reply@jayedaad.com';
+    // DEBUG — temporary, requested to diagnose an OTP not arriving.
+    this.logger.log(`Attempting to send "${message.subject}" from ${from} to ${message.to}`);
     try {
-      await this.getTransporter().sendMail({
-        from: process.env.SMTP_FROM_EMAIL ?? 'no-reply@jayedaad.com',
+      const info = await this.getTransporter().sendMail({
+        from,
         ...message,
         attachments: [{ filename: 'jayedaad-logo.png', path: LOGO_PATH, cid: LOGO_CID }],
       });
+      // DEBUG — the real signal to look for: messageId means the SMTP
+      // server ACCEPTED the message for delivery, not that it landed in the
+      // inbox (still subject to spam filtering/greylisting/etc. downstream
+      // of this point, which nothing on our side can observe). `rejected`
+      // being non-empty means the server accepted the connection but bounced
+      // this specific recipient — a real, actionable signal if it happens.
+      this.logger.log(
+        `SMTP accepted message ${info.messageId} — accepted=[${(info.accepted ?? []).join(', ')}] rejected=[${(info.rejected ?? []).join(', ')}]`,
+      );
     } catch (err) {
+      // Full error, not just .message — nodemailer errors often carry a
+      // `code` (e.g. EAUTH for bad credentials, ECONNECTION for a
+      // host/port/firewall problem) that .message alone doesn't always spell out.
+      this.logger.error(`SMTP send failed for ${message.to}`, err instanceof Error ? err.stack : String(err));
       if (err instanceof ServiceUnavailableException) throw err;
       throw new ServiceUnavailableException(
         `Failed to send email via SMTP: ${err instanceof Error ? err.message : 'unknown error'}`,

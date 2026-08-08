@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
+import * as Sentry from '@sentry/react-native';
 import { createClient } from '@supabase/supabase-js';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -14,6 +15,15 @@ import { rememberMeStorage } from './src/lib/rememberMeStorage';
 // Must run at module scope, as early as possible, so it's registered before
 // any OAuth browser session completes (Google sign-in via WebBrowser.openAuthSessionAsync).
 WebBrowser.maybeCompleteAuthSession();
+
+// Inert unless EXPO_PUBLIC_SENTRY_DSN is actually set — no Sentry account
+// exists yet as of this pass, same "absent env var -> feature inert"
+// convention as EXPO_PUBLIC_GOOGLE_PLACES_API_KEY equivalents elsewhere.
+// EXPO_PUBLIC_* vars bake in at build time, so this must be set before a
+// real build, not toggleable at runtime.
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, environment: __DEV__ ? 'development' : 'production' });
+}
 
 configureSupabaseClient({
   url: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
@@ -34,7 +44,7 @@ configureHttpClient({
   getToken: getCurrentAccessToken,
 });
 
-export default function App() {
+function App() {
   const [queryClient] = useState(() => createQueryClient());
 
   return (
@@ -53,3 +63,7 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+// Sentry.wrap is a no-op passthrough when Sentry.init() was never called
+// above (no DSN set) — safe to apply unconditionally.
+export default Sentry.wrap(App);

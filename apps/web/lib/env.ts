@@ -18,9 +18,8 @@ export function getClientEnv(): ClientEnv {
     apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001',
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-    // Not set anywhere yet — the submit form's Area field falls back to a
-    // plain text input (see PlacesAutocompleteInput.tsx) until a real key
-    // with the Places API enabled is added to .env.
+    // Set in apps/web/.env — PlacesAutocompleteInput.tsx falls back to a
+    // plain text input only if this is ever unset/blank.
     googlePlacesApiKey: process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? '',
   };
 

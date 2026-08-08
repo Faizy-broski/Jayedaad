@@ -109,7 +109,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
     purpose: applied.purpose || undefined,
   };
 
-  const { listings, isLoading, remove } = useMyListingsViewModel(filters);
+  const { listings, isLoading, remove, boost, renew } = useMyListingsViewModel(filters);
   const { preferences } = usePreferencesViewModel();
   const { role } = useAuthViewModel();
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
@@ -156,6 +156,30 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
           }),
       },
     ]);
+  }
+
+  // Spends one of the agent's plan-granted Hot/Super Hot credits (topped up
+  // on tier selection/renewal — see the Plan screen) to feature this
+  // listing. The server is the source of truth on whether a credit is
+  // actually available.
+  function handleBoost(listingId: string, boostTier: 'hot' | 'super_hot') {
+    boost.mutate(
+      { listingId, input: { boostTier } },
+      {
+        onSuccess: () => showToast(`Listing boosted (${boostTier === 'hot' ? 'Hot' : 'Super Hot'}).`),
+        onError: (err: any) => showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error'),
+      },
+    );
+  }
+
+  // Resets an expired listing back to 'verified' with a fresh expiry window
+  // (PlanLifecycleService's cron sets status: 'expired' once a plan's
+  // listingDurationDays lapses) — the Expired tab's "Renew" action.
+  function handleRenew(listingId: string) {
+    renew.mutate(listingId, {
+      onSuccess: () => showToast('Listing renewed.'),
+      onError: (err: any) => showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error'),
+    });
   }
 
   return (
@@ -254,11 +278,24 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                 </Text>
               </View>
 
-              <Text style={styles.rowTitle} numberOfLines={1}>{listing.title}</Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{listing.title}</Text>
+                {listing.boostTier !== 'basic' && (
+                  <View style={styles.boostBadge}>
+                    <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
+                    <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.rowSubtitle} numberOfLines={1}>
                 {listing.area}, {listing.city}
               </Text>
-              
+              {listing.status === 'verified' && listing.expiresAt && (
+                <Text style={styles.expiresText}>
+                  Expires {new Date(listing.expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                </Text>
+              )}
+
               <View style={styles.cardDivider} />
               
               <View style={styles.rowActions}>
@@ -287,6 +324,35 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   >
                     <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
                     <Text style={styles.actionTextPrimary}>Documents</Text>
+                  </Pressable>
+                )}
+
+                {/* listing.status, not the `status` tab-filter state — the
+                    Listing ID search clears the status filter server-side
+                    (a match can be any status), so gating on the tab would
+                    show Boost for a non-verified row whenever the default
+                    'verified' tab is active during a search. */}
+                {listing.status === 'verified' && (
+                  <>
+                    <Pressable style={styles.actionButton} disabled={boost.isPending} onPress={() => handleBoost(listing.id, 'hot')}>
+                      <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
+                      <Text style={styles.actionTextPrimary}>Hot</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.actionButton}
+                      disabled={boost.isPending}
+                      onPress={() => handleBoost(listing.id, 'super_hot')}
+                    >
+                      <Ionicons name="flame-outline" size={16} color={theme.colors.primary} />
+                      <Text style={styles.actionTextPrimary}>Super Hot</Text>
+                    </Pressable>
+                  </>
+                )}
+
+                {listing.status === 'expired' && (
+                  <Pressable style={styles.actionButton} disabled={renew.isPending} onPress={() => handleRenew(listing.id)}>
+                    <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />
+                    <Text style={styles.actionTextPrimary}>Renew</Text>
                   </Pressable>
                 )}
 
@@ -615,17 +681,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.primary,
   },
-  rowTitle: { 
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  rowTitle: {
     fontSize: 15,
-    fontWeight: '700', 
+    fontWeight: '700',
     color: theme.colors.text,
-    marginBottom: 4,
+    flexShrink: 1,
   },
-  rowSubtitle: { 
-    fontSize: 13, 
+  boostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  boostBadgeText: { fontSize: 11, fontWeight: '700', color: '#B45309' },
+  rowSubtitle: {
+    fontSize: 13,
     color: theme.colors.muted,
     fontWeight: '500',
   },
+  expiresText: { fontSize: 11, color: theme.colors.mutedLight, marginTop: 2 },
   cardDivider: {
     height: 1,
     backgroundColor: theme.colors.surfaceAlt,

@@ -439,12 +439,14 @@ export class AgentsRepository {
       if (!agent.agency_id) {
         const { missing } = await this.getDocumentCompleteness(agentId);
         if (missing.length > 0) {
-          // DEBUG — remove once the 400 on PATCH /agents/:id/verify is
-          // confirmed diagnosed. Frontend now surfaces this same message
-          // via err.response.data.message (see admin/agents/page.tsx and
-          // agent-verification/page.tsx), but logging it here too pins
-          // down exactly which agent/documents triggered it server-side.
-          console.warn(`[agents.verify] blocked — agentId=${agentId} missing=[${missing.join(', ')}]`);
+          // Intentional 400, not a bug — an independent agent (no agency)
+          // must upload owner_id_card + company_registration before
+          // approval. Frontend surfaces this exact message via
+          // err.response.data.message (admin/agents/page.tsx,
+          // agent-verification/page.tsx); the real gap this error exposed
+          // was that the agent-facing upload screen (become-an-agent) had
+          // no persistent re-entry link for the independent-agent case —
+          // fixed in (agent)/layout.tsx and mobile's AuthGateProvider/SideDrawer.
           throw new BadRequestException(`Cannot verify agent — missing required documents: ${missing.join(', ')}`);
         }
       }

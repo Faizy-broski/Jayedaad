@@ -22,6 +22,9 @@ export interface LeadListFilters {
   scope?: 'own' | 'agency';
   // Super Admin-only — filters down to leads with no assigned agent.
   unassigned?: boolean;
+  // Matches against name/phone/email server-side — searches across every
+  // page, not just whatever page is currently loaded.
+  search?: string;
   page?: number;
   pageSize?: number;
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, SafeAreaView, Text, View, StyleSheet } from 'react-native';
+import { Linking, Pressable, ScrollView, SafeAreaView, Text, TextInput as RNTextInput, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { LeadStatus, useLeadDetailViewModel } from '@jayedaad/core';
+import { LeadStatus, ReminderChannel, useLeadDetailViewModel, useLeadRemindersViewModel } from '@jayedaad/core';
 import { Button, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -12,6 +12,12 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'negotiating', label: 'Negotiating' },
   { value: 'closed', label: 'Closed' },
   { value: 'lost', label: 'Lost' },
+];
+
+const CHANNEL_OPTIONS: { value: ReminderChannel; label: string }[] = [
+  { value: 'in_app', label: 'In-app' },
+  { value: 'push', label: 'Push' },
+  { value: 'email', label: 'Email' },
 ];
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -36,7 +42,10 @@ export function LeadDetailScreen() {
   const { leadId } = route.params;
   const { showToast } = useToast();
   const { lead, isLoading, isError, refetch, updateStatus, addNote } = useLeadDetailViewModel(leadId);
+  const { reminders, create: createReminder, remove: removeReminder } = useLeadRemindersViewModel(leadId);
   const [noteDraft, setNoteDraft] = useState('');
+  const [reminderDateText, setReminderDateText] = useState('');
+  const [reminderChannel, setReminderChannel] = useState<ReminderChannel>('in_app');
 
   function changeStatus(status: LeadStatus) {
     if (!lead || status === lead.status) return;
@@ -59,6 +68,26 @@ export function LeadDetailScreen() {
       },
       onError: () => showToast('Something went wrong — please try again.', 'error'),
     });
+  }
+
+  // Same "plain text date/time, parsed via new Date(...)" convention as
+  // CalendarScreen's "Add appointment" flow — no date-picker dependency.
+  function submitReminder() {
+    const parsed = new Date(reminderDateText);
+    if (Number.isNaN(parsed.getTime())) {
+      showToast('Enter a valid date/time, e.g. 2026-08-10 14:00', 'error');
+      return;
+    }
+    createReminder.mutate(
+      { remindAt: parsed.toISOString(), channel: reminderChannel },
+      {
+        onSuccess: () => {
+          showToast('Reminder set.');
+          setReminderDateText('');
+        },
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
+    );
   }
 
   if (isLoading) {
@@ -151,6 +180,54 @@ export function LeadDetailScreen() {
             <Button label="Add" size="sm" disabled={!noteDraft.trim() || addNote.isPending} onPress={submitNote} />
           </View>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Reminders{reminders.length ? ` (${reminders.length})` : ''}</Text>
+          {reminders.length > 0 && (
+            <View style={styles.notesList}>
+              {reminders.map((r) => (
+                <View key={r.id} style={styles.reminderRow}>
+                  <Text style={[styles.reminderText, !!r.firedAt && styles.reminderTextFired]}>
+                    {formatDate(r.remindAt)} · {CHANNEL_OPTIONS.find((c) => c.value === r.channel)?.label}
+                  </Text>
+                  {!r.firedAt && (
+                    <Pressable onPress={() => removeReminder.mutate(r.id)} hitSlop={8}>
+                      <Ionicons name="close" size={14} color={theme.colors.muted} />
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+          <RNTextInput
+            style={styles.input}
+            value={reminderDateText}
+            onChangeText={setReminderDateText}
+            placeholder="2026-08-10 14:00"
+            placeholderTextColor={theme.colors.mutedLight}
+          />
+          <View style={styles.channelRow}>
+            {CHANNEL_OPTIONS.map((opt) => {
+              const active = opt.value === reminderChannel;
+              return (
+                <Pressable
+                  key={opt.value}
+                  style={[styles.statusChip, active && styles.statusChipActive]}
+                  onPress={() => setReminderChannel(opt.value)}
+                >
+                  <Text style={[styles.statusChipText, active && styles.statusChipTextActive]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Button
+            label="Set reminder"
+            size="sm"
+            disabled={!reminderDateText.trim() || createReminder.isPending}
+            onPress={submitReminder}
+            style={styles.setReminderButton}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -195,4 +272,27 @@ const styles = StyleSheet.create({
   noteDate: { fontSize: 10, color: theme.colors.muted, marginTop: 2 },
   noteComposer: { flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm },
   noteInput: { flex: 1 },
+  reminderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: 10,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 8,
+  },
+  reminderText: { fontSize: 12, color: theme.colors.text },
+  reminderTextFired: { color: theme.colors.muted, textDecorationLine: 'line-through' },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  channelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  setReminderButton: { alignSelf: 'flex-start' },
 });

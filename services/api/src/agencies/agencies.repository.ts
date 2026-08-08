@@ -307,7 +307,7 @@ export class AgenciesRepository {
   async listStaff(agencyId: string) {
     const { data, error } = await this.supabase.client
       .from('agent_profiles')
-      .select('id, display_name, phone, city, verification_status, is_agency_admin')
+      .select('id, display_name, phone, city, verification_status, is_agency_admin, photo_url')
       .eq('agency_id', agencyId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -318,6 +318,7 @@ export class AgenciesRepository {
       city: row.city,
       verificationStatus: row.verification_status,
       isAgencyAdmin: row.is_agency_admin,
+      photoUrl: row.photo_url,
     }));
   }
 
@@ -405,7 +406,7 @@ export class AgenciesRepository {
   // branch, duplicated rather than cross-imported (UsersRepository lives in
   // a separate Nest module) — agencyId is always forced from the route
   // param, never client-supplied, unlike CreateUserDto's optional agencyId.
-  async addStaff(agencyId: string, input: { email: string; password: string; displayName?: string }) {
+  async addStaff(agencyId: string, input: { email: string; password: string; displayName?: string; photoUrl?: string }) {
     const { data: created, error: createError } = await this.supabase.client.auth.admin.createUser({
       email: input.email,
       password: input.password,
@@ -417,7 +418,7 @@ export class AgenciesRepository {
 
     const { data: agentProfile, error: agentError } = await this.supabase.client
       .from('agent_profiles')
-      .insert({ user_id: userId, display_name: input.displayName, agency_id: agencyId })
+      .insert({ user_id: userId, display_name: input.displayName, agency_id: agencyId, photo_url: input.photoUrl })
       .select('id')
       .single();
     if (agentError) throw agentError;

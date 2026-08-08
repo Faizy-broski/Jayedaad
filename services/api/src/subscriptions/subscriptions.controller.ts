@@ -1,15 +1,24 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Logger, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
+import type Stripe from 'stripe';
 import { ScopeGuard } from '../common/guards/scope.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { EntitlementsService } from './entitlements.service';
 import { SubscriptionsRepository } from './subscriptions.repository';
+import { StripeService } from './stripe.service';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
+import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 
 @Controller('subscriptions')
 export class SubscriptionsController {
+  private readonly logger = new Logger(SubscriptionsController.name);
+
   constructor(
     private readonly entitlements: EntitlementsService,
     private readonly subscriptions: SubscriptionsRepository,
+    private readonly stripe: StripeService,
   ) {}
 
   // "40 of 50 listings used" — real-time usage tracking [Spec §6/§8.1].
@@ -30,19 +39,180 @@ export class SubscriptionsController {
     return this.subscriptions.findForAgent(req.user.agentId);
   }
 
-  // Self-service plan selection — this app has no payment/billing
-  // integration anywhere, so "upgrade" is a real, immediate tier change
-  // (same upsert the super_admin assign route uses), not a checkout flow.
-  // Flagged in the Plan page UI as not being a real billing transaction.
+  // Self-service, instant, no payment — kept for free tiers only
+  // (price = 0). A real Stripe account didn't exist when this endpoint was
+  // first built, so it let ANY tier be self-granted for free; that gap is
+  // what checkout() below closes for paid tiers, without touching this
+  // route's behavior for the free plan.
   @UseGuards(ScopeGuard)
   @Roles('agent')
   @Post('me/select')
-  select(@Req() req: any, @Body() body: AssignSubscriptionDto) {
+  async select(@Req() req: any, @Body() body: AssignSubscriptionDto) {
+    const tier = await this.subscriptions.findTierById(body.tierId);
+    if (!tier) throw new BadRequestException('Unknown subscription tier.');
+    if (Number(tier.price) > 0) {
+      throw new BadRequestException('This is a paid tier — use POST /subscriptions/me/checkout instead.');
+    }
     return this.subscriptions.assign(req.user.agentId, body);
+  }
+
+  // Real payment collection for paid tiers — creates a Stripe Checkout
+  // Session and hands the client a redirect URL. The `subscriptions` row
+  // itself is only ever written by the webhook below, once Stripe confirms
+  // payment actually happened (checkout.session.completed), never
+  // optimistically here.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post('me/checkout')
+  async checkout(@Req() req: any, @Body() body: CreateCheckoutSessionDto) {
+    const tier = await this.subscriptions.findTierById(body.tierId);
+    if (!tier) throw new BadRequestException('Unknown subscription tier.');
+    if (Number(tier.price) === 0) {
+      throw new BadRequestException('This is a free tier — use POST /subscriptions/me/select instead.');
+    }
+    if (!tier.stripe_price_id) {
+      throw new BadRequestException('This tier has no Stripe price configured yet — contact support.');
+    }
+
+    const email = (await this.subscriptions.findEmailForUser(req.user.id)) ?? undefined;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+
+    const session = await this.stripe.createCheckoutSession({
+      priceId: tier.stripe_price_id,
+      customerEmail: email ?? '',
+      clientReferenceId: req.user.agentId,
+      metadata: { agentId: req.user.agentId, tierId: tier.id },
+      successUrl: `${siteUrl}/dashboard/plan?checkout=success`,
+      cancelUrl: `${siteUrl}/dashboard/plan?checkout=cancelled`,
+    });
+
+    return { url: session.url };
+  }
+
+  // cancel_at_period_end via Stripe, not an immediate cutoff — the local
+  // row's cancel_at_period_end/status get updated by the webhook's
+  // customer.subscription.updated event once Stripe processes this, not
+  // optimistically here (same "webhook is the only writer" discipline as
+  // checkout above).
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post('me/cancel')
+  async cancel(@Req() req: any) {
+    const subscription = await this.subscriptions.findForAgent(req.user.agentId);
+    if (!subscription?.stripe_subscription_id) {
+      throw new BadRequestException('No active paid subscription to cancel.');
+    }
+    await this.stripe.cancelSubscription(subscription.stripe_subscription_id);
+    return { cancelAtPeriodEnd: true };
+  }
+
+  // Stripe-hosted billing portal — invoice history, payment method update,
+  // and Stripe's own cancel UI live there; this just mints the one-time
+  // session URL. Requires the agent to have gone through checkout at least
+  // once (a Stripe customer to attach the portal session to).
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post('me/billing-portal')
+  async billingPortal(@Req() req: any) {
+    const subscription = await this.subscriptions.findForAgent(req.user.agentId);
+    if (!subscription?.stripe_customer_id) {
+      throw new BadRequestException('No billing account yet — subscribe to a paid plan first.');
+    }
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    const session = await this.stripe.createBillingPortalSession(subscription.stripe_customer_id, `${siteUrl}/plan`);
+    return { url: session.url };
+  }
+
+  // Stripe's webhook — the only place a `subscriptions` row is ever written
+  // as a direct result of a paid checkout. @Public because Stripe calls
+  // this with no user session, just its own HMAC signature
+  // (Stripe-Signature header, verified against STRIPE_WEBHOOK_SECRET below)
+  // — that signature check IS this route's auth.
+  @Public()
+  @Post('webhook')
+  async webhook(@Req() req: RawBodyRequest<Request>) {
+    const signature = req.headers['stripe-signature'];
+    if (!signature || typeof signature !== 'string' || !req.rawBody) {
+      throw new BadRequestException('Missing Stripe-Signature header or raw body.');
+    }
+
+    const event = this.stripe.constructEvent(req.rawBody, signature);
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const agentId = session.client_reference_id;
+        const tierId = session.metadata?.tierId;
+        const stripeCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+        const stripeSubscriptionId =
+          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+
+        if (agentId && tierId && stripeCustomerId && stripeSubscriptionId) {
+          const subscription = await this.stripe.retrieveSubscription(stripeSubscriptionId);
+          const currentPeriodEnd = subscription.items.data[0]?.current_period_end
+            ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
+            : undefined;
+          await this.subscriptions.assignFromStripeCheckout({
+            agentId,
+            tierId,
+            stripeCustomerId,
+            stripeSubscriptionId,
+            currentPeriodEnd,
+          });
+        } else {
+          // Shouldn't happen — checkout() above always sets
+          // client_reference_id/metadata.tierId, and a subscription-mode
+          // session always has a customer+subscription — but if it ever
+          // does, a paid checkout would otherwise complete with NO plan
+          // ever granted and zero trace of it anywhere. Stripe still gets
+          // its 200 (retrying wouldn't fix a payload that's genuinely
+          // missing fields), so this log is the only record.
+          this.logger.warn(
+            `checkout.session.completed missing required fields — session ${session.id}: agentId=${agentId} tierId=${tierId} customer=${stripeCustomerId} subscription=${stripeSubscriptionId}`,
+          );
+        }
+        break;
+      }
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const currentPeriodEnd = subscription.items.data[0]?.current_period_end
+          ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
+          : undefined;
+        await this.subscriptions.updateStatusByStripeSubscriptionId(
+          subscription.id,
+          subscription.status,
+          currentPeriodEnd,
+          subscription.cancel_at_period_end,
+        );
+        break;
+      }
+      // The real "a new period started and was paid for" signal — fires on
+      // every successful recurring charge, unlike customer.subscription.updated
+      // (which fires on many unrelated changes too). Tops up the agent's
+      // Hot/Super Hot credit allotment for the new period.
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        // Newer Stripe API versions (this SDK) moved the subscription
+        // reference off the invoice's top level into parent.subscription_details.
+        const subscriptionRef = invoice.parent?.subscription_details?.subscription;
+        const subscriptionId = typeof subscriptionRef === 'string' ? subscriptionRef : subscriptionRef?.id;
+        if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
+          await this.subscriptions.grantRenewalCredits(subscriptionId);
+        }
+        break;
+      }
+      default:
+        break; // Other event types aren't relevant to subscription state.
+    }
+
+    return { received: true };
   }
 
   // Super Admin assigns/changes an agent's plan — the write side that was
   // entirely missing; nothing ever populated `subscriptions` before this.
+  // Deliberately bypasses payment (an internal override, e.g. comping a
+  // plan), unlike the agent-facing routes above.
   @UseGuards(ScopeGuard)
   @Roles('super_admin')
   @Patch(':agentId/assign')

@@ -22,6 +22,7 @@ import {
   useAuthViewModel,
   useListingSubmissionViewModel,
   useOwnerVerificationViewModel,
+  useSubscriptionViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import {
@@ -189,6 +190,12 @@ export default function SubmitListingPage() {
   const { submit, saveDraft, update: updateMutation } = useListingSubmissionViewModel();
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
   const { profile: agentProfile } = useAgentProfileViewModel();
+  // Real quota enforcement (services/api's ListingsRepository.create()) only
+  // gates agent-submitted listings, not owner ones — usage is fetched
+  // regardless (cheap, agentId-gated inside the hook itself) but only acted
+  // on below when role === 'agent'.
+  const { usage } = useSubscriptionViewModel();
+  const quotaReached = role === 'agent' && !editId && !!usage && usage.used >= usage.quota;
   // Ownership proof/utility bill exemption only extends to an
   // AGENCY-affiliated agent (the agency's own onboarding verification
   // covers its staff) — an independent agent (no agency) isn't vetted by
@@ -1251,6 +1258,12 @@ export default function SubmitListingPage() {
                     <p className="max-w-sm text-sm text-muted-foreground">
                       Your listing is ready. Once published it appears instantly on Jayedaad and is reviewed by our verification team.
                     </p>
+                    {usage && role === 'agent' && !editId && (
+                      <p className={`text-xs font-medium ${quotaReached ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        {usage.used} of {usage.quota} listings used on your plan
+                        {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+                      </p>
+                    )}
                     <div className="flex flex-wrap justify-center gap-3">
                       {!editId && (
                         <Button type="button" variant="outline" disabled={isPending} onClick={handleSaveDraft}>
@@ -1260,7 +1273,7 @@ export default function SubmitListingPage() {
                       <Button type="button" variant="secondary" disabled={isPending} onClick={() => setStep(8)}>
                         Preview again
                       </Button>
-                      <Button type="submit" disabled={isPending}>
+                      <Button type="submit" disabled={isPending || quotaReached}>
                         {submit.isPending || updateMutation.isPending
                           ? editId
                             ? 'Saving…'

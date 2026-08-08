@@ -1,14 +1,28 @@
 import 'dotenv/config';
 import 'reflect-metadata';
+import * as Sentry from '@sentry/node';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
+// Inert unless SENTRY_DSN is actually set — no account exists yet as of this
+// pass, so this is wired but dormant until a real DSN is added to .env, same
+// "absent env var -> feature inert" convention as
+// NEXT_PUBLIC_GOOGLE_PLACES_API_KEY. Must run before NestFactory.create so
+// framework-level startup errors are captured too.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV ?? 'development' });
+}
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true makes the exact request bytes available via req.rawBody
+  // on every route, alongside Nest's normal parsed req.body — needed only
+  // by the Stripe webhook route (subscriptions.controller.ts), whose
+  // signature check hashes the raw bytes, not the parsed/reserialized JSON.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   // Docker/orchestrators send SIGTERM on every redeploy — without this,
   // in-flight requests get dropped mid-request (a 502) instead of finishing
   // before the process exits.

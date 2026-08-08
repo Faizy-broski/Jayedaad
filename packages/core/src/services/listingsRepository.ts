@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import {
   AreaUnit,
+  BoostListingInput,
   ContactNumberType,
   FurnishingStatus,
   Listing,
@@ -38,6 +39,10 @@ export interface ListingSearchFilters {
 // — confirmed real on the live Profolio "My Listings" filter panel.
 export interface MyListingsFilters {
   status?: ListingStatus;
+  // Super Admin's Listings page's Owner/Agent vs Agency split — filtered
+  // server-side so pagination/totals stay correct at real scale (see
+  // listings.repository.ts::findMine's agencyAgentIds pre-lookup).
+  source?: 'owner_agent' | 'agency';
   // A category slug — property_type_categories is Super Admin-managed data
   // now, not a fixed enum, so this is deliberately `string`, not a union.
   propertyTypeCategory?: string;
@@ -211,6 +216,22 @@ export const listingsRepository = {
   // from the verification queue's approve/reject/request-info action.
   setStatus: async (listingId: string, status: ListingStatus): Promise<Listing> => {
     const { data } = await httpClient.patch(`/listings/${listingId}/status`, { status });
+    return data;
+  },
+
+  // Spends one of the agent's plan-granted Hot/Super Hot credits
+  // (agent_credits, topped up on tier selection/renewal) to feature this
+  // listing for a fixed window — the write path listing_boost_tier never
+  // had before this pass.
+  boostListing: async (listingId: string, input: BoostListingInput): Promise<Listing> => {
+    const { data } = await httpClient.post(`/listings/${listingId}/boost`, input);
+    return data;
+  },
+
+  // Resets an expired listing (PlanLifecycleService's cron, once its plan's
+  // listingDurationDays lapses) back to 'verified' with a fresh expiry.
+  renewListing: async (listingId: string): Promise<Listing> => {
+    const { data } = await httpClient.post(`/listings/${listingId}/renew`);
     return data;
   },
 

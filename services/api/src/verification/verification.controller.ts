@@ -12,8 +12,11 @@ export class VerificationController {
   constructor(private readonly verification: VerificationRepository) {}
 
   @Get('queue')
-  queue() {
-    return this.verification.listQueue();
+  queue(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.verification.listQueue({
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Post(':id/approve')
@@ -42,6 +45,7 @@ export class VerificationController {
     @Query('reviewerId') reviewerId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('action') action?: 'approve' | 'reject' | 'request_info',
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -50,6 +54,7 @@ export class VerificationController {
       reviewerId,
       dateFrom,
       dateTo,
+      action,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });

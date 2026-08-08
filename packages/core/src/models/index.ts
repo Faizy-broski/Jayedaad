@@ -54,8 +54,15 @@ export type AmenityCategory =
   | 'other_facilities'
   | 'plot_features';
 // Zameen's real listing-boost ranking (Basic/Premium/Hot/Super Hot "Value
-// Booster" products) — independent of the owning agency's subscription tier.
+// Booster" products). 'hot'/'super_hot' are spent from the agent's plan-
+// granted agent_credits allotment (POST /listings/:id/boost) — 'premium'
+// has no spend path defined yet, stays reachable only via direct DB/admin
+// action.
 export type ListingBoostTier = 'basic' | 'premium' | 'hot' | 'super_hot';
+
+export interface BoostListingInput {
+  boostTier: Extract<ListingBoostTier, 'hot' | 'super_hot'>;
+}
 
 // Super Admin-managed taxonomy [Reqs §9] — not hardcoded, fetched from
 // GET /taxonomy/property-types and /taxonomy/amenities. Includes `id`
@@ -229,6 +236,15 @@ export interface Listing {
   floorLevel: string | null;
   furnishingStatus: FurnishingStatus | null;
   boostTier: ListingBoostTier;
+  // Set when a Hot/Super Hot credit is spent (POST /listings/:id/boost) —
+  // boostTier reverts to 'basic' once this passes (PlanLifecycleService's
+  // cron), so a boost is a fixed window, not permanent.
+  boostExpiresAt: string | null;
+  // Set on approval/renewal from the assigned agent's plan's
+  // listingDurationDays — null means unlimited (never expires). Once this
+  // passes, PlanLifecycleService's cron sets status to 'expired';
+  // POST /listings/:id/renew resets both this and status.
+  expiresAt: string | null;
   // Both confirmed real on the live Profolio form: two toggles under Price and Area.
   installmentAvailable: boolean;
   readyForPossession: boolean;
@@ -425,6 +441,19 @@ export interface CreateUserInput {
 // full user base.
 export interface ListUsersFilters {
   roles?: Role[];
+  // Matches against display name/email server-side — searches across every
+  // page, not just whatever page is currently loaded. Only applies when
+  // page/pageSize is also passed (see ListUsersResult).
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListUsersResult {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // GET /admin/roles — "which role gets what dashboard access" reference.
@@ -451,6 +480,17 @@ export interface SubscriptionTier {
   price: number;
   // Depth/entitlement flags per tier, e.g. { analyticsDepth: 'full' }.
   analyticsDepth: Record<string, unknown>;
+  // Featured-listing allotment — granted to agent_credits on tier
+  // (re-)selection/renewal, spent via POST /listings/:id/boost.
+  hotCreditsPerPeriod: number;
+  superHotCreditsPerPeriod: number;
+  // Set once a matching Stripe Product/Price exists — required before this
+  // tier can be checked out if price > 0.
+  stripePriceId: string | null;
+  // Days a listing stays 'verified' before auto-expiring — null means
+  // unlimited. Applied on approval (record_verification_action RPC) and on
+  // POST /listings/:id/renew.
+  listingDurationDays: number | null;
 }
 
 export interface CreateSubscriptionTierInput {
@@ -458,6 +498,10 @@ export interface CreateSubscriptionTierInput {
   listingQuota: number;
   price?: number;
   analyticsDepth: Record<string, unknown>;
+  hotCreditsPerPeriod?: number;
+  superHotCreditsPerPeriod?: number;
+  stripePriceId?: string;
+  listingDurationDays?: number | null;
 }
 
 export interface UpdateSubscriptionTierInput {
@@ -465,6 +509,10 @@ export interface UpdateSubscriptionTierInput {
   listingQuota?: number;
   price?: number;
   analyticsDepth?: Record<string, unknown>;
+  hotCreditsPerPeriod?: number;
+  superHotCreditsPerPeriod?: number;
+  stripePriceId?: string;
+  listingDurationDays?: number | null;
 }
 
 export interface Subscription {
@@ -472,6 +520,9 @@ export interface Subscription {
   tierId: string;
   status: string;
   currentPeriodEnd: string | null;
+  // True once POST /subscriptions/me/cancel has gone through — the
+  // subscription stays active/usable until currentPeriodEnd, then lapses.
+  cancelAtPeriodEnd: boolean;
   tier: SubscriptionTier;
 }
 
@@ -507,6 +558,7 @@ export interface SetListingStatusInput {
 export interface PlatformStats {
   usersByRole: Record<string, number>;
   agenciesByVerificationStatus: Record<string, number>;
+  agentsByVerificationStatus: Record<string, number>;
   listingsByStatus: Record<string, number>;
   leadsByStatus: Record<string, number>;
   activeSubscriptionsByTier: Record<string, number>;
@@ -521,6 +573,14 @@ export interface AgentOverview {
   city: string | null;
   verificationStatus: string;
   agency: { id: string; name: string; slug: string } | null;
+  // True for the agent who registered/owns the agency (or was promoted via
+  // setStaffAdmin); false for every other agent added through that admin's
+  // "Agency Staff" screen. A staff row still needs no individual identity
+  // verification of its own — it's covered by the agency's own review, same
+  // as it's exempt from the document-completeness gate (see
+  // agents.repository.ts::setVerificationStatus) — so the Agents admin page
+  // splits staff rows into their own tab instead of the Verify/Reject queue.
+  isAgencyAdmin: boolean;
   subscription: { status: string; currentPeriodEnd: string | null; tierName: string | null } | null;
   listingCounts: { total: number; verified: number };
 }
@@ -617,12 +677,16 @@ export interface AgencyStaffMember {
   city: string | null;
   verificationStatus: 'pending' | 'verified' | 'rejected';
   isAgencyAdmin: boolean;
+  photoUrl: string | null;
 }
 
 export interface CreateAgencyStaffInput {
   email: string;
   password: string;
   displayName?: string;
+  // Set via agentsRepository.uploadStandaloneAvatar() before this input is
+  // submitted — there's no agent id yet to upload directly against.
+  photoUrl?: string;
 }
 
 // Self-service agency registration (signup's "Agency" account type) —
@@ -1009,6 +1073,7 @@ export interface Project {
 // Mirrors ListingSearchFilters in services/listingsRepository.ts.
 export interface ProjectSearchFilters {
   city?: string;
+  area?: string;
   status?: ProjectStatus;
   propertyTypeSlug?: string;
   developerSlug?: string;
@@ -1178,13 +1243,6 @@ export interface ListingDocument {
 // certificate) — used by both agencies and independent agents (agents
 // stand in as their own "company"), distinct from ListingDocument above
 // (a different document-type set, for property verification).
-export interface OnboardingDocument {
-  id: string;
-  documentType: OnboardingDocumentType;
-  url: string;
-  uploadedAt: string;
-}
-
 export interface OnboardingDocument {
   id: string;
   documentType: OnboardingDocumentType;

@@ -18,6 +18,10 @@ function mapTierRow(row: any): SubscriptionTier {
     listingQuota: row.listing_quota,
     price: row.price,
     analyticsDepth: row.analytics_depth,
+    hotCreditsPerPeriod: row.hot_credits_per_period ?? 0,
+    superHotCreditsPerPeriod: row.super_hot_credits_per_period ?? 0,
+    stripePriceId: row.stripe_price_id,
+    listingDurationDays: row.listing_duration_days,
   };
 }
 
@@ -27,6 +31,7 @@ function mapSubscriptionRow(row: any): Subscription {
     tierId: row.tier_id,
     status: row.status,
     currentPeriodEnd: row.current_period_end,
+    cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
     tier: mapTierRow(row.subscription_tiers),
   };
 }
@@ -49,11 +54,35 @@ export const subscriptionsRepository = {
     return data ? mapSubscriptionRow(data) : null;
   },
 
-  // No payment/billing integration exists in this app — this is a real,
-  // immediate tier change, not a checkout flow. The Plan page UI flags this.
+  // Free tiers only (server rejects paid tiers with a 400 pointing at
+  // checkoutTier below) — a real, immediate tier change, not a checkout flow.
   selectTier: async (input: AssignSubscriptionInput): Promise<Subscription> => {
     const { data } = await httpClient.post('/subscriptions/me/select', input);
     return mapSubscriptionRow(data);
+  },
+
+  // Paid tiers — creates a real Stripe Checkout Session and returns its
+  // redirect URL; the Plan page navigates the browser there. The actual
+  // subscription row is only written once Stripe's webhook confirms payment,
+  // not by this call itself.
+  checkoutTier: async (tierId: string): Promise<{ url: string | null }> => {
+    const { data } = await httpClient.post('/subscriptions/me/checkout', { tierId });
+    return data;
+  },
+
+  // cancel_at_period_end via Stripe — the plan stays usable until
+  // currentPeriodEnd, then lapses. The local row only updates once the
+  // webhook processes it, not from this call's response.
+  cancelSubscription: async (): Promise<{ cancelAtPeriodEnd: boolean }> => {
+    const { data } = await httpClient.post('/subscriptions/me/cancel');
+    return data;
+  },
+
+  // Stripe-hosted billing portal (invoice history, payment method, Stripe's
+  // own cancel UI) — returns a one-time session URL to navigate to.
+  getBillingPortalUrl: async (): Promise<{ url: string }> => {
+    const { data } = await httpClient.post('/subscriptions/me/billing-portal');
+    return data;
   },
 
   // Super Admin-only — assigns/changes any agent's plan.

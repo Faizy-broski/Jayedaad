@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle, Home, RotateCcw, Wifi, ServerCrash, FileWarning } from 'lucide-react';
 import { FloatingIcon } from './FloatingIcon';
 
@@ -16,6 +18,12 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 // whatever chrome (Header/Footer, or an agent/admin shell) the segment
 // would normally sit inside, rather than rendering awkwardly nested in it.
 export function RouteError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  // No-op if NEXT_PUBLIC_SENTRY_DSN was never set (sentry.client.config.ts
+  // skips Sentry.init() entirely in that case).
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="fixed inset-0 z-[999] overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">

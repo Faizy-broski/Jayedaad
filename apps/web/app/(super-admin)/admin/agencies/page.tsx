@@ -4,12 +4,25 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Agency, agenciesRepository, CreateAgencyInput, OnboardingDocumentType, useAgencyManagementViewModel } from '@jayedaad/core';
-import { Badge, Button, cn, Input, Label, Modal } from '@jayedaad/ui-web';
+import {
+  Agency,
+  agenciesRepository,
+  AgentCreditType,
+  AgentOverview,
+  CreateAgencyInput,
+  OnboardingDocument,
+  OnboardingDocumentType,
+  useAdminAgentsViewModel,
+  useAdminStatsViewModel,
+  useAgencyManagementViewModel,
+} from '@jayedaad/core';
+import { Badge, Button, cn, Input, Label, Modal, Pagination, Select, Table, TableColumn } from '@jayedaad/ui-web';
 import {
   Building2,
   CheckCircle2,
   Clock,
+  CreditCard,
+  Download,
   FileCheck2,
   Mail,
   MapPin,
@@ -21,6 +34,7 @@ import {
   ShieldX,
   Trash2,
   UploadCloud,
+  User,
   XCircle,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
@@ -42,12 +56,16 @@ const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
   { type: 'tax_certificate', label: 'Tax Certificate' },
 ];
 
+type AgencyTab = 'all' | Agency['verificationStatus'] | 'staff';
+
 const STATUS_TABS: { id: 'all' | Agency['verificationStatus']; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'pending', label: 'Pending' },
   { id: 'verified', label: 'Verified' },
   { id: 'rejected', label: 'Rejected' },
 ];
+
+const CREDIT_TYPES: AgentCreditType[] = ['listing_quota', 'refresh', 'hot', 'super_hot'];
 
 function initials(name: string): string {
   return name
@@ -58,16 +76,38 @@ function initials(name: string): string {
     .join('');
 }
 
-// Real counts derived from the fetched agencies list (no fabricated
-// analytics endpoint here) — same "compute from what's already loaded"
-// approach as ProjectsListView's status tabs.
+const PAGE_SIZE = 20;
+
+// Header/tab counts read from GET /admin/stats (true platform totals),
+// not from whatever page of results happens to be loaded — now that the
+// roster itself is server-side paginated (search/status filters applied
+// server-side too, same fix as CRM's search box).
 export default function AgenciesPage() {
-  const { agencies, isLoading, create, update, setVerificationStatus, remove } = useAgencyManagementViewModel();
+  const [activeTab, setActiveTab] = useState<AgencyTab>('all');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const isStaffTab = activeTab === 'staff';
+
+  const { agencies, total, isLoading, create, update, setVerificationStatus, remove } = useAgencyManagementViewModel({
+    verificationStatus: isStaffTab || activeTab === 'all' ? undefined : activeTab,
+    search: search.trim() || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+  const { stats } = useAdminStatsViewModel();
+  // Staff (agency-affiliated, non-admin agents) live on this page rather
+  // than Agents — they're staff *of* an agency, and their account needs no
+  // independent verification of its own (the agency's own review already
+  // covers them). See useAdminAgentsViewModel::agents for the shape.
+  const { agents, grantCredits } = useAdminAgentsViewModel();
+  const staffAgents = useMemo(() => agents.filter((a) => a.agency && !a.isAgencyAdmin), [agents]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Agency | null>(null);
+  const [docsModalAgency, setDocsModalAgency] = useState<Agency | null>(null);
+  const [creditsModalAgent, setCreditsModalAgent] = useState<AgentOverview | null>(null);
+  const [creditType, setCreditType] = useState<AgentCreditType>('listing_quota');
+  const [creditTotal, setCreditTotal] = useState('');
   const [form, setForm] = useState<CreateAgencyInput>(EMPTY_FORM);
-  const [activeTab, setActiveTab] = useState<'all' | Agency['verificationStatus']>('all');
-  const [search, setSearch] = useState('');
   // Deferred-upload pattern (same as the blog cover image editor): a
   // brand-new agency has no id to upload documents against yet, so files
   // picked while creating are held here and only actually uploaded once
@@ -76,24 +116,99 @@ export default function AgenciesPage() {
   const [pendingDocs, setPendingDocs] = useState<Partial<Record<OnboardingDocumentType, File>>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  const counts = useMemo(
-    () => ({
-      total: agencies.length,
-      verified: agencies.filter((a) => a.verificationStatus === 'verified').length,
-      pending: agencies.filter((a) => a.verificationStatus === 'pending').length,
-      rejected: agencies.filter((a) => a.verificationStatus === 'rejected').length,
-    }),
-    [agencies],
-  );
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const byStatus = stats?.agenciesByVerificationStatus ?? {};
+  const counts = {
+    total,
+    verified: byStatus.verified ?? 0,
+    pending: byStatus.pending ?? 0,
+    rejected: byStatus.rejected ?? 0,
+    staff: staffAgents.length,
+  };
 
-  const visibleAgencies = useMemo(() => {
+  function handleTabChange(next: AgencyTab) {
+    setActiveTab(next);
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
+  const visibleStaff = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return agencies.filter((a) => {
-      const matchesTab = activeTab === 'all' || a.verificationStatus === activeTab;
-      const matchesSearch = !q || a.name.toLowerCase().includes(q) || (a.city ?? '').toLowerCase().includes(q);
-      return matchesTab && matchesSearch;
-    });
-  }, [agencies, activeTab, search]);
+    return staffAgents.filter(
+      (a) =>
+        !q ||
+        (a.displayName ?? '').toLowerCase().includes(q) ||
+        (a.city ?? '').toLowerCase().includes(q) ||
+        (a.agency?.name ?? '').toLowerCase().includes(q),
+    );
+  }, [staffAgents, search]);
+
+  function handleGrantCredits() {
+    if (!creditsModalAgent) return;
+    grantCredits.mutate(
+      { agentId: creditsModalAgent.id, input: { creditType, total: creditTotal ? Number(creditTotal) : undefined } },
+      {
+        onSuccess: () => {
+          toast.success('Credits updated.');
+          setCreditsModalAgent(null);
+          setCreditTotal('');
+        },
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
+  }
+
+  const staffColumns: TableColumn<AgentOverview>[] = [
+    {
+      key: 'agent',
+      header: 'Staff member',
+      render: (agent) => (
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            {agent.displayName ? initials(agent.displayName) : <User className="h-4 w-4" />}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{agent.displayName ?? 'Unnamed agent'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'agency',
+      header: 'Agency',
+      render: (agent) => (
+        <span className="flex items-center gap-1.5 truncate text-sm text-foreground">
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {agent.agency?.name ?? '—'}
+        </span>
+      ),
+    },
+    { key: 'city', header: 'City', render: (agent) => agent.city ?? '—' },
+    { key: 'phone', header: 'Phone', render: (agent) => agent.phone ?? '—' },
+    { key: 'plan', header: 'Plan', render: (agent) => agent.subscription?.tierName ?? 'No active plan' },
+    {
+      key: 'listings',
+      header: 'Listings',
+      render: (agent) => `${agent.listingCounts.verified} / ${agent.listingCounts.total} verified`,
+    },
+    {
+      key: 'actions',
+      header: '',
+      className: 'text-right',
+      render: (agent) => (
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => setCreditsModalAgent(agent)}>
+            <CreditCard className="mr-1 h-3.5 w-3.5" />
+            Credits
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   function openCreate() {
     setEditing(null);
@@ -203,13 +318,13 @@ export default function AgenciesPage() {
       <Reveal>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
-            {STATUS_TABS.map((tab) => {
+            {[...STATUS_TABS, { id: 'staff' as const, label: 'Agency Staff' }].map((tab) => {
               const count = tab.id === 'all' ? counts.total : counts[tab.id as keyof typeof counts];
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     'relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                     activeTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
@@ -234,21 +349,35 @@ export default function AgenciesPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or city…"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder={isStaffTab ? 'Search by name, city, or agency…' : 'Search by name or city…'}
               className="pl-9"
             />
           </div>
         </div>
       </Reveal>
 
-      {isLoading ? (
+      {isStaffTab ? (
+        <Reveal>
+          <Table
+            columns={staffColumns}
+            rows={visibleStaff}
+            rowKey={(agent) => agent.id}
+            isLoading={isLoading}
+            emptyMessage={
+              search
+                ? 'No staff match your search.'
+                : 'No agency staff yet — added via an agency admin’s Agency Staff screen.'
+            }
+          />
+        </Reveal>
+      ) : isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-40 animate-pulse rounded-xl border border-border bg-muted/40" />
           ))}
         </div>
-      ) : visibleAgencies.length === 0 ? (
+      ) : agencies.length === 0 ? (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
             <Building2 className="mb-3 h-10 w-10 text-muted-foreground/50" />
@@ -260,7 +389,7 @@ export default function AgenciesPage() {
         </Reveal>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleAgencies.map((agency, index) => (
+          {agencies.map((agency, index) => (
             <motion.li
               key={agency.id}
               initial={{ opacity: 0, y: 12 }}
@@ -324,6 +453,10 @@ export default function AgenciesPage() {
                     <Pencil className="mr-1 h-3.5 w-3.5" />
                     Edit
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => setDocsModalAgency(agency)}>
+                    <FileCheck2 className="mr-1 h-3.5 w-3.5" />
+                    Documents
+                  </Button>
                   <Button size="sm" variant="outline" className="ml-auto text-destructive" onClick={() => handleDelete(agency.id, agency.name)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -333,6 +466,8 @@ export default function AgenciesPage() {
           ))}
         </ul>
       )}
+
+      {!isStaffTab && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Agency' : 'New Agency'}>
         <div className="space-y-4">
@@ -394,6 +529,42 @@ export default function AgenciesPage() {
           />
         </div>
       </Modal>
+
+      {/* Standalone "Documents" button/modal — a direct one-click path to
+          View/download an agency's verification documents, instead of
+          having to open Edit and scroll past the whole agency-details form
+          just to reach the Verification Documents section at the bottom. */}
+      <Modal open={!!docsModalAgency} onClose={() => setDocsModalAgency(null)} title={`Documents — ${docsModalAgency?.name ?? ''}`}>
+        {docsModalAgency && (
+          <AgencyDocumentsSection agencyId={docsModalAgency.id} pendingDocs={{}} onPendingFileChange={() => {}} bordered={false} />
+        )}
+      </Modal>
+
+      <Modal
+        open={!!creditsModalAgent}
+        onClose={() => setCreditsModalAgent(null)}
+        title={`Grant Credits — ${creditsModalAgent?.displayName ?? ''}`}
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Credit type</Label>
+            <Select value={creditType} onChange={(e) => setCreditType(e.target.value as AgentCreditType)}>
+              {CREDIT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type.replace('_', ' ')}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Total</Label>
+            <Input type="number" value={creditTotal} onChange={(e) => setCreditTotal(e.target.value)} />
+          </div>
+          <Button onClick={handleGrantCredits} disabled={grantCredits.isPending} className="w-full">
+            {grantCredits.isPending ? 'Saving…' : 'Grant'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -433,10 +604,14 @@ function AgencyDocumentsSection({
   agencyId,
   pendingDocs,
   onPendingFileChange,
+  bordered = true,
 }: {
   agencyId?: string;
   pendingDocs: Partial<Record<OnboardingDocumentType, File>>;
   onPendingFileChange: (type: OnboardingDocumentType, file: File) => void;
+  /** false when standing alone in its own modal (the Documents button)
+   * rather than tacked onto the bottom of the Edit Agency form. */
+  bordered?: boolean;
 }) {
   const queryClient = useQueryClient();
   const queryKey = ['admin', 'agencies', agencyId, 'documents'];
@@ -447,10 +622,13 @@ function AgencyDocumentsSection({
     enabled: !!agencyId,
   });
 
-  const uploadedTypes = new Set((documents ?? []).map((d) => d.documentType));
+  // `url` is a signed URL good for 1 hour (agencies.repository.ts::
+  // listDocuments re-signs it fresh on every call) — keyed by documentType
+  // so a re-uploaded doc's row always links to the latest file.
+  const docByType = new Map((documents ?? []).map((d) => [d.documentType, d]));
 
   return (
-    <div className="space-y-3 border-t border-border pt-4">
+    <div className={cn('space-y-3', bordered && 'border-t border-border pt-4')}>
       <h3 className="flex items-center gap-1.5 text-sm font-medium">
         <FileCheck2 className="h-4 w-4 text-muted-foreground" />
         Verification Documents
@@ -465,7 +643,7 @@ function AgencyDocumentsSection({
             agencyId={agencyId}
             documentType={doc.type}
             label={doc.label}
-            uploaded={uploadedTypes.has(doc.type)}
+            document={docByType.get(doc.type)}
             pendingFile={pendingDocs[doc.type]}
             onUploaded={() => queryClient.invalidateQueries({ queryKey })}
             onPendingFileChange={onPendingFileChange}
@@ -480,7 +658,7 @@ function AgencyDocumentRow({
   agencyId,
   documentType,
   label,
-  uploaded,
+  document,
   pendingFile,
   onUploaded,
   onPendingFileChange,
@@ -488,11 +666,12 @@ function AgencyDocumentRow({
   agencyId?: string;
   documentType: OnboardingDocumentType;
   label: string;
-  uploaded: boolean;
+  document: OnboardingDocument | undefined;
   pendingFile: File | undefined;
   onUploaded: () => void;
   onPendingFileChange: (type: OnboardingDocumentType, file: File) => void;
 }) {
+  const uploaded = !!document;
   const [isUploading, setIsUploading] = useState(false);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -521,7 +700,7 @@ function AgencyDocumentRow({
   const actionLabel = isUploading ? 'Uploading…' : pendingFile ? 'Change' : isDone ? 'Replace' : 'Upload';
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-2">
       <span className="flex items-center gap-1.5 text-sm">
         {label}
         {uploaded && (
@@ -532,11 +711,24 @@ function AgencyDocumentRow({
         )}
         {!uploaded && pendingFile && <span className="text-xs text-muted-foreground">Uploads when you save</span>}
       </span>
-      <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-        <UploadCloud className="h-3.5 w-3.5" />
-        {actionLabel}
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleFileChange} />
-      </label>
+      <div className="flex shrink-0 items-center gap-2">
+        {document && (
+          <a
+            href={document.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
+          >
+            <Download className="h-3.5 w-3.5" />
+            View
+          </a>
+        )}
+        <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
+          <UploadCloud className="h-3.5 w-3.5" />
+          {actionLabel}
+          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleFileChange} />
+        </label>
+      </div>
     </div>
   );
 }

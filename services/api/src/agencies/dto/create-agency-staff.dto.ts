@@ -15,4 +15,10 @@ export class CreateAgencyStaffDto {
   @IsOptional()
   @IsString()
   displayName?: string;
+
+  // Returned by POST /agents/photo/upload, uploaded before this call since
+  // there's no agent id yet to attach a photo to directly.
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
 }

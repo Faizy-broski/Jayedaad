@@ -22,13 +22,40 @@ const VIEW_DETAIL_LABEL: Record<string, string> = {
   full_timeseries: 'Full view history over time',
 };
 
-// Replaces the "Prop Shop" nav item — this app has no payment/billing
-// integration anywhere, so "Upgrade" here is a real, immediate tier change
-// (services/api's subscriptions.repository.ts::assign upsert), not a
-// checkout flow. Flagged in the UI below, not silently presented as billing.
+// Replaces the "Prop Shop" nav item. Free tiers (price 0) still change
+// instantly with no payment (services/api's subscriptions.repository.ts's
+// assign() upsert) — paid tiers now go through a real Stripe Checkout
+// session (services/api's subscriptions.controller.ts's checkout route).
 export default function PlanPage() {
-  const { current, isCurrentLoading, tiers, isTiersLoading, usage, selectTier } = useSubscriptionViewModel();
+  const {
+    current,
+    isCurrentLoading,
+    tiers,
+    isTiersLoading,
+    usage,
+    selectTier,
+    checkoutTier,
+    cancelSubscription,
+    openBillingPortal,
+  } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
+
+  function handleCancel() {
+    if (!confirm('Cancel your subscription? You’ll keep access until the end of the current billing period.')) return;
+    cancelSubscription.mutate(undefined, {
+      onSuccess: () => toast.success('Subscription will cancel at the end of the current period.'),
+      onError: () => toast.error('Something went wrong — please try again.'),
+    });
+  }
+
+  function handleManageBilling() {
+    openBillingPortal.mutate(undefined, {
+      onSuccess: (result) => {
+        window.location.href = result.url;
+      },
+      onError: () => toast.error('No billing account yet — subscribe to a paid plan first.'),
+    });
+  }
 
   const usagePct = usage && usage.quota > 0 ? Math.min(100, (usage.used / usage.quota) * 100) : 0;
 
@@ -38,8 +65,7 @@ export default function PlanPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Plan</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            No payment processing is wired up in this app — selecting a plan below changes it immediately, it isn&apos;t
-            a real purchase.
+            Free plans switch instantly. Paid plans go through a secure Stripe checkout.
           </p>
         </div>
       </Reveal>
@@ -74,8 +100,31 @@ export default function PlanPage() {
                   </span>
                   {current.currentPeriodEnd && (
                     <p className="mt-1.5">
-                      Renews {new Date(current.currentPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {current.cancelAtPeriodEnd ? 'Cancels' : 'Renews'}{' '}
+                      {new Date(current.currentPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
+                  )}
+                  {current.tier.price > 0 && (
+                    <div className="mt-2 flex flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleManageBilling}
+                        disabled={openBillingPortal.isPending}
+                        className="text-primary-foreground underline underline-offset-2 hover:opacity-80"
+                      >
+                        Manage billing
+                      </button>
+                      {!current.cancelAtPeriodEnd && (
+                        <button
+                          type="button"
+                          onClick={handleCancel}
+                          disabled={cancelSubscription.isPending}
+                          className="text-primary-foreground/70 underline underline-offset-2 hover:opacity-80"
+                        >
+                          Cancel subscription
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -142,6 +191,10 @@ export default function PlanPage() {
                 `${tier.listingQuota.toLocaleString()} listing quota`,
                 entitlements?.analyticsDepth && `${capitalize(entitlements.analyticsDepth)} analytics`,
                 entitlements?.viewCountDetail && VIEW_DETAIL_LABEL[entitlements.viewCountDetail],
+                tier.hotCreditsPerPeriod > 0 && `${tier.hotCreditsPerPeriod} Hot boost${tier.hotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
+                tier.superHotCreditsPerPeriod > 0 &&
+                  `${tier.superHotCreditsPerPeriod} Super Hot boost${tier.superHotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
+                tier.listingDurationDays != null ? `Listings live for ${tier.listingDurationDays} days` : 'Listings never expire',
               ].filter((f): f is string => !!f);
 
               return (
@@ -189,18 +242,34 @@ export default function PlanPage() {
 
                     <Button
                       variant={isCurrent ? 'secondary' : 'primary'}
-                      disabled={isCurrent || selectTier.isPending}
-                      onClick={() =>
-                        selectTier.mutate(
-                          { tierId: tier.id },
-                          {
-                            onSuccess: () => toast.success(`Switched to ${tier.name}.`),
-                            onError: () => toast.error('Something went wrong — please try again.'),
-                          },
-                        )
-                      }
+                      disabled={isCurrent || selectTier.isPending || checkoutTier.isPending}
+                      onClick={() => {
+                        if (Number(tier.price) > 0) {
+                          checkoutTier.mutate(tier.id, {
+                            onSuccess: (result) => {
+                              if (result.url) window.location.href = result.url;
+                              else toast.error('Checkout is not available for this plan yet — contact support.');
+                            },
+                            onError: () => toast.error('Could not start checkout — please try again.'),
+                          });
+                        } else {
+                          selectTier.mutate(
+                            { tierId: tier.id },
+                            {
+                              onSuccess: () => toast.success(`Switched to ${tier.name}.`),
+                              onError: () => toast.error('Something went wrong — please try again.'),
+                            },
+                          );
+                        }
+                      }}
                     >
-                      {isCurrent ? 'Current Plan' : selectTier.isPending ? 'Switching…' : 'Select Plan'}
+                      {isCurrent
+                        ? 'Current Plan'
+                        : selectTier.isPending || checkoutTier.isPending
+                          ? 'Please wait…'
+                          : Number(tier.price) > 0
+                            ? 'Upgrade with Stripe'
+                            : 'Select Plan'}
                     </Button>
                   </Card>
                 </motion.div>

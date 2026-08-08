@@ -36,6 +36,7 @@ export function ListingsBrowserSection({ purpose, basePath = '/listings' }: List
     ...DEFAULT_LISTING_FILTERS,
     categorySlug: propertyTypeCategory,
     city,
+    area: searchParams.get('area') ?? '',
     propertyTypeSlugs: searchParams.get('propertyTypeSlug') ? [searchParams.get('propertyTypeSlug')!] : [],
     minPrice: searchParams.get('minPrice') ?? '',
     maxPrice: searchParams.get('maxPrice') ?? '',

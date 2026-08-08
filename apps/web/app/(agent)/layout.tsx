@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
 // sidebar + topbar, matches every other route group's convention of one
@@ -268,6 +269,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   );
 
   return (
+    <RequireEmailVerified>
     <div className="flex min-h-screen bg-muted/30">
       <AnimatePresence>
         {mobileOpen && (
@@ -362,22 +364,36 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           {/* Persistent re-entry point for required onboarding documents
               (Owner ID + Company Registration) — become-an-agent/page.tsx's
               DocumentUploadStep otherwise only ever appears once, right
-              after fresh signup/registration, so an agency admin who
+              after fresh signup/registration, so an agent (agency admin OR
+              independent, profile.agency is null in that case) who
               navigated away before finishing it would have no way back in.
-              Mirrors AuthGateProvider's needsAgencyDocuments condition on
-              mobile's SideDrawer. */}
-          {profile?.agency && profile.agency.verificationStatus !== 'verified' && (
+              Previously only the agency branch was checked here, so an
+              independent agent blocked by "Cannot verify agent — missing
+              required documents" (setVerificationStatus's non-agency
+              branch) had no visible way back to the upload page. Mirrors
+              AuthGateProvider's needsAgencyDocuments condition on mobile's
+              SideDrawer. */}
+          {profile && (profile.agency ? profile.agency.verificationStatus !== 'verified' : profile.verificationStatus !== 'verified') && (
             <Link
               href="/become-an-agent"
-              className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
+              className="group mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
             >
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              Your agency verification is incomplete — upload the required documents to continue.
+              <span className="flex-1">
+                {profile.agency
+                  ? 'Your agency verification is incomplete — upload the required documents to continue.'
+                  : 'Your verification is incomplete — upload the required documents to continue.'}
+              </span>
+              <span className="flex shrink-0 items-center gap-0.5 font-semibold underline underline-offset-2">
+                Complete verification
+                <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
             </Link>
           )}
           {children}
         </main>
       </div>
     </div>
+    </RequireEmailVerified>
   );
 }

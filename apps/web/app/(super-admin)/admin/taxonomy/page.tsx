@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Amenity, AmenityCategory, AmenityValueType, PropertyType, PropertyTypeCategory, useTaxonomyManagementViewModel } from '@jayedaad/core';
-import { Button, cn, Input, Label, Modal, Select } from '@jayedaad/ui-web';
+import { Button, cn, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
 import { Home, Layers, ListTree, Pencil, PlusCircle, Search, Sparkles, Trash2 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+
+const PAGE_SIZE = 20;
 
 const AMENITY_CATEGORIES: AmenityCategory[] = [
   'main_features',
@@ -28,13 +30,26 @@ type Tab = 'categories' | 'types' | 'amenities';
 // plain <Tabs>, and animated card grids instead of tables. Counts are real,
 // derived from the already-fetched category/type/amenity lists.
 export default function TaxonomyPage() {
-  const vm = useTaxonomyManagementViewModel();
   const [tab, setTab] = useState<Tab>('categories');
+  const [typesSearch, setTypesSearch] = useState('');
+  const [typesPage, setTypesPage] = useState(1);
+  const [amenitiesSearch, setAmenitiesSearch] = useState('');
+  const [amenitiesPage, setAmenitiesPage] = useState(1);
+
+  // Categories stay unpaginated — a tiny, bounded admin-managed set (also
+  // used to populate the Property Types form's Category dropdown, which
+  // must never be truncated to one page). Property Types and Amenities are
+  // the two lists that can realistically grow large enough to need real
+  // server-side search + pagination.
+  const vm = useTaxonomyManagementViewModel({
+    propertyTypes: { search: typesSearch.trim() || undefined, page: typesPage, pageSize: PAGE_SIZE },
+    amenities: { search: amenitiesSearch.trim() || undefined, page: amenitiesPage, pageSize: PAGE_SIZE },
+  });
 
   const TABS: { id: Tab; label: string; count: number }[] = [
-    { id: 'categories', label: 'Categories', count: vm.categories.length },
-    { id: 'types', label: 'Property Types', count: vm.propertyTypes.length },
-    { id: 'amenities', label: 'Amenities', count: vm.amenities.length },
+    { id: 'categories', label: 'Categories', count: vm.categoriesTotal },
+    { id: 'types', label: 'Property Types', count: vm.propertyTypesTotal },
+    { id: 'amenities', label: 'Amenities', count: vm.amenitiesTotal },
   ];
 
   return (
@@ -57,9 +72,9 @@ export default function TaxonomyPage() {
           [0, 1, 2].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Layers} label="Categories" value={vm.categories.length} sub="Property groupings" />
-            <StatTile index={1} icon={Home} label="Property Types" value={vm.propertyTypes.length} sub="Across all categories" />
-            <StatTile index={2} icon={Sparkles} label="Amenities" value={vm.amenities.length} sub="Across all categories" />
+            <StatTile index={0} icon={Layers} label="Categories" value={vm.categoriesTotal} sub="Property groupings" />
+            <StatTile index={1} icon={Home} label="Property Types" value={vm.propertyTypesTotal} sub="Across all categories" />
+            <StatTile index={2} icon={Sparkles} label="Amenities" value={vm.amenitiesTotal} sub="Across all categories" />
           </>
         )}
       </div>
@@ -92,8 +107,12 @@ export default function TaxonomyPage() {
       </Reveal>
 
       {tab === 'categories' && <CategoriesTab vm={vm} />}
-      {tab === 'types' && <TypesTab vm={vm} />}
-      {tab === 'amenities' && <AmenitiesTab vm={vm} />}
+      {tab === 'types' && (
+        <TypesTab vm={vm} search={typesSearch} onSearchChange={setTypesSearch} page={typesPage} onPageChange={setTypesPage} />
+      )}
+      {tab === 'amenities' && (
+        <AmenitiesTab vm={vm} search={amenitiesSearch} onSearchChange={setAmenitiesSearch} page={amenitiesPage} onPageChange={setAmenitiesPage} />
+      )}
     </div>
   );
 }
@@ -282,10 +301,28 @@ function CategoriesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementView
   );
 }
 
-function TypesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewModel> }) {
+function TypesTab({
+  vm,
+  search,
+  onSearchChange,
+  page,
+  onPageChange,
+}: {
+  vm: ReturnType<typeof useTaxonomyManagementViewModel>;
+  search: string;
+  onSearchChange: (value: string) => void;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PropertyType | null>(null);
   const [form, setForm] = useState({ slug: '', label: '', categoryId: '' });
+  const totalPages = Math.max(1, Math.ceil(vm.propertyTypesTotal / PAGE_SIZE));
+
+  function handleSearchChange(value: string) {
+    onSearchChange(value);
+    onPageChange(1);
+  }
 
   function openCreate() {
     setEditing(null);
@@ -320,7 +357,11 @@ function TypesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewModel
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Search property types…" className="pl-9" />
+        </div>
         <button
           type="button"
           onClick={openCreate}
@@ -338,7 +379,7 @@ function TypesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewModel
           ))}
         </div>
       ) : vm.propertyTypes.length === 0 ? (
-        <EmptyState icon={Home} label="No property types yet." />
+        <EmptyState icon={Home} label={search ? 'No property types match your search.' : 'No property types yet.'} />
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence initial={false}>
@@ -363,6 +404,8 @@ function TypesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewModel
           </AnimatePresence>
         </ul>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Property Type' : 'New Property Type'}>
         <div className="space-y-4">
@@ -393,22 +436,33 @@ function TypesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewModel
   );
 }
 
-function AmenitiesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewModel> }) {
+function AmenitiesTab({
+  vm,
+  search,
+  onSearchChange,
+  page,
+  onPageChange,
+}: {
+  vm: ReturnType<typeof useTaxonomyManagementViewModel>;
+  search: string;
+  onSearchChange: (value: string) => void;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Amenity | null>(null);
-  const [search, setSearch] = useState('');
   const [form, setForm] = useState<{ slug: string; label: string; category: AmenityCategory; valueType: AmenityValueType }>({
     slug: '',
     label: '',
     category: 'main_features',
     valueType: 'boolean',
   });
+  const totalPages = Math.max(1, Math.ceil(vm.amenitiesTotal / PAGE_SIZE));
 
-  const visibleAmenities = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return vm.amenities;
-    return vm.amenities.filter((a) => a.label.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
-  }, [vm.amenities, search]);
+  function handleSearchChange(value: string) {
+    onSearchChange(value);
+    onPageChange(1);
+  }
 
   function openCreate() {
     setEditing(null);
@@ -445,7 +499,7 @@ function AmenitiesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewM
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search amenities…" className="pl-9" />
+          <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Search amenities…" className="pl-9" />
         </div>
         <button
           type="button"
@@ -463,12 +517,12 @@ function AmenitiesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewM
             <div key={i} className="h-32 animate-pulse rounded-xl border border-border bg-muted/40" />
           ))}
         </div>
-      ) : visibleAmenities.length === 0 ? (
+      ) : vm.amenities.length === 0 ? (
         <EmptyState icon={Sparkles} label={search ? 'No amenities match your search.' : 'No amenities yet.'} />
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence initial={false}>
-            {visibleAmenities.map((a, index) => (
+            {vm.amenities.map((a, index) => (
               <motion.li
                 key={a.id}
                 layout
@@ -492,6 +546,8 @@ function AmenitiesTab({ vm }: { vm: ReturnType<typeof useTaxonomyManagementViewM
           </AnimatePresence>
         </ul>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Amenity' : 'New Amenity'}>
         <div className="space-y-4">

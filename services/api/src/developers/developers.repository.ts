@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateDeveloperDto } from './dto/create-developer.dto';
 import { UpdateDeveloperDto } from './dto/update-developer.dto';
+import { paginate, PaginationParams, resolvePagination, sanitizeKeyword } from '../common/pagination';
 
 const DEVELOPER_COLUMNS = 'id, name, slug, logo_url, description, phone, whatsapp, city';
 
@@ -14,14 +15,37 @@ const DEVELOPER_COLUMNS = 'id, name, slug, logo_url, description, phone, whatsap
 export class DevelopersRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async list(filters: { city?: string } = {}) {
-    let query = this.supabase.client.from('developers').select(DEVELOPER_COLUMNS).order('name', { ascending: true });
+  // Dual-mode: called with no page/pageSize, returns the full unpaginated
+  // array exactly as before — needed by every caller that uses this as
+  // unbounded reference data (ProjectForm's/ProjectsFilters'/
+  // PropertySearchBar's developer dropdowns). Called with page and/or
+  // pageSize, it paginates and returns { items, total, page, pageSize } for
+  // the Developers admin table. See services/api/src/common/pagination.ts
+  // and admin.repository.ts::listAgentsOverview for the same pattern.
+  async list(filters: PaginationParams & { city?: string; search?: string } = {}) {
+    const paginated = filters.page != null || filters.pageSize != null;
+
+    let query = this.supabase.client
+      .from('developers')
+      .select(DEVELOPER_COLUMNS, paginated ? { count: 'exact' } : undefined)
+      .order('name', { ascending: true });
 
     if (filters.city) query = query.eq('city', filters.city);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    }
+
+    const pagination = resolvePagination(filters);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`name.ilike.%${term}%,city.ilike.%${term}%`);
+    }
+    query = query.range(pagination.from, pagination.to);
+
+    return paginate(query, pagination);
   }
 
   // Project count computed at query time — same "compute, never store"

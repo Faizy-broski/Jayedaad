@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { BadgeCheck, CalendarCheck, PhoneCall, MessageCircle, Mail } from 'lucide-react';
+import { Badge } from '@jayedaad/ui-web';
 import type { ListingProperty } from '@/lib/types';
 
 interface AgentCardProps {
@@ -19,9 +20,12 @@ export function AgentCard({ agent }: AgentCardProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-        <BadgeCheck className="h-3.5 w-3.5" />
-        Verified agent
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+          <BadgeCheck className="h-3.5 w-3.5" />
+          Verified agent
+        </div>
+        {agent.subscriptionTierName && <Badge variant="success">{agent.subscriptionTierName}</Badge>}
       </div>
 
       <div className="flex flex-col gap-2">

@@ -1,10 +1,18 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
+import { BoostListingDto } from './dto/boost-listing.dto';
 import { Role } from '../common/types';
 import { DocumentsService } from '../documents/documents.service';
+import { EntitlementsService } from '../subscriptions/entitlements.service';
+import { PaginationParams, resolvePagination, sanitizeKeyword } from '../common/pagination';
+
+// A spent Hot/Super Hot credit boosts a listing for this long before
+// PlanLifecycleService's cron reverts it to 'basic' — one billing cycle,
+// matching the "N credits per month" allotment model.
+const BOOST_DURATION_DAYS = 30;
 
 export type ListingDocumentType = 'id_card_front' | 'id_card_back' | 'ownership_proof' | 'utility_bill';
 
@@ -21,6 +29,14 @@ export const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownershi
 // range — a rich filter set that didn't exist at all for "my listings" before.
 export interface MyListingsFilters {
   status?: 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive';
+  // Super Admin's Listings page splits into an "Owner / Agent" tab (no
+  // agent, or an independent agent with no agency — carries its own
+  // ownership/utility-bill documents) vs "Agency" (an agency-affiliated
+  // agent's listings, covered by the agency's own documents instead — see
+  // AgentsPage's document-completeness exemption for the same split).
+  // Filtered server-side (not client-side over one page) so pagination and
+  // totals stay correct at real scale.
+  source?: 'owner_agent' | 'agency';
   // A category slug — property_type_categories is Super Admin-managed data
   // now, not a fixed enum, so this is deliberately `string`, not a union.
   propertyTypeCategory?: string;
@@ -70,6 +86,10 @@ export interface ListingSearchFilters {
   sortBy?: 'relevance' | 'newest' | 'price_asc' | 'price_desc';
   page?: number;
   pageSize?: number;
+  // Internal-only — not exposed on the public GET /listings query string.
+  // Used by SavedSearchAlertsService to find listings created since a saved
+  // search's last notification, same pattern as findMine()'s listedDateFrom.
+  createdAfter?: string;
 }
 
 export interface PaginatedListings {
@@ -78,9 +98,6 @@ export interface PaginatedListings {
   page: number;
   pageSize: number;
 }
-
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 50;
 
 function applySort(query: any, sortBy: ListingSearchFilters['sortBy']) {
   switch (sortBy) {
@@ -99,17 +116,10 @@ function applySort(query: any, sortBy: ListingSearchFilters['sortBy']) {
   }
 }
 
-// PostgREST's .or() filter string is itself a small DSL — strip characters
-// that are syntactically significant in it (or in ILIKE patterns) rather
-// than interpolate a raw user string into the filter.
-function sanitizeKeyword(keyword: string): string {
-  return keyword.replace(/[,()%]/g, ' ').trim();
-}
-
 const PUBLIC_LISTING_COLUMNS = `
   id, listing_number, title, description, price, purpose, city, area, society, sub_area,
   latitude, longitude, bedrooms, bathrooms, kitchens, floors, area_value,
-  area_unit, year_built, floor_level, furnishing_status, boost_tier,
+  area_unit, year_built, floor_level, furnishing_status, boost_tier, boost_expires_at, expires_at,
   installment_available, ready_for_possession,
   advance_amount, number_of_installments, monthly_installment,
   balloon_payment_available, balloon_payment_amount,
@@ -138,19 +148,14 @@ export class ListingsRepository {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly documents: DocumentsService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // requesterId (if the caller is authenticated) is attached to the
   // search_queries log row — [Reqs §4.2] "most-searched user queries", a
   // table that has existed since the first migration with nothing writing to it.
   async findPublic(filters: ListingSearchFilters = {}, requesterId?: string): Promise<PaginatedListings> {
-    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
-    const pageSize = Math.min(
-      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
-      MAX_PAGE_SIZE,
-    );
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const { page, pageSize, from, to } = resolvePagination(filters);
 
     // Existence-filter pre-lookups. Done as separate queries (not an
     // embedded !inner filter) so they don't distort the `media`/agent
@@ -215,6 +220,7 @@ export class ListingsRepository {
     if (filters.minPrice) query = query.gte('price', filters.minPrice);
     if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
     if (filters.furnishingStatus) query = query.eq('furnishing_status', filters.furnishingStatus);
+    if (filters.createdAfter) query = query.gte('created_at', filters.createdAfter);
     if (filters.keyword) {
       const term = sanitizeKeyword(filters.keyword);
       if (term) query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
@@ -297,6 +303,18 @@ export class ListingsRepository {
     // copy of getRequiredMediaCategories), just never block. Previously a
     // BadRequestException here mirrored the Document Verification Phase 4
     // spec's "mandatory photos" requirement.
+
+    // Real quota enforcement — EntitlementsService.canCreateListing()
+    // existed but was dead code before this pass (only GET
+    // /subscriptions/usage ever called the read side of it). Only
+    // agent-submitted listings are subscription-gated; an owner submitting
+    // their own property has no plan to check against.
+    if (input.agentId) {
+      const allowed = await this.entitlements.canCreateListing(input.agentId);
+      if (!allowed) {
+        throw new ForbiddenException('Listing quota reached for your current plan — upgrade or free up a slot.');
+      }
+    }
 
     const { data: listing, error } = await this.supabase.client
       .from('listings')
@@ -637,13 +655,7 @@ export class ListingsRepository {
   // owner_id, agents by agent_id, super_admin bypasses scoping entirely
   // [Spec §5] — same discipline as LeadsRepository.list.
   async findMine(scope: MyListingsScope, filters: MyListingsFilters = {}): Promise<PaginatedListings> {
-    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
-    const pageSize = Math.min(
-      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
-      MAX_PAGE_SIZE,
-    );
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const { page, pageSize, from, to } = resolvePagination(filters);
 
     // Category is now a managed table (property_type_categories), joined two
     // levels deep from listings (listings -> property_types ->
@@ -671,6 +683,25 @@ export class ListingsRepository {
       if (categoryPropertyTypeIds.length === 0) return { items: [], total: 0, page, pageSize };
     }
 
+    // Same pre-lookup pattern as categoryPropertyTypeIds above — PostgREST's
+    // embedded-filter dot-path (listings -> agents -> agency_id) can't
+    // express "agent has no agency OR there's no agent at all" as a single
+    // .or() across a join, so resolve agency-affiliated agent ids first and
+    // filter listings.agent_id against that set instead.
+    let agencyAgentIds: string[] | undefined;
+    if (filters.source) {
+      const { data: agencyAgentRows, error: agentError } = await this.supabase.client
+        .from('agent_profiles')
+        .select('id')
+        .not('agency_id', 'is', null);
+      if (agentError) throw agentError;
+      agencyAgentIds = (agencyAgentRows ?? []).map((r: any) => r.id);
+
+      if (filters.source === 'agency' && agencyAgentIds.length === 0) {
+        return { items: [], total: 0, page, pageSize };
+      }
+    }
+
     let query = this.supabase.client.from('listings').select(PUBLIC_LISTING_COLUMNS, { count: 'exact' });
 
     if (scope.role === 'owner') {
@@ -679,6 +710,16 @@ export class ListingsRepository {
       query = query.eq('agent_id', scope.agentId);
     }
     // super_admin: no scoping filter — bypasses per [Spec §5]/[Dev Instr §2.1].
+
+    if (filters.source === 'agency') {
+      query = query.in('agent_id', agencyAgentIds!);
+    } else if (filters.source === 'owner_agent' && agencyAgentIds!.length > 0) {
+      // Owner-listed (agent_id is null) OR an independent agent (agent_id
+      // set but not one of the agency-affiliated ones). When no
+      // agency-affiliated agents exist at all, every listing already
+      // qualifies — no filter needed.
+      query = query.or(`agent_id.is.null,agent_id.not.in.(${agencyAgentIds!.join(',')})`);
+    }
 
     if (filters.status) query = query.eq('status', filters.status);
     if (categoryPropertyTypeIds) query = query.in('property_type_id', categoryPropertyTypeIds);
@@ -733,14 +774,28 @@ export class ListingsRepository {
     return counts;
   }
 
-  async findPendingForVerification() {
-    const { data, error } = await this.supabase.client
+  // Backs VerificationRepository.listQueue() — same PUBLIC_LISTING_COLUMNS
+  // + mapPublicListingRow pattern as findPublic() above (media/agent/
+  // amenities/contact numbers all joined and mapped to camelCase), just
+  // filtered to 'pending_verification' instead of 'verified'. Previously
+  // this method existed but was never called (VerificationRepository had
+  // its own bare `select('*')` with no joins/mapping instead), so the
+  // verification queue page only ever had a listing's title to show.
+  async findPendingForVerification(filters: PaginationParams = {}) {
+    const pagination = resolvePagination(filters);
+    const { data, error, count } = await this.supabase.client
       .from('listings')
-      .select('*, property_types (slug, label, property_type_categories (slug, label))')
+      .select(PUBLIC_LISTING_COLUMNS, { count: 'exact' })
       .eq('status', 'pending_verification')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .range(pagination.from, pagination.to);
     if (error) throw error;
-    return data;
+    return {
+      items: (data ?? []).map(mapPublicListingRow),
+      total: count ?? 0,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    };
   }
 
   // Super Admin direct lifecycle control — expired/deleted/downgraded/inactive
@@ -755,6 +810,106 @@ export class ListingsRepository {
     const { data, error } = await this.supabase.client
       .from('listings')
       .update({ status })
+      .eq('id', listingId)
+      .select('*, property_types (slug, label, property_type_categories (slug, label))')
+      .single();
+    if (error) throw error;
+    return mapPublicListingRow(data);
+  }
+
+  // Spends one agent_credits row of the given type (hot/super_hot) to set
+  // boost_tier — the write path listing_boost_tier never had before this
+  // pass (it was permanently stuck at 'basic'). boost_expires_at drives
+  // PlanLifecycleService's cron reverting it back once the window passes,
+  // same "credits per period, not forever" model the tier's
+  // hot_credits_per_period/super_hot_credits_per_period allotment implies.
+  async boost(listingId: string, agentId: string, input: BoostListingDto) {
+    // Server is the real gate, same principle as quota enforcement — the
+    // client (property-management/MyPropertiesScreen) already hides this
+    // action for non-verified listings, but that's UI-only and was
+    // previously the only check (a mobile UI bug briefly let it through);
+    // boosting a listing that isn't live yet shouldn't be possible
+    // regardless of what the client does or doesn't render.
+    const { data: listing, error: listingError } = await this.supabase.client
+      .from('listings')
+      .select('status')
+      .eq('id', listingId)
+      .maybeSingle();
+    if (listingError) throw listingError;
+    if (listing?.status !== 'verified') {
+      throw new BadRequestException('Only verified listings can be boosted.');
+    }
+
+    const { data: credit, error: creditError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total, used')
+      .eq('agent_id', agentId)
+      .eq('credit_type', input.boostTier)
+      .maybeSingle();
+    if (creditError) throw creditError;
+
+    const available = (credit?.total ?? 0) - (credit?.used ?? 0);
+    if (available <= 0) {
+      throw new BadRequestException(`No ${input.boostTier === 'hot' ? 'Hot' : 'Super Hot'} credits available — check your plan's allotment.`);
+    }
+
+    // Compare-and-swap on the exact `used` value just read, not a plain
+    // read-then-write — without the .eq('used', ...) guard, two concurrent
+    // boost requests (double-tap, retry-on-timeout) could both read the
+    // same stale `used`, both pass the availability check above, and both
+    // write used+1, recording only one spent credit for two actual boosts.
+    // If another request won the race, .select() here returns no row —
+    // fail loudly with a clear "try again" rather than silently proceeding
+    // as if the spend succeeded.
+    const { data: spent, error: spendError } = await this.supabase.client
+      .from('agent_credits')
+      .update({ used: (credit?.used ?? 0) + 1 })
+      .eq('agent_id', agentId)
+      .eq('credit_type', input.boostTier)
+      .eq('used', credit?.used ?? 0)
+      .select('used');
+    if (spendError) throw spendError;
+    if (!spent || spent.length === 0) {
+      throw new BadRequestException('That credit was just spent by another request — please try again.');
+    }
+
+    const boostExpiresAt = new Date(Date.now() + BOOST_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase.client
+      .from('listings')
+      .update({ boost_tier: input.boostTier, boost_expires_at: boostExpiresAt })
+      .eq('id', listingId)
+      .select('*, property_types (slug, label, property_type_categories (slug, label))')
+      .single();
+    if (error) throw error;
+    return mapPublicListingRow(data);
+  }
+
+  // Resets an expired listing back to 'verified' with a fresh expiry window
+  // — the alternative to losing all its photos/details/history just because
+  // the plan's listing_duration_days lapsed (PlanLifecycleService's cron).
+  // Reuses EntitlementsService.getEntitlements() for the duration, the same
+  // Lite-fallback-if-no-active-subscription convention
+  // record_verification_action() (0042_listing_expiration.sql) uses for the
+  // initial approval — kept consistent rather than duplicating that
+  // fallback logic in SQL and here differently.
+  async renew(listingId: string, agentId: string) {
+    const { data: existing, error: existingError } = await this.supabase.client
+      .from('listings')
+      .select('status')
+      .eq('id', listingId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing?.status !== 'expired') {
+      throw new BadRequestException('Only expired listings can be renewed.');
+    }
+
+    const { listingDurationDays } = await this.entitlements.getEntitlements(agentId);
+    const expiresAt =
+      listingDurationDays != null ? new Date(Date.now() + listingDurationDays * 24 * 60 * 60 * 1000).toISOString() : null;
+
+    const { data, error } = await this.supabase.client
+      .from('listings')
+      .update({ status: 'verified', expires_at: expiresAt })
       .eq('id', listingId)
       .select('*, property_types (slug, label, property_type_categories (slug, label))')
       .single();
@@ -891,6 +1046,8 @@ function mapPublicListingRow(row: any) {
     floorLevel: row.floor_level,
     furnishingStatus: row.furnishing_status,
     boostTier: row.boost_tier,
+    boostExpiresAt: row.boost_expires_at,
+    expiresAt: row.expires_at,
     installmentAvailable: row.installment_available,
     readyForPossession: row.ready_for_possession,
     advanceAmount: row.advance_amount,

@@ -5,11 +5,9 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAdminBlogViewModel } from '@jayedaad/core';
-import { Badge, Button, Input } from '@jayedaad/ui-web';
+import { Badge, Button, Input, Pagination } from '@jayedaad/ui-web';
 import {
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   FileEdit,
   FolderOpen,
   Newspaper,
@@ -218,21 +216,7 @@ export default function BlogAdminPage() {
             </div>
           </Reveal>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
     </div>

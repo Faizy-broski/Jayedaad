@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatPrice, PAKISTAN_CITIES, useListingSearchViewModel, useTaxonomyViewModel } from '@jayedaad/core';
 import { Button, PickerField, TextInput, theme } from '@jayedaad/ui-native';
 import { AREA_UNITS, BATH_OPTIONS, BED_OPTIONS, DEFAULT_SEARCH_FILTERS, SearchFilterState, toListingSearchFilters } from '../lib/searchFilters';
+import { PlacesAutocompleteInput } from './PlacesAutocompleteInput';
 
 export interface SearchFilterSheetProps {
   visible: boolean;
@@ -127,11 +128,11 @@ export function SearchFilterSheet({ visible, onClose, value, onApply }: SearchFi
             />
           </View>
 
-          <TextInput
+          <PlacesAutocompleteInput
             label="Location"
             placeholder="Search location"
             value={draft.area}
-            onChangeText={(v) => set('area', v)}
+            onChange={(v) => set('area', v)}
           />
 
           <View style={styles.field}>

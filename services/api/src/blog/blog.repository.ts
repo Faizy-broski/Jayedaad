@@ -3,12 +3,10 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { CreateBlogCategoryDto } from './dto/create-blog-category.dto';
+import { paginate, PaginationParams, resolvePagination } from '../common/pagination';
 
 const BLOG_POST_COLUMNS =
   'id, author_id, title, slug, excerpt, content, cover_image_url, read_time, status, published_at, created_at, updated_at, blog_categories (id, name, slug)';
-
-const DEFAULT_ADMIN_PAGE_SIZE = 20;
-const MAX_ADMIN_PAGE_SIZE = 100;
 
 function mapRow(row: any) {
   return {
@@ -63,25 +61,18 @@ export class BlogRepository {
   // Server-side paginated — a platform with thousands of posts can't ship
   // every row to the admin table on every load, same "count: 'exact' +
   // range()" pattern as ListingsRepository.searchPublic.
-  async listAll(filters: { page?: number; pageSize?: number; search?: string } = {}) {
-    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
-    const pageSize = Math.min(
-      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_ADMIN_PAGE_SIZE,
-      MAX_ADMIN_PAGE_SIZE,
-    );
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+  async listAll(filters: PaginationParams & { search?: string } = {}) {
+    const pagination = resolvePagination(filters);
 
     let query = this.supabase.client
       .from('blog_posts')
       .select(BLOG_POST_COLUMNS, { count: 'exact' })
       .order('updated_at', { ascending: false });
     if (filters.search) query = query.ilike('title', `%${filters.search}%`);
-    query = query.range(from, to);
+    query = query.range(pagination.from, pagination.to);
 
-    const { data, error, count } = await query;
-    if (error) throw error;
-    return { items: (data ?? []).map(mapRow), total: count ?? 0, page, pageSize };
+    const page = await paginate(query, pagination);
+    return { ...page, items: page.items.map(mapRow) };
   }
 
   async findById(id: string) {

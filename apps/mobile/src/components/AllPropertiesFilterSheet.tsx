@@ -5,6 +5,7 @@ import { formatPrice, PAKISTAN_CITIES, useListingSearchViewModel, useTaxonomyVie
 import { Button, PickerField, TextInput, theme } from '@jayedaad/ui-native';
 import { AREA_UNITS, BATH_OPTIONS, BED_OPTIONS } from '../lib/searchFilters';
 import { AllPropertiesFilterState, DEFAULT_ALL_PROPERTIES_FILTERS, toAllPropertiesSearchFilters } from '../lib/allPropertiesFilters';
+import { PlacesAutocompleteInput } from './PlacesAutocompleteInput';
 
 export interface AllPropertiesFilterSheetProps {
   visible: boolean;
@@ -97,11 +98,11 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
             />
           </View>
 
-          <TextInput
+          <PlacesAutocompleteInput
             label="Location"
             placeholder="Search location"
             value={draft.area}
-            onChangeText={(v) => set('area', v)}
+            onChange={(v) => set('area', v)}
           />
 
           <View style={styles.field}>

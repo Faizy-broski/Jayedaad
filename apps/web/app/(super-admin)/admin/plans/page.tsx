@@ -14,7 +14,19 @@ import { Button, Input, Label, Modal, Select } from '@jayedaad/ui-web';
 import { ArrowRightLeft, BarChart3, CreditCard, Home, Layers, Pencil, PlusCircle, Sparkles, Trash2, Users } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
-const EMPTY_FORM: CreateSubscriptionTierInput = { name: '', listingQuota: 0, price: 0, analyticsDepth: {} };
+const EMPTY_FORM: CreateSubscriptionTierInput = {
+  name: '',
+  listingQuota: 0,
+  price: 0,
+  analyticsDepth: { analyticsDepth: 'basic', viewCountDetail: 'total_only' },
+  hotCreditsPerPeriod: 0,
+  superHotCreditsPerPeriod: 0,
+  stripePriceId: '',
+  listingDurationDays: null,
+};
+
+const ANALYTICS_DEPTH_OPTIONS = ['basic', 'standard', 'advanced', 'full'] as const;
+const VIEW_COUNT_DETAIL_OPTIONS = ['total_only', 'breakdown_by_source', 'full_timeseries'] as const;
 
 // Real counts (subscriber-per-tier, average price) derived from the fetched
 // tiers/agents lists — same "compute from what's already loaded" approach as
@@ -54,7 +66,16 @@ export default function PlansPage() {
 
   function openEdit(tier: SubscriptionTier) {
     setEditing(tier);
-    setForm({ name: tier.name, listingQuota: tier.listingQuota, price: tier.price, analyticsDepth: tier.analyticsDepth });
+    setForm({
+      name: tier.name,
+      listingQuota: tier.listingQuota,
+      price: tier.price,
+      analyticsDepth: tier.analyticsDepth,
+      hotCreditsPerPeriod: tier.hotCreditsPerPeriod,
+      superHotCreditsPerPeriod: tier.superHotCreditsPerPeriod,
+      stripePriceId: tier.stripePriceId ?? '',
+      listingDurationDays: tier.listingDurationDays,
+    });
     setModalOpen(true);
   }
 
@@ -263,8 +284,82 @@ export default function PlansPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Price</Label>
+            <Label>Price (PKR/mo)</Label>
             <Input type="number" value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: Number(e.target.value) }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Analytics Depth</Label>
+              <Select
+                value={(form.analyticsDepth.analyticsDepth as string) ?? 'basic'}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, analyticsDepth: { ...prev.analyticsDepth, analyticsDepth: e.target.value } }))
+                }
+              >
+                {ANALYTICS_DEPTH_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>View Count Detail</Label>
+              <Select
+                value={(form.analyticsDepth.viewCountDetail as string) ?? 'total_only'}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, analyticsDepth: { ...prev.analyticsDepth, viewCountDetail: e.target.value } }))
+                }
+              >
+                {VIEW_COUNT_DETAIL_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Hot credits / period</Label>
+              <Input
+                type="number"
+                value={form.hotCreditsPerPeriod}
+                onChange={(e) => setForm((prev) => ({ ...prev, hotCreditsPerPeriod: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Super Hot credits / period</Label>
+              <Input
+                type="number"
+                value={form.superHotCreditsPerPeriod}
+                onChange={(e) => setForm((prev) => ({ ...prev, superHotCreditsPerPeriod: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Listing duration (days)</Label>
+            <Input
+              type="number"
+              placeholder="Leave blank for unlimited"
+              value={form.listingDurationDays ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, listingDurationDays: e.target.value === '' ? null : Number(e.target.value) }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              How long a listing stays live on this plan before it auto-expires. Blank means listings never expire.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Stripe Price ID</Label>
+            <Input
+              placeholder="price_... (leave blank for a free plan)"
+              value={form.stripePriceId}
+              onChange={(e) => setForm((prev) => ({ ...prev, stripePriceId: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Required before this plan can be checked out if its price is above 0 — create a matching Product/Price in the Stripe
+              dashboard first.
+            </p>
           </div>
           <Button onClick={handleSave} disabled={createTier.isPending || updateTier.isPending} className="w-full">
             {createTier.isPending || updateTier.isPending ? 'Saving…' : 'Save'}

@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-role.dto';
 import { Role } from '../common/types';
+import { paginate, PaginationParams, resolvePagination, sanitizeKeyword } from '../common/pagination';
 
 // Full account lifecycle for Super Admin [Reqs §9]: "Create, edit, suspend,
 // and delete any user account, including Verification Staff and Agent
@@ -21,15 +22,38 @@ export class UsersRepository {
 
   // Backs the Super Admin "team members" screen — `roles` filters to just
   // internal staff (e.g. ?role=super_admin,verification_staff) instead of
-  // the full user base (buyers/owners/agents included).
-  async list(filters: { roles?: Role[] } = {}) {
-    let query = this.supabase.client.from('profiles').select('*').order('created_at', { ascending: false });
+  // the full user base (buyers/owners/agents included). Dual-mode: called
+  // with no page/pageSize, returns the full unpaginated array exactly as
+  // before — needed by Verification Log's reviewer-name lookup, which
+  // resolves reviewerId -> displayName/email against the whole roster, not
+  // just one page. Called with page and/or pageSize, it paginates and
+  // returns { items, total, page, pageSize } for the Users admin table. See
+  // services/api/src/common/pagination.ts and admin.repository.ts::
+  // listAgentsOverview for the same pattern applied elsewhere.
+  async list(filters: PaginationParams & { roles?: Role[]; search?: string } = {}) {
+    const paginated = filters.page != null || filters.pageSize != null;
+
+    let query = this.supabase.client
+      .from('profiles')
+      .select('*', paginated ? { count: 'exact' } : undefined)
+      .order('created_at', { ascending: false });
 
     if (filters.roles?.length) query = query.in('role', filters.roles);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    }
+
+    const pagination = resolvePagination(filters);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`display_name.ilike.%${term}%,email.ilike.%${term}%`);
+    }
+    query = query.range(pagination.from, pagination.to);
+
+    return paginate(query, pagination);
   }
 
   // role/agent_id land in app_metadata at creation time — the same

@@ -104,6 +104,18 @@ export class OwnersRepository {
     };
   }
 
+  // Admin-only equivalent of getVerification() above, minus self-scoping —
+  // lets staff pull a specific owner's actual CNIC/selfie rows (with signed
+  // URLs) by userId, same shape as AgentsRepository.listDocuments().
+  // getDocumentCompleteness() below deliberately withholds the real rows/
+  // URLs (used by the admin queue's counts only); this is the first place
+  // they're exposed to anyone but the owner themselves.
+  async listDocumentsForAdmin(userId: string) {
+    const row = await this.findVerificationRow(userId);
+    if (!row) return [];
+    return this.listDocumentsByVerificationId(row.id);
+  }
+
   async getDocumentCompleteness(userId: string) {
     const row = await this.findVerificationRow(userId);
     const uploaded = row

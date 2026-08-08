@@ -36,6 +36,25 @@ export function useSubscriptionViewModel() {
     },
   });
 
+  // Paid-tier path — resolves to a Stripe Checkout URL; the caller (Plan
+  // page) is responsible for navigating there. No cache invalidation here —
+  // nothing changes locally until the webhook fires and the user returns.
+  const checkoutTier = useMutation({
+    mutationFn: (tierId: string) => subscriptionsRepository.checkoutTier(tierId),
+  });
+
+  // cancel_at_period_end via Stripe — no cache invalidation, same reasoning
+  // as checkoutTier: the local row only changes once the webhook processes
+  // it, not from this call's own response.
+  const cancelSubscription = useMutation({
+    mutationFn: () => subscriptionsRepository.cancelSubscription(),
+  });
+
+  // Resolves to a Stripe billing-portal URL; the caller navigates there.
+  const openBillingPortal = useMutation({
+    mutationFn: () => subscriptionsRepository.getBillingPortalUrl(),
+  });
+
   return {
     current: currentQuery.data,
     isCurrentLoading: currentQuery.isLoading,
@@ -43,5 +62,8 @@ export function useSubscriptionViewModel() {
     isTiersLoading: tiersQuery.isLoading,
     usage: usageQuery.data,
     selectTier,
+    checkoutTier,
+    cancelSubscription,
+    openBillingPortal,
   };
 }

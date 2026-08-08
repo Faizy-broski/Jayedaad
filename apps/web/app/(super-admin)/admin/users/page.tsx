@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AdminUser, CreateUserInput, Role, useUserManagementViewModel } from '@jayedaad/core';
-import { Button, cn, Input, Label, Modal, Select } from '@jayedaad/ui-web';
+import { AdminUser, CreateUserInput, Role, useAdminStatsViewModel, useUserManagementViewModel } from '@jayedaad/core';
+import { Button, cn, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
 import {
   Ban,
   Calendar,
@@ -53,28 +53,46 @@ function initials(name: string): string {
     .join('');
 }
 
-// Real counts derived from the fetched users list — same "compute from
-// what's already loaded" approach as Agencies/Agents/Plans/CRM/Listings.
+const PAGE_SIZE = 20;
+
+// Header stat tiles read from GET /admin/stats (true platform totals),
+// not from whatever page of results happens to be loaded — same fix as
+// Agencies/Agents now that the roster itself is server-side paginated,
+// with search applied server-side too (same fix as CRM's search box).
 export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all');
   const [search, setSearch] = useState('');
-  const { users, isLoading, create, updateRole, suspend, unsuspend, remove } = useUserManagementViewModel(
-    roleFilter === 'all' ? {} : { roles: [roleFilter] },
-  );
+  const [page, setPage] = useState(1);
+  const { users, total, isLoading, create, updateRole, suspend, unsuspend, remove } = useUserManagementViewModel({
+    roles: roleFilter === 'all' ? undefined : [roleFilter],
+    search: search.trim() || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+  const { stats } = useAdminStatsViewModel();
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CreateUserInput>(EMPTY_FORM);
 
-  const counts = useMemo(() => {
-    const byRole: Record<Role, number> = { super_admin: 0, verification_staff: 0, agent: 0, buyer: 0, owner: 0 };
-    for (const u of users) byRole[u.role]++;
-    return { total: users.length, ...byRole };
-  }, [users]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const byRole = stats?.usersByRole ?? {};
+  const counts = {
+    total,
+    agent: byRole.agent ?? 0,
+    buyer: byRole.buyer ?? 0,
+    owner: byRole.owner ?? 0,
+    super_admin: byRole.super_admin ?? 0,
+    verification_staff: byRole.verification_staff ?? 0,
+  };
 
-  const visibleUsers = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => u.email.toLowerCase().includes(q) || (u.displayName ?? '').toLowerCase().includes(q));
-  }, [users, search]);
+  function handleRoleFilterChange(next: Role | 'all') {
+    setRoleFilter(next);
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
 
   function handleCreate() {
     create.mutate(form, {
@@ -159,7 +177,7 @@ export default function UsersPage() {
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setRoleFilter(f.id)}
+                onClick={() => handleRoleFilterChange(f.id)}
                 className={cn(
                   'relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                   roleFilter === f.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
@@ -179,7 +197,7 @@ export default function UsersPage() {
 
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email or name…" className="pl-9" />
+            <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Search by email or name…" className="pl-9" />
           </div>
         </div>
       </Reveal>
@@ -192,7 +210,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      {!isLoading && visibleUsers.length === 0 && (
+      {!isLoading && users.length === 0 && (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
             <Users className="mb-3 h-10 w-10 text-muted-foreground/50" />
@@ -204,10 +222,10 @@ export default function UsersPage() {
         </Reveal>
       )}
 
-      {!isLoading && visibleUsers.length > 0 && (
+      {!isLoading && users.length > 0 && (
         <ul className="space-y-3">
           <AnimatePresence initial={false}>
-            {visibleUsers.map((user, index) => {
+            {users.map((user, index) => {
               const style = ROLE_STYLES[user.role];
               return (
                 <motion.li
@@ -281,6 +299,8 @@ export default function UsersPage() {
           </AnimatePresence>
         </ul>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New User">
         <div className="space-y-4">

@@ -27,9 +27,16 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   { prefix: '/projects', roles: ['agent', 'super_admin'] },
   { prefix: '/agent-settings', roles: ['agent', 'super_admin'] },
   { prefix: '/plan', roles: ['agent', 'super_admin'] },
+  // Listing detail is the one /admin/* screen verification_staff also needs
+  // — the verification queue's "View full listing" link opens it for
+  // extra context on a pending listing. Declared BEFORE the generic /admin
+  // rule below since PROTECTED_ROUTES.find() takes the first matching
+  // prefix — otherwise the broader '/admin' entry would win first and
+  // block verification_staff here too.
+  { prefix: '/admin/listings', roles: ['super_admin', 'verification_staff'] },
   // Super Admin "god mode" dashboard — see app/(super-admin)/layout.tsx.
-  // Deliberately super_admin-only (not shared with verification_staff,
-  // unlike /verification above).
+  // Deliberately super_admin-only for everything else under /admin (not
+  // shared with verification_staff, unlike /verification above).
   { prefix: '/admin', roles: ['super_admin'] },
   // Self-service "Apply to become an agent" — buyer-only; an agent visiting
   // after their application is approved is redirected away by role change

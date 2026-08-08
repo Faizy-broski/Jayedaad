@@ -21,6 +21,7 @@ import {
 } from '@jayedaad/core';
 import { Button, Dialog, PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { PlacesAutocompleteInput } from '../components/PlacesAutocompleteInput';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 const STATUS_LABELS: Record<Exclude<ProjectStatus, 'draft'>, string> = {
@@ -389,7 +390,7 @@ export function PostProjectScreen() {
           <PickerField value={city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" disabled={viewOnly} onChange={setCity} />
         </View>
 
-        <TextInput label="Area / Locality" value={area} onChangeText={setArea} editable={!viewOnly} placeholder="e.g. Gulberg" />
+        <PlacesAutocompleteInput label="Area / Locality" value={area} onChange={setArea} editable={!viewOnly} placeholder="e.g. Gulberg" />
 
         <View style={styles.row2}>
           <View style={styles.flex1}>

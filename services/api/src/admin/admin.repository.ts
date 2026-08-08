@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { paginate, PaginationParams, resolvePagination, sanitizeKeyword } from '../common/pagination';
 
 function countBy(rows: any[], key: string): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -19,15 +20,17 @@ export class AdminRepository {
   // AgenciesRepository.getStats()). Computed at query time, same discipline
   // as those, not a stored/cached figure.
   async getPlatformStats() {
-    const [usersRes, agenciesRes, listingsRes, leadsRes, subscriptionsRes] = await Promise.all([
+    const [usersRes, agenciesRes, agentsRes, listingsRes, leadsRes, subscriptionsRes] = await Promise.all([
       this.supabase.client.from('profiles').select('role'),
       this.supabase.client.from('agencies').select('verification_status'),
+      this.supabase.client.from('agent_profiles').select('verification_status'),
       this.supabase.client.from('listings').select('status'),
       this.supabase.client.from('leads').select('status'),
       this.supabase.client.from('subscriptions').select('tier_id, subscription_tiers (name)').eq('status', 'active'),
     ]);
     if (usersRes.error) throw usersRes.error;
     if (agenciesRes.error) throw agenciesRes.error;
+    if (agentsRes.error) throw agentsRes.error;
     if (listingsRes.error) throw listingsRes.error;
     if (leadsRes.error) throw leadsRes.error;
     if (subscriptionsRes.error) throw subscriptionsRes.error;
@@ -41,6 +44,7 @@ export class AdminRepository {
     return {
       usersByRole: countBy(usersRes.data ?? [], 'role'),
       agenciesByVerificationStatus: countBy(agenciesRes.data ?? [], 'verification_status'),
+      agentsByVerificationStatus: countBy(agentsRes.data ?? [], 'verification_status'),
       listingsByStatus: countBy(listingsRes.data ?? [], 'status'),
       leadsByStatus: countBy(leadsRes.data ?? [], 'status'),
       activeSubscriptionsByTier: byTierName,
@@ -50,48 +54,117 @@ export class AdminRepository {
   // The actual "see all agents' insights at a glance" ask — one row per
   // agent joining profile + agency + listing counts + subscription tier.
   // Nothing else in the codebase rolls agents up across the whole platform.
-  async listAgentsOverview() {
-    const { data: agents, error: agentsError } = await this.supabase.client
+  // Dual-mode: called with no page/pageSize, this returns the full
+  // unpaginated array exactly as before — needed by callers that use it as
+  // unbounded reference data (CRM's "All agents"/"Reassign to…" dropdowns).
+  // Called with page and/or pageSize, it paginates and returns
+  // { items, total, page, pageSize } for the Agents admin table. See
+  // services/api/src/common/pagination.ts and the pagination-unification
+  // plan for why this one endpoint deliberately has two response shapes.
+  async listAgentsOverview(
+    filters: PaginationParams & { search?: string; verificationStatus?: string; reviewableOnly?: boolean } = {},
+  ) {
+    const paginated = filters.page != null || filters.pageSize != null;
+    const pagination = paginated ? resolvePagination(filters) : null;
+
+    let agentsQuery = this.supabase.client
       .from('agent_profiles')
       .select(
-        'id, display_name, phone, city, verification_status, agencies (id, name, slug), subscriptions (status, current_period_end, subscription_tiers (name))',
+        'id, display_name, phone, city, verification_status, is_agency_admin, agencies (id, name, slug), subscriptions (status, current_period_end, subscription_tiers (name))',
+        pagination ? { count: 'exact' } : undefined,
       )
       .order('created_at', { ascending: false });
+
+    // Filters below only ever apply on the paginated (admin table) branch —
+    // the unpaginated branch stays a plain unfiltered roster, matching every
+    // other unbounded reference-data caller's expectation.
+    if (pagination) {
+      // A row added through an agency admin's "Agency Staff" screen needs no
+      // individual identity verification of its own — the agency's own
+      // review already covers it. Only independent agents and the one admin
+      // who registered/owns each agency go through this table.
+      if (filters.reviewableOnly) agentsQuery = agentsQuery.or('agency_id.is.null,is_agency_admin.eq.true');
+      if (filters.verificationStatus) agentsQuery = agentsQuery.eq('verification_status', filters.verificationStatus);
+      if (filters.search) {
+        const term = sanitizeKeyword(filters.search);
+        if (term) agentsQuery = agentsQuery.or(`display_name.ilike.%${term}%,city.ilike.%${term}%`);
+      }
+      agentsQuery = agentsQuery.range(pagination.from, pagination.to);
+    }
+
+    const { data: agents, error: agentsError, count } = await agentsQuery;
     if (agentsError) throw agentsError;
 
     const agentIds = (agents ?? []).map((a: any) => a.id);
-    if (agentIds.length === 0) return [];
+    const mapped =
+      agentIds.length === 0
+        ? []
+        : await (async () => {
+            const { data: listingRows, error: listingsError } = await this.supabase.client
+              .from('listings')
+              .select('agent_id, status')
+              .in('agent_id', agentIds);
+            if (listingsError) throw listingsError;
 
-    const { data: listingRows, error: listingsError } = await this.supabase.client
-      .from('listings')
-      .select('agent_id, status')
-      .in('agent_id', agentIds);
-    if (listingsError) throw listingsError;
+            const listingCountsByAgent = new Map<string, { total: number; verified: number }>();
+            for (const row of listingRows ?? []) {
+              const agentId = (row as any).agent_id as string;
+              const entry = listingCountsByAgent.get(agentId) ?? { total: 0, verified: 0 };
+              entry.total++;
+              if ((row as any).status === 'verified') entry.verified++;
+              listingCountsByAgent.set(agentId, entry);
+            }
 
-    const listingCountsByAgent = new Map<string, { total: number; verified: number }>();
-    for (const row of listingRows ?? []) {
-      const agentId = (row as any).agent_id as string;
-      const entry = listingCountsByAgent.get(agentId) ?? { total: 0, verified: 0 };
-      entry.total++;
-      if ((row as any).status === 'verified') entry.verified++;
-      listingCountsByAgent.set(agentId, entry);
+            return (agents ?? []).map((agent: any) => ({
+              id: agent.id,
+              displayName: agent.display_name,
+              phone: agent.phone,
+              city: agent.city,
+              verificationStatus: agent.verification_status,
+              isAgencyAdmin: agent.is_agency_admin,
+              agency: agent.agencies ? { id: agent.agencies.id, name: agent.agencies.name, slug: agent.agencies.slug } : null,
+              subscription: agent.subscriptions
+                ? {
+                    status: agent.subscriptions.status,
+                    currentPeriodEnd: agent.subscriptions.current_period_end,
+                    tierName: agent.subscriptions.subscription_tiers?.name ?? null,
+                  }
+                : null,
+              listingCounts: listingCountsByAgent.get(agent.id) ?? { total: 0, verified: 0 },
+            }));
+          })();
+
+    if (!pagination) return mapped;
+    return { items: mapped, total: count ?? 0, page: pagination.page, pageSize: pagination.pageSize };
+  }
+
+  // Admin-scoped agency roster — every status (pending/verified/rejected),
+  // unlike AgenciesRepository.list() (GET /agencies, @Public()) which
+  // hardcodes .eq('verification_status', 'verified') for the buyer-facing
+  // "browse agencies" directory. The Super Admin Agencies page was wrongly
+  // reusing that public endpoint, so a still-pending/rejected agency (e.g.
+  // one created via self-service signup) never showed up there at all —
+  // "0 registered agencies" even while its staff appeared correctly on the
+  // Agents roster above.
+  async listAgenciesOverview(
+    filters: PaginationParams & { search?: string; verificationStatus?: string } = {},
+  ) {
+    const pagination = resolvePagination(filters);
+    let query = this.supabase.client
+      .from('agencies')
+      .select(
+        'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count',
+        { count: 'exact' },
+      )
+      .order('name', { ascending: true });
+
+    if (filters.verificationStatus) query = query.eq('verification_status', filters.verificationStatus);
+    if (filters.search) {
+      const term = sanitizeKeyword(filters.search);
+      if (term) query = query.or(`name.ilike.%${term}%,city.ilike.%${term}%`);
     }
+    query = query.range(pagination.from, pagination.to);
 
-    return (agents ?? []).map((agent: any) => ({
-      id: agent.id,
-      displayName: agent.display_name,
-      phone: agent.phone,
-      city: agent.city,
-      verificationStatus: agent.verification_status,
-      agency: agent.agencies ? { id: agent.agencies.id, name: agent.agencies.name, slug: agent.agencies.slug } : null,
-      subscription: agent.subscriptions
-        ? {
-            status: agent.subscriptions.status,
-            currentPeriodEnd: agent.subscriptions.current_period_end,
-            tierName: agent.subscriptions.subscription_tiers?.name ?? null,
-          }
-        : null,
-      listingCounts: listingCountsByAgent.get(agent.id) ?? { total: 0, verified: 0 },
-    }));
+    return paginate(query, pagination);
   }
 }

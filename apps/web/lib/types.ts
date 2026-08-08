@@ -49,6 +49,11 @@ export interface ListingProperty extends Property {
     role: string;
     avatar: string;
     phone: string;
+    // The agent's active plan name (e.g. "Titanium"), rendered as a badge —
+    // real Zameen listing pages show this on the agency card sidebar.
+    // Optional (not just nullable) so apps/web/data/listings.ts's legacy
+    // mock fixtures don't need updating too.
+    subscriptionTierName?: string | null;
   };
 }
 

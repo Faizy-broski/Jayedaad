@@ -78,6 +78,20 @@ export const agentsRepository = {
     return data;
   },
 
+  // Uploads before the entity that will reference it exists — used by the
+  // Agency Staff "Add Agent" flow, where there's no agent id yet until
+  // agenciesRepository.addStaff() runs. Returns a plain public url, attached
+  // via CreateAgencyStaffInput.photoUrl on that subsequent call. Same
+  // untyped `file` convention as uploadPhoto/uploadDocument above.
+  uploadStandaloneAvatar: async (file: any): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await httpClient.post('/agents/photo/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
   // Super Admin-only — the write-side counterpart to getCredits above.
   grantCredits: async (agentId: string, input: GrantAgentCreditsInput): Promise<AgentCredit> => {
     const { data } = await httpClient.patch(`/agents/${agentId}/credits`, input);

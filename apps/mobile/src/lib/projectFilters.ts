@@ -5,6 +5,7 @@ import { AreaUnit, ProjectSearchFilters } from '@jayedaad/core';
 // only when building the real ProjectSearchFilters query.
 export interface ProjectFilterState {
   city: string;
+  area: string; // "Location" free-text field, not the numeric area range below
   keyword: string; // "Project Title" search
   propertyTypeSlug: string;
   developerSlug: string;
@@ -17,6 +18,7 @@ export interface ProjectFilterState {
 
 export const DEFAULT_PROJECT_FILTERS: ProjectFilterState = {
   city: '',
+  area: '',
   keyword: '',
   propertyTypeSlug: '',
   developerSlug: '',
@@ -30,6 +32,7 @@ export const DEFAULT_PROJECT_FILTERS: ProjectFilterState = {
 export function toProjectSearchFilters(filters: ProjectFilterState): ProjectSearchFilters {
   return {
     city: filters.city || undefined,
+    area: filters.area || undefined,
     keyword: filters.keyword || undefined,
     propertyTypeSlug: filters.propertyTypeSlug || undefined,
     developerSlug: filters.developerSlug || undefined,

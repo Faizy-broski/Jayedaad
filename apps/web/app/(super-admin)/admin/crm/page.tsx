@@ -1,15 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Lead, LeadStatus, useAdminAgentsViewModel, useAdminCrmStatsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
-import { Button, cn, Input } from '@jayedaad/ui-web';
+import { Button, cn, Input, Pagination } from '@jayedaad/ui-web';
 import {
   AlertTriangle,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Globe,
   Inbox,
@@ -85,6 +83,7 @@ export default function AdminCrmPage() {
   const { leads, total, isLoading, isError, refetch, updateStatus, addNote, assign, remove } = useAdminCrmViewModel({
     agentId: agentFilter || undefined,
     status: statusFilter === 'all' ? undefined : statusFilter,
+    search: search.trim() || undefined,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -93,20 +92,13 @@ export default function AdminCrmPage() {
 
   const agentName = (id: string | null) => (id ? (agents.find((a) => a.id === id)?.displayName ?? id) : 'Unassigned');
 
-  const visibleLeads = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return leads;
-    return leads.filter(
-      (l) =>
-        l.name.toLowerCase().includes(q) ||
-        l.phone.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
-        l.message.toLowerCase().includes(q),
-    );
-  }, [leads, search]);
-
   function handleTabChange(next: LeadStatus | 'all') {
     setStatusFilter(next);
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
     setPage(1);
   }
 
@@ -232,7 +224,7 @@ export default function AdminCrmPage() {
 
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, phone, email…" className="pl-9" />
+            <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Search name, phone, email…" className="pl-9" />
           </div>
         </div>
       </Reveal>
@@ -258,7 +250,7 @@ export default function AdminCrmPage() {
         </div>
       )}
 
-      {!isLoading && !isError && visibleLeads.length === 0 && (
+      {!isLoading && !isError && leads.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -272,11 +264,11 @@ export default function AdminCrmPage() {
         </motion.div>
       )}
 
-      {!isLoading && !isError && visibleLeads.length > 0 && (
+      {!isLoading && !isError && leads.length > 0 && (
         <>
           <ul className="space-y-3">
             <AnimatePresence initial={false}>
-              {visibleLeads.map((lead: Lead, index) => {
+              {leads.map((lead: Lead, index) => {
                 const style = STATUS_STYLES[lead.status];
                 const SourceIcon = SOURCE_ICON[lead.source] ?? Globe;
                 const noteOpen = openNoteFor === lead.id;
@@ -445,21 +437,7 @@ export default function AdminCrmPage() {
             </AnimatePresence>
           </ul>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
     </div>

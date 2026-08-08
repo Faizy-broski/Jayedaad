@@ -15,22 +15,48 @@ export class TaxonomyController {
   // admin panel) needs the same taxonomy lists [Spec §9 cross-platform parity].
   @Public()
   @Get('property-type-categories')
-  listCategories() {
-    return this.taxonomy.listCategories();
+  listCategories(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.taxonomy.listCategories({
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Public()
   @Get('property-types')
-  listPropertyTypes() {
-    return this.taxonomy.listPropertyTypes();
+  listPropertyTypes(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.taxonomy.listPropertyTypes({
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   // propertyTypeCategorySlug lets a listing-submission form only fetch
   // amenities relevant to the property type being listed.
   @Public()
   @Get('amenities')
-  listAmenities(@Query('propertyTypeCategorySlug') propertyTypeCategorySlug?: string) {
-    return this.taxonomy.listAmenities({ propertyTypeCategorySlug });
+  listAmenities(
+    @Query('propertyTypeCategorySlug') propertyTypeCategorySlug?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.taxonomy.listAmenities({
+      propertyTypeCategorySlug,
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   // Mutations: Super Admin only [Reqs §9] — full CRUD on all three, not just

@@ -9,15 +9,19 @@ export function useAdminDashboardViewModel() {
     queryFn: adminRepository.getPlatformStats,
   });
 
+  // Called with no filters -> the unpaginated array branch of the
+  // dual-mode endpoint (see admin.repository.ts::listAgentsOverview).
   const agentsQuery = useQuery({
-    queryKey: ['admin', 'agents-overview'],
-    queryFn: adminRepository.listAgentsOverview,
+    queryKey: ['admin', 'agents-overview', {}],
+    queryFn: () => adminRepository.listAgentsOverview(),
   });
+  const agentsData = agentsQuery.data;
+  const agents = Array.isArray(agentsData) ? agentsData : (agentsData?.items ?? []);
 
   return {
     stats: statsQuery.data,
     isStatsLoading: statsQuery.isLoading,
-    agents: agentsQuery.data ?? [],
+    agents,
     isAgentsLoading: agentsQuery.isLoading,
   };
 }

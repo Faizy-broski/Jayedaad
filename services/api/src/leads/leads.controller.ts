@@ -41,6 +41,7 @@ export class LeadsController {
     @Query('agentId') agentId?: string,
     @Query('scope') scope?: 'own' | 'agency',
     @Query('unassigned') unassigned?: string,
+    @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -50,6 +51,7 @@ export class LeadsController {
       agentId,
       scope,
       unassigned: unassigned === 'true',
+      search,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });

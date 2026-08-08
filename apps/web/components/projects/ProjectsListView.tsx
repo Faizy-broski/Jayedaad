@@ -14,12 +14,10 @@ import {
   useAuthViewModel,
   useManageProjectsViewModel,
 } from '@jayedaad/core';
-import { Badge, Button, cn, Input, Table, TableColumn } from '@jayedaad/ui-web';
+import { Badge, Button, cn, Input, Pagination, Table, TableColumn } from '@jayedaad/ui-web';
 import {
   Building2,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ImageOff,
   Layers,
   Pencil,
@@ -141,10 +139,14 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{project.developer.name}</p>
           </div>
         </div>
       ),
+    },
+    {
+      key: 'developer',
+      header: 'Developer',
+      render: (project) => <span className="truncate text-sm text-muted-foreground">{project.developer.name}</span>,
     },
     { key: 'location', header: 'Location', render: (project) => `${project.area}, ${project.city}` },
     {
@@ -285,21 +287,7 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
         />
       </Reveal>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-            Previous
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-            <ChevronRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       {deleteTarget &&
         createPortal(

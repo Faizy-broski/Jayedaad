@@ -53,6 +53,7 @@ export * from './viewmodels/useChatbotViewModel';
 export * from './viewmodels/useAuthViewModel';
 export * from './viewmodels/useContactViewModel';
 export * from './viewmodels/useAdminDashboardViewModel';
+export * from './viewmodels/useAdminStatsViewModel';
 export * from './viewmodels/useAgencyManagementViewModel';
 export * from './viewmodels/useAdminAgentsViewModel';
 export * from './viewmodels/useOwnerVerificationViewModel';

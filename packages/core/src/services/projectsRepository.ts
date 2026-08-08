@@ -21,7 +21,7 @@ export const projectsRepository = {
   // verification_status, unlike searchPublic above (verified-only). Backs
   // both /admin/projects and the agent-portal /projects list.
   listAll: async (
-    filters: { city?: string; status?: ProjectStatus; keyword?: string; page?: number; pageSize?: number } = {},
+    filters: { city?: string; area?: string; status?: ProjectStatus; keyword?: string; page?: number; pageSize?: number } = {},
   ): Promise<PaginatedProjects> => {
     const { data } = await httpClient.get('/projects/manage', { params: filters });
     return data;

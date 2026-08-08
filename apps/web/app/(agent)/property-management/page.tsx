@@ -20,14 +20,17 @@ import { Button, Card, CardContent, DateRange, DateRangePicker, Input, Select } 
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Reveal } from '@/components/Reveal';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import {
   Building2,
   Copy,
   Eye,
   FileCheck2,
+  Flame,
   ImageOff,
   MapPin,
   PlusCircle,
+  Sparkles,
   SlidersHorizontal,
   Trash2,
   X,
@@ -175,8 +178,33 @@ export default function PropertyManagementPage() {
   };
 
   const router = useRouter();
-  const { listings, total, pageSize, isLoading, statusCounts, isStatusCountsLoading, remove, submitForVerification } =
+  const { listings, total, pageSize, isLoading, statusCounts, isStatusCountsLoading, remove, submitForVerification, boost, renew } =
     useMyListingsViewModel(filters);
+
+  // Spends one of the agent's plan-granted Hot/Super Hot credits (topped up
+  // on tier selection/renewal — see the Plan page) to feature this listing.
+  // The server is the source of truth on whether a credit is actually
+  // available (POST /listings/:id/boost) — this doesn't pre-check a balance
+  // client-side, it just surfaces whatever the server says.
+  function handleBoost(listingId: string, boostTier: 'hot' | 'super_hot') {
+    boost.mutate(
+      { listingId, input: { boostTier } },
+      {
+        onSuccess: () => toast.success(`Listing boosted (${boostTier === 'hot' ? 'Hot' : 'Super Hot'}).`),
+        onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
+      },
+    );
+  }
+
+  // Resets an expired listing back to 'verified' with a fresh expiry window
+  // (PlanLifecycleService's cron sets status: 'expired' once a plan's
+  // listingDurationDays lapses) — the Expired tab's "Renew" action.
+  function handleRenew(listingId: string) {
+    renew.mutate(listingId, {
+      onSuccess: () => toast.success('Listing renewed.'),
+      onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
+    });
+  }
 
   // Ownership proof/utility bill are required for individual owners and
   // independent agents (no agency) — only an agency-affiliated agent's
@@ -369,10 +397,10 @@ export default function PropertyManagementPage() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Location</label>
-                <Input
+                <PlacesAutocompleteInput
                   placeholder="Select Location"
                   value={draft.area}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, area: e.target.value }))}
+                  onChange={(v) => setDraft((prev) => ({ ...prev, area: v }))}
                 />
               </div>
 
@@ -577,6 +605,12 @@ export default function PropertyManagementPage() {
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}>
                               {status.label}
                             </span>
+                            {listing.boostTier !== 'basic' && (
+                              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                {listing.boostTier === 'super_hot' ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                                {listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
+                              </span>
+                            )}
                           </div>
                           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
@@ -592,6 +626,11 @@ export default function PropertyManagementPage() {
                               {formatListingCode(listing.listingNumber)}
                               <Copy className="h-3 w-3" />
                             </button>
+                            {listing.status === 'verified' && listing.expiresAt && (
+                              <span>
+                                Expires {new Date(listing.expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -628,6 +667,35 @@ export default function PropertyManagementPage() {
                             onClick={() => handleSubmitForVerification(listing)}
                           >
                             Submit
+                          </Button>
+                        )}
+                        {listing.status === 'verified' && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={boost.isPending}
+                              onClick={() => handleBoost(listing.id, 'hot')}
+                              title="Spend a Hot credit to feature this listing"
+                            >
+                              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                              Hot
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={boost.isPending}
+                              onClick={() => handleBoost(listing.id, 'super_hot')}
+                              title="Spend a Super Hot credit to feature this listing"
+                            >
+                              <Flame className="mr-1.5 h-3.5 w-3.5" />
+                              Super Hot
+                            </Button>
+                          </>
+                        )}
+                        {listing.status === 'expired' && (
+                          <Button size="sm" disabled={renew.isPending} onClick={() => handleRenew(listing.id)}>
+                            Renew
                           </Button>
                         )}
                         <Button

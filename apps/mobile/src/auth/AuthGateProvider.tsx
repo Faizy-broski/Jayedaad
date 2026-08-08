@@ -35,13 +35,19 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
   // Mirrors web's verify-email landingRoute() special-case: a freshly
   // self-registered agency owner shouldn't have the sheet auto-close out
   // from under BecomeAnAgentScreen before they've had a chance to upload
-  // documents (or explicitly skip via dismissAgentGate).
+  // documents (or explicitly skip via dismissAgentGate). Also covers an
+  // INDEPENDENT agent's own incomplete verification (profile.agency is
+  // null in that case) — previously only the agency branch was checked
+  // here, so an independent agent whose own owner_id_card/
+  // company_registration were missing (the exact 400 setVerificationStatus
+  // throws) had no persistent way back into the upload screen once they
+  // navigated away from it once.
   const needsAgencyDocuments =
     role === 'agent' &&
     !!agentId &&
     !isProfileLoading &&
-    !!profile?.agency &&
-    profile.agency.verificationStatus !== 'verified' &&
+    !!profile &&
+    (profile.agency ? profile.agency.verificationStatus !== 'verified' : profile.verificationStatus !== 'verified') &&
     !agentGateDismissed;
 
   // Whether an ordinary account-gated action (favoriting, opening Favorites/

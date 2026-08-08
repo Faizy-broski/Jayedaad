@@ -17,9 +17,19 @@ export class UsersController {
   // Backs the "team members" screen — ?role=super_admin,verification_staff
   // pulls just internal staff instead of the full user base.
   @Get()
-  list(@Query('role') role?: string) {
+  list(
+    @Query('role') role?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
     const roles = role ? (role.split(',').map((r) => r.trim()) as Role[]) : undefined;
-    return this.users.list({ roles });
+    return this.users.list({
+      roles,
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Get(':id')

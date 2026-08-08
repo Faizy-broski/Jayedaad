@@ -3,11 +3,26 @@ import { Listing, PaginatedAuditLog, VerificationAuditLogEntry } from '../models
 
 export type VerificationAction = 'approve' | 'reject' | 'request-info';
 
+export interface VerificationQueueFilters {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedVerificationQueue {
+  items: Listing[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface AuditLogFilters {
   listingId?: string;
   reviewerId?: string;
   dateFrom?: string;
   dateTo?: string;
+  // Applied server-side — filters across every page, not just whatever
+  // page is currently loaded.
+  action?: 'approve' | 'reject' | 'request_info';
   page?: number;
   pageSize?: number;
 }
@@ -26,8 +41,8 @@ function mapAuditLogRow(row: any): VerificationAuditLogEntry {
 }
 
 export const verificationRepository = {
-  queue: async (): Promise<Listing[]> => {
-    const { data } = await httpClient.get('/verification/queue');
+  queue: async (filters: VerificationQueueFilters = {}): Promise<PaginatedVerificationQueue> => {
+    const { data } = await httpClient.get('/verification/queue', { params: filters });
     return data;
   },
 

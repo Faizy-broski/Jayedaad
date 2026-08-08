@@ -29,6 +29,7 @@ import {
   Newspaper,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
 // separate from apps/web/app/(agent)/layout.tsx (the agent Profolio shell)
@@ -219,6 +220,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   );
 
   return (
+    <RequireEmailVerified>
     <div className="flex min-h-screen bg-muted/30">
       <AnimatePresence>
         {mobileOpen && (
@@ -287,5 +289,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         <main className="flex-1 overflow-x-hidden p-4 sm:p-6">{children}</main>
       </div>
     </div>
+    </RequireEmailVerified>
   );
 }

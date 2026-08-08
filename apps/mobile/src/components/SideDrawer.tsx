@@ -42,11 +42,18 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
   // Persistent re-entry point for BecomeAnAgentScreen's required onboarding
   // documents (Owner ID + Company Registration) — that screen otherwise
   // only ever appears once, right after fresh signup, so a user who
-  // force-quit before finishing it would have no way back in. Shown for
-  // any not-yet-verified agency admin, mirrors AuthGateProvider's own
-  // needsAgencyDocuments condition.
+  // force-quit before finishing it would have no way back in. Shown for any
+  // not-yet-verified agency admin OR independent agent (profile.agency is
+  // null in that case) — previously only the agency branch was checked
+  // here, so an independent agent blocked by "Cannot verify agent —
+  // missing required documents" had no visible way back to the upload
+  // screen. Mirrors AuthGateProvider's own needsAgencyDocuments condition.
   const { reopenAgentGate } = useAuthGate();
-  const needsAgencyDocuments = !!agentProfile?.agency && agentProfile.agency.verificationStatus !== 'verified';
+  const needsAgencyDocuments = agentProfile
+    ? agentProfile.agency
+      ? agentProfile.agency.verificationStatus !== 'verified'
+      : agentProfile.verificationStatus !== 'verified'
+    : false;
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
   useEffect(() => {
@@ -111,7 +118,7 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
             {needsAgencyDocuments && (
               <NavRow
                 icon="alert-circle-outline"
-                label="Complete Agency Verification"
+                label={agentProfile?.agency ? 'Complete Agency Verification' : 'Complete Verification'}
                 onPress={() => {
                   onClose();
                   reopenAgentGate();

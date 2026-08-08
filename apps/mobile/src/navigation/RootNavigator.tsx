@@ -26,6 +26,7 @@ import type { AllPropertiesFilterState } from '../lib/allPropertiesFilters';
 import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import { BlogListScreen } from '../screens/BlogListScreen';
 import { BlogDetailScreen } from '../screens/BlogDetailScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { AnimatedSplashScreen } from '../components/AnimatedSplashScreen';
 
 // Enforced floor so the splash's entrance animation is actually seen even on
@@ -70,6 +71,7 @@ export type RootStackParamList = {
   };
   BlogList: undefined;
   BlogDetail: { slug: string };
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -111,6 +113,7 @@ function MainStack() {
       <Stack.Screen name="ProjectAmenities" component={ProjectAmenitiesScreen} options={{ title: 'Add Amenities' }} />
       <Stack.Screen name="BlogList" component={BlogListScreen} options={{ title: 'Property Tips' }} />
       <Stack.Screen name="BlogDetail" component={BlogDetailScreen} options={{ title: 'Article' }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
     </Stack.Navigator>
   );
 }

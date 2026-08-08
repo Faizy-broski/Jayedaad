@@ -1,3 +1,5 @@
+const { withSentryConfig } = require('@sentry/nextjs');
+
 // Derived from the env var (not hardcoded) so this doesn't silently rot if
 // the Supabase project ref ever changes — every Storage-hosted image
 // (listing photos, agency/agent avatars, blog covers, ...) is served from
@@ -27,4 +29,15 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// withSentryConfig only affects the build (source map upload, tunnel route)
+// and is itself a no-op without SENTRY_AUTH_TOKEN — safe to wrap
+// unconditionally, matches sentry.*.config.ts's own DSN-gated init.
+module.exports = withSentryConfig(nextConfig, {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Source map upload needs SENTRY_AUTH_TOKEN — unset today (no Sentry
+  // account yet), so this step is skipped at build time until it's added.
+  disableLogger: true,
+  automaticVercelMonitors: false,
+});

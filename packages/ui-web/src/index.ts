@@ -10,6 +10,7 @@ export * from './CountryCodeSelect';
 export * from './Tabs';
 export * from './Card';
 export * from './Table';
+export * from './Pagination';
 export * from './Modal';
 export * from './Badge';
 export * from './Accordion';

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   developersRepository,
-  listingsRepository,
+  PAKISTAN_CITIES,
   projectsRepository,
   useTaxonomyViewModel,
   type AreaUnit,
@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Home,
+  Locate,
   MapPin,
   Ruler,
   Search as SearchIcon,
@@ -24,6 +25,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
 import { AREA_UNITS, AREA_UNIT_OPTIONS, areaUnitLabel } from '@/lib/areaOptions';
 import { useClickOutside } from '@/lib/useClickOutside';
@@ -211,6 +213,7 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
 
   const [city, setCity] = useState('');
   const [citySearch, setCitySearch] = useState('');
+  const [area, setArea] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
   const [propertyTypeSlug, setPropertyTypeSlug] = useState('');
   const [minPrice, setMinPrice] = useState<number | ''>('');
@@ -224,16 +227,14 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
 
   const toggleField = (key: string) => setOpenField((cur) => (cur === key ? null : key));
 
-  const citiesQuery = useQuery({
-    queryKey: ['searchbar', 'cities', variant],
-    queryFn: async () => (variant === 'projects' ? (await projectsRepository.listCities()).map((c) => c.city) : listingsRepository.listCities()),
-    staleTime: 5 * 60_000,
-  });
+  // Full static list, same as every other City dropdown in the app — the
+  // previous per-variant live query (GET /listings/locations/cities or
+  // GET /projects/cities) only ever showed cities that already had a
+  // listing/project, sparse on a fresh dataset.
   const filteredCities = useMemo(() => {
-    const all = citiesQuery.data ?? [];
     const q = citySearch.trim().toLowerCase();
-    return q ? all.filter((c) => c.toLowerCase().includes(q)) : all;
-  }, [citiesQuery.data, citySearch]);
+    return q ? PAKISTAN_CITIES.filter((c) => c.toLowerCase().includes(q)) : PAKISTAN_CITIES;
+  }, [citySearch]);
 
   const { propertyTypes } = useTaxonomyViewModel();
   const categories = useMemo(
@@ -257,7 +258,10 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
 
   const developersQuery = useQuery({
     queryKey: ['searchbar', 'developers'],
+    // Called with no filters -> the unpaginated array branch of the
+    // dual-mode endpoint (see developers.repository.ts::list).
     queryFn: () => developersRepository.list(),
+    select: (data) => (Array.isArray(data) ? data : data.items),
     enabled: variant === 'projects',
     staleTime: 5 * 60_000,
   });
@@ -278,6 +282,7 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
   function handleSearch() {
     const params = new URLSearchParams();
     if (city) params.set('city', city);
+    if (area.trim()) params.set('area', area.trim());
     if (propertyTypeSlug) params.set('propertyTypeSlug', propertyTypeSlug);
     else if (categorySlug) params.set('propertyTypeCategory', categorySlug);
     if (minPrice !== '') params.set('minPrice', String(minPrice));
@@ -351,9 +356,7 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
               >
                 All Cities
               </button>
-              {citiesQuery.isLoading ? (
-                <p className="px-2.5 py-1.5 text-xs text-slate-400">Loading…</p>
-              ) : filteredCities.length === 0 ? (
+              {filteredCities.length === 0 ? (
                 <p className="px-2.5 py-1.5 text-xs text-slate-400">No cities found.</p>
               ) : (
                 filteredCities.map((c) => (
@@ -371,6 +374,18 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
                 ))
               )}
             </div>
+          </FilterField>
+
+          <FilterField
+            icon={Locate}
+            label="Area"
+            valueLabel={area}
+            placeholder="Any Area"
+            open={openField === 'areaLocation'}
+            onToggle={() => toggleField('areaLocation')}
+            panelClassName="w-72"
+          >
+            <PlacesAutocompleteInput value={area} onChange={setArea} placeholder="e.g. Bahria Town, DHA" className="w-full" />
           </FilterField>
 
           <FilterField

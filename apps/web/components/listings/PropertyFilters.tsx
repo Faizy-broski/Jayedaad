@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { listingsRepository, useTaxonomyViewModel, type AreaUnit } from '@jayedaad/core';
+import { PAKISTAN_CITIES, useTaxonomyViewModel, type AreaUnit } from '@jayedaad/core';
 import { Select } from '@jayedaad/ui-web';
-import { useQuery } from '@tanstack/react-query';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
 import { AREA_UNITS, areaUnitLabel } from '@/lib/areaOptions';
 
 export interface ListingFiltersState {
   city: string;
+  area: string;
   minPrice: string;
   maxPrice: string;
   minAreaValue: string;
@@ -26,6 +27,7 @@ export interface ListingFiltersState {
 
 export const DEFAULT_LISTING_FILTERS: ListingFiltersState = {
   city: '',
+  area: '',
   minPrice: '',
   maxPrice: '',
   minAreaValue: '',
@@ -68,11 +70,6 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
   const { propertyTypes } = useTaxonomyViewModel();
   const { amenities } = useTaxonomyViewModel(filters.categorySlug || undefined);
-  const citiesQuery = useQuery({
-    queryKey: ['listings', 'cities'],
-    queryFn: listingsRepository.listCities,
-    staleTime: 5 * 60_000,
-  });
 
   const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, type) => {
     if (type.category && !acc.some((c) => c.slug === type.category.slug)) acc.push(type.category);
@@ -151,12 +148,22 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">City</h3>
         <Select value={filters.city} onChange={(e) => set('city', e.target.value)} className="mt-3">
           <option value="">Any City</option>
-          {(citiesQuery.data ?? []).map((c) => (
+          {PAKISTAN_CITIES.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
         </Select>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area / Location</h3>
+        <PlacesAutocompleteInput
+          value={filters.area}
+          onChange={(v) => set('area', v)}
+          placeholder="e.g. Bahria Town, DHA"
+          className="mt-3 rounded-xl border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-primary"
+        />
       </div>
 
       <div>

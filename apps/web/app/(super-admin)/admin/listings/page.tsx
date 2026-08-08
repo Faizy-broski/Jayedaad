@@ -2,12 +2,45 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Listing, ListingStatus, formatPrice, useAdminListingsViewModel } from '@jayedaad/core';
-import { Button, cn } from '@jayedaad/ui-web';
-import { Building2, ChevronDown, ChevronLeft, ChevronRight, Clock, Home, ImageOff, MapPin, ShieldCheck, ShieldX, User } from 'lucide-react';
+import { Listing, ListingDocumentType, ListingStatus, formatPrice, listingsRepository, useAdminListingsViewModel } from '@jayedaad/core';
+import { Button, cn, Modal, Pagination } from '@jayedaad/ui-web';
+import {
+  Building2,
+  ChevronDown,
+  Clock,
+  Download,
+  Eye,
+  FileCheck2,
+  Home,
+  ImageOff,
+  MapPin,
+  ShieldCheck,
+  ShieldX,
+  User,
+} from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+
+// Owner-listed or independent-agent listings carry their own ownership/
+// utility-bill verification documents (see AdminListingDetailPage's
+// "Verification Documents" section, GET /listings/:id/documents). An
+// agency-affiliated agent's listings are covered by the agency's own
+// verification documents instead (same convention as AgentsPage exempting
+// agency-linked agents from the individual document-completeness gate) —
+// so this split hides the documents row entirely on the Agency tab.
+type SourceTab = 'owner_agent' | 'agency';
+
+const SOURCE_TABS: { id: SourceTab; label: string }[] = [
+  { id: 'owner_agent', label: 'Owner / Agent' },
+  { id: 'agency', label: 'Agency' },
+];
+
+const LISTING_DOCUMENT_TYPES: { type: ListingDocumentType; label: string }[] = [
+  { type: 'ownership_proof', label: 'Ownership Proof' },
+  { type: 'utility_bill', label: 'Utility Bill' },
+];
 
 const STATUS_TABS: { id: ListingStatus; label: string }[] = [
   { id: 'pending_verification', label: 'Pending' },
@@ -50,9 +83,17 @@ const PAGE_SIZE = 20;
 // /listings/mine/status-counts, not a fabricated analytics endpoint.
 export default function AdminListingsPage() {
   const [status, setStatus] = useState<ListingStatus>('pending_verification');
+  const [sourceTab, setSourceTab] = useState<SourceTab>('owner_agent');
   const [page, setPage] = useState(1);
+  const [docsModalListing, setDocsModalListing] = useState<Listing | null>(null);
+  // Owner/Agent vs Agency is filtered server-side (findMine's `source`
+  // param) rather than over one already-fetched page — at real platform
+  // scale, filtering client-side after pagination would make `total`/
+  // totalPages wrong and could show a near-empty page for a tab whose
+  // matches happened to land on a different page.
   const { listings, total, isLoading, statusCounts, setStatus: setListingStatus } = useAdminListingsViewModel({
     status,
+    source: sourceTab,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -134,6 +175,34 @@ export default function AdminListingsPage() {
         </div>
       </Reveal>
 
+      <Reveal>
+        <div className="flex gap-1 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
+          {SOURCE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setSourceTab(tab.id);
+                setPage(1);
+              }}
+              className={cn(
+                'relative shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                sourceTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {sourceTab === tab.id && (
+                <motion.span
+                  layoutId="adminListingsSourcePill"
+                  className="bg-heading-gradient absolute inset-0 rounded-full"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
+              <span className="relative">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </Reveal>
+
       {isLoading && (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
@@ -202,6 +271,17 @@ export default function AdminListingsPage() {
 
                       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                         <span className="mr-1 text-sm font-semibold text-foreground">{formatPrice(Number(listing.price))}</span>
+                        {/* Agency-affiliated listings are covered by the
+                            agency's own verification documents (see
+                            AgenciesPage) — only owner/independent-agent
+                            listings carry their own, so this button only
+                            ever shows on the Owner/Agent tab. */}
+                        {sourceTab === 'owner_agent' && (
+                          <Button variant="outline" size="sm" onClick={() => setDocsModalListing(listing)}>
+                            <FileCheck2 className="mr-1 h-3.5 w-3.5" />
+                            Documents
+                          </Button>
+                        )}
                         <Link href={`/admin/listings/${listing.id}`}>
                           <Button variant="outline" size="sm">
                             View
@@ -231,22 +311,67 @@ export default function AdminListingsPage() {
             </AnimatePresence>
           </ul>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
+      )}
+
+      {/* Ownership Proof / Utility Bill for a single owner/independent-agent
+          listing — GET /listings/:id/documents already allows
+          verification_staff/super_admin to bypass the ownership check (see
+          AdminListingDetailPage), just called from a popup here instead of
+          only from the detail page. */}
+      <Modal open={!!docsModalListing} onClose={() => setDocsModalListing(null)} title={`Documents — ${docsModalListing?.title ?? ''}`}>
+        {docsModalListing && <ListingDocumentsSection listingId={docsModalListing.id} />}
+      </Modal>
+    </div>
+  );
+}
+
+function ListingDocumentsSection({ listingId }: { listingId: string }) {
+  const { data: documents, isLoading } = useQuery({
+    queryKey: ['admin', 'listings', listingId, 'documents'],
+    queryFn: () => listingsRepository.listDocuments(listingId),
+  });
+
+  return (
+    <div className="space-y-3">
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        LISTING_DOCUMENT_TYPES.map((doc) => {
+          const found = documents?.find((d) => d.documentType === doc.type);
+          return (
+            <div key={doc.type} className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-sm">
+                {doc.label}
+                {!found && <span className="text-xs text-muted-foreground">Not uploaded</span>}
+              </span>
+              {found && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <a
+                    href={found.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </a>
+                  <a
+                    href={found.url}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

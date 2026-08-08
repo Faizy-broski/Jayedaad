@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ScopeGuard } from '../common/guards/scope.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRepository } from './admin.repository';
@@ -18,8 +18,35 @@ export class AdminController {
   }
 
   @Get('agents')
-  listAgents() {
-    return this.admin.listAgentsOverview();
+  listAgents(
+    @Query('search') search?: string,
+    @Query('verificationStatus') verificationStatus?: string,
+    @Query('reviewableOnly') reviewableOnly?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.admin.listAgentsOverview({
+      search,
+      verificationStatus,
+      reviewableOnly: reviewableOnly === 'true',
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
+  }
+
+  @Get('agencies')
+  listAgencies(
+    @Query('search') search?: string,
+    @Query('verificationStatus') verificationStatus?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.admin.listAgenciesOverview({
+      search,
+      verificationStatus,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   // "Which role gets what dashboard access" reference for the team

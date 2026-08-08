@@ -5,23 +5,27 @@ import { Input } from '@jayedaad/ui-web';
 import { getClientEnv } from '@/lib/env';
 import { loadGooglePlaces } from '@/lib/googlePlaces';
 
-// Real Google Places Autocomplete — falls back to a plain text input if
-// NEXT_PUBLIC_GOOGLE_PLACES_API_KEY isn't set (no key has been provided in
-// this environment), so the field stays fully usable either way, just
-// without suggestions until a real key with the Places API enabled + a
-// billing account is added to .env. Restricted to Pakistan only, not
-// scoped to the selected City — that would need a geocoded lat/lng per
-// city to bias results, which this app doesn't have.
+// Real Google Places Autocomplete — NEXT_PUBLIC_GOOGLE_PLACES_API_KEY is set
+// (apps/web/.env), so this is live everywhere it's used, not a fallback
+// stub. Still degrades to a plain text input if the key/script load ever
+// fails (network issue, key revoked, etc.), so the field stays usable
+// either way. Restricted to Pakistan only, not scoped to the selected City
+// — that would need a geocoded lat/lng per city to bias results, which
+// this app doesn't have.
 export function PlacesAutocompleteInput({
   value,
   onChange,
   placeholder,
   required,
+  disabled,
+  className,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
+  className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -67,6 +71,8 @@ export function PlacesAutocompleteInput({
     <Input
       ref={inputRef}
       required={required}
+      disabled={disabled}
+      className={className}
       placeholder={ready ? placeholder : `${placeholder ?? ''} (type freely — suggestions unavailable)`.trim()}
       value={value}
       onChange={(e) => onChange(e.target.value)}

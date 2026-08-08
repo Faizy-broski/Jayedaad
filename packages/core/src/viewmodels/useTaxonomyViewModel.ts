@@ -10,13 +10,17 @@ import { taxonomyRepository } from '../services/taxonomyRepository';
 export function useTaxonomyViewModel(propertyTypeCategorySlug?: string) {
   const propertyTypes = useQuery({
     queryKey: ['taxonomy', 'property-types'],
-    queryFn: taxonomyRepository.listPropertyTypes,
+    // Called with no filters -> the unpaginated array branch of the
+    // dual-mode endpoint (see taxonomy.repository.ts::listPropertyTypes).
+    queryFn: () => taxonomyRepository.listPropertyTypes(),
+    select: (data) => (Array.isArray(data) ? data : data.items),
     staleTime: 5 * 60_000,
   });
 
   const amenities = useQuery({
     queryKey: ['taxonomy', 'amenities', propertyTypeCategorySlug ?? null],
-    queryFn: () => taxonomyRepository.listAmenities(propertyTypeCategorySlug),
+    queryFn: () => taxonomyRepository.listAmenities({ propertyTypeCategorySlug }),
+    select: (data) => (Array.isArray(data) ? data : data.items),
     staleTime: 5 * 60_000,
   });
 

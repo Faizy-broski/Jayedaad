@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { VerificationAuditAction, VerificationAuditLogEntry, useUserManagementViewModel, useVerificationAuditLogViewModel } from '@jayedaad/core';
-import { Button, cn } from '@jayedaad/ui-web';
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock, FileSearch, HelpCircle, ScrollText, XCircle } from 'lucide-react';
+import { cn, Pagination } from '@jayedaad/ui-web';
+import { CheckCircle2, Clock, FileSearch, HelpCircle, ScrollText, XCircle } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
 const ACTION_FILTERS: { id: VerificationAuditAction | 'all'; label: string }[] = [
@@ -45,7 +45,11 @@ const PAGE_SIZE = 20;
 export default function VerificationLogPage() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState<VerificationAuditAction | 'all'>('all');
-  const { entries, total, isLoading } = useVerificationAuditLogViewModel({ page, pageSize: PAGE_SIZE });
+  const { entries, total, isLoading } = useVerificationAuditLogViewModel({
+    action: actionFilter === 'all' ? undefined : actionFilter,
+    page,
+    pageSize: PAGE_SIZE,
+  });
   const { users } = useUserManagementViewModel();
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -65,10 +69,10 @@ export default function VerificationLogPage() {
     [entries],
   );
 
-  const visibleEntries = useMemo(
-    () => (actionFilter === 'all' ? entries : entries.filter((e) => e.action === actionFilter)),
-    [entries, actionFilter],
-  );
+  function handleActionFilterChange(next: VerificationAuditAction | 'all') {
+    setActionFilter(next);
+    setPage(1);
+  }
 
   return (
     <div className="space-y-6">
@@ -104,7 +108,7 @@ export default function VerificationLogPage() {
             <button
               key={f.id}
               type="button"
-              onClick={() => setActionFilter(f.id)}
+              onClick={() => handleActionFilterChange(f.id)}
               className={cn(
                 'relative shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
                 actionFilter === f.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
@@ -131,23 +135,23 @@ export default function VerificationLogPage() {
         </div>
       )}
 
-      {!isLoading && visibleEntries.length === 0 && (
+      {!isLoading && entries.length === 0 && (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
             <ScrollText className="mb-3 h-10 w-10 text-muted-foreground/50" />
             <h3 className="text-sm font-semibold text-foreground">No entries found</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {actionFilter === 'all' ? 'Verification decisions will appear here.' : 'No entries with this action on this page.'}
+              {actionFilter === 'all' ? 'Verification decisions will appear here.' : 'No entries with this action yet.'}
             </p>
           </div>
         </Reveal>
       )}
 
-      {!isLoading && visibleEntries.length > 0 && (
+      {!isLoading && entries.length > 0 && (
         <>
           <ul className="relative space-y-3 before:absolute before:bottom-2 before:left-[23px] before:top-2 before:w-px before:bg-border sm:before:left-[27px]">
             <AnimatePresence initial={false}>
-              {visibleEntries.map((entry: VerificationAuditLogEntry, index) => {
+              {entries.map((entry: VerificationAuditLogEntry, index) => {
                 const style = ACTION_STYLE[entry.action];
                 const Icon = style.icon;
                 return (
@@ -193,21 +197,7 @@ export default function VerificationLogPage() {
             </AnimatePresence>
           </ul>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
     </div>

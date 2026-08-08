@@ -1,10 +1,28 @@
 import { useState } from 'react';
-import { Alert, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { Alert, Image, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AgencyStaffMember, CreateAgencyStaffInput, useAgencyStaffViewModel, useAgentProfileViewModel } from '@jayedaad/core';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  agentsRepository,
+  AgencyStaffMember,
+  CreateAgencyStaffInput,
+  useAgencyStaffViewModel,
+  useAgentProfileViewModel,
+} from '@jayedaad/core';
 import { Button, Dialog, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { useMutation } from '@tanstack/react-query';
 
 const EMPTY_FORM: CreateAgencyStaffInput = { email: '', password: '', displayName: '' };
+
+function StaffAvatar({ photoUrl, name, size = 36 }: { photoUrl: string | null; name: string | null; size?: number }) {
+  return photoUrl ? (
+    <Image source={{ uri: photoUrl }} style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]} />
+  ) : (
+    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={styles.avatarFallbackText}>{(name ?? '?').charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
 
 const VERIFICATION_COLORS: Record<AgencyStaffMember['verificationStatus'], { bg: string; text: string }> = {
   pending: { bg: '#FEF3C7', text: '#92400E' },
@@ -24,6 +42,16 @@ export function AgencyStaffScreen() {
   const { showToast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<CreateAgencyStaffInput>(EMPTY_FORM);
+
+  // Uploads immediately on pick, same as ProfileSettingsScreen's own photo
+  // upload — there's no agent id yet to attach to directly, so this hits
+  // the id-less POST /agents/photo/upload and the returned url just sits in
+  // form.photoUrl until "Add" is pressed.
+  const uploadPhoto = useMutation({
+    mutationFn: (file: { uri: string; name: string; type: string }) => agentsRepository.uploadStandaloneAvatar(file),
+    onSuccess: ({ url }) => setForm((prev) => ({ ...prev, photoUrl: url })),
+    onError: () => showToast('Photo upload failed — please try again.', 'error'),
+  });
 
   if (isProfileLoading) {
     return (
@@ -50,6 +78,21 @@ export function AgencyStaffScreen() {
       },
       onError: () => showToast('Something went wrong — please try again.', 'error'),
     });
+  }
+
+  async function handlePickPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast('Photo library permission is required.', 'error');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const filename = asset.uri.split('/').pop() ?? 'photo.jpg';
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    uploadPhoto.mutate({ uri: asset.uri, name: filename, type: mimeType });
   }
 
   function handleToggleAdmin(agentId: string, next: boolean) {
@@ -99,9 +142,12 @@ export function AgencyStaffScreen() {
             return (
               <View key={agent.id} style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {agent.displayName ?? 'Unnamed agent'}
-                  </Text>
+                  <View style={styles.cardHeaderName}>
+                    <StaffAvatar photoUrl={agent.photoUrl} name={agent.displayName} />
+                    <Text style={styles.rowTitle} numberOfLines={1}>
+                      {agent.displayName ?? 'Unnamed agent'}
+                    </Text>
+                  </View>
                   {agent.isAgencyAdmin && (
                     <View style={styles.adminBadge}>
                       <Text style={styles.adminBadgeText}>Admin</Text>
@@ -143,6 +189,12 @@ export function AgencyStaffScreen() {
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title="Add Agent">
         <View style={styles.dialogContent}>
+          <Pressable style={styles.photoPicker} onPress={handlePickPhoto} disabled={uploadPhoto.isPending}>
+            <StaffAvatar photoUrl={form.photoUrl ?? null} name={form.displayName ?? null} size={56} />
+            <Text style={styles.photoPickerText}>
+              {uploadPhoto.isPending ? 'Uploading…' : form.photoUrl ? 'Change photo' : 'Add a photo (optional)'}
+            </Text>
+          </Pressable>
           <TextInput
             label="Name"
             value={form.displayName}
@@ -196,6 +248,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  cardHeaderName: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  avatar: { backgroundColor: theme.colors.surfaceAlt },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceAlt },
+  avatarFallbackText: { fontSize: 13, fontWeight: '700', color: theme.colors.mutedLight },
+  photoPicker: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  photoPickerText: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
   rowTitle: { fontSize: 15, fontWeight: '700', color: theme.colors.text, flexShrink: 1 },
   rowSubtitle: { fontSize: 13, color: theme.colors.muted, fontWeight: '500', marginBottom: 8 },
   adminBadge: { backgroundColor: '#DCFCE7', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },

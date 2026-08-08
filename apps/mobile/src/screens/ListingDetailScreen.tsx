@@ -26,7 +26,7 @@ import {
   usePreferencesViewModel,
   Listing,
 } from '@jayedaad/core';
-import { Accordion, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
+import { Accordion, Badge, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
 import { ContactIconActions, FavoriteButton, getPrimaryCallNumber, trackAndOpen } from '../components/ListingContactActions';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { addRecentlyViewed } from '../lib/recentlyViewedStorage';
@@ -263,7 +263,10 @@ export function ListingDetailScreen() {
                 </View>
               )}
               <View style={styles.agentInfo}>
-                <Text style={styles.agentName}>{listing.agent?.displayName ?? 'Owner'}</Text>
+                <View style={styles.agentNameRow}>
+                  <Text style={styles.agentName}>{listing.agent?.displayName ?? 'Owner'}</Text>
+                  {listing.agent?.subscriptionTierName && <Badge variant="success">{listing.agent.subscriptionTierName}</Badge>}
+                </View>
                 <Text style={styles.agentAgency}>{listing.agent?.agency ? listing.agent.agency.name : 'Independent'}</Text>
               </View>
               <ContactIconActions listing={listing} onMessagePress={() => openEnquiry('inquiry')} />
@@ -715,6 +718,7 @@ const styles = StyleSheet.create({
   },
   agentPhotoPlaceholderText: { fontSize: 20, fontWeight: '800', color: FIGMA_SURFACE },
   agentInfo: { flex: 1 },
+  agentNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   agentName: { fontSize: 15, fontWeight: '800', color: theme.colors.text },
   agentAgency: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
 

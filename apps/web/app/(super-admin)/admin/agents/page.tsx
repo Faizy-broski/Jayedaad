@@ -1,16 +1,25 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AgentCreditType, AgentOverview, agentsRepository, OnboardingDocumentType, useAdminAgentsViewModel } from '@jayedaad/core';
-import { Badge, Button, cn, Input, Label, Modal, Select, Table, TableColumn } from '@jayedaad/ui-web';
+import {
+  AgentCreditType,
+  AgentOverview,
+  agentsRepository,
+  OnboardingDocument,
+  OnboardingDocumentType,
+  useAdminAgentsViewModel,
+  useAdminStatsViewModel,
+} from '@jayedaad/core';
+import { Badge, Button, cn, Input, Label, Modal, Pagination, Select, Table, TableColumn } from '@jayedaad/ui-web';
 import {
   Building2,
   CheckCircle2,
   Clock,
   CreditCard,
+  Download,
   FileCheck2,
   Search,
   ShieldCheck,
@@ -34,7 +43,9 @@ const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
   { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
 ];
 
-const STATUS_TABS: { id: 'all' | 'pending' | 'verified' | 'rejected'; label: string }[] = [
+type AgentTab = 'all' | 'pending' | 'verified' | 'rejected';
+
+const STATUS_TABS: { id: AgentTab; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'pending', label: 'Pending' },
   { id: 'verified', label: 'Verified' },
@@ -50,39 +61,56 @@ function initials(name: string): string {
     .join('');
 }
 
-// Real counts derived from the fetched agents list — same "compute from what's
-// already loaded" approach as the Agencies page, no fabricated analytics endpoint.
+const PAGE_SIZE = 20;
+
+// Header stat tiles read from GET /admin/stats (true platform totals) —
+// now that the roster itself is server-side paginated, computing these from
+// whatever page happens to be loaded would silently under-count, same fix
+// applied to Agencies/Users.
 export default function AgentsPage() {
-  const { agents, isLoading, grantCredits, setVerificationStatus } = useAdminAgentsViewModel();
+  const [activeTab, setActiveTab] = useState<AgentTab>('all');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  const { agents, total, isLoading, grantCredits, setVerificationStatus } = useAdminAgentsViewModel({
+    // A row added through an agency admin's "Agency Staff" screen needs no
+    // individual identity verification of its own — same reasoning as it
+    // being exempt from the document-completeness gate (see
+    // agents.repository.ts::setVerificationStatus's `if (!agent.agency_id)`)
+    // — the agency's own review already covers it. Only independent agents
+    // and the one admin who registered/owns each agency go through the
+    // Verify/Reject queue here; every other agency-linked row lives on the
+    // Agencies page's own "Staff" tab instead (it's staff *of* an agency),
+    // with no verification actions at all.
+    reviewableOnly: true,
+    verificationStatus: activeTab === 'all' ? undefined : activeTab,
+    search: search.trim() || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+  const { stats, isLoading: isStatsLoading } = useAdminStatsViewModel();
   const [creditsModalAgent, setCreditsModalAgent] = useState<AgentOverview | null>(null);
   const [docsModalAgent, setDocsModalAgent] = useState<AgentOverview | null>(null);
   const [creditType, setCreditType] = useState<AgentCreditType>('listing_quota');
   const [creditTotal, setCreditTotal] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
-  const [search, setSearch] = useState('');
 
-  const counts = useMemo(
-    () => ({
-      total: agents.length,
-      verified: agents.filter((a) => a.verificationStatus === 'verified').length,
-      pending: agents.filter((a) => a.verificationStatus === 'pending').length,
-      rejected: agents.filter((a) => a.verificationStatus === 'rejected').length,
-    }),
-    [agents],
-  );
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const counts = {
+    total,
+    verified: stats?.agentsByVerificationStatus?.verified ?? 0,
+    pending: stats?.agentsByVerificationStatus?.pending ?? 0,
+    rejected: stats?.agentsByVerificationStatus?.rejected ?? 0,
+  };
 
-  const visibleAgents = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return agents.filter((a) => {
-      const matchesTab = activeTab === 'all' || a.verificationStatus === activeTab;
-      const matchesSearch =
-        !q ||
-        (a.displayName ?? '').toLowerCase().includes(q) ||
-        (a.city ?? '').toLowerCase().includes(q) ||
-        (a.agency?.name ?? '').toLowerCase().includes(q);
-      return matchesTab && matchesSearch;
-    });
-  }, [agents, activeTab, search]);
+  function handleTabChange(next: AgentTab) {
+    setActiveTab(next);
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
 
   function handleVerify(agentId: string, status: 'verified' | 'rejected') {
     setVerificationStatus.mutate(
@@ -176,8 +204,8 @@ export default function AgentsPage() {
             Credits
           </Button>
           {/* Agency-affiliated agents are covered by the agency's own
-              documents (see AgenciesPage) — only independent agents need
-              their own uploaded here. */}
+              documents (see AgenciesPage) — only independent agents
+              need their own uploaded here. */}
           {!agent.agency && (
             <Button size="sm" variant="outline" onClick={() => setDocsModalAgent(agent)}>
               <FileCheck2 className="mr-1 h-3.5 w-3.5" />
@@ -200,8 +228,8 @@ export default function AgentsPage() {
             </p>
             <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">Agents</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{counts.total}</span> registered {counts.total === 1 ? 'agent' : 'agents'} —{' '}
-              <span className="font-semibold text-foreground">{counts.pending}</span> awaiting review.
+              <span className="font-semibold text-foreground">{counts.total}</span> {counts.total === 1 ? 'agent' : 'agents'} awaiting/under review —{' '}
+              <span className="font-semibold text-foreground">{counts.pending}</span> pending.
             </p>
           </div>
         </div>
@@ -229,7 +257,7 @@ export default function AgentsPage() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     'relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                     activeTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
@@ -252,7 +280,7 @@ export default function AgentsPage() {
 
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, city, or agency…" className="pl-9" />
+            <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Search by name or city…" className="pl-9" />
           </div>
         </div>
       </Reveal>
@@ -260,14 +288,16 @@ export default function AgentsPage() {
       <Reveal>
         <Table
           columns={columns}
-          rows={visibleAgents}
+          rows={agents}
           rowKey={(agent) => agent.id}
           isLoading={isLoading}
           emptyMessage={
-            search || activeTab !== 'all' ? 'No agents match your search or filter.' : 'New agents will appear here once registered.'
+            search ? 'No agents match your search.' : activeTab !== 'all' ? 'No agents match this filter.' : 'New agents will appear here once registered.'
           }
         />
       </Reveal>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Modal
         open={!!creditsModalAgent}
@@ -317,7 +347,11 @@ function AgentDocumentsSection({ agentId }: { agentId: string }) {
     queryFn: () => agentsRepository.listDocuments(agentId),
   });
 
-  const uploadedTypes = new Set((documents ?? []).map((d) => d.documentType));
+  // `url` is a signed URL good for 1 hour (agents.repository.ts::
+  // listDocuments re-signs it fresh on every call) — keyed by documentType
+  // here so a re-uploaded doc's row always links to the latest file, not a
+  // stale one from an earlier fetch.
+  const docByType = new Map((documents ?? []).map((d) => [d.documentType, d]));
 
   return (
     <div className="space-y-3">
@@ -331,7 +365,7 @@ function AgentDocumentsSection({ agentId }: { agentId: string }) {
             agentId={agentId}
             documentType={doc.type}
             label={doc.label}
-            uploaded={uploadedTypes.has(doc.type)}
+            document={docByType.get(doc.type)}
             onUploaded={() => queryClient.invalidateQueries({ queryKey })}
           />
         ))
@@ -344,15 +378,16 @@ function AgentDocumentRow({
   agentId,
   documentType,
   label,
-  uploaded,
+  document,
   onUploaded,
 }: {
   agentId: string;
   documentType: OnboardingDocumentType;
   label: string;
-  uploaded: boolean;
+  document: OnboardingDocument | undefined;
   onUploaded: () => void;
 }) {
+  const uploaded = !!document;
   const [isUploading, setIsUploading] = useState(false);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -372,7 +407,7 @@ function AgentDocumentRow({
   }
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-2">
       <span className="flex items-center gap-1.5 text-sm">
         {label}
         {uploaded && (
@@ -382,11 +417,24 @@ function AgentDocumentRow({
           </span>
         )}
       </span>
-      <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-        <UploadCloud className="h-3.5 w-3.5" />
-        {isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleUpload} />
-      </label>
+      <div className="flex shrink-0 items-center gap-2">
+        {document && (
+          <a
+            href={document.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
+          >
+            <Download className="h-3.5 w-3.5" />
+            View
+          </a>
+        )}
+        <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
+          <UploadCloud className="h-3.5 w-3.5" />
+          {isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}
+          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleUpload} />
+        </label>
+      </div>
     </div>
   );
 }

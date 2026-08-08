@@ -15,8 +15,10 @@ import {
 
 // services/api/src/agencies/agencies.repository.ts returns raw snake_case
 // rows (no server-side mapper, unlike agents.repository.ts/listings.repository.ts)
-// — mapped here to match Agency's camelCase shape.
-function mapAgencyRow(row: any): Agency {
+// — mapped here to match Agency's camelCase shape. Exported so
+// adminRepository.listAgenciesOverview (GET /admin/agencies, same raw-row
+// shape) can reuse it instead of duplicating the mapping.
+export function mapAgencyRow(row: any): Agency {
   return {
     id: row.id,
     name: row.name,

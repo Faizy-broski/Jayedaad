@@ -19,6 +19,7 @@ import {
 } from '@jayedaad/core';
 import { getViewerSessionId } from '@/lib/viewerSession';
 import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 
 // Fires the real engagement-tracking event (backs the agent dashboard's
 // Calls/WhatsApp/SMS analytics, which were previously always 0 — nothing
@@ -210,7 +211,16 @@ function SearchPageContent() {
             </select>
           </FilterCell>
           <FilterCell label="Location">
-            <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="Search location" className={fieldClasses} />
+            <PlacesAutocompleteInput
+              value={area}
+              onChange={setArea}
+              placeholder="Search location"
+              // PlacesAutocompleteInput renders ui-web's styled <Input>,
+              // which has its own border/height/padding — neutralized here
+              // (border-0/h-auto/px-0/py-0) so it matches this dark filter
+              // bar's borderless siblings instead of boxing just this field.
+              className={`${fieldClasses} h-auto rounded-none border-0 px-0 py-0`}
+            />
           </FilterCell>
           <FilterCell label="Category">
             <select

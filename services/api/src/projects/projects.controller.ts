@@ -38,6 +38,7 @@ export class ProjectsController {
   @Get()
   findPublic(
     @Query('city') city?: string,
+    @Query('area') area?: string,
     @Query('status') status?: 'planned' | 'under_construction' | 'ready',
     @Query('propertyTypeSlug') propertyTypeSlug?: string,
     @Query('developerSlug') developerSlug?: string,
@@ -53,6 +54,7 @@ export class ProjectsController {
   ) {
     return this.projects.findPublic({
       city,
+      area,
       status,
       propertyTypeSlug,
       developerSlug,
@@ -79,13 +81,14 @@ export class ProjectsController {
   @Get('manage')
   findAll(
     @Query('city') city?: string,
+    @Query('area') area?: string,
     @Query('status') status?: 'planned' | 'under_construction' | 'ready' | 'draft',
     @Query('keyword') keyword?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
     return this.projects.findPublic(
-      { city, status, keyword, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined },
+      { city, area, status, keyword, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined },
       true,
     );
   }

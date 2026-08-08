@@ -5,6 +5,11 @@ export interface TierEntitlements {
   listingQuota: number;
   analyticsDepth: 'basic' | 'standard' | 'advanced' | 'full';
   viewCountDetail: 'total_only' | 'breakdown_by_source' | 'full_timeseries';
+  // Days a listing stays 'verified' before PlanLifecycleService's cron
+  // expires it — null means unlimited. Also read by ListingsRepository.renew()
+  // to recompute a fresh expiry the same way record_verification_action()
+  // (supabase/migrations/0042_listing_expiration.sql) does on initial approval.
+  listingDurationDays: number | null;
 }
 
 // Independent entitlement layer per [Dev Instr §2.3]: "can be adjusted
@@ -22,25 +27,73 @@ export class EntitlementsService {
       .from('subscriptions')
       .select('*, subscription_tiers(*)')
       .eq('agent_id', agentId)
+      .eq('status', 'active')
       .maybeSingle();
     if (error) throw error;
 
-    if (!subscription) {
-      // No active subscription: treat as the free "lite" tier defaults.
-      return { listingQuota: 50, analyticsDepth: 'basic', viewCountDetail: 'total_only' };
+    // Real correctness fix: previously any row (active, past_due, canceled
+    // — whatever `status` said) was honored as long as one existed at all,
+    // so an expired/canceled subscription kept granting full paid
+    // entitlements forever. The .eq('status', 'active') above already
+    // excludes past_due/canceled; this additionally excludes a row that's
+    // still marked 'active' but whose period has quietly lapsed (defense
+    // in depth alongside PlanLifecycleService's cron, which corrects
+    // `status` itself on the same condition).
+    const withinPeriod = !subscription?.current_period_end || subscription.current_period_end > new Date().toISOString();
+
+    if (subscription && withinPeriod) {
+      const tier = (subscription as any).subscription_tiers;
+      return {
+        listingQuota: tier.listing_quota,
+        listingDurationDays: tier.listing_duration_days,
+        ...(tier.analytics_depth as Omit<TierEntitlements, 'listingQuota' | 'listingDurationDays'>),
+      };
     }
 
-    const tier = (subscription as any).subscription_tiers;
-    return {
-      listingQuota: tier.listing_quota,
-      ...(tier.analytics_depth as Omit<TierEntitlements, 'listingQuota'>),
-    };
+    return this.getDefaultEntitlements();
+  }
+
+  // No active, in-period subscription — never subscribed, or it lapsed.
+  // Falls back to the real "Lite" plan's own numbers (single source of
+  // truth — the same row the admin Plans page edits) rather than a
+  // separate hardcoded default, so an unsubscribed agent's limits always
+  // match exactly what the Lite plan card promises.
+  private async getDefaultEntitlements(): Promise<TierEntitlements> {
+    const { data: liteTier, error } = await this.supabase.client
+      .from('subscription_tiers')
+      .select('*')
+      .eq('name', 'Lite')
+      .maybeSingle();
+    if (error) throw error;
+
+    if (liteTier) {
+      return {
+        listingQuota: liteTier.listing_quota,
+        listingDurationDays: liteTier.listing_duration_days,
+        ...(liteTier.analytics_depth as Omit<TierEntitlements, 'listingQuota' | 'listingDurationDays'>),
+      };
+    }
+
+    // Safety net only — reached if the Lite plan was ever deleted/renamed.
+    return { listingQuota: 5, analyticsDepth: 'basic', viewCountDetail: 'total_only', listingDurationDays: 30 };
   }
 
   async getListingUsage(agentId: string): Promise<{ used: number; quota: number }> {
     const [entitlements, { count, error }] = await Promise.all([
       this.getEntitlements(agentId),
-      this.supabase.client.from('listings').select('id', { count: 'exact', head: true }).eq('agent_id', agentId),
+      // .neq('status', 'deleted')/.neq('status', 'expired') — without these,
+      // a soft-deleted listing (ListingsController's remove() only ever sets
+      // status: 'deleted', never a hard delete) or an expired one
+      // (PlanLifecycleService's cron, now that listings actually expire —
+      // see 0042_listing_expiration.sql) would count against quota forever,
+      // contradicting the enforcement error's own "upgrade or free up a
+      // slot" promise.
+      this.supabase.client
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', agentId)
+        .neq('status', 'deleted')
+        .neq('status', 'expired'),
     ]);
     if (error) throw error;
     return { used: count ?? 0, quota: entitlements.listingQuota };

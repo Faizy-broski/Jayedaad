@@ -1,12 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { developersRepository, projectsRepository, type AreaUnit, type ProjectStatus } from '@jayedaad/core';
+import { PAKISTAN_CITIES, developersRepository, projectsRepository, type AreaUnit, type ProjectStatus } from '@jayedaad/core';
 import { Select } from '@jayedaad/ui-web';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import { AREA_UNITS, areaUnitLabel } from '@/lib/areaOptions';
 
 export interface ProjectFiltersState {
   city: string;
+  area: string;
   propertyTypeSlug: string;
   status: ProjectStatus | '';
   minPrice: string;
@@ -20,6 +22,7 @@ export interface ProjectFiltersState {
 
 export const DEFAULT_PROJECT_FILTERS: ProjectFiltersState = {
   city: '',
+  area: '',
   propertyTypeSlug: '',
   status: '',
   minPrice: '',
@@ -44,19 +47,16 @@ interface ProjectsFiltersProps {
   onReset: () => void;
 }
 
-// City/Property Type options are real, live data — GET /projects/cities and
-// GET /projects/categories, the same "Browse Projects by City/Category"
-// counts confirmed real on Zameen's New Projects filter bar — not a fixed
-// enum like the property listings page's PropertyFilters.
+// Property Type options are real, live data — GET /projects/categories, the
+// same "Browse Projects by Category" counts confirmed real on Zameen's New
+// Projects filter bar. City now uses the same full static PAKISTAN_CITIES
+// list every other City dropdown in the app uses — the previous live
+// GET /projects/cities source only ever showed cities that already had a
+// project, sparse on a fresh dataset.
 export function ProjectsFilters({ filters, onChange, onApply, onReset }: ProjectsFiltersProps) {
   const set = <K extends keyof ProjectFiltersState>(key: K, value: ProjectFiltersState[K]) =>
     onChange({ ...filters, [key]: value });
 
-  const citiesQuery = useQuery({
-    queryKey: ['projects', 'cities'],
-    queryFn: projectsRepository.listCities,
-    staleTime: 5 * 60_000,
-  });
   const categoriesQuery = useQuery({
     queryKey: ['projects', 'categories'],
     queryFn: projectsRepository.listCategories,
@@ -64,7 +64,10 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
   });
   const developersQuery = useQuery({
     queryKey: ['developers', 'all'],
+    // Called with no filters -> the unpaginated array branch of the
+    // dual-mode endpoint (see developers.repository.ts::list).
     queryFn: () => developersRepository.list(),
+    select: (data) => (Array.isArray(data) ? data : data.items),
     staleTime: 5 * 60_000,
   });
 
@@ -74,12 +77,22 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">City</h3>
         <Select value={filters.city} onChange={(e) => set('city', e.target.value)} className="mt-3">
           <option value="">Any City</option>
-          {(citiesQuery.data ?? []).map((c) => (
-            <option key={c.city} value={c.city}>
-              {c.city} ({c.count})
+          {PAKISTAN_CITIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
             </option>
           ))}
         </Select>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area / Location</h3>
+        <PlacesAutocompleteInput
+          value={filters.area}
+          onChange={(v) => set('area', v)}
+          placeholder="e.g. Bahria Town, DHA"
+          className="mt-3 rounded-xl border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-primary"
+        />
       </div>
 
       <div>

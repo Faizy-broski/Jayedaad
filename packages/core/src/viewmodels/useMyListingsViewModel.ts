@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreateListingInput, listingsRepository, MyListingsFilters } from '../services/listingsRepository';
+import { BoostListingInput } from '../models';
 import { useAuthViewModel } from './useAuthViewModel';
 
 // Drives the Profolio-style "My Listings" page — status tabs (with count
@@ -45,6 +46,21 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
   });
 
+  // Spends a Hot/Super Hot credit to feature a listing — the Property
+  // Management "Boost" action.
+  const boost = useMutation({
+    mutationFn: ({ listingId, input }: { listingId: string; input: BoostListingInput }) =>
+      listingsRepository.boostListing(listingId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+  });
+
+  // Resets an expired listing back to 'verified' with a fresh expiry — the
+  // Expired tab's "Renew" action.
+  const renew = useMutation({
+    mutationFn: (listingId: string) => listingsRepository.renewListing(listingId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+  });
+
   return {
     listings: listingsQuery.data?.items ?? [],
     total: listingsQuery.data?.total ?? 0,
@@ -56,5 +72,7 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
     update,
     remove,
     submitForVerification,
+    boost,
+    renew,
   };
 }

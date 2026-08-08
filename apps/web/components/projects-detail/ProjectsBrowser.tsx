@@ -36,6 +36,7 @@ export function ProjectsBrowser({ initialFilters }: ProjectsBrowserProps) {
 
   const { projects, total, isLoading } = useProjectsViewModel({
     city: appliedFilters.city || undefined,
+    area: appliedFilters.area || undefined,
     propertyTypeSlug: appliedFilters.propertyTypeSlug || undefined,
     status: (appliedFilters.status || undefined) as ProjectStatus | undefined,
     minPrice: appliedFilters.minPrice ? Number(appliedFilters.minPrice) : undefined,

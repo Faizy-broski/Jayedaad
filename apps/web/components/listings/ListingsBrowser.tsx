@@ -82,6 +82,7 @@ export function ListingsBrowser({ initialFilters, purpose }: ListingsBrowserProp
   const baseFilters: Omit<ListingSearchFilters, 'propertyTypeSlug'> = {
     purpose,
     city: appliedFilters.city || undefined,
+    area: appliedFilters.area || undefined,
     minPrice: appliedFilters.minPrice ? Number(appliedFilters.minPrice) : undefined,
     maxPrice: appliedFilters.maxPrice ? Number(appliedFilters.maxPrice) : undefined,
     minAreaValue: appliedFilters.minAreaValue ? Number(appliedFilters.minAreaValue) : undefined,

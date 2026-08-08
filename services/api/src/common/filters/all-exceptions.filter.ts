@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
 
 interface ErrorResponseBody {
   statusCode: number;
@@ -39,6 +40,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const logLine = `${request.method} ${request.url} -> ${status}`;
     if (status >= 500) {
       this.logger.error(logLine, exception instanceof Error ? exception.stack : String(exception));
+      // Additive, not a replacement for the stdout logging above — a no-op
+      // if SENTRY_DSN was never set (main.ts only calls Sentry.init() then).
+      Sentry.captureException(exception);
     } else {
       this.logger.warn(logLine);
     }

@@ -1,8 +1,9 @@
 // Lazily injects the Google Maps JS API (Places library) script once and
 // resolves when window.google.maps.places is ready. Requires a real API key
 // with the Places API enabled in the Google Cloud Console (billing account
-// required) — set NEXT_PUBLIC_GOOGLE_PLACES_API_KEY in .env. Without a key,
-// callers should fall back to a plain input (see PlacesAutocompleteInput.tsx).
+// required) — NEXT_PUBLIC_GOOGLE_PLACES_API_KEY is set in apps/web/.env.
+// Callers still fall back to a plain input if this ever rejects (see
+// PlacesAutocompleteInput.tsx).
 let loadPromise: Promise<typeof google> | null = null;
 
 export function loadGooglePlaces(apiKey: string): Promise<typeof google> {

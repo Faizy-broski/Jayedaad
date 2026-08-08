@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient';
-import { OwnerIdentityDocumentType, OwnerVerificationSummary, PendingOwnerVerification } from '../models';
+import { OwnerIdentityDocument, OwnerIdentityDocumentType, OwnerVerificationSummary, PendingOwnerVerification } from '../models';
 
 // Backs the one-time owner identity verification gate on Post Listing.
 // Mirrors services/api/src/owners/owners.controller.ts's endpoints.
@@ -33,6 +33,27 @@ export const ownersRepository = {
   // Staff review queue — super_admin/verification_staff only server-side.
   listPendingVerification: async (): Promise<PendingOwnerVerification[]> => {
     const { data } = await httpClient.get('/owners/pending-verification');
+    return data;
+  },
+
+  // Admin-only — the actual CNIC/selfie rows (with signed URLs) for a
+  // specific owner, not just the completeness counts pending-verification
+  // returns. Mirrors agentsRepository.listDocuments.
+  listDocuments: async (userId: string): Promise<OwnerIdentityDocument[]> => {
+    const { data } = await httpClient.get(`/owners/${userId}/documents`);
+    return data;
+  },
+
+  // Admin upload-on-behalf — mirrors agentsRepository.uploadDocument's
+  // shape (id + documentType + file), unlike this file's own self-scoped
+  // uploadDocument above (POST /owners/me/documents, no id param).
+  uploadDocumentForUser: async (userId: string, documentType: OwnerIdentityDocumentType, file: any): Promise<OwnerIdentityDocument> => {
+    const formData = new FormData();
+    formData.append('documentType', documentType);
+    formData.append('file', file);
+    const { data } = await httpClient.post(`/owners/${userId}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data;
   },
 

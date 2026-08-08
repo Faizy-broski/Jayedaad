@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ListingsRepository } from '../listings/listings.repository';
+import { paginate, PaginationParams, resolvePagination } from '../common/pagination';
 
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
-
-export interface AuditLogFilters {
+export interface AuditLogFilters extends PaginationParams {
   listingId?: string;
   reviewerId?: string;
   dateFrom?: string;
   dateTo?: string;
-  page?: number;
-  pageSize?: number;
+  // Applied server-side (.eq before .range()) — the admin Verification Log
+  // page used to filter this client-side over only the currently-loaded
+  // page, so an entry on page 2 was invisible while the "approve"/"reject"
+  // tab was active on page 1.
+  action?: 'approve' | 'reject' | 'request_info';
 }
 
 @Injectable()
@@ -21,14 +22,13 @@ export class VerificationRepository {
     private readonly listings: ListingsRepository,
   ) {}
 
-  async listQueue() {
-    const { data, error } = await this.supabase.client
-      .from('listings')
-      .select('*')
-      .eq('status', 'pending_verification')
-      .order('created_at', { ascending: true });
-    if (error) throw error;
-    return data;
+  // Delegates to ListingsRepository.findPendingForVerification() — the
+  // real join+mapping logic lives there (same PUBLIC_LISTING_COLUMNS/
+  // mapPublicListingRow the public search uses), so the queue page gets
+  // full Listing objects (photos, agent, amenities, contact numbers)
+  // instead of a bare, unmapped `select('*')` row.
+  async listQueue(filters: PaginationParams = {}) {
+    return this.listings.findPendingForVerification(filters);
   }
 
   // Status update + audit log insert happen atomically inside the Postgres
@@ -62,28 +62,20 @@ export class VerificationRepository {
   // [Dev Instr §2.2] staff act and log, but broad audit visibility across all
   // reviewers is an oversight capability, not a daily-use one.
   async listAuditLog(filters: AuditLogFilters = {}) {
-    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
-    const pageSize = Math.min(
-      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
-      MAX_PAGE_SIZE,
-    );
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const pagination = resolvePagination(filters);
 
     let query = this.supabase.client
       .from('verification_audit_log')
       .select('id, listing_id, reviewer_id, action, note, created_at', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      .order('created_at', { ascending: false });
 
     if (filters.listingId) query = query.eq('listing_id', filters.listingId);
     if (filters.reviewerId) query = query.eq('reviewer_id', filters.reviewerId);
+    if (filters.action) query = query.eq('action', filters.action);
     if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom);
     if (filters.dateTo) query = query.lte('created_at', filters.dateTo);
+    query = query.range(pagination.from, pagination.to);
 
-    const { data, error, count } = await query;
-    if (error) throw error;
-
-    return { items: data ?? [], total: count ?? 0, page, pageSize };
+    return paginate(query, pagination);
   }
 }

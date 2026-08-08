@@ -119,7 +119,7 @@ const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
 
 function HeaderInner() {
   const router = useRouter();
-  const { isAuthenticated, user, role, signOut } = useAuthViewModel();
+  const { isAuthenticated, user, role, isEmailVerified, isEmailVerifiedLoading, signOut } = useAuthViewModel();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -131,7 +131,13 @@ function HeaderInner() {
 
   const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Account';
   const initials = displayName.slice(0, 2).toUpperCase();
-  const dashboardHref = DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/search';
+  // An unverified user's session is real, but every protected shell
+  // (RequireEmailVerified in the (agent)/(super-admin) layouts) bounces
+  // them straight back out — sending this link to their role's dashboard
+  // would just be a click that immediately redirects again. Route to
+  // /verify-email directly instead, same destination the login-page
+  // redirect already uses.
+  const dashboardHref = !isEmailVerifiedLoading && !isEmailVerified ? '/verify-email' : DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/search';
 
   function handleLogout() {
     setUserMenuOpen(false);

@@ -54,6 +54,7 @@ export function listingToListingProperty(listing: Listing): ListingProperty {
       role: listing.agent?.agency?.name ?? 'Agent',
       avatar: listing.agent?.photoUrl ?? '/images/agents/ahmed-raza.jpg',
       phone: contact ? `${contact.countryCode}${contact.number}` : '',
+      subscriptionTierName: listing.agent?.subscriptionTierName ?? null,
     },
   };
 }

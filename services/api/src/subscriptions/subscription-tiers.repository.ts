@@ -23,6 +23,9 @@ export class SubscriptionTiersRepository {
         listing_quota: input.listingQuota,
         price: input.price ?? 0,
         analytics_depth: input.analyticsDepth,
+        hot_credits_per_period: input.hotCreditsPerPeriod ?? 0,
+        super_hot_credits_per_period: input.superHotCreditsPerPeriod ?? 0,
+        stripe_price_id: input.stripePriceId,
       })
       .select()
       .single();
@@ -38,6 +41,9 @@ export class SubscriptionTiersRepository {
         listing_quota: input.listingQuota,
         price: input.price,
         analytics_depth: input.analyticsDepth,
+        hot_credits_per_period: input.hotCreditsPerPeriod,
+        super_hot_credits_per_period: input.superHotCreditsPerPeriod,
+        stripe_price_id: input.stripePriceId,
       })
       .eq('id', id)
       .select()

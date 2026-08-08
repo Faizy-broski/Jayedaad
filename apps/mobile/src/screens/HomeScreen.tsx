@@ -17,10 +17,12 @@ import {
   useAuthViewModel,
   useBlogViewModel,
   useListingSearchViewModel,
+  useNotificationsViewModel,
   usePreferencesViewModel,
   useProjectsViewModel,
 } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
+import { useAuthGate } from '../auth/AuthGateContext';
 import { PropertyCard } from '../components/PropertyCard';
 import { SideDrawer } from '../components/SideDrawer';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
@@ -334,12 +336,14 @@ export const HomeScreen = memo(function HomeScreen() {
 function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
-  const { user, isAuthenticated } = useAuthViewModel();
+  const { user } = useAuthViewModel();
+  const { requireAuth } = useAuthGate();
   const [purpose, setPurpose] = useState<Purpose>('Buy');
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
-  // enabled effectively no-op (empty result) for a signed-out user — the
-  // dot below just never shows. Real unread count, was previously a
-  // permanently-on hardcoded dot with no onPress at all.
+  // useNotificationsViewModel is gated on `enabled: !!user`, so this is
+  // effectively 0 (not an authenticated request at all) for a signed-out
+  // guest — real unread count, was previously a permanently-on hardcoded
+  // dot.
   const { unreadCount } = useNotificationsViewModel();
 
   const displayName = user?.user_metadata?.display_name as string | undefined;
@@ -366,9 +370,13 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
               <Pressable style={styles.headerIconButton} onPress={onMenuPress} hitSlop={8}>
                 <Ionicons name="menu" size={18} color={theme.colors.bg} />
               </Pressable>
-              <Pressable style={styles.headerIconButton} hitSlop={8}>
+              <Pressable
+                style={styles.headerIconButton}
+                hitSlop={8}
+                onPress={() => requireAuth(() => navigation.navigate('Notifications'))}
+              >
                 <Ionicons name="notifications-outline" size={18} color={theme.colors.bg} />
-                <View style={styles.headerNotificationDot} />
+                {unreadCount > 0 && <View style={styles.headerNotificationDot} />}
               </Pressable>
             </View>
           </View>

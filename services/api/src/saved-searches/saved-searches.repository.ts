@@ -47,4 +47,21 @@ export class SavedSearchesRepository {
     const { error } = await this.supabase.client.from('saved_searches').delete().eq('id', id).eq('user_id', userId);
     if (error) throw error;
   }
+
+  // System cron read (SavedSearchAlertsService) — every saved search with
+  // alerts turned on, across all users. Not user-scoped like the methods
+  // above; the caller isn't acting on behalf of a request.
+  async listActive() {
+    const { data, error } = await this.supabase.client.from('saved_searches').select('*').neq('alert_frequency', 'off');
+    if (error) throw error;
+    return data;
+  }
+
+  async markNotified(id: string) {
+    const { error } = await this.supabase.client
+      .from('saved_searches')
+      .update({ last_notified_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  }
 }

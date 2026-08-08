@@ -21,6 +21,25 @@ export class CreateSubscriptionTierDto {
   // already reads this shape from subscription_tiers.analytics_depth.
   @IsObject()
   analyticsDepth!: Record<string, unknown>;
+
+  // Featured-listing allotment — granted to agent_credits on tier
+  // (re-)selection and each successful renewal (see
+  // SubscriptionsRepository.grantPeriodCredits/grantRenewalCredits), spent
+  // via POST /listings/:id/boost.
+  @IsOptional()
+  @IsInt()
+  hotCreditsPerPeriod?: number;
+
+  @IsOptional()
+  @IsInt()
+  superHotCreditsPerPeriod?: number;
+
+  // Set once a matching Product/Price exists in the Stripe dashboard —
+  // required before this tier can be checked out if price > 0 (see
+  // SubscriptionsController.checkout()'s existing guard).
+  @IsOptional()
+  @IsString()
+  stripePriceId?: string;
 }
 
 export class UpdateSubscriptionTierDto {
@@ -40,4 +59,16 @@ export class UpdateSubscriptionTierDto {
   @IsOptional()
   @IsObject()
   analyticsDepth?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsInt()
+  hotCreditsPerPeriod?: number;
+
+  @IsOptional()
+  @IsInt()
+  superHotCreditsPerPeriod?: number;
+
+  @IsOptional()
+  @IsString()
+  stripePriceId?: string;
 }

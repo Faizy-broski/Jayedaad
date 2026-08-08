@@ -12,8 +12,18 @@ export class DevelopersController {
 
   @Public()
   @Get()
-  list(@Query('city') city?: string) {
-    return this.developers.list({ city });
+  list(
+    @Query('city') city?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.developers.list({
+      city,
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Public()

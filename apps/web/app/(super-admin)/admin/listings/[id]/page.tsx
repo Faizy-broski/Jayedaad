@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { ListingStatus, formatPrice, useAdminListingDetailViewModel } from '@jayedaad/core';
+import { ListingDocumentType, ListingStatus, formatPrice, listingsRepository, useAdminListingDetailViewModel } from '@jayedaad/core';
 import { Badge, cn } from '@jayedaad/ui-web';
 import {
   ArrowLeft,
@@ -24,6 +25,11 @@ import {
   User,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+
+const LISTING_DOCUMENT_TYPES: { type: ListingDocumentType; label: string }[] = [
+  { type: 'ownership_proof', label: 'Ownership Proof' },
+  { type: 'utility_bill', label: 'Utility Bill' },
+];
 
 const OVERRIDE_STATUSES: ListingStatus[] = [
   'pending_verification',
@@ -71,6 +77,15 @@ export default function AdminListingDetailPage() {
   const router = useRouter();
   const { listing, isLoading, setStatus } = useAdminListingDetailViewModel(params.id);
   const [activeImage, setActiveImage] = useState(0);
+
+  // GET /listings/:id/documents already allows verification_staff/super_admin
+  // to bypass the ownership check (see assertCanAccessDocuments) — this was
+  // simply never called from any admin-facing page until now.
+  const { data: documents, isLoading: documentsLoading } = useQuery({
+    queryKey: ['admin', 'listings', params.id, 'documents'],
+    queryFn: () => listingsRepository.listDocuments(params.id),
+    enabled: !!listing,
+  });
 
   function handleOverride(next: ListingStatus) {
     setStatus.mutate(
@@ -296,6 +311,36 @@ export default function AdminListingDetailPage() {
           </div>
         </Reveal>
       </div>
+
+      <Reveal>
+        <div className="space-y-3 rounded-xl border border-border bg-background p-6 shadow-sm">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Verification Documents</h3>
+          {documentsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            LISTING_DOCUMENT_TYPES.map((doc) => {
+              const found = documents?.find((d) => d.documentType === doc.type);
+              return (
+                <div key={doc.type} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-foreground">{doc.label}</span>
+                  {found ? (
+                    <a
+                      href={found.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                    >
+                      View
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Not uploaded</span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Reveal>
     </div>
   );
 }

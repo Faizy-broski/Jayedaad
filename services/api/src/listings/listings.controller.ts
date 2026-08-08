@@ -14,6 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ScopeGuard } from '../common/guards/scope.guard';
@@ -24,6 +25,7 @@ import { UpdateListingDto } from './dto/update-listing.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { SetListingStatusDto } from './dto/set-status.dto';
 import { UploadListingDocumentDto } from './dto/upload-document.dto';
+import { BoostListingDto } from './dto/boost-listing.dto';
 
 @Controller('listings')
 export class ListingsController {
@@ -113,8 +115,11 @@ export class ListingsController {
 
   // Backs the Views/Clicks/Calls/WhatsApp/SMS/Emails metrics confirmed real
   // on the Profolio agent dashboard's Analytics card — public, any visitor
-  // triggers these, not just authenticated users.
+  // triggers these, not just authenticated users. Tightened below the
+  // global ThrottlerModule default (app.module.ts, 100/min) — unauthenticated
+  // and otherwise abusable to inflate/pollute an agent's analytics numbers.
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post(':id/track')
   trackEngagement(@Param('id') id: string, @Body() body: TrackEngagementDto) {
     return this.listings.trackEngagement(id, body);
@@ -143,6 +148,7 @@ export class ListingsController {
     @Req() req: any,
     @Query('status')
     status?: 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive',
+    @Query('source') source?: 'owner_agent' | 'agency',
     @Query('propertyTypeCategory') propertyTypeCategory?: string,
     @Query('propertyTypeSlug') propertyTypeSlug?: string,
     @Query('purpose') purpose?: 'sale' | 'rent',
@@ -164,6 +170,7 @@ export class ListingsController {
       { userId: req.user.id, role: req.user.role, agentId: req.user.agentId },
       {
         status,
+        source,
         propertyTypeCategory,
         propertyTypeSlug,
         purpose,
@@ -252,6 +259,32 @@ export class ListingsController {
     await this.assertOwnListing(req, id);
     await this.listings.assertDocumentsComplete(id);
     return this.listings.setStatus(id, 'pending_verification');
+  }
+
+  // The write path listing_boost_tier never had before this pass — spends
+  // one of the agent's plan-granted Hot/Super Hot credits (agent_credits,
+  // topped up on tier selection/renewal — see subscriptions module) to
+  // feature this specific listing for a fixed window. Agent-only (an owner
+  // has no plan/credits to spend); ownership-checked same as every other
+  // mutation on this controller.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/boost')
+  async boost(@Req() req: any, @Param('id') id: string, @Body() body: BoostListingDto) {
+    await this.assertOwnListing(req, id);
+    return this.listings.boost(id, req.user.agentId, body);
+  }
+
+  // Resets an expired listing (PlanLifecycleService's cron, once its plan's
+  // listing_duration_days lapses) back to 'verified' with a fresh expiry —
+  // agent-only, same reasoning as boost: an owner-only listing has no plan
+  // to derive a duration from in the first place (it never expires).
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/renew')
+  async renew(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnListing(req, id);
+    return this.listings.renew(id, req.user.agentId);
   }
 
   // Photos/videos upload as they're picked on the submit form — before the

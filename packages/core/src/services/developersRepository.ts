@@ -1,6 +1,20 @@
 import { httpClient } from './httpClient';
 import { CreateDeveloperInput, Developer, UpdateDeveloperInput } from '../models';
 
+export interface ListDevelopersFilters {
+  city?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedDevelopers {
+  items: Developer[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // services/api/src/developers/developers.repository.ts returns raw
 // snake_case rows — mapped here to match Developer's camelCase shape.
 function mapDeveloperRow(row: any): Developer {
@@ -17,9 +31,15 @@ function mapDeveloperRow(row: any): Developer {
 }
 
 export const developersRepository = {
-  list: async (filters: { city?: string } = {}): Promise<Developer[]> => {
+  // Dual-mode, mirroring the backend: called with no page/pageSize,
+  // resolves to Developer[] (ProjectForm's/ProjectsFilters'/
+  // PropertySearchBar's unbounded developer dropdowns); called with either,
+  // resolves to a Page shape (the Developers admin table). See
+  // developers.repository.ts::list's comment for why.
+  list: async (filters: ListDevelopersFilters = {}): Promise<Developer[] | PaginatedDevelopers> => {
     const { data } = await httpClient.get('/developers', { params: filters });
-    return (data as any[]).map(mapDeveloperRow);
+    if (Array.isArray(data)) return (data as any[]).map(mapDeveloperRow);
+    return { ...data, items: (data.items as any[]).map(mapDeveloperRow) };
   },
 
   findBySlug: async (slug: string): Promise<Developer> => {

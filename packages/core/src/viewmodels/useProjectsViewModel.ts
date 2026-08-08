@@ -56,7 +56,7 @@ export function useInfiniteProjectsViewModel(filters: ProjectSearchFilters = {})
 // /admin/projects and the agent-portal /projects list (both share
 // apps/web/components/projects/ProjectsListView.tsx and ProjectForm.tsx).
 export function useManageProjectsViewModel(
-  filters: { city?: string; status?: ProjectStatus; keyword?: string; page?: number; pageSize?: number } = {},
+  filters: { city?: string; area?: string; status?: ProjectStatus; keyword?: string; page?: number; pageSize?: number } = {},
 ) {
   const queryClient = useQueryClient();
 

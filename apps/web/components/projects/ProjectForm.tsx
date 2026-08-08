@@ -54,6 +54,7 @@ import {
   X,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 const PROJECT_STATUSES: ProjectStatus[] = ['planned', 'under_construction', 'ready'];
@@ -706,9 +707,9 @@ export function ProjectForm({
                     </FieldRow>
 
                     <FieldRow icon={MapPin} label="Area / Locality">
-                      <Input
+                      <PlacesAutocompleteInput
                         value={area}
-                        onChange={(e) => setArea(e.target.value)}
+                        onChange={setArea}
                         placeholder="e.g. Gulberg"
                         required
                         disabled={readOnly}

@@ -13,6 +13,7 @@ import {
   usePreferencesViewModel,
 } from '@jayedaad/core';
 import { Button, Card, CardContent, CountryCodeField, PickerField, theme, useToast } from '@jayedaad/ui-native';
+import { PlacesAutocompleteInput } from '../components/PlacesAutocompleteInput';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 
@@ -173,7 +174,7 @@ function AgentProfileForm() {
         <Text style={styles.fieldLabel}>City</Text>
         <PickerField value={city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={setCity} />
       </View>
-      <Field label="Address" value={address} onChangeText={setAddress} />
+      <PlacesAutocompleteInput label="Address" value={address} onChange={setAddress} />
       <View style={styles.buttonContainer}>
         <Button label={updateProfile.isPending ? 'Updating…' : 'Update Profile'} onPress={handleSave} disabled={updateProfile.isPending} />
       </View>
@@ -237,7 +238,7 @@ function AgencyDetailsCard() {
                 onChange={setCity}
               />
             </View>
-            <Field label="Address" value={address} onChangeText={setAddress} disabled={!isAgencyAdmin} />
+            <PlacesAutocompleteInput label="Address" value={address} onChange={setAddress} editable={isAgencyAdmin} />
             <Field label="Description" value={description} onChangeText={setDescription} disabled={!isAgencyAdmin} />
             {isAgencyAdmin && (
               <View style={styles.buttonContainer}>

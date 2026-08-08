@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { resolvePagination, sanitizeKeyword } from '../common/pagination';
 
 // Confirmed real on the Zameen New Projects search page: City, Property
 // Type (via the "Browse Projects by Category" taxonomy), Budget Range,
@@ -10,6 +11,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 // listings/listings.repository.ts.
 export interface ProjectSearchFilters {
   city?: string;
+  area?: string;
   status?: 'planned' | 'under_construction' | 'ready' | 'draft';
   propertyTypeSlug?: string;
   developerSlug?: string;
@@ -31,23 +33,12 @@ export interface PaginatedProjects {
   pageSize: number;
 }
 
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 50;
-
 const PROJECT_COLUMNS = `
   id, name, slug, description, city, area, status, possession_date, cover_image_url,
   gallery_image_urls, floor_plan_urls, video_url, brochure_url, verification_status, created_by, created_at,
   developers!inner (id, name, slug, logo_url, phone, whatsapp),
   project_unit_types (count)
 `;
-
-// PostgREST's .or() filter string is itself a small DSL — strip characters
-// that are syntactically significant in it (or in ILIKE patterns) rather
-// than interpolate a raw user string into the filter (same discipline as
-// listings.repository.ts::sanitizeKeyword).
-function sanitizeKeyword(keyword: string): string {
-  return keyword.replace(/[,()%]/g, ' ').trim();
-}
 
 function mapProjectRow(row: any, priceRange: { min: number; max: number } | null) {
   return {
@@ -182,11 +173,7 @@ export class ProjectsRepository {
   // project an agent submitted stays invisible to public browsing until a
   // Super Admin approves it.
   async findPublic(filters: ProjectSearchFilters = {}, includeUnverified = false): Promise<PaginatedProjects> {
-    const page = filters.page && filters.page > 0 ? Math.floor(filters.page) : 1;
-    const pageSize = Math.min(
-      filters.pageSize && filters.pageSize > 0 ? Math.floor(filters.pageSize) : DEFAULT_PAGE_SIZE,
-      MAX_PAGE_SIZE,
-    );
+    const { page, pageSize } = resolvePagination(filters);
 
     // Budget/area/category filters live on project_unit_types (a child
     // table), not on projects directly — resolved as one combined
@@ -225,6 +212,11 @@ export class ProjectsRepository {
 
     if (!includeUnverified) query = query.eq('verification_status', 'verified');
     if (filters.city) query = query.eq('city', filters.city);
+    // Fuzzy, not exact — same as ListingsRepository.searchPublic's area
+    // filter (services/api/src/listings/listings.repository.ts:715), since
+    // a Google Places suggestion ("Bahria Town, Islamabad") won't match the
+    // area column's raw stored value character-for-character.
+    if (filters.area) query = query.ilike('area', `%${filters.area}%`);
     if (filters.status) query = query.eq('status', filters.status);
     if (filters.developerSlug) query = query.eq('developers.slug', filters.developerSlug);
     if (filters.keyword) {

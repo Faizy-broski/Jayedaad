@@ -25,6 +25,7 @@ import {
 } from '@jayedaad/ui-web';
 import { Building2, Camera, Eye, EyeOff, Loader2, SlidersHorizontal, UserCog, KeyRound, type LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 
@@ -78,7 +79,7 @@ export default function AgentSettingsPage() {
           <Card className="h-fit lg:sticky lg:top-6">
             <CardContent className="p-3">
               <nav className="flex gap-1 overflow-x-auto lg:flex-col">
-                {SUB_NAV.map((item) => {
+                {visibleNav.map((item) => {
                   const Icon = item.icon;
                   const active = tab === item.id;
                   return (
@@ -116,6 +117,7 @@ export default function AgentSettingsPage() {
             transition={{ duration: 0.2 }}
           >
             {tab === 'user' && <UserSettingsPanel />}
+            {tab === 'agency' && <AgencyDetailsPanel />}
             {tab === 'preferences' && <PreferencesPanel />}
             {tab === 'password' && <ChangePasswordPanel />}
           </motion.div>
@@ -294,7 +296,7 @@ function UserSettingsPanel() {
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="address">Address</Label>
-                <Input id="address" placeholder="Enter Address" value={form.address} onChange={(e) => update('address', e.target.value)} />
+                <PlacesAutocompleteInput placeholder="Enter Address" value={form.address} onChange={(v) => update('address', v)} />
               </div>
 
               {/* Listings join agent_profiles live (see PUBLIC_LISTING_COLUMNS)
