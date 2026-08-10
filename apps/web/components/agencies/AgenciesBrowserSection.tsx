@@ -13,10 +13,9 @@ const VALID_TIERS: AgencyTier[] = ['titanium', 'featured', 'basic'];
 // city/location/propertyTypeSlug/search — plus the tier the curated
 // sections' "View all"/"View Agencies" links carry. With no filter active
 // this shows the curated Titanium/Featured/By-City layout (each section
-// falls back to sample data on its own when the real API is empty — see
-// data/sampleAgencies.ts — so there's no separate all-empty case to handle
-// here); with a filter active, it swaps to the full paginated/searchable
-// directory.
+// renders nothing on its own if the real API has no data yet — no
+// all-empty case to handle here); with a filter active, it swaps to the
+// full paginated/searchable directory.
 export function AgenciesBrowserSection() {
   const searchParams = useSearchParams();
 

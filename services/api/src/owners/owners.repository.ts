@@ -129,12 +129,35 @@ export class OwnersRepository {
     const verificationId = await this.ensureVerification(userId);
     const path = await this.documents.upload(`owners/${userId}`, file);
 
+    // "Replace" superseding an existing document of this type: find prior
+    // rows for the same (verification_id, document_type) before inserting,
+    // so we can drop them afterward — mirrors agencies.repository.ts::addDocument.
+    const { data: staleRows, error: staleError } = await this.supabase.client
+      .from('owner_identity_documents')
+      .select('id, file_path')
+      .eq('verification_id', verificationId)
+      .eq('document_type', documentType);
+    if (staleError) throw staleError;
+
     const { data, error } = await this.supabase.client
       .from('owner_identity_documents')
       .insert({ verification_id: verificationId, document_type: documentType, file_path: path })
       .select('id, document_type, file_path, uploaded_at')
       .single();
     if (error) throw error;
+
+    if (staleRows?.length) {
+      const { error: deleteError } = await this.supabase.client
+        .from('owner_identity_documents')
+        .delete()
+        .in('id', staleRows.map((row) => row.id));
+      if (deleteError) throw deleteError;
+
+      // Storage cleanup is best-effort — the DB rows above are the source
+      // of truth for what's "the" document, so a failed object removal here
+      // just leaves an orphaned file rather than corrupting any state.
+      await Promise.all(staleRows.map((row) => this.documents.remove(row.file_path).catch(() => undefined)));
+    }
 
     return {
       id: data.id,

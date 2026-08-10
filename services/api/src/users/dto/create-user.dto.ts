@@ -27,4 +27,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsUUID()
   agencyId?: string;
+
+  // Agent-only fields, same as the self-service become-an-agent flow
+  // collects (apply-as-agent.dto.ts) — previously missing here entirely,
+  // leaving an admin-created agent's phone/city permanently null.
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
 }

@@ -116,7 +116,14 @@ function OwnerDocumentsSection({ userId }: { userId: string }) {
   // `url` is a signed URL good for 1 hour (owners.repository.ts::
   // listDocumentsForAdmin re-signs it fresh on every call) — keyed by
   // documentType so a re-uploaded doc's row always links to the latest file.
-  const docByType = new Map((documents ?? []).map((d) => [d.documentType, d]));
+  //
+  // listDocumentsForAdmin returns every historical row (newest first) since
+  // replace inserts rather than overwrites — take the first (newest) row per
+  // type, not `new Map(entries)`'s last-one-wins, which would keep the oldest.
+  const docByType = new Map<OwnerIdentityDocumentType, OwnerIdentityDocument>();
+  for (const d of documents ?? []) {
+    if (!docByType.has(d.documentType)) docByType.set(d.documentType, d);
+  }
 
   return (
     <div className="space-y-3">

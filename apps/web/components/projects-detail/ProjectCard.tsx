@@ -18,7 +18,10 @@ function formatPrice(value: number): string {
 
 export function ProjectCard({ project }: { project: ProjectCardData }) {
   return (
-    <article className="w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
+    <Link
+      href={`/developments/${project.slug}`}
+      className="block w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg"
+    >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         <Image src={project.coverImageUrl} alt={project.name} fill sizes="288px" className="object-cover" />
         {project.verificationStatus === 'verified' && (
@@ -53,15 +56,15 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
         </div>
 
         <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">
-          <Link
-            href={`/developments/${project.slug}`}
-            className="mr-auto flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
+          {/* Not its own <Link> — the whole card is already one (see the
+              outer element), and nested <a> tags are invalid HTML/React.
+              Kept as visible affordance text only. */}
+          <span className="mr-auto flex items-center gap-1 text-xs font-medium text-primary">
             View Details
             <ArrowRight className="h-3 w-3" />
-          </Link>
+          </span>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }

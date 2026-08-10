@@ -4,7 +4,7 @@ import { CreateDeveloperDto } from './dto/create-developer.dto';
 import { UpdateDeveloperDto } from './dto/update-developer.dto';
 import { paginate, PaginationParams, resolvePagination, sanitizeKeyword } from '../common/pagination';
 
-const DEVELOPER_COLUMNS = 'id, name, slug, logo_url, description, phone, whatsapp, city';
+const DEVELOPER_COLUMNS = 'id, name, slug, logo_url, description, phone, whatsapp, city, email';
 
 // A first-class entity promoted from what was a plain `developer_name` text
 // column on `projects` — confirmed real on the Zameen New Projects page's
@@ -78,6 +78,7 @@ export class DevelopersRepository {
         phone: input.phone,
         whatsapp: input.whatsapp,
         city: input.city,
+        email: input.email,
       })
       .select(DEVELOPER_COLUMNS)
       .single();
@@ -95,6 +96,7 @@ export class DevelopersRepository {
         phone: input.phone,
         whatsapp: input.whatsapp,
         city: input.city,
+        email: input.email,
       })
       .eq('id', id)
       .select(DEVELOPER_COLUMNS)

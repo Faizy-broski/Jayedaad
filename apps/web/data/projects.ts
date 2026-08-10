@@ -11,6 +11,7 @@ const DEVELOPERS: Record<string, DisplayProject['developer']> = {
     phone: '+92 21 111 362 700',
     whatsapp: '+92 300 1112233',
     city: 'Karachi',
+    email: null,
   },
   'bahria-town': {
     id: 'dev-bahria',
@@ -20,6 +21,7 @@ const DEVELOPERS: Record<string, DisplayProject['developer']> = {
     phone: '+92 51 111 222 333',
     whatsapp: '+92 300 4455667',
     city: 'Islamabad',
+    email: null,
   },
 };
 

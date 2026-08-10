@@ -4,13 +4,23 @@ const LEAD_SOURCES = ['chatbot', 'contact_form', 'call_request'] as const;
 const INQUIRER_TYPES = ['buyer_tenant', 'agent', 'other'] as const;
 
 // Public intake DTO — a buyer submitting a contact-form inquiry has no
-// account. listing_id is a hard FK per [Dev Instr §3.1] "Property Enquired
-// About": every lead links to a real listing, never a free-text note.
+// account. Exactly one of listingId/projectId must be set — enforced in
+// LeadsRepository.create() (not decorator-expressible as a clean XOR), and
+// mirrored by the DB's leads_listing_or_project_chk constraint
+// (0044_leads_project_enquiries.sql) as defense-in-depth. Originally
+// listing_id was a hard-required FK per [Dev Instr §3.1] "Property Enquired
+// About"; projectId was added later for the project-detail-page enquiry
+// form, which has no listing to attach to.
 // message/inquirerType/wantsSimilarAlerts verified against a real Zameen.com
 // "Contact Agent" form via live scrape, not guessed.
 export class CreateLeadDto {
+  @IsOptional()
   @IsUUID()
-  listingId!: string;
+  listingId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
 
   @IsString()
   @Length(1, 120)

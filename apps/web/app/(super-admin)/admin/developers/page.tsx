@@ -8,7 +8,7 @@ import { Button, Input, Label, Modal, Pagination, Table, TableColumn } from '@ja
 import { Building2, MapPin, Pencil, PhoneCall, PlusCircle, Search, Trash2 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
-const EMPTY_FORM: CreateDeveloperInput = { name: '', slug: '', description: '', phone: '', whatsapp: '', city: '' };
+const EMPTY_FORM: CreateDeveloperInput = { name: '', slug: '', description: '', phone: '', whatsapp: '', city: '', email: '' };
 const PAGE_SIZE = 20;
 
 function initials(name: string): string {
@@ -67,12 +67,18 @@ export default function DevelopersPage() {
       phone: dev.phone ?? '',
       whatsapp: dev.whatsapp ?? '',
       city: dev.city ?? '',
+      email: dev.email ?? '',
     });
     setModalOpen(true);
   }
 
   function handleSave() {
-    const action = editing ? update.mutateAsync({ id: editing.id, input: form }) : create.mutateAsync(form);
+    // email is validated server-side with @IsEmail() — an empty string
+    // (the common case, since this column is new and most existing
+    // developers have none set yet) must be omitted, not sent as '', or
+    // every save without an email filled in would fail validation.
+    const payload = { ...form, email: form.email || undefined };
+    const action = editing ? update.mutateAsync({ id: editing.id, input: payload }) : create.mutateAsync(payload);
     action
       .then(() => {
         toast.success('Saved.');
@@ -113,6 +119,7 @@ export default function DevelopersPage() {
     { key: 'city', header: 'City', render: (dev) => dev.city ?? '—' },
     { key: 'phone', header: 'Phone', render: (dev) => dev.phone ?? '—' },
     { key: 'whatsapp', header: 'Whatsapp', render: (dev) => dev.whatsapp ?? '—' },
+    { key: 'email', header: 'Email', render: (dev) => dev.email ?? '—' },
     {
       key: 'actions',
       header: '',
@@ -205,6 +212,10 @@ export default function DevelopersPage() {
           <div className="space-y-1.5">
             <Label>Whatsapp</Label>
             <Input value={form.whatsapp} onChange={(e) => setForm((prev) => ({ ...prev, whatsapp: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
             <Label>City</Label>

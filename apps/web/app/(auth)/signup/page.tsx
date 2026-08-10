@@ -51,6 +51,8 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agencyName, setAgencyName] = useState('');
+  const [agencyPhone, setAgencyPhone] = useState('');
+  const [agencyEmail, setAgencyEmail] = useState('');
   const [agencyCity, setAgencyCity] = useState('');
   const [salesAssociateCount, setSalesAssociateCount] = useState('');
   const [associateCountError, setAssociateCountError] = useState(false);
@@ -133,6 +135,8 @@ export default function SignupPage() {
         await registerAgency.mutateAsync({
           agencyName,
           agencySlug: slugify(agencyName),
+          agencyPhone: agencyPhone.trim() || undefined,
+          agencyEmail: agencyEmail.trim() || undefined,
           agencyCity: agencyCity || undefined,
           displayName: name,
           agentPhone: formattedPhone,
@@ -441,6 +445,32 @@ export default function SignupPage() {
                         </option>
                       ))}
                     </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="agencyPhone" className="eyebrow-label text-muted-foreground">
+                      Agency phone
+                    </Label>
+                    <Input
+                      id="agencyPhone"
+                      type="tel"
+                      value={agencyPhone}
+                      onChange={(e) => setAgencyPhone(e.target.value)}
+                      className="h-10 rounded-full border-input px-5"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="agencyEmail" className="eyebrow-label text-muted-foreground">
+                      Agency email
+                    </Label>
+                    <Input
+                      id="agencyEmail"
+                      type="email"
+                      value={agencyEmail}
+                      onChange={(e) => setAgencyEmail(e.target.value)}
+                      className="h-10 rounded-full border-input px-5"
+                    />
                   </div>
                 </div>
                 <div className="space-y-1">

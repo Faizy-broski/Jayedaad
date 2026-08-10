@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,6 +13,7 @@ import {
   Eye,
 } from "lucide-react";
 import type { Property } from "@/lib/types";
+import { useFavorites } from "@/lib/favoritesContext";
 
 export function PropertyCard({ property }: { property: Property }) {
   const {
@@ -26,9 +29,14 @@ export function PropertyCard({ property }: { property: Property }) {
     baths,
     areaSqft,
   } = property;
+  const { isFavorited, toggle } = useFavorites();
+  const favorited = isFavorited(id);
 
   return (
-    <article className="w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
+    <Link
+      href={`/listings/${id}`}
+      className="block w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg"
+    >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         <Image
           src={image}
@@ -46,10 +54,18 @@ export function PropertyCard({ property }: { property: Property }) {
           )}
           <button
             type="button"
-            aria-label="Save listing"
-            className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-500 transition-colors hover:text-primary"
+            aria-label={favorited ? "Remove from favorites" : "Save listing"}
+            aria-pressed={favorited}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggle(id);
+            }}
+            className={`absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 transition-colors ${
+              favorited ? "text-primary" : "text-slate-500 hover:text-primary"
+            }`}
           >
-            <Heart className="h-3.5 w-3.5" />
+            <Heart className="h-3.5 w-3.5" fill={favorited ? "currentColor" : "none"} />
           </button>
         </div>
 
@@ -94,15 +110,15 @@ export function PropertyCard({ property }: { property: Property }) {
         </div>
 
         <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">
-          <Link
-            href={`/listings/${id}`}
-            className="mr-auto flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
+          {/* Not its own <Link> — the whole card is already one (see the
+              outer element), and nested <a> tags are invalid HTML/React.
+              Kept as visible affordance text only. */}
+          <span className="mr-auto flex items-center gap-1 text-xs font-medium text-primary">
             View Details
             <ArrowRight className="h-3 w-3" />
-          </Link>
+          </span>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }

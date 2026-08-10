@@ -25,8 +25,8 @@ import {
   X,
   HelpCircle,
   ChevronsUpDown,
-  PlusCircle,
   Newspaper,
+  LifeBuoy,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
@@ -47,6 +47,7 @@ const NAV_ITEMS = [
   { href: '/admin/agents', label: 'Agents', icon: UserCircle2 },
   { href: '/admin/plans', label: 'Plans', icon: CreditCard },
   { href: '/admin/crm', label: 'CRM', icon: Inbox },
+  { href: '/admin/support', label: 'Support', icon: LifeBuoy },
   { href: '/admin/listings', label: 'Listings', icon: Home },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/verification-log', label: 'Verification Log', icon: ShieldCheck },
@@ -276,13 +277,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               <Home className="h-4 w-4" />
               Go to Jayedaad
             </a>
-            <Link
-              href="/admin/agencies"
-              className="bg-heading-gradient flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:px-4 sm:text-sm"
-            >
-              <PlusCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">New Agency</span>
-            </Link>
           </div>
         </header>
 

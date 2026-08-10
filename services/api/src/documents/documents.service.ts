@@ -62,4 +62,13 @@ export class DocumentsService {
     if (error) throw error;
     return data.signedUrl;
   }
+
+  // Best-effort cleanup for superseded uploads (e.g. a "Replace" that
+  // inserted a new onboarding_documents row for the same document type) —
+  // callers should not fail the request if this errors, since the DB row is
+  // already the source of truth and an orphaned object just wastes storage.
+  async remove(path: string): Promise<void> {
+    const { error } = await this.supabase.client.storage.from(this.bucket).remove([path]);
+    if (error) throw error;
+  }
 }

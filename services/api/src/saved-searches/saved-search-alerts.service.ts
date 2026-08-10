@@ -3,6 +3,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { SavedSearchesRepository } from './saved-searches.repository';
 import { ListingsRepository, ListingSearchFilters } from '../listings/listings.repository';
 import { NotificationsRepository } from '../notifications/notifications.repository';
+import { SupabaseService } from '../supabase/supabase.service';
+import { MailerService } from '../auth/otp/mailer.service';
 
 const FREQUENCY_WINDOW_MS: Record<string, number> = {
   instant: 60 * 60 * 1000, // 1 hour
@@ -29,6 +31,8 @@ export class SavedSearchAlertsService {
     private readonly savedSearches: SavedSearchesRepository,
     private readonly listings: ListingsRepository,
     private readonly notifications: NotificationsRepository,
+    private readonly supabase: SupabaseService,
+    private readonly mailer: MailerService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -60,6 +64,13 @@ export class SavedSearchAlertsService {
                 : `${results.total} new listings match your saved search.`,
             relatedListingId: top?.id,
           });
+
+          // Best-effort — a bounced/misconfigured email must not stop the
+          // in-app notification above (already created) or block the next
+          // saved search in this loop. Wrapped separately from the outer
+          // try/catch's own logging so an email failure is distinguishable
+          // from a real matching/notification failure in the logs.
+          if (top) await this.sendAlertEmail(savedSearch.user_id, savedSearch.name, top.id, top.title, results.total);
         }
         // Always advance the window, even with zero matches — otherwise a
         // quiet period would make the next check re-scan the same range.
@@ -69,6 +80,29 @@ export class SavedSearchAlertsService {
         // block every other user's alerts from firing.
         this.logger.error(`Failed to process saved search ${savedSearch.id}`, err as Error);
       }
+    }
+  }
+
+  // Email counterpart to the in-app 'new_match' notification above — not
+  // inside the outer try/catch, so a bounced/unconfigured-SMTP failure here
+  // (MailerService throws ServiceUnavailableException when SMTP_* env vars
+  // are unset, same as OTP) can't be mistaken in the logs for a real
+  // matching/notification failure, and never blocks markNotified() or the
+  // next saved search in the loop.
+  private async sendAlertEmail(userId: string, searchName: string | null, listingId: string, listingTitle: string, matchCount: number): Promise<void> {
+    try {
+      const { data, error } = await this.supabase.client.auth.admin.getUserById(userId);
+      if (error || !data.user.email) return;
+
+      const webBaseUrl = process.env.WEB_BASE_URL ?? 'http://localhost:3000';
+      await this.mailer.sendSavedSearchAlertEmail(data.user.email, {
+        searchName,
+        matchCount,
+        topListingTitle: listingTitle,
+        listingUrl: `${webBaseUrl}/listings/${listingId}`,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to send saved-search alert email for user ${userId}`, err as Error);
     }
   }
 }

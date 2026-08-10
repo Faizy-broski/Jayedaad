@@ -6,7 +6,6 @@ import { X } from 'lucide-react';
 import { useAgenciesViewModel, type AgencyTier } from '@jayedaad/core';
 import { AgencyCard } from './AgencyCard';
 import { Pagination } from '@/components/listings/Pagination';
-import { SAMPLE_AGENCIES } from '@/data/sampleAgencies';
 
 const PAGE_SIZE = 12;
 
@@ -40,21 +39,8 @@ export function AgenciesSearchResults({ city, location, propertyTypeSlug, search
     pageSize: PAGE_SIZE,
   });
 
-  // No sample fallback for a propertyTypeSlug filter — SAMPLE_AGENCIES has no
-  // per-type inventory to honestly match against (see data/sampleAgencies.ts).
-  const usingSample = !isLoading && agencies.length === 0 && !propertyTypeSlug;
-  const sampleMatches = usingSample
-    ? SAMPLE_AGENCIES.filter((a) => {
-        if (tier && a.tier !== tier) return false;
-        if (city && a.city !== city) return false;
-        if (location && !a.address?.toLowerCase().includes(location.toLowerCase())) return false;
-        if (search && !a.name.toLowerCase().includes(search.toLowerCase())) return false;
-        return true;
-      })
-    : [];
-
-  const items = usingSample ? sampleMatches : agencies;
-  const displayTotal = usingSample ? sampleMatches.length : total;
+  const items = agencies;
+  const displayTotal = total;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -94,7 +80,7 @@ export function AgenciesSearchResults({ city, location, propertyTypeSlug, search
             ))}
           </div>
         )}
-        {!usingSample && !isLoading && total > 0 && <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />}
+        {!isLoading && total > 0 && <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />}
       </div>
     </div>
   );

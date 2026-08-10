@@ -25,6 +25,9 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'picsum.photos' },
+      // Testimonials section (data/testimonials.ts) uses curated Unsplash
+      // portraits instead of local files that were never actually added.
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
 };

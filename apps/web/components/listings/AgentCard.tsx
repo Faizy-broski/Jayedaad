@@ -1,13 +1,30 @@
+'use client';
+
 import Image from 'next/image';
-import { BadgeCheck, CalendarCheck, PhoneCall, MessageCircle, Mail } from 'lucide-react';
+import { BadgeCheck, Mail, PhoneCall } from 'lucide-react';
 import { Badge } from '@jayedaad/ui-web';
+import { EnquiryDialog } from '@/components/shared/EnquiryDialog';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import type { ListingProperty } from '@/lib/types';
 
 interface AgentCardProps {
   agent: ListingProperty['agent'];
+  listingId: string;
+  listingTitle: string;
+  /** Zero-padded listing_number, e.g. "00123" — see PropertyDetail.tsx. */
+  referenceLabel: string;
+  /** Lets a future top-of-page action drive this same always-visible form
+   *  (switch it to the visit template) without duplicating a second form.
+   *  Defaults to 'inquiry' when omitted. onIntentChange is accepted for API
+   *  parity but isn't called from within this card — its own quick-action
+   *  that used to reset back to 'inquiry' was replaced by the real Email
+   *  mailto: below (see the comment on the quick-actions row), same change
+   *  as DeveloperCard.tsx's equivalent. */
+  intent?: 'inquiry' | 'visit';
+  onIntentChange?: (intent: 'inquiry' | 'visit') => void;
 }
 
-export function AgentCard({ agent }: AgentCardProps) {
+export function AgentCard({ agent, listingId, listingTitle, referenceLabel, intent = 'inquiry' }: AgentCardProps) {
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
@@ -28,17 +45,20 @@ export function AgentCard({ agent }: AgentCardProps) {
         {agent.subscriptionTierName && <Badge variant="success">{agent.subscriptionTierName}</Badge>}
       </div>
 
+      <EnquiryDialog intent={intent} target={{ type: 'listing', id: listingId, title: listingTitle, referenceLabel }} />
+
+      {/* Quick links above the tracked form — Call/WhatsApp stay direct
+          tel:/wa.me. This row used to have a second "Send Enquiry" button
+          too, which just duplicated the form already visible right above —
+          replaced with a real mailto: to the agent's actual account email
+          (always real — an agent is a real auth account, unlike a developer
+          catalog entry, so unlike DeveloperCard.tsx this is never hidden for
+          missing data; see ListingsRepository.findById's email resolution).
+          WhatsApp uses the real brand mark/green, not a generic icon. */}
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          className="flex items-center justify-center gap-2 rounded-full bg-heading-gradient px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <CalendarCheck className="h-4 w-4" />
-          Book a visit
-        </button>
         <a
           href={`tel:${agent.phone}`}
-          className="flex items-center justify-center gap-2 rounded-full bg-brand-dark px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="flex items-center justify-center gap-2 rounded-full bg-heading-gradient px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <PhoneCall className="h-4 w-4" />
           Call agent
@@ -48,17 +68,17 @@ export function AgentCard({ agent }: AgentCardProps) {
             href={`https://wa.me/${agent.phone.replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#25D366] px-4 py-2.5 text-sm font-bold text-[#25D366] transition-colors hover:bg-[#25D366]/5"
           >
-            <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+            <WhatsAppIcon className="h-3.5 w-3.5 shrink-0" />
             WhatsApp
           </a>
           <a
-            href="mailto:hello@jayedaad.com"
-            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300"
+            href={`mailto:${agent.email ?? ''}`}
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-primary px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
           >
             <Mail className="h-3.5 w-3.5 shrink-0" />
-            Email
+            Send Email
           </a>
         </div>
       </div>

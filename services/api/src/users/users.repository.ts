@@ -77,7 +77,13 @@ export class UsersRepository {
     if (input.role === 'agent') {
       const { data: agentProfile, error: agentError } = await this.supabase.client
         .from('agent_profiles')
-        .insert({ user_id: userId, display_name: input.displayName, agency_id: input.agencyId })
+        .insert({
+          user_id: userId,
+          display_name: input.displayName,
+          agency_id: input.agencyId,
+          phone: input.phone,
+          city: input.city,
+        })
         .select('id')
         .single();
       if (agentError) throw agentError;
@@ -86,6 +92,17 @@ export class UsersRepository {
         app_metadata: { role: 'agent', agent_id: agentProfile.id, display_name: input.displayName },
       });
       if (backfillError) throw backfillError;
+
+      // Mirrors the JWT app_metadata backfill above but for profiles.agent_id
+      // — previously left null for every admin-created agent (only the JWT
+      // claim was ever set), so AdminUser.agentId (read by the frontend to
+      // immediately upload this agent's onboarding documents right after
+      // creation) was always null despite the agent_profiles row existing.
+      const { error: profileBackfillError } = await this.supabase.client
+        .from('profiles')
+        .update({ agent_id: agentProfile.id })
+        .eq('id', userId);
+      if (profileBackfillError) throw profileBackfillError;
     }
 
     return this.findById(userId);

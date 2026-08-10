@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEmail, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 // Self-service agency registration (signup's "Agency" account type) — a
 // buyer registers a brand-new agency and becomes its admin in one step.
@@ -16,6 +16,10 @@ export class RegisterAgencyDto {
   @IsOptional()
   @IsString()
   agencyPhone?: string;
+
+  @IsOptional()
+  @IsEmail()
+  agencyEmail?: string;
 
   @IsOptional()
   @IsString()

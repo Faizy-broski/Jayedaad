@@ -50,6 +50,10 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   // server-side per-request (agencies.controller.ts::assertCanManageStaff),
   // this is just the outer role gate.
   { prefix: '/agency-staff', roles: ['agent', 'super_admin'] },
+  // Buyer account area (Favorites & Saved Searches, notifications) — any
+  // authenticated role can favorite/save a search, not just buyers, so this
+  // stays as broad as /submit's role list above.
+  { prefix: '/account', roles: ['buyer', 'owner', 'agent', 'super_admin'] },
 ];
 
 export async function middleware(request: NextRequest) {
@@ -111,5 +115,6 @@ export const config = {
     '/become-an-agent/:path*',
     '/agent-verification/:path*',
     '/agency-staff/:path*',
+    '/account/:path*',
   ],
 };

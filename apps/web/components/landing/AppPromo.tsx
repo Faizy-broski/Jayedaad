@@ -13,9 +13,9 @@ export function AppPromo() {
           {/* Border */}
           <div className="pointer-events-none absolute inset-3 rounded-[24px] border-2 border-white sm:inset-5 sm:rounded-[34px]" />
 
-          <div className="relative z-10 grid items-center gap-10 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-2 lg:gap-8 lg:px-14 lg:py-16">
+          <div className="relative z-10 grid items-center gap-10 px-5 py-8 sm:px-8 sm:py-12 md:grid-cols-2 md:gap-8 lg:px-14 lg:py-16">
             {/* LEFT */}
-            <Reveal className="text-center lg:text-left">
+            <Reveal className="text-center md:text-left">
               <span className="text-xs font-semibold uppercase tracking-[0.25em] text-white/50">
                 Jayedaad App
               </span>
@@ -32,7 +32,7 @@ export function AppPromo() {
               </p>
 
               {/* Buttons */}
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center lg:justify-start">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center md:justify-start">
                 <a
                   href="https://apps.apple.com"
                   target="_blank"
@@ -71,7 +71,7 @@ export function AppPromo() {
               </div>
 
               {/* QR */}
-              <div className="mt-8 flex items-center justify-center gap-4 lg:justify-start">
+              <div className="mt-8 flex items-center justify-center gap-4 md:justify-start">
                 <div className="relative h-16 w-16 overflow-hidden rounded-xl bg-white p-1.5 sm:h-20 sm:w-20">
                   <Image
                     src="/images/qr-code.png"
@@ -93,7 +93,7 @@ export function AppPromo() {
             {/* RIGHT */}
             <Reveal
               delay={0.15}
-              className="mx-auto flex w-full justify-center lg:justify-end"
+              className="mx-auto flex w-full justify-center md:justify-end"
             >
               <div className="relative w-full max-w-[260px] sm:max-w-[360px] md:max-w-[430px] lg:max-w-[560px] xl:max-w-[620px]">
                 <div className="relative aspect-[549/514]">

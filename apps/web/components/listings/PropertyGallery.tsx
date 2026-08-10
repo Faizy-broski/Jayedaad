@@ -3,25 +3,46 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Image as ImageIcon, Film, Box, LayoutPanelLeft, Compass, Share2, Heart } from 'lucide-react';
-
-const GALLERY_TABS = [
-  { label: 'Full gallery', icon: ImageIcon },
-  { label: 'Video tour', icon: Film },
-  { label: '360 tour', icon: Box },
-  { label: 'Floor plan', icon: LayoutPanelLeft },
-  { label: 'Virtual tour', icon: Compass },
-] as const;
+import toast from 'react-hot-toast';
+import { Share2, Heart } from 'lucide-react';
 
 interface PropertyGalleryProps {
   images: string[];
   title: string;
 }
 
+// Previously also rendered a Full gallery/Video tour/360 tour/Floor plan/
+// Virtual tour tab bar — removed: those media types belong to Projects
+// (developments), which have real per-field data for them (floorPlanUrls,
+// videoUrl, see ProjectGallery.tsx, now functional there), not to
+// individual property listings, which only ever have plain photos.
 export function PropertyGallery({ images, title }: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<(typeof GALLERY_TABS)[number]['label']>('Full gallery');
   const [saved, setSaved] = useState(false);
+
+  // Previously a dead button (no onClick at all). Native share sheet where
+  // supported (mobile browsers, most desktop browsers now); copies the link
+  // instead on browsers without the Web Share API (older desktop Safari/
+  // Firefox). window.location.href, not a prop, since this is always
+  // rendered client-side on the listing's own detail page.
+  async function handleShare() {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch {
+        // User cancelled the share sheet, or the platform rejected it —
+        // not an error worth surfacing either way.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard!');
+    } catch {
+      toast.error('Could not copy link — please copy it from the address bar.');
+    }
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -51,6 +72,7 @@ export function PropertyGallery({ images, title }: PropertyGalleryProps) {
             <button
               type="button"
               aria-label="Share listing"
+              onClick={handleShare}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-600 shadow-sm transition-colors hover:text-primary"
             >
               <Share2 className="h-4 w-4" />
@@ -80,24 +102,6 @@ export function PropertyGallery({ images, title }: PropertyGalleryProps) {
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {GALLERY_TABS.map(({ label, icon: Icon }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setActiveTab(label)}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              activeTab === label
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-slate-200 text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
       </div>
     </motion.div>
   );

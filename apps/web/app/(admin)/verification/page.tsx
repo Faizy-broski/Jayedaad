@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { formatPrice, listingsRepository, ListingDocumentType, useVerificationQueueViewModel } from '@jayedaad/core';
+import { formatPrice, listingsRepository, ListingDocument, ListingDocumentType, useVerificationQueueViewModel } from '@jayedaad/core';
 import { Button, Pagination } from '@jayedaad/ui-web';
 import { Building2, ChevronDown, ChevronUp, ImageOff, MapPin, User } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
@@ -188,7 +188,13 @@ function ListingDocumentsSection({ listingId }: { listingId: string }) {
     queryFn: () => listingsRepository.listDocuments(listingId),
   });
 
-  const docByType = new Map((documents ?? []).map((d) => [d.documentType, d]));
+  // listDocuments returns every historical row (newest first) since replace
+  // inserts rather than overwrites — take the first (newest) row per type,
+  // not `new Map(entries)`'s last-one-wins, which would keep the oldest.
+  const docByType = new Map<ListingDocumentType, ListingDocument>();
+  for (const d of documents ?? []) {
+    if (!docByType.has(d.documentType)) docByType.set(d.documentType, d);
+  }
 
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">

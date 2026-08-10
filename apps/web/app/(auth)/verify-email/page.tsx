@@ -13,7 +13,7 @@ const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
   verification_staff: '/verification',
   agent: '/crm',
   owner: '/submit',
-  buyer: '/search',
+  buyer: '/account/saved',
 };
 
 // Same split-screen, no-scroll shell as /login and /signup (see those files

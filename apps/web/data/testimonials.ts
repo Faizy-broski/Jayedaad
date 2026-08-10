@@ -6,7 +6,7 @@ export const TESTIMONIALS: Testimonial[] = [
     quote: 'Buying our first home felt effortless. The team handled every detail — from paperwork to keys.',
     name: 'Fatima Sheikh',
     role: 'Home owner, Karachi',
-    avatar: '/images/testimonials/fatima-sheikh.jpg',
+    avatar: 'https://images.unsplash.com/photo-1611432579699-484f7990b127?w=200&h=200&fit=crop&crop=faces&q=80',
     rating: 5,
   },
   {
@@ -14,7 +14,7 @@ export const TESTIMONIALS: Testimonial[] = [
     quote: 'Verified data, honest agents, and clear pricing. Jayedaad set a new standard for the industry.',
     name: 'Usman Tariq',
     role: 'Investor, Lahore',
-    avatar: '/images/testimonials/usman-tariq.jpg',
+    avatar: 'https://images.unsplash.com/photo-1618077360395-f3068be8e001?w=200&h=200&fit=crop&crop=faces&q=80',
     rating: 5,
   },
   {
@@ -22,7 +22,7 @@ export const TESTIMONIALS: Testimonial[] = [
     quote: 'Our rental was leased in a week — with escrow, contracts and screening all in one place.',
     name: 'Ali Hussain',
     role: 'Landlord, Islamabad',
-    avatar: '/images/testimonials/ali-hussain.jpg',
+    avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=200&fit=crop&crop=faces&q=80',
     rating: 5,
   },
 ];

@@ -92,6 +92,34 @@ export class MailerService {
     });
   }
 
+  // Saved-search alert email — the email counterpart to the in-app
+  // 'new_match' notification saved-search-alerts.service.ts's hourly cron
+  // already creates. Same cadence gating as that notification (this is
+  // called from the same code path, right after it).
+  async sendSavedSearchAlertEmail(
+    to: string,
+    { searchName, matchCount, topListingTitle, listingUrl }: { searchName: string | null; matchCount: number; topListingTitle: string; listingUrl: string },
+  ): Promise<void> {
+    const heading = searchName ? `New matches for "${searchName}"` : 'New matching listings';
+    const summary =
+      matchCount === 1 ? `1 new listing matches your saved search.` : `${matchCount} new listings match your saved search.`;
+    const html = renderEmailHtml({
+      preheader: summary,
+      heading,
+      bodyHtml:
+        paragraph(summary) +
+        paragraph(`Top match: <strong>${topListingTitle}</strong>`) +
+        `<p style="text-align:center;margin:24px 0;"><a href="${listingUrl}" style="display:inline-block;padding:12px 24px;background:#0f766e;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600;">View Listing</a></p>`,
+      bodyText: '',
+    });
+    await this.send({
+      to,
+      subject: heading,
+      text: `${summary} Top match: ${topListingTitle}. View it here: ${listingUrl}`,
+      html,
+    });
+  }
+
   // Shared send path so both OTP and password-reset emails get the same
   // diagnosable-error treatment — a bad password/host or provider outage
   // throws a raw nodemailer error from sendMail() itself (distinct from

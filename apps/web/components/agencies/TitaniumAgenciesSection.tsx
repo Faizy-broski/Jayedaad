@@ -5,22 +5,19 @@ import { useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useAgenciesViewModel } from '@jayedaad/core';
 import { AgencyCard } from './AgencyCard';
-import { SAMPLE_AGENCIES } from '@/data/sampleAgencies';
-
-const SAMPLE_TITANIUM = SAMPLE_AGENCIES.filter((a) => a.tier === 'titanium');
 
 // Top placement tier — a horizontally-scrolling strip, same convention as
 // the reference design. The floating arrow scrolls the strip; it links out
 // to the full Titanium-only grid (AgenciesSearchResults, via ?tier=titanium)
-// once there's more than a page's worth to browse. Falls back to
-// SAMPLE_TITANIUM (data/sampleAgencies.ts) whenever the real API has no
-// Titanium agencies yet (or errors) — see that file's header comment.
+// once there's more than a page's worth to browse. Renders nothing once the
+// real API confirms there are no Titanium agencies yet — no sample-data
+// substitution.
 export function TitaniumAgenciesSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { agencies, total, isLoading } = useAgenciesViewModel({ tier: 'titanium', pageSize: 12 });
 
-  const usingSample = !isLoading && agencies.length === 0;
-  const items = usingSample ? SAMPLE_TITANIUM : agencies;
+  if (!isLoading && agencies.length === 0) return null;
+  const items = agencies;
 
   function scrollByCard() {
     scrollRef.current?.scrollBy({ left: 320, behavior: 'smooth' });
@@ -30,7 +27,7 @@ export function TitaniumAgenciesSection() {
     <section className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-heading-gradient">Titanium Agencies</h2>
-        {!usingSample && total > agencies.length && (
+        {total > agencies.length && (
           <Link href="/agents?tier=titanium" className="text-xs font-medium text-primary hover:underline">
             View all
           </Link>

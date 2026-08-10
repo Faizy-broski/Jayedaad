@@ -287,6 +287,12 @@ export interface ListingAgentSummary {
   photoUrl: string | null;
   agency: { name: string; slug: string; logoUrl: string | null } | null;
   subscriptionTierName: string | null;
+  // Only ever populated on GET /listings/:id (single detail) — never on
+  // search/list results, to avoid an admin-API lookup per row. Always a
+  // real email when present (an agent is a real auth account, unlike a
+  // developer catalog entry), so undefined/null here just means "not
+  // fetched on this endpoint", not "this agent has no email".
+  email?: string | null;
 }
 
 export type LeadStatus = 'new' | 'contacted' | 'negotiating' | 'closed' | 'lost';
@@ -298,7 +304,11 @@ export type LeadActivityType = 'note' | 'status_change' | 'call' | 'assignment' 
 
 export interface Lead {
   id: string;
-  listingId: string;
+  // Exactly one of these is ever set — a lead is either about a listing or
+  // a project, never both/neither (mirrors the DB's
+  // leads_listing_or_project_chk constraint, 0044_leads_project_enquiries.sql).
+  listingId: string | null;
+  projectId: string | null;
   agentId: string | null; // nullable — unassigned until J.Team assigns it [Dev Instr §3.2]
   name: string;
   phone: string;
@@ -434,6 +444,10 @@ export interface CreateUserInput {
   // create the matching agent_profiles row atomically.
   displayName?: string;
   agencyId?: string;
+  // Agent-only — same fields the self-service become-an-agent flow
+  // collects (ApplyAsAgentInput below).
+  phone?: string;
+  city?: string;
 }
 
 // Backs the Super Admin "team members" screen — pulls just internal staff
@@ -762,6 +776,7 @@ export interface RegisterAgencyInput {
   agencyName: string;
   agencySlug: string;
   agencyPhone?: string;
+  agencyEmail?: string;
   agencyCity?: string;
   displayName?: string;
   agentPhone?: string;
@@ -948,6 +963,7 @@ export interface Developer {
   phone: string | null;
   whatsapp: string | null;
   city: string | null;
+  email: string | null;
 }
 
 // GET /developers/:slug embeds a computed project count — same "compute at
@@ -964,6 +980,7 @@ export interface CreateDeveloperInput {
   phone?: string;
   whatsapp?: string;
   city?: string;
+  email?: string;
 }
 
 export interface UpdateDeveloperInput {
@@ -973,6 +990,7 @@ export interface UpdateDeveloperInput {
   phone?: string;
   whatsapp?: string;
   city?: string;
+  email?: string;
 }
 
 // What a project embeds inline — no bio/description, mirrors the
@@ -1275,7 +1293,8 @@ export type NotificationType =
   | 'inquiry_reply'
   | 'verification_status'
   | 'lead_assigned'
-  | 'reminder';
+  | 'reminder'
+  | 'support_ticket';
 
 export interface Notification {
   id: string;
@@ -1286,6 +1305,41 @@ export interface Notification {
   relatedLeadId: string | null;
   readAt: string | null;
   createdAt: string;
+}
+
+// --- Support tickets (mirrors 0043_support_tickets.sql) ------------------------
+// Agent-facing help desk (apps/web /help) — status-only lifecycle, no reply
+// thread. See services/api/src/support/support.repository.ts.
+
+export type SupportTicketStatus = 'open' | 'in_progress' | 'resolved';
+
+export interface SupportTicket {
+  id: string;
+  createdBy: string;
+  agencyId: string | null;
+  subject: string;
+  message: string;
+  status: SupportTicketStatus;
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSupportTicketInput {
+  subject: string;
+  message: string;
+}
+
+// Agent editing their own still-open ticket — server rejects once status
+// has moved past 'open' (see support.repository.ts::assertOwnOpenTicket).
+export interface UpdateSupportTicketInput {
+  subject?: string;
+  message?: string;
+}
+
+export interface UpdateSupportTicketStatusInput {
+  status: SupportTicketStatus;
+  adminNote?: string;
 }
 
 // --- Verification Documents (mirrors 0012_documents.sql) -----------------------
