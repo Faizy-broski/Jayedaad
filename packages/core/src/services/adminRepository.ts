@@ -20,7 +20,7 @@ export interface PaginatedAgentsOverview {
   pageSize: number;
 }
 
-export interface PaginatedAgencies {
+export interface AdminPaginatedAgencies {
   items: Agency[];
   total: number;
   page: number;
@@ -56,7 +56,7 @@ export const adminRepository = {
   // needs the unbounded shape).
   listAgenciesOverview: async (
     filters: AdminPageFilters & { search?: string; verificationStatus?: string } = {},
-  ): Promise<PaginatedAgencies> => {
+  ): Promise<AdminPaginatedAgencies> => {
     const { data } = await httpClient.get('/admin/agencies', { params: filters });
     return { ...data, items: (data.items as any[]).map(mapAgencyRow) };
   },

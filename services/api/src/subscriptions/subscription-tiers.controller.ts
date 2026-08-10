@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ScopeGuard } from '../common/guards/scope.guard';
@@ -12,8 +12,11 @@ export class SubscriptionTiersController {
   // Public — agents need to see available plans before upgrading.
   @Public()
   @Get()
-  list() {
-    return this.tiers.list();
+  list(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.tiers.list({
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @UseGuards(ScopeGuard)

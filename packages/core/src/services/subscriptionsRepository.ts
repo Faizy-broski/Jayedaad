@@ -36,11 +36,28 @@ function mapSubscriptionRow(row: any): Subscription {
   };
 }
 
+export interface ListTiersFilters {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedTiers {
+  items: SubscriptionTier[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export const subscriptionsRepository = {
-  // Public — agents need to see available plans before upgrading.
-  listTiers: async (): Promise<SubscriptionTier[]> => {
-    const { data } = await httpClient.get('/subscription-tiers');
-    return (data as any[]).map(mapTierRow);
+  // Public — agents need to see available plans before upgrading. Dual-mode,
+  // mirroring the backend: called with no page/pageSize, resolves to
+  // SubscriptionTier[] (the agent-facing upgrade screen); called with
+  // either, resolves to a Page shape (the Plans admin table). See
+  // subscription-tiers.repository.ts::list's comment for why.
+  listTiers: async (filters: ListTiersFilters = {}): Promise<SubscriptionTier[] | PaginatedTiers> => {
+    const { data } = await httpClient.get('/subscription-tiers', { params: filters });
+    if (Array.isArray(data)) return (data as any[]).map(mapTierRow);
+    return { ...data, items: (data.items as any[]).map(mapTierRow) };
   },
 
   getUsage: async (): Promise<SubscriptionUsage> => {

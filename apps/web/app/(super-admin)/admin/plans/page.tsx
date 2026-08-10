@@ -10,9 +10,11 @@ import {
   useAdminAgentsViewModel,
   usePlanManagementViewModel,
 } from '@jayedaad/core';
-import { Button, Input, Label, Modal, Select } from '@jayedaad/ui-web';
+import { Button, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
 import { ArrowRightLeft, BarChart3, CreditCard, Home, Layers, Pencil, PlusCircle, Sparkles, Trash2, Users } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+
+const PAGE_SIZE = 20;
 
 const EMPTY_FORM: CreateSubscriptionTierInput = {
   name: '',
@@ -32,7 +34,16 @@ const VIEW_COUNT_DETAIL_OPTIONS = ['total_only', 'breakdown_by_source', 'full_ti
 // tiers/agents lists — same "compute from what's already loaded" approach as
 // the Agencies/Agents pages, no fabricated analytics endpoint.
 export default function PlansPage() {
-  const { tiers, isLoading, createTier, updateTier, removeTier, assignToAgent } = usePlanManagementViewModel();
+  const [page, setPage] = useState(1);
+  const { tiers, total, isLoading, createTier, updateTier, removeTier, assignToAgent } = usePlanManagementViewModel({
+    page,
+    pageSize: PAGE_SIZE,
+  });
+  // Separate, unpaginated fetch for the "Assign a plan" dropdown below — it
+  // must always list every plan, not just the current page of the grid
+  // above (same reasoning as every other dual-mode admin table's unbounded
+  // dropdown consumer).
+  const { tiers: allTiers } = usePlanManagementViewModel();
   const { agents } = useAdminAgentsViewModel();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionTier | null>(null);
@@ -40,6 +51,7 @@ export default function PlansPage() {
 
   const [assignAgentId, setAssignAgentId] = useState('');
   const [assignTierId, setAssignTierId] = useState('');
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const subscriberCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -51,12 +63,15 @@ export default function PlansPage() {
     return counts;
   }, [agents]);
 
+  // Uses allTiers (the unpaginated set), not the current grid page, so
+  // these stay true platform figures rather than "on this page" — same
+  // fix applied to Agencies/Agents/Users now that their lists are paginated.
   const stats = useMemo(() => {
     const totalSubscribers = agents.filter((a) => a.subscription?.tierName).length;
-    const avgPrice = tiers.length > 0 ? tiers.reduce((sum, t) => sum + t.price, 0) / tiers.length : 0;
-    const maxQuota = tiers.length > 0 ? Math.max(...tiers.map((t) => t.listingQuota)) : 0;
-    return { totalPlans: tiers.length, totalSubscribers, avgPrice, maxQuota };
-  }, [tiers, agents]);
+    const avgPrice = allTiers.length > 0 ? allTiers.reduce((sum, t) => sum + t.price, 0) / allTiers.length : 0;
+    const maxQuota = allTiers.length > 0 ? Math.max(...allTiers.map((t) => t.listingQuota)) : 0;
+    return { totalPlans: total, totalSubscribers, avgPrice, maxQuota };
+  }, [allTiers, agents, total]);
 
   function openCreate() {
     setEditing(null);
@@ -231,6 +246,8 @@ export default function PlansPage() {
         </ul>
       )}
 
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+
       <Reveal>
         <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
           <h2 className="flex items-center gap-1.5 font-medium text-foreground">
@@ -253,7 +270,7 @@ export default function PlansPage() {
               <Label>Plan</Label>
               <Select value={assignTierId} onChange={(e) => setAssignTierId(e.target.value)}>
                 <option value="">Select plan</option>
-                {tiers.map((t) => (
+                {allTiers.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>

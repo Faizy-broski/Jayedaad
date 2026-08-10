@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateSubscriptionTierDto, UpdateSubscriptionTierDto } from './dto/subscription-tier.dto';
+import { paginate, PaginationParams, resolvePagination } from '../common/pagination';
 
 // Subscription plans — Super Admin creates/edits/retires them at runtime
 // [Reqs §8]. Reads are public: agents need to see available tiers to
@@ -9,10 +10,33 @@ import { CreateSubscriptionTierDto, UpdateSubscriptionTierDto } from './dto/subs
 export class SubscriptionTiersRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async list() {
-    const { data, error } = await this.supabase.client.from('subscription_tiers').select('*').order('price');
-    if (error) throw error;
-    return data;
+  // Dual-mode: called with no page/pageSize, returns the full unpaginated
+  // array exactly as before — needed by the agent-facing upgrade screen
+  // (useSubscriptionViewModel), which must see every tier at once. Called
+  // with page and/or pageSize (the Plans admin table), it paginates and
+  // returns { items, total, page, pageSize }. Lowest-risk of the dual-mode
+  // endpoints — tier counts are realistically tiny — added for consistency
+  // with Agents/Users/Developers/Taxonomy. See services/api/src/common/
+  // pagination.ts and admin.repository.ts::listAgentsOverview for the same
+  // pattern applied elsewhere.
+  async list(filters: PaginationParams = {}) {
+    const paginated = filters.page != null || filters.pageSize != null;
+
+    let query = this.supabase.client
+      .from('subscription_tiers')
+      .select('*', paginated ? { count: 'exact' } : undefined)
+      .order('price');
+
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    }
+
+    const pagination = resolvePagination(filters);
+    query = query.range(pagination.from, pagination.to);
+
+    return paginate(query, pagination);
   }
 
   async create(input: CreateSubscriptionTierDto) {

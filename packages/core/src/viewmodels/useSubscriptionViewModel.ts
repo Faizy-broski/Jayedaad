@@ -17,8 +17,11 @@ export function useSubscriptionViewModel() {
   });
 
   const tiersQuery = useQuery({
-    queryKey: ['subscription-tiers'],
+    queryKey: ['subscription-tiers', {}],
+    // Called with no filters -> the unpaginated array branch of the
+    // dual-mode endpoint (see subscription-tiers.repository.ts::list).
     queryFn: () => subscriptionsRepository.listTiers(),
+    select: (data) => (Array.isArray(data) ? data : data.items),
     staleTime: 5 * 60_000,
   });
 
