@@ -64,7 +64,18 @@ export function ListingsBrowserSection() {
         </div>
       )}
 
-      <ListingsBrowser initialFilters={initialFilters} purpose={purpose} agencySlug={agencySlug || undefined} />
+      {/* ListingsBrowser only reads initialFilters via useState's initial
+          value — it never re-syncs from props on its own. A client-side nav
+          to a new /listings?... query (e.g. the "Clear" link above) keeps
+          this component mounted since the route itself doesn't change, so
+          without a key forcing a remount, draftFilters/appliedFilters would
+          keep whatever the previous URL seeded them with. */}
+      <ListingsBrowser
+        key={searchParams.toString()}
+        initialFilters={initialFilters}
+        purpose={purpose}
+        agencySlug={agencySlug || undefined}
+      />
     </>
   );
 }

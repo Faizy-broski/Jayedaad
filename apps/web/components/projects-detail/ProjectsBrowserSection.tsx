@@ -25,5 +25,11 @@ export function ProjectsBrowserSection() {
     keyword: searchParams.get('keyword') ?? '',
   };
 
-  return <ProjectsBrowser initialFilters={initialFilters} />;
+  // ProjectsBrowser only reads initialFilters via useState's initial value —
+  // it never re-syncs from props on its own. A client-side nav to a new
+  // /developments?... query keeps this component mounted since the route
+  // itself doesn't change, so without a key forcing a remount, its filter
+  // state would keep whatever the previous URL seeded it with (same fix as
+  // ListingsBrowserSection).
+  return <ProjectsBrowser key={searchParams.toString()} initialFilters={initialFilters} />;
 }

@@ -302,7 +302,14 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
       return;
     }
 
-    router.push(`${purpose === 'rent' ? '/rent' : '/buy-sell'}?${params.toString()}`);
+    // ListingsBrowserSection (rendered on /listings) is the actual results
+    // page — it reads exactly these params (city/area/propertyTypeSlug/
+    // minPrice/maxPrice/minAreaValue/maxAreaValue/areaUnit/purpose). /buy-sell
+    // and /rent were never real routes in apps/web/app, so submitting this
+    // search bar 404'd; ListingSearchFilters' purpose is 'sale' | 'rent', not
+    // this bar's own 'buy' | 'rent' toggle value, hence the mapping.
+    params.set('purpose', purpose === 'rent' ? 'rent' : 'sale');
+    router.push(`/listings?${params.toString()}`);
   }
 
   return (
