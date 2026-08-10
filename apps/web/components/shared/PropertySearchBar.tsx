@@ -37,7 +37,11 @@ export type SearchBarPurpose = 'buy' | 'rent';
 // purpose (projects are never "for rent"), but gains the Project Title /
 // Developer fields GET /projects actually supports (see ProjectSearchFilters
 // in packages/core/models).
-export type SearchBarVariant = 'listings' | 'projects';
+// 'agencies' renders the same base fields as neither 'listings' nor
+// 'projects' (no Buy/Rent toggle, no project-specific "See More" section) —
+// used by the /agents hero, which reuses this search bar for its city/area
+// fields without wanting either variant's extra UI.
+export type SearchBarVariant = 'listings' | 'projects' | 'agencies';
 
 interface PropertySearchBarProps {
   variant?: SearchBarVariant;
