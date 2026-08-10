@@ -57,6 +57,17 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
 ];
 
 export async function middleware(request: NextRequest) {
+  // Was a separate app/(account)/page.tsx doing a plain server-side
+  // redirect() with no JSX — under (account)/layout.tsx's 'use client'
+  // boundary, that combination made Vercel's build trace fail looking for a
+  // page_client-reference-manifest.js that never got generated for a
+  // manifest-less redirect-only page. Handling the redirect here instead
+  // avoids that file existing at all. Re-enters this same middleware on the
+  // redirected URL, so auth/role gating below still applies normally.
+  if (request.nextUrl.pathname === '/account') {
+    return NextResponse.redirect(new URL('/account/saved', request.url));
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const match = PROTECTED_ROUTES.find((route) => request.nextUrl.pathname.startsWith(route.prefix));
