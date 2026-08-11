@@ -48,80 +48,92 @@ const INFO_ROWS: InfoRow[] = [
 
 export function OfficeShowcaseSection() {
   return (
-    <section className="overflow-hidden py-12 sm:py-16 lg:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative">
-          {/* OFFICE IMAGE */}
-          <div
-            className="
-              relative
-              h-[300px]
-              w-full
-              overflow-hidden
-              rounded-3xl
-
-              sm:h-[420px]
-              md:h-[520px]
-              lg:h-[620px]
+    <section className="w-full">
+      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* OFFICE IMAGE */}
+        <div
+          className="
+            relative
+            h-[260px]
+            w-full
+            overflow-hidden
+            rounded-2xl
+            sm:h-[380px]
+            sm:rounded-3xl
+            md:h-[480px]
+            lg:h-[600px]
+            xl:h-[650px]
+          "
+        >
+          <Image
+            src="/images/contact-us/jayedaad-office.jpg"
+            alt="Jayedaad House — head office exterior, Gulberg III, Lahore"
+            fill
+            priority
+            sizes="
+              (min-width: 1280px) 1200px,
+              (min-width: 1024px) 90vw,
+              (min-width: 640px) 92vw,
+              100vw
             "
-          >
-            <Image
-              src="/images/contact-us/jayedaad-office.jpg"
-              alt="Jayedaad House — head office exterior, Gulberg III, Lahore"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center"
-            />
-          </div>
+            className="object-cover object-center"
+          />
 
-          {/* INFO CARD */}
-          <div
-            className="
-              relative
-              z-10
+          {/* Subtle overlay for better contrast on larger screens */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
+        </div>
 
-              -mt-12
-              mx-3
+        {/* INFO CARD */}
+        <div
+          className="
+            relative
+            z-10
 
-              rounded-3xl
-              border
-              border-white/60
-              bg-white/90
-              p-5
-              shadow-xl
-              backdrop-blur-md
+            -mt-8
+            mx-3
 
+            rounded-2xl
+            border
+            border-white/70
+            bg-white/95
+            p-5
+            shadow-xl
+            backdrop-blur-md
 
-              /* small screens and above */
-              sm:absolute
-              sm:right-5
-              sm:top-8
-              sm:bottom-8
-              sm:mt-0
-              sm:mx-0
-              sm:flex
-              sm:w-[340px]
-              sm:flex-col
-              sm:justify-center
-              sm:p-7
+            sm:-mt-10
+            sm:mx-6
+            sm:rounded-3xl
+            sm:p-6
 
+            md:-mt-16
+            md:mx-10
+            md:p-7
 
-              /* desktop */
-              md:w-[370px]
+            lg:absolute
+            lg:right-12
+            lg:top-1/2
+            lg:bottom-auto
+            lg:mt-0
+            lg:mx-0
+            lg:w-[380px]
+            lg:-translate-y-1/2
+            lg:p-8
 
-              lg:right-10
-              lg:w-[420px]
-              lg:p-9
-            "
-          >
+            xl:right-16
+            xl:w-[420px]
+            xl:p-9
+          "
+        >
+          {/* HEADER */}
+          <div>
             <span
               className="
-                text-[11px]
+                text-[10px]
                 font-semibold
                 uppercase
                 tracking-[0.2em]
                 text-slate-500
+                sm:text-[11px]
               "
             >
               Head office
@@ -129,13 +141,15 @@ export function OfficeShowcaseSection() {
 
             <h2
               className="
-                mt-3
+                mt-2
                 text-2xl
                 font-bold
-                leading-[1.2]
+                leading-[1.15]
                 text-heading-gradient
 
+                sm:mt-3
                 sm:text-3xl
+
                 lg:text-4xl
               "
             >
@@ -143,110 +157,146 @@ export function OfficeShowcaseSection() {
               <br />
               Lahore.
             </h2>
+          </div>
 
-            <dl className="mt-6 flex flex-col gap-4 sm:mt-7 sm:gap-5">
-              {INFO_ROWS.map(({ icon: Icon, label, value, href }) => (
-                <div key={label} className="flex items-start gap-3">
-                  <span
+          {/* INFORMATION */}
+          <dl
+            className="
+              mt-6
+              grid
+              grid-cols-1
+              gap-4
+
+              sm:mt-7
+              sm:gap-5
+
+              md:grid-cols-2
+              md:gap-x-6
+              md:gap-y-5
+
+              lg:grid-cols-1
+              lg:gap-5
+            "
+          >
+            {INFO_ROWS.map(({ icon: Icon, label, value, href }) => (
+              <div
+                key={label}
+                className="flex min-w-0 items-start gap-3"
+              >
+                {/* ICON */}
+                <span
+                  className="
+                    mt-0.5
+                    flex
+                    h-8
+                    w-8
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-primary/10
+                    text-primary
+
+                    sm:h-9
+                    sm:w-9
+                  "
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+
+                {/* CONTENT */}
+                <div className="min-w-0 flex-1">
+                  <dt
                     className="
-                        mt-1
-                        flex
-                        h-8
-                        w-8
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-full
-                        bg-primary/10
-                        text-primary
-                      "
+                      text-[9px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.16em]
+                      text-slate-500
+
+                      sm:text-[10px]
+                      sm:tracking-widest
+                    "
                   >
-                    <Icon className="h-4 w-4" />
-                  </span>
+                    {label}
+                  </dt>
 
-                  <div className="min-w-0">
-                    <dt
+                  {href ? (
+                    <dd
                       className="
-                          text-[10px]
-                          font-semibold
-                          uppercase
-                          tracking-widest
-                          text-slate-500
-                        "
-                    >
-                      {label}
-                    </dt>
+                        mt-1
+                        break-words
+                        text-xs
+                        font-medium
+                        leading-snug
+                        text-slate-800
 
-                    {href ? (
-                      <dd
-                        className="
-                            mt-1
-                            truncate
-                            text-sm
-                            font-medium
-                            text-slate-800
-                          "
-                      >
-                        <a
-                          href={href}
-                          className="transition-colors hover:text-primary"
-                        >
-                          {value}
-                        </a>
-                      </dd>
-                    ) : (
-                      <dd
-                        className="
-                            mt-1
-                            text-sm
-                            font-medium
-                            leading-snug
-                            text-slate-800
-                          "
+                        sm:text-sm
+                      "
+                    >
+                      <a
+                        href={href}
+                        className="transition-colors hover:text-primary"
                       >
                         {value}
-                      </dd>
-                    )}
-                  </div>
+                      </a>
+                    </dd>
+                  ) : (
+                    <dd
+                      className="
+                        mt-1
+                        break-words
+                        text-xs
+                        font-medium
+                        leading-snug
+                        text-slate-800
+
+                        sm:text-sm
+                      "
+                    >
+                      {value}
+                    </dd>
+                  )}
                 </div>
-              ))}
-            </dl>
+              </div>
+            ))}
+          </dl>
 
-            <a
-              href="https://maps.google.com/?q=12-A+Main+Boulevard,+Gulberg+III,+Lahore"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                mt-7
-                flex
-                w-full
-                items-center
-                justify-center
-                gap-2
+          {/* DIRECTIONS BUTTON */}
+          <a
+            href="https://maps.google.com/?q=12-A+Main+Boulevard,+Gulberg+III,+Lahore"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="
+              mt-6
+              flex
+              w-full
+              items-center
+              justify-center
+              gap-2
+              rounded-full
+              bg-heading-gradient
+              px-5
+              py-3
+              text-xs
+              font-medium
+              text-white
+              shadow-lg
+              shadow-primary/20
+              transition-opacity
+              hover:opacity-90
 
-                rounded-full
-                bg-heading-gradient
+              sm:mt-7
+              sm:px-6
+              sm:py-3.5
+              sm:text-sm
 
-                px-6
-                py-3.5
-
-                text-sm
-                font-medium
-                text-white
-
-                shadow-lg
-                shadow-primary/20
-
-                transition-opacity
-                hover:opacity-90
-
-                sm:mt-8
-              "
-            >
-              <Navigation className="h-4 w-4" />
-              Get directions
-            </a>
-          </div>
+              lg:mt-8
+            "
+          >
+            <Navigation className="h-4 w-4 shrink-0" />
+            <span>Get directions</span>
+          </a>
         </div>
       </div>
     </section>

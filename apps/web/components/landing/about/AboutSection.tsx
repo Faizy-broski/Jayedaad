@@ -5,7 +5,7 @@ import { Reveal } from '@/components/Reveal';
 
 export function AboutSection() {
   return (
-     <section className="relative overflow-hidden py-14 sm:py-20 lg:py-8">
+    <section className="relative overflow-hidden py-14 sm:py-20 lg:py-8">
 
       <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-full max-w-6xl sm:block">
         <Image
@@ -56,12 +56,12 @@ export function AboutSection() {
             combine verified listings, local expertise to help you make confident property decisions.
           </p>
 
-          <h2 className="text-heading-gradient mt-6 flex flex-col text-3xl font-bold uppercase leading-[1.05] tracking-tight sm:mt-8 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
+          <h2 className="text-heading-gradient mt-6 flex flex-col text-3xl font-extrabold uppercase leading-[1.15] pb-1 tracking-tight sm:mt-8 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-outfit">
             <span className="self-end hidden lg:block">Jayedaad</span>
             <span className="self-start hidden lg:block">Housing</span>
           </h2>
-          <h2 className="text-heading-gradient mt-6 flex flex-col text-3xl font-bold uppercase leading-[1.05] tracking-tight sm:mt-8 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl lg:hidden">
-           Jayedaad Housing
+          <h2 className="text-heading-gradient mt-6 flex flex-col text-3xl font-bold uppercase leading-[1.15] pb-1 tracking-tight sm:mt-8 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl lg:hidden font-outfit">
+            Jayedaad Housing
           </h2>
 
           <div className="mt-8 flex items-start gap-4 sm:gap-5">
@@ -85,8 +85,7 @@ export function AboutSection() {
       </div>
 
       {/* Bottom half — stat strip sitting on the faded building watermark */}
-      <div className="relative mt-20 sm:mt-28 lg:mt-32">
-
+      <div className="relative mt-20 sm:mt-28 lg:my-20">
         <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-4 sm:px-6 lg:px-8">
           <Reveal className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">By the Numbers</span>
@@ -96,9 +95,12 @@ export function AboutSection() {
             </p>
           </Reveal>
 
-          <div className="mt-8 grid w-full grid-cols-2 gap-x-6 gap-y-8 sm:mt-10 sm:gap-x-8 sm:gap-y-10 md:grid-cols-4 md:gap-x-12">
+          {/* justify-between spreads items so the first sits flush at the container's
+        left edge and the last sits flush at the right edge — same edges as
+        the "By the Numbers" row above, not the browser viewport. */}
+          <div className="mt-8 flex w-full flex-wrap justify-between gap-x-6 gap-y-8 sm:mt-10 sm:flex-nowrap sm:gap-x-8 sm:gap-y-10">
             {ABOUT_STATS.map((stat, index) => (
-              <Reveal key={stat.id} delay={index * 0.1}>
+              <Reveal key={stat.id} delay={index * 0.1} className="min-w-[40%] sm:min-w-0">
                 <StatItem stat={stat} index={index} />
               </Reveal>
             ))}

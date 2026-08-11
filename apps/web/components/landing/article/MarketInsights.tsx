@@ -12,8 +12,6 @@ import { Reveal } from '@/components/Reveal';
 export function MarketInsights() {
   const { posts, isLoading } = useBlogViewModel({ limit: 3 });
 
-  if (!isLoading && posts.length === 0) return null;
-
   return (
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-4">
@@ -32,15 +30,25 @@ export function MarketInsights() {
           </Link>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {isLoading
-            ? [0, 1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100" />)
-            : posts.map((post, index) => (
-                <Reveal key={post.id} delay={(index % 3) * 0.08}>
-                  <ArticleCard post={post} />
-                </Reveal>
-              ))}
-        </div>
+        {isLoading ? (
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100" />
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <p className="mt-8 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+            No articles published yet.
+          </p>
+        ) : (
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {posts.map((post, index) => (
+              <Reveal key={post.id} delay={(index % 3) * 0.08}>
+                <ArticleCard post={post} />
+              </Reveal>
+            ))}
+          </div>
+        )}
 
         <Link
           href="/blog"

@@ -95,34 +95,42 @@ export function NewProjects({ projects }: NewProjectsProps) {
           </div>
         </div>
 
-        <div className="mt-8 overflow-hidden" ref={emblaRef}>
-          <div className="-ml-5 flex">
-            {projects.map((project, index) => (
-              <div
-                key={project.id}
-                className="min-w-0 shrink-0 grow-0 basis-[85%] pl-5 py-6 xs:basis-[70%] sm:basis-1/2 lg:basis-1/4"
-              >
-                <Reveal delay={(index % 4) * 0.08}>
-                  <ProjectCard project={project} />
-                </Reveal>
+        {projects.length === 0 ? (
+          <p className="mt-8 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+            No new projects available right now.
+          </p>
+        ) : (
+          <>
+            <div className="mt-8 overflow-hidden" ref={emblaRef}>
+              <div className="-ml-5 flex">
+                {projects.map((project, index) => (
+                  <div
+                    key={project.id}
+                    className="min-w-0 shrink-0 grow-0 basis-[85%] pl-5 py-6 xs:basis-[70%] sm:basis-1/2 lg:basis-1/4"
+                  >
+                    <Reveal delay={(index % 4) * 0.08}>
+                      <ProjectCard project={project} />
+                    </Reveal>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div className="mt-6 flex items-center justify-center gap-1.5 sm:hidden">
-          {scrollSnaps.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              aria-label={`Go to slide ${index + 1}`}
-              onClick={() => scrollTo(index)}
-              className={`h-1.5 rounded-full transition-all ${
-                index === selectedIndex ? 'w-5 bg-primary' : 'w-1.5 bg-slate-200'
-              }`}
-            />
-          ))}
-        </div>
+            <div className="mt-6 flex items-center justify-center gap-1.5 sm:hidden">
+              {scrollSnaps.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  aria-label={`Go to slide ${index + 1}`}
+                  onClick={() => scrollTo(index)}
+                  className={`h-1.5 rounded-full transition-all ${
+                    index === selectedIndex ? 'w-5 bg-primary' : 'w-1.5 bg-slate-200'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="mt-6 flex justify-center sm:hidden">
           <Link

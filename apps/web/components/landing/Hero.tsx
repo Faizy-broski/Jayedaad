@@ -36,7 +36,7 @@ export function Hero() {
           Desktop (lg+) — own image heights/paddings/overlap technique,
           kept as a self-contained block so responsive work below lg can
           never leak into how this renders at lg+. */}
-      <div className="relative mb-28 hidden lg:block">
+      <div className="relative hidden lg:block">
         <div className="pt-16 sm:pt-[68px] lg:pt-0">
           <div className="relative h-[480px] w-full overflow-hidden sm:h-[620px] md:h-[680px]">
             <motion.div
@@ -70,7 +70,7 @@ export function Hero() {
                 width={1200}
                 height={168}
                 priority
-                className="h-16 w-full max-w-5xl select-none sm:h-36"
+                className="h-16 w-full max-w-6xl select-none sm:h-36"
               />
             </motion.div>
 
@@ -94,7 +94,7 @@ export function Hero() {
               variants={textGroup}
               initial="hidden"
               animate="show"
-              className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col pb-20 pt-28 sm:pt-[300px] md:pb-28"
+              className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col pb-20 pt-28 sm:pt-[300px] md:pb-28"
             >
               <motion.p
                 variants={textItem}
@@ -111,7 +111,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.5 }}
-          className="pointer-events-auto absolute inset-x-4 -bottom-28 mx-auto flex max-w-4xl flex-col sm:-bottom-10"
+          className="pointer-events-auto absolute inset-x-4 -bottom-28 z-30 mx-auto flex max-w-4xl flex-col sm:-bottom-10"
         >
           <PropertySearchBar defaultPurpose="buy" />
         </motion.div>
@@ -171,13 +171,7 @@ export function Hero() {
                 width={1200}
                 height={168}
                 priority
-                className="
-    h-14
-    w-auto
-    max-w-[90%]
-    sm:h-28
-    md:h-32
-    lg:h-36
+                className=" h-14 w-auto max-w-[90%] sm:h-28 md:h-32 lg:h-36
   "
               />
             </motion.div>
@@ -208,29 +202,7 @@ export function Hero() {
               variants={textGroup}
               initial="hidden"
               animate="show"
-              className="
-  pointer-events-none
-  relative
-  z-10
-  mx-auto
-  flex
-  h-full
-  w-full
-  max-w-5xl
-  flex-col
-  px-5
-
-  pb-12
-  pt-48
-
-  sm:pb-16
-  sm:pt-[260px]
-
-  md:pb-20
-  md:pt-[320px]
-
-  lg:pb-28
-  lg:pt-[300px]
+              className=" pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col px-5 pb-12 pt-48 sm:pb-16 sm:pt-[260px] md:pb-20 md:pt-[320px] lg:pb-28 lg:pt-[300px]
 "
             >
               <motion.p

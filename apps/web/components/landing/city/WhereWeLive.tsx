@@ -36,13 +36,19 @@ export function WhereWeLive({ cities }: WhereWeLiveProps) {
           </Link>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {cities.map((city, index) => (
-            <Reveal key={city.id} delay={(index % 3) * 0.08}>
-              <CityCard city={city} />
-            </Reveal>
-          ))}
-        </div>
+        {cities.length === 0 ? (
+          <p className="mt-10 rounded-2xl border border-dashed border-white/20 py-16 text-center text-sm text-white/60">
+            No cities available right now.
+          </p>
+        ) : (
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {cities.map((city, index) => (
+              <Reveal key={city.id} delay={(index % 3) * 0.08}>
+                <CityCard city={city} />
+              </Reveal>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
