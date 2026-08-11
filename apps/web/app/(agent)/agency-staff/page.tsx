@@ -118,9 +118,14 @@ export default function AgencyStaffPage() {
       key: 'verification',
       header: 'Verification',
       render: (a) => (
-        <Badge variant={a.verificationStatus === 'verified' ? 'success' : a.verificationStatus === 'rejected' ? 'destructive' : 'warning'}>
-          {a.verificationStatus}
-        </Badge>
+        <div className="space-y-1">
+          <Badge variant={a.verificationStatus === 'verified' ? 'success' : a.verificationStatus === 'rejected' ? 'destructive' : 'warning'}>
+            {a.verificationStatus}
+          </Badge>
+          {a.verificationStatus === 'rejected' && a.rejectionReason && (
+            <p className="text-xs text-destructive">Reason: {a.rejectionReason}</p>
+          )}
+        </div>
       ),
     },
     { key: 'admin', header: 'Agency Admin', render: (a) => (a.isAgencyAdmin ? <Badge variant="success">Admin</Badge> : '—') },

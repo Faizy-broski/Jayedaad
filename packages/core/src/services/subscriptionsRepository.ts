@@ -1,10 +1,13 @@
 import { httpClient } from './httpClient';
 import {
   AssignSubscriptionInput,
+  CreateCreditPackInput,
   CreateSubscriptionTierInput,
+  CreditPack,
   Subscription,
   SubscriptionTier,
   SubscriptionUsage,
+  UpdateCreditPackInput,
   UpdateSubscriptionTierInput,
 } from '../models';
 
@@ -20,6 +23,8 @@ function mapTierRow(row: any): SubscriptionTier {
     analyticsDepth: row.analytics_depth,
     hotCreditsPerPeriod: row.hot_credits_per_period ?? 0,
     superHotCreditsPerPeriod: row.super_hot_credits_per_period ?? 0,
+    refreshCreditsPerPeriod: row.refresh_credits_per_period ?? 0,
+    storyCreditsPerPeriod: row.story_credits_per_period ?? 0,
     stripePriceId: row.stripe_price_id,
     listingDurationDays: row.listing_duration_days,
   };
@@ -46,6 +51,20 @@ export interface PaginatedTiers {
   total: number;
   page: number;
   pageSize: number;
+}
+
+// services/api's credit-packs repository returns raw snake_case rows (no
+// server-side mapper), mirroring mapTierRow above.
+function mapCreditPackRow(row: any): CreditPack {
+  return {
+    id: row.id,
+    name: row.name,
+    creditType: row.credit_type,
+    quantity: row.quantity,
+    price: row.price,
+    stripePriceId: row.stripe_price_id,
+    active: row.active,
+  };
 }
 
 export const subscriptionsRepository = {
@@ -81,9 +100,11 @@ export const subscriptionsRepository = {
   // Paid tiers — creates a real Stripe Checkout Session and returns its
   // redirect URL; the Plan page navigates the browser there. The actual
   // subscription row is only written once Stripe's webhook confirms payment,
-  // not by this call itself.
-  checkoutTier: async (tierId: string): Promise<{ url: string | null }> => {
-    const { data } = await httpClient.post('/subscriptions/me/checkout', { tierId });
+  // not by this call itself. returnUrl is mobile-only (a jayedaad:// deep
+  // link, see PlanScreen.tsx) — web omits it and keeps the server's
+  // NEXT_PUBLIC_SITE_URL default.
+  checkoutTier: async (tierId: string, returnUrl?: string): Promise<{ url: string | null }> => {
+    const { data } = await httpClient.post('/subscriptions/me/checkout', { tierId, returnUrl });
     return data;
   },
 
@@ -106,6 +127,36 @@ export const subscriptionsRepository = {
   assignToAgent: async (agentId: string, input: AssignSubscriptionInput): Promise<Subscription> => {
     const { data } = await httpClient.patch(`/subscriptions/${agentId}/assign`, input);
     return mapSubscriptionRow(data);
+  },
+
+  // Standalone credit top-up purchases — public list (agents need to see
+  // what's buyable before checkout), agent-only checkout, Super Admin CRUD.
+  listCreditPacks: async (includeInactive = false): Promise<CreditPack[]> => {
+    const { data } = await httpClient.get('/credit-packs', { params: includeInactive ? { includeInactive: 'true' } : {} });
+    return (data as any[]).map(mapCreditPackRow);
+  },
+
+  // Creates a real Stripe Checkout Session (mode: 'payment') and returns its
+  // redirect URL — agent_credits itself is only incremented once Stripe's
+  // webhook confirms payment, not by this call itself. returnUrl is
+  // mobile-only, same convention as checkoutTier above.
+  checkoutCreditPack: async (packId: string, returnUrl?: string): Promise<{ url: string | null }> => {
+    const { data } = await httpClient.post('/subscriptions/me/credits/checkout', { packId, returnUrl });
+    return data;
+  },
+
+  createCreditPack: async (input: CreateCreditPackInput): Promise<CreditPack> => {
+    const { data } = await httpClient.post('/credit-packs', input);
+    return mapCreditPackRow(data);
+  },
+
+  updateCreditPack: async (id: string, input: UpdateCreditPackInput): Promise<CreditPack> => {
+    const { data } = await httpClient.patch(`/credit-packs/${id}`, input);
+    return mapCreditPackRow(data);
+  },
+
+  removeCreditPack: async (id: string): Promise<void> => {
+    await httpClient.delete(`/credit-packs/${id}`);
   },
 
   // Super Admin-only plan CRUD.

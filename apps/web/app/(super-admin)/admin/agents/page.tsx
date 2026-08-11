@@ -122,8 +122,12 @@ export default function AgentsPage() {
   }
 
   function handleVerify(agentId: string, status: 'verified' | 'rejected') {
+    // Only rejects prompt — approvals need no explanation. Cancelling the
+    // prompt (null) still proceeds with no reason, same as before this was
+    // added; the prompt is a chance to explain, not a hard requirement.
+    const reason = status === 'rejected' ? (prompt('Reason for rejection (optional):') ?? undefined) : undefined;
     setVerificationStatus.mutate(
-      { agentId, status },
+      { agentId, status, reason },
       {
         onSuccess: () => toast.success(`Agent ${status}.`),
         // The API's 400 here is usually a real, specific reason — e.g.

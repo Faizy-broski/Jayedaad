@@ -45,8 +45,8 @@ export function useAdminAgentsViewModel(filters: AdminAgentsFilters = {}) {
   });
 
   const setVerificationStatus = useMutation({
-    mutationFn: ({ agentId, status }: { agentId: string; status: 'verified' | 'rejected' }) =>
-      agentsRepository.setVerificationStatus(agentId, status),
+    mutationFn: ({ agentId, status, reason }: { agentId: string; status: 'verified' | 'rejected'; reason?: string }) =>
+      agentsRepository.setVerificationStatus(agentId, status, reason),
     onSuccess: invalidate,
   });
 

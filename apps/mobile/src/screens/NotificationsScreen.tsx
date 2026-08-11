@@ -1,7 +1,10 @@
 import { FlatList, Pressable, SafeAreaView, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Notification, useNotificationsViewModel } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
+import type { RootStackParamList } from '../navigation/RootNavigator';
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -16,16 +19,30 @@ function relativeTime(iso: string): string {
 // Mobile counterpart to apps/web's NotificationBell dropdown — same
 // GET /notifications + mark-read/mark-all-read endpoints, just a full
 // screen instead of a panel (no hover/dropdown affordance on touch).
-// Reached from HomeScreen's bell icon.
+// Reached from HomeScreen's bell icon. Tap-to-navigate mirrors (and for
+// lead_assigned, exceeds) web's NotificationBell.tsx routing — previously
+// a tap only marked read and went nowhere, which is most of why mobile
+// notifications felt broken/dead.
 export function NotificationsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { notifications, unreadCount, isLoading, markRead, markAllRead } = useNotificationsViewModel();
+
+  function handlePress(item: Notification) {
+    if (!item.readAt) markRead.mutate(item.id);
+    if (item.type === 'support_ticket') {
+      navigation.navigate('HelpDesk');
+    } else if (item.type === 'new_match' && item.relatedListingId) {
+      navigation.navigate('ListingDetail', { listingId: item.relatedListingId });
+    } else if (item.type === 'lead_assigned' && item.relatedLeadId) {
+      navigation.navigate('LeadDetail', { leadId: item.relatedLeadId });
+    } else if (item.type === 'verification_status') {
+      navigation.navigate('BecomeAnAgent');
+    }
+  }
 
   function renderItem({ item }: { item: Notification }) {
     return (
-      <Pressable
-        style={[styles.row, !item.readAt && styles.rowUnread]}
-        onPress={() => !item.readAt && markRead.mutate(item.id)}
-      >
+      <Pressable style={[styles.row, !item.readAt && styles.rowUnread]} onPress={() => handlePress(item)}>
         {!item.readAt && <View style={styles.dot} />}
         <View style={styles.rowContent}>
           <Text style={styles.title}>{item.title}</Text>

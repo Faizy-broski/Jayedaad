@@ -34,6 +34,14 @@ export class CreateSubscriptionTierDto {
   @IsInt()
   superHotCreditsPerPeriod?: number;
 
+  @IsOptional()
+  @IsInt()
+  refreshCreditsPerPeriod?: number;
+
+  @IsOptional()
+  @IsInt()
+  storyCreditsPerPeriod?: number;
+
   // Set once a matching Product/Price exists in the Stripe dashboard —
   // required before this tier can be checked out if price > 0 (see
   // SubscriptionsController.checkout()'s existing guard).
@@ -67,6 +75,14 @@ export class UpdateSubscriptionTierDto {
   @IsOptional()
   @IsInt()
   superHotCreditsPerPeriod?: number;
+
+  @IsOptional()
+  @IsInt()
+  refreshCreditsPerPeriod?: number;
+
+  @IsOptional()
+  @IsInt()
+  storyCreditsPerPeriod?: number;
 
   @IsOptional()
   @IsString()

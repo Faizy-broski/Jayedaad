@@ -240,6 +240,16 @@ export interface Listing {
   // boostTier reverts to 'basic' once this passes (PlanLifecycleService's
   // cron), so a boost is a fixed window, not permanent.
   boostExpiresAt: string | null;
+  // Set when a Refresh credit is spent (POST /listings/:id/refresh) — used
+  // as a secondary sort key ahead of createdAt so a refreshed listing
+  // outranks older un-refreshed ones at the same boostTier. Unlike
+  // boostExpiresAt, this never reverts on its own.
+  refreshedAt: string | null;
+  // Set when a Story credit is spent (POST /listings/:id/story) — a
+  // 24-hour featured placement, cleared back to null by
+  // PlanLifecycleService's cron once it passes. Unlike boostTier, this
+  // isn't a rank against other listings, just an on/off flag.
+  storyExpiresAt: string | null;
   // Set on approval/renewal from the assigned agent's plan's
   // listingDurationDays — null means unlimited (never expires). Once this
   // passes, PlanLifecycleService's cron sets status to 'expired';
@@ -498,6 +508,8 @@ export interface SubscriptionTier {
   // (re-)selection/renewal, spent via POST /listings/:id/boost.
   hotCreditsPerPeriod: number;
   superHotCreditsPerPeriod: number;
+  refreshCreditsPerPeriod: number;
+  storyCreditsPerPeriod: number;
   // Set once a matching Stripe Product/Price exists — required before this
   // tier can be checked out if price > 0.
   stripePriceId: string | null;
@@ -514,6 +526,8 @@ export interface CreateSubscriptionTierInput {
   analyticsDepth: Record<string, unknown>;
   hotCreditsPerPeriod?: number;
   superHotCreditsPerPeriod?: number;
+  refreshCreditsPerPeriod?: number;
+  storyCreditsPerPeriod?: number;
   stripePriceId?: string;
   listingDurationDays?: number | null;
 }
@@ -525,6 +539,8 @@ export interface UpdateSubscriptionTierInput {
   analyticsDepth?: Record<string, unknown>;
   hotCreditsPerPeriod?: number;
   superHotCreditsPerPeriod?: number;
+  refreshCreditsPerPeriod?: number;
+  storyCreditsPerPeriod?: number;
   stripePriceId?: string;
   listingDurationDays?: number | null;
 }
@@ -543,6 +559,44 @@ export interface Subscription {
 export interface AssignSubscriptionInput {
   tierId: string;
   currentPeriodEnd?: string;
+}
+
+// --- Standalone (à la carte) credit top-up purchases ---
+// A one-off Stripe purchase (mode: 'payment') that increments agent_credits
+// on top of whatever the current plan period already granted — distinct
+// from a subscription_tiers period allotment, not a replacement for it.
+// 'listing_quota' is deliberately excluded: a top-up buys more of a
+// spendable action, not more listing slots (upgrading a plan does that).
+export type PurchasableCreditType = 'hot' | 'super_hot' | 'refresh' | 'story';
+
+export interface CreditPack {
+  id: string;
+  name: string;
+  creditType: PurchasableCreditType;
+  quantity: number;
+  price: number;
+  // Set once a matching one-time Stripe Price exists — required before this
+  // pack can be checked out (same convention as SubscriptionTier.stripePriceId).
+  stripePriceId: string | null;
+  active: boolean;
+}
+
+export interface CreateCreditPackInput {
+  name: string;
+  creditType: PurchasableCreditType;
+  quantity: number;
+  price?: number;
+  stripePriceId?: string;
+  active?: boolean;
+}
+
+export interface UpdateCreditPackInput {
+  name?: string;
+  creditType?: PurchasableCreditType;
+  quantity?: number;
+  price?: number;
+  stripePriceId?: string;
+  active?: boolean;
 }
 
 // --- Super Admin: Agent Credits write side (mirrors services/api/src/agents/dto/grant-credits.dto.ts) ---
@@ -648,6 +702,9 @@ export interface Agency {
   address: string | null; // confirmed real on a scraped Zameen agency profile page
   businessHours: string | null; // plain display string, e.g. "Monday to Sunday, 9AM-6PM"
   verificationStatus: AgencyVerificationStatus;
+  // Set when verificationStatus is 'rejected' — null otherwise (cleared on
+  // any later approval, see AgenciesRepository.setVerificationStatus).
+  rejectionReason: string | null;
   salesAssociateCount: number;
   tier: AgencyTier;
 }
@@ -744,6 +801,9 @@ export interface UpdateAgencyInput {
 
 export interface SetAgencyVerificationStatusInput {
   status: 'verified' | 'rejected';
+  // Only meaningful when status: 'rejected' — cleared server-side on any
+  // 'verified' write regardless of what's passed here.
+  reason?: string;
 }
 
 // --- Agency self-management ("Agency Staff") --------------------------------
@@ -757,6 +817,8 @@ export interface AgencyStaffMember {
   phone: string | null;
   city: string | null;
   verificationStatus: 'pending' | 'verified' | 'rejected';
+  // Set when verificationStatus is 'rejected' — null otherwise.
+  rejectionReason: string | null;
   isAgencyAdmin: boolean;
   photoUrl: string | null;
 }
@@ -814,6 +876,9 @@ export interface AgentProfileSummary {
   photoUrl: string | null;
   agency: Agency | null;
   verificationStatus: 'pending' | 'verified' | 'rejected';
+  // Set when verificationStatus is 'rejected' — null otherwise (cleared on
+  // any later approval, see AgentsRepository.setVerificationStatus).
+  rejectionReason: string | null;
   // Agency-scoped staff-management flag — an agency admin is still role
   // 'agent' everywhere else in the system (see agencyStaffRepository.ts).
   isAgencyAdmin: boolean;
@@ -878,7 +943,7 @@ export type ListingEngagementType = 'view' | 'click' | 'call' | 'whatsapp' | 'sm
 
 // Confirmed real on the Profolio "Quota and Credits" card: separate
 // Available/Used/Total pools per action type, not a single quota number.
-export type AgentCreditType = 'listing_quota' | 'refresh' | 'hot' | 'super_hot';
+export type AgentCreditType = 'listing_quota' | 'refresh' | 'hot' | 'super_hot' | 'story';
 
 export interface AgentCredit {
   creditType: AgentCreditType;
@@ -1409,6 +1474,8 @@ export interface OwnerVerificationSummary {
   status: OwnerVerificationStatus | null;
   documents: OwnerIdentityDocument[];
   reviewedAt: string | null;
+  // Set when status is 'rejected' — null otherwise.
+  rejectionReason: string | null;
 }
 
 export interface PendingOwnerVerification {

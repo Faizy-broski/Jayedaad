@@ -23,6 +23,8 @@ export interface PropertyCardProps {
 // text box.
 export function PropertyCard({ listing, currency, onPress, footer }: PropertyCardProps) {
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
+  const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
+  const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
 
   return (
     <Pressable style={styles.propertyCard} onPress={onPress}>
@@ -36,12 +38,26 @@ export function PropertyCard({ listing, currency, onPress, footer }: PropertyCar
         )}
         <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={StyleSheet.absoluteFill} />
 
-        {listing.status === 'verified' && (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark-circle" size={12} color={theme.colors.primary} />
-            <Text style={styles.verifiedText}>Verified</Text>
-          </View>
-        )}
+        <View style={styles.topLeftBadgeStack}>
+          {listing.status === 'verified' && (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={12} color={theme.colors.primary} />
+              <Text style={styles.verifiedText}>Verified</Text>
+            </View>
+          )}
+          {isBoosted && (
+            <View style={styles.boostBadge}>
+              <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
+              <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
+            </View>
+          )}
+          {hasActiveStory && (
+            <View style={styles.storyBadge}>
+              <Ionicons name="film-outline" size={11} color="#A21CAF" />
+              <Text style={styles.storyBadgeText}>Story</Text>
+            </View>
+          )}
+        </View>
         <FavoriteButton listing={listing} size={16} style={styles.favoriteButton} />
 
         <View style={styles.propertyImageTextBlock}>
@@ -74,10 +90,14 @@ const styles = StyleSheet.create({
   },
   propertyImageWrap: { height: 220 },
   propertyImagePlaceholder: { backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  verifiedBadge: {
+  topLeftBadgeStack: {
     position: 'absolute',
     top: theme.spacing.sm,
     left: theme.spacing.sm,
+    gap: 4,
+    alignItems: 'flex-start',
+  },
+  verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -87,6 +107,26 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   verifiedText: { fontSize: 10, fontWeight: '600', color: theme.colors.text },
+  boostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+  },
+  boostBadgeText: { fontSize: 10, fontWeight: '700', color: '#B45309' },
+  storyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAE8FF',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+  },
+  storyBadgeText: { fontSize: 10, fontWeight: '700', color: '#A21CAF' },
   favoriteButton: {
     position: 'absolute',
     top: theme.spacing.sm,

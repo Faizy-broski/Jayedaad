@@ -31,6 +31,14 @@ export function useSubscriptionViewModel() {
     enabled: !!agentId,
   });
 
+  // Standalone top-up packs (Buy more credits) — public, same staleTime
+  // treatment as the tier catalog since these change rarely.
+  const creditPacksQuery = useQuery({
+    queryKey: ['credit-packs'],
+    queryFn: () => subscriptionsRepository.listCreditPacks(),
+    staleTime: 5 * 60_000,
+  });
+
   const selectTier = useMutation({
     mutationFn: (input: AssignSubscriptionInput) => subscriptionsRepository.selectTier(input),
     onSuccess: () => {
@@ -42,8 +50,11 @@ export function useSubscriptionViewModel() {
   // Paid-tier path — resolves to a Stripe Checkout URL; the caller (Plan
   // page) is responsible for navigating there. No cache invalidation here —
   // nothing changes locally until the webhook fires and the user returns.
+  // returnUrl is mobile-only (see subscriptionsRepository.checkoutTier) —
+  // web callers omit it.
   const checkoutTier = useMutation({
-    mutationFn: (tierId: string) => subscriptionsRepository.checkoutTier(tierId),
+    mutationFn: ({ tierId, returnUrl }: { tierId: string; returnUrl?: string }) =>
+      subscriptionsRepository.checkoutTier(tierId, returnUrl),
   });
 
   // cancel_at_period_end via Stripe — no cache invalidation, same reasoning
@@ -58,15 +69,26 @@ export function useSubscriptionViewModel() {
     mutationFn: () => subscriptionsRepository.getBillingPortalUrl(),
   });
 
+  // Resolves to a Stripe Checkout URL for a one-off credit pack purchase —
+  // same "no local cache change until the webhook fires" reasoning as
+  // checkoutTier, same mobile-only returnUrl convention.
+  const checkoutCreditPack = useMutation({
+    mutationFn: ({ packId, returnUrl }: { packId: string; returnUrl?: string }) =>
+      subscriptionsRepository.checkoutCreditPack(packId, returnUrl),
+  });
+
   return {
     current: currentQuery.data,
     isCurrentLoading: currentQuery.isLoading,
     tiers: tiersQuery.data ?? [],
     isTiersLoading: tiersQuery.isLoading,
     usage: usageQuery.data,
+    creditPacks: creditPacksQuery.data ?? [],
+    isCreditPacksLoading: creditPacksQuery.isLoading,
     selectTier,
     checkoutTier,
     cancelSubscription,
     openBillingPortal,
+    checkoutCreditPack,
   };
 }

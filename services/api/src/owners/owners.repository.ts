@@ -66,7 +66,7 @@ export class OwnersRepository {
   private async findVerificationRow(userId: string) {
     const { data, error } = await this.supabase.client
       .from('owner_identity_verifications')
-      .select('id, status, created_at, reviewed_at')
+      .select('id, status, created_at, reviewed_at, rejection_reason')
       .eq('user_id', userId)
       .maybeSingle();
     if (error) throw error;
@@ -96,11 +96,12 @@ export class OwnersRepository {
   // but it's surfaced distinctly since nothing has actually been uploaded.
   async getVerification(userId: string) {
     const row = await this.findVerificationRow(userId);
-    if (!row) return { status: null as null, documents: [], reviewedAt: null };
+    if (!row) return { status: null as null, documents: [], reviewedAt: null, rejectionReason: null };
     return {
       status: row.status as 'pending' | 'verified' | 'rejected',
       documents: await this.listDocumentsByVerificationId(row.id),
       reviewedAt: row.reviewed_at,
+      rejectionReason: row.rejection_reason,
     };
   }
 
@@ -205,7 +206,7 @@ export class OwnersRepository {
 
   // Only 'verified' is gated on completeness — a staff member rejecting an
   // owner who hasn't finished uploading is always allowed.
-  async setVerificationStatus(userId: string, status: 'verified' | 'rejected') {
+  async setVerificationStatus(userId: string, status: 'verified' | 'rejected', reason?: string) {
     if (status === 'verified') {
       const { missing } = await this.getDocumentCompleteness(userId);
       if (missing.length > 0) {
@@ -215,12 +216,16 @@ export class OwnersRepository {
 
     const { data, error } = await this.supabase.client
       .from('owner_identity_verifications')
-      .update({ status, reviewed_at: new Date().toISOString() })
+      .update({
+        status,
+        reviewed_at: new Date().toISOString(),
+        rejection_reason: status === 'rejected' ? (reason ?? null) : null,
+      })
       .eq('user_id', userId)
-      .select('id, user_id, status, reviewed_at')
+      .select('id, user_id, status, reviewed_at, rejection_reason')
       .single();
     if (error) throw error;
 
-    return { userId: data.user_id, status: data.status, reviewedAt: data.reviewed_at };
+    return { userId: data.user_id, status: data.status, reviewedAt: data.reviewed_at, rejectionReason: data.rejection_reason };
   }
 }

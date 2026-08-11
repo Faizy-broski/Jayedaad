@@ -15,6 +15,12 @@ export interface Property {
   areaSqft: number;
    /** Only set for the homepage's Most Visited carousel (GET /listings/trending). */
   viewCount?: number;
+  /** Real listings.boost_tier — a spent Hot/Super Hot credit
+   *  (POST /listings/:id/boost). 'basic' means not boosted. */
+  boostTier?: 'basic' | 'premium' | 'hot' | 'super_hot';
+  /** Real listings.story_expires_at — set by a spent Story credit
+   *  (POST /listings/:id/story), null/past means no active story. */
+  storyExpiresAt?: string | null;
 }
 
 // export type PropertyTypeOption = 'Villa' | 'Apartment' | 'Penthouse' | 'Townhouse' | 'House' | 'Bungalow';

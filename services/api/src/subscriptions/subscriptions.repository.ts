@@ -41,9 +41,11 @@ export class SubscriptionsRepository {
     const tier = await this.findTierById(tierId);
     if (!tier) return;
 
-    const grants: { credit_type: 'hot' | 'super_hot'; total: number }[] = [
+    const grants: { credit_type: 'hot' | 'super_hot' | 'refresh' | 'story'; total: number }[] = [
       { credit_type: 'hot', total: tier.hot_credits_per_period ?? 0 },
       { credit_type: 'super_hot', total: tier.super_hot_credits_per_period ?? 0 },
+      { credit_type: 'refresh', total: tier.refresh_credits_per_period ?? 0 },
+      { credit_type: 'story', total: tier.story_credits_per_period ?? 0 },
     ];
 
     const { error } = await this.supabase.client.from('agent_credits').upsert(
@@ -125,6 +127,32 @@ export class SubscriptionsRepository {
     if (error) throw error;
     if (!subscription) return;
     await this.grantPeriodCredits(subscription.agent_id, subscription.tier_id);
+  }
+
+  // Standalone credit purchase (POST /subscriptions/me/credits/checkout,
+  // resolved by the webhook's 'payment'-mode branch) — increments
+  // agent_credits.total by the pack's quantity, unlike grantPeriodCredits
+  // above, which SETS total to the tier's period allotment. A top-up must
+  // add on top of whatever's already there (including any unspent period
+  // allotment), never reset it — a bought credit isn't tied to a billing
+  // period and must not be wiped out by the next renewal's grant either,
+  // since grantPeriodCredits only sets the hot/super_hot/refresh/story rows
+  // it explicitly grants, and does so to the tier's allotment specifically,
+  // not by reading what's already there.
+  async topUpCredits(agentId: string, creditType: string, quantity: number): Promise<void> {
+    const { data: existing, error: readError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total')
+      .eq('agent_id', agentId)
+      .eq('credit_type', creditType)
+      .maybeSingle();
+    if (readError) throw readError;
+
+    const { error } = await this.supabase.client.from('agent_credits').upsert(
+      { agent_id: agentId, credit_type: creditType, total: (existing?.total ?? 0) + quantity, used: existing ? undefined : 0 },
+      { onConflict: 'agent_id,credit_type' },
+    );
+    if (error) throw error;
   }
 
   async findTierById(tierId: string) {

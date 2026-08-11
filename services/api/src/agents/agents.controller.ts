@@ -221,6 +221,6 @@ export class AgentsController {
   @Roles('super_admin', 'verification_staff')
   @Patch(':id/verify')
   setVerificationStatus(@Param('id') id: string, @Body() body: SetAgentVerificationStatusDto) {
-    return this.agents.setVerificationStatus(id, body.status);
+    return this.agents.setVerificationStatus(id, body.status, body.reason);
   }
 }

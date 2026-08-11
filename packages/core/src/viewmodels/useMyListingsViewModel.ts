@@ -61,6 +61,20 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
   });
 
+  // Spends a Refresh credit to bump a listing's sort position — the
+  // Property Management "Refresh" action, alongside Boost.
+  const refresh = useMutation({
+    mutationFn: (listingId: string) => listingsRepository.refreshListing(listingId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+  });
+
+  // Spends a Story credit to feature a listing for 24h — the Property
+  // Management "Story" action, alongside Boost/Refresh.
+  const postStory = useMutation({
+    mutationFn: (listingId: string) => listingsRepository.postListingStory(listingId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+  });
+
   return {
     listings: listingsQuery.data?.items ?? [],
     total: listingsQuery.data?.total ?? 0,
@@ -74,5 +88,7 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
     submitForVerification,
     boost,
     renew,
+    refresh,
+    postStory,
   };
 }

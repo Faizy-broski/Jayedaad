@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  AREA_UNIT_OPTIONS,
   AreaUnit,
   COUNTRIES,
+  CURRENCY_OPTIONS,
   getMaxPhoneDigits,
   PAKISTAN_CITIES,
   useAgentProfileViewModel,
@@ -26,8 +28,6 @@ import {
 import { Building2, Camera, Eye, EyeOff, Loader2, SlidersHorizontal, UserCog, KeyRound, type LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
-
-const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 
 // Stored values are a plain string (e.g. "+923001234567" or, from before this
 // selector existed, bare digits with no country code at all). Parse back into
@@ -504,7 +504,11 @@ function PreferencesPanel() {
               value={preferences.preferredCurrency}
               onChange={(e) => updatePreferences.mutate({ preferredCurrency: e.target.value }, toastOpts)}
             >
-              <option value="PKR">PKR</option>
+              {CURRENCY_OPTIONS.map((currency) => (
+                <option key={currency.code} value={currency.code}>
+                  {currency.label}
+                </option>
+              ))}
             </Select>
           </div>
           <div className="space-y-1.5">
@@ -514,9 +518,9 @@ function PreferencesPanel() {
               value={preferences.preferredAreaUnit}
               onChange={(e) => updatePreferences.mutate({ preferredAreaUnit: e.target.value as AreaUnit }, toastOpts)}
             >
-              {AREA_UNITS.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unit}
+              {AREA_UNIT_OPTIONS.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
                 </option>
               ))}
             </Select>

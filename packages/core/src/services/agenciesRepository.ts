@@ -38,6 +38,7 @@ export function mapAgencyRow(row: any): Agency {
     address: row.address,
     businessHours: row.business_hours,
     verificationStatus: row.verification_status,
+    rejectionReason: row.rejection_reason ?? null,
     salesAssociateCount: row.sales_associate_count,
     tier: row.tier,
   };

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import {
   Agency,
   agenciesRepository,
+  AgencyTier,
   AgentCreditType,
   AgentOverview,
   CreateAgencyInput,
@@ -88,7 +89,7 @@ export default function AgenciesPage() {
   const [page, setPage] = useState(1);
   const isStaffTab = activeTab === 'staff';
 
-  const { agencies, total, isLoading, create, update, setVerificationStatus, remove } = useAgencyManagementViewModel({
+  const { agencies, total, isLoading, create, update, setVerificationStatus, setTier, remove } = useAgencyManagementViewModel({
     verificationStatus: isStaffTab || activeTab === 'all' ? undefined : activeTab,
     search: search.trim() || undefined,
     page,
@@ -258,8 +259,10 @@ export default function AgenciesPage() {
   }
 
   function handleVerify(id: string, status: 'verified' | 'rejected') {
+    // Same optional-reason-on-reject convention as admin/agents/page.tsx.
+    const reason = status === 'rejected' ? (prompt('Reason for rejection (optional):') ?? undefined) : undefined;
     setVerificationStatus.mutate(
-      { id, input: { status } },
+      { id, input: { status, reason } },
       {
         onSuccess: () => toast.success(`Agency ${status}.`),
         onError: () => toast.error('Something went wrong — please try again.'),
@@ -273,6 +276,22 @@ export default function AgenciesPage() {
       onSuccess: () => toast.success('Agency deleted.'),
       onError: () => toast.error('Something went wrong — please try again.'),
     });
+  }
+
+  // Save-on-change, no separate button — same pattern already used for
+  // currency/area-unit in agent-settings/page.tsx's PreferencesPanel.
+  // setTier existed with zero callers anywhere before this, so every
+  // agency was permanently stuck at 'basic' regardless of how established
+  // it was — the public /agents directory's Titanium/Featured sections
+  // had no real data to ever show.
+  function handleTierChange(id: string, tier: AgencyTier) {
+    setTier.mutate(
+      { id, input: { tier } },
+      {
+        onSuccess: () => toast.success('Tier updated.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
   }
 
   return (
@@ -434,6 +453,19 @@ export default function AgenciesPage() {
                     <Mail className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{agency.email ?? '—'}</span>
                   </p>
+                </div>
+
+                <div className="mt-3 space-y-1">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tier</Label>
+                  <Select
+                    value={agency.tier}
+                    onChange={(e) => handleTierChange(agency.id, e.target.value as AgencyTier)}
+                    className="h-8 text-xs"
+                  >
+                    <option value="basic">Basic</option>
+                    <option value="featured">Featured</option>
+                    <option value="titanium">Titanium</option>
+                  </Select>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">

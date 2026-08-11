@@ -1,5 +1,20 @@
 import { AreaUnit, ListingPurpose, ListingSearchFilters } from '@jayedaad/core';
 
+// Same 4 options as apps/web's ListingsBrowser.tsx's SORT_OPTIONS/SORT_TO_API
+// — 'Featured' surfaces the API's 'relevance' sort (boost_tier-aware
+// ordering), made the default so a boosted listing's spent credit actually
+// shows up as "ranked higher" to a buyer, not just an internal DB order.
+// Shared here (not per-screen) since both BuyerSearchScreen and
+// AllPropertiesScreen need the identical option set.
+export const SORT_OPTIONS = ['Featured', 'Newest', 'Price: Low to High', 'Price: High to Low'] as const;
+export type SortOption = (typeof SORT_OPTIONS)[number];
+export const SORT_TO_API: Record<SortOption, NonNullable<ListingSearchFilters['sortBy']>> = {
+  Featured: 'relevance',
+  Newest: 'newest',
+  'Price: Low to High': 'price_asc',
+  'Price: High to Low': 'price_desc',
+};
+
 // Draft/UI shape for the search filter sheet — string fields for every
 // numeric input (matches web's apps/web/app/(buyer)/search/page.tsx exactly:
 // plain useState strings, converted to numbers only when building the
@@ -18,6 +33,12 @@ export interface SearchFilterState {
   bedrooms: string;
   minBathrooms: string;
   keyword: string;
+  sortBy: SortOption;
+  // Set only when arriving via a "for sale"/"for rent" stat tile on
+  // AgencyDetailScreen — not a field the filter sheet itself exposes,
+  // mirrors web's /listings?agencySlug= deep link from AgencyDetail.tsx's
+  // stat tiles.
+  agencySlug: string;
 }
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
@@ -33,6 +54,8 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
   bedrooms: '',
   minBathrooms: '',
   keyword: '',
+  sortBy: 'Featured',
+  agencySlug: '',
 };
 
 export const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
@@ -56,5 +79,7 @@ export function toListingSearchFilters(filters: SearchFilterState): ListingSearc
     minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
     maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
     keyword: filters.keyword || undefined,
+    sortBy: SORT_TO_API[filters.sortBy],
+    agencySlug: filters.agencySlug || undefined,
   };
 }

@@ -15,8 +15,8 @@ export function useAgentVerificationQueueViewModel() {
   });
 
   const act = useMutation({
-    mutationFn: (input: { agentId: string; status: 'verified' | 'rejected' }) =>
-      agentsRepository.setVerificationStatus(input.agentId, input.status),
+    mutationFn: (input: { agentId: string; status: 'verified' | 'rejected'; reason?: string }) =>
+      agentsRepository.setVerificationStatus(input.agentId, input.status, input.reason),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 

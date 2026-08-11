@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, Text, TextInput as RNTextInput, View, Pressable, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  AreaUnit,
+  AREA_UNIT_OPTIONS,
   COUNTRIES,
+  CURRENCY_OPTIONS,
   getMaxPhoneDigits,
   PAKISTAN_CITIES,
   useAccountProfileViewModel,
@@ -14,8 +15,6 @@ import {
 } from '@jayedaad/core';
 import { Button, Card, CardContent, CountryCodeField, PickerField, theme, useToast } from '@jayedaad/ui-native';
 import { PlacesAutocompleteInput } from '../components/PlacesAutocompleteInput';
-
-const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 
 function parsePhone(stored: string | null | undefined): { dialCode: string; number: string } {
   if (!stored) return { dialCode: '92', number: '' };
@@ -354,11 +353,11 @@ function PreferencesFields() {
     Alert.alert(
       'Area Unit',
       undefined,
-      AREA_UNITS.map((unit) => ({
-        text: unit,
+      AREA_UNIT_OPTIONS.map((unit) => ({
+        text: unit.label,
         onPress: () =>
           updatePreferences.mutate(
-            { preferredAreaUnit: unit },
+            { preferredAreaUnit: unit.value },
             {
               onSuccess: () => showToast('Preferences updated.'),
               onError: () => showToast('Something went wrong — please try again.', 'error'),
@@ -368,11 +367,38 @@ function PreferencesFields() {
     );
   }
 
+  // Mirrors pickAreaUnit exactly — previously the only "picker" here was a
+  // disabled, hardcoded "Pakistan (PKR)" field with no onPress at all.
+  function pickCurrency() {
+    Alert.alert(
+      'Currency',
+      undefined,
+      CURRENCY_OPTIONS.map((currency) => ({
+        text: currency.label,
+        onPress: () =>
+          updatePreferences.mutate(
+            { preferredCurrency: currency.code },
+            {
+              onSuccess: () => showToast('Preferences updated.'),
+              onError: () => showToast('Something went wrong — please try again.', 'error'),
+            },
+          ),
+      })),
+    );
+  }
+
+  const currencyLabel =
+    CURRENCY_OPTIONS.find((c) => c.code === preferences.preferredCurrency)?.label ?? preferences.preferredCurrency;
+  const areaUnitLabel =
+    AREA_UNIT_OPTIONS.find((u) => u.value === preferences.preferredAreaUnit)?.label ?? preferences.preferredAreaUnit;
+
   return (
     <>
-      <Field label="Currency" value="Pakistan (PKR)" disabled />
+      <Pressable onPress={pickCurrency}>
+        <Field label="Currency" value={currencyLabel} editable={false} />
+      </Pressable>
       <Pressable onPress={pickAreaUnit}>
-        <Field label="Area Unit" value={preferences.preferredAreaUnit} editable={false} />
+        <Field label="Area Unit" value={areaUnitLabel} editable={false} />
       </Pressable>
       <Field label="Language" value="English" disabled />
     </>

@@ -14,8 +14,8 @@ export function useAdminOwnersViewModel() {
   });
 
   const setVerificationStatus = useMutation({
-    mutationFn: ({ userId, status }: { userId: string; status: 'verified' | 'rejected' }) =>
-      ownersRepository.setVerificationStatus(userId, status),
+    mutationFn: ({ userId, status, reason }: { userId: string; status: 'verified' | 'rejected'; reason?: string }) =>
+      ownersRepository.setVerificationStatus(userId, status, reason),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 

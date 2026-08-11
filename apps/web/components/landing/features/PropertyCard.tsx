@@ -11,6 +11,9 @@ import {
   ArrowRight,
   MapPin,
   Eye,
+  Flame,
+  Sparkles,
+  Clapperboard,
 } from "lucide-react";
 import type { Property } from "@/lib/types";
 import { useFavorites } from "@/lib/favoritesContext";
@@ -28,9 +31,13 @@ export function PropertyCard({ property }: { property: Property }) {
      viewCount,
     baths,
     areaSqft,
+    boostTier,
+    storyExpiresAt,
   } = property;
   const { isFavorited, toggle } = useFavorites();
   const favorited = isFavorited(id);
+  const isBoosted = boostTier === "hot" || boostTier === "super_hot";
+  const hasActiveStory = !!storyExpiresAt && new Date(storyExpiresAt) > new Date();
 
   return (
     <Link
@@ -46,12 +53,26 @@ export function PropertyCard({ property }: { property: Property }) {
           className="object-cover"
         />
         <div>
-          {verified && (
-            <span className="flex absolute left-2.5 top-2.5 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-              <BadgeCheck className="h-3 w-3 text-primary" />
-              Verified
-            </span>
-          )}
+          <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1">
+            {verified && (
+              <span className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
+                <BadgeCheck className="h-3 w-3 text-primary" />
+                Verified
+              </span>
+            )}
+            {isBoosted && (
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                {boostTier === "super_hot" ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                {boostTier === "super_hot" ? "Super Hot" : "Hot"}
+              </span>
+            )}
+            {hasActiveStory && (
+              <span className="flex items-center gap-1 rounded-full bg-fuchsia-100 px-2.5 py-1 text-[10px] font-semibold text-fuchsia-700">
+                <Clapperboard className="h-3 w-3" />
+                Story
+              </span>
+            )}
+          </div>
           <button
             type="button"
             aria-label={favorited ? "Remove from favorites" : "Save listing"}

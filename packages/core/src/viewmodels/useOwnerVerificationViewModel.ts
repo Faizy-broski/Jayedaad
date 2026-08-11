@@ -4,12 +4,16 @@ import { refreshSession } from '../services/authService';
 import { OwnerIdentityDocumentType } from '../models';
 import { useAuthViewModel } from './useAuthViewModel';
 
-// Backs the "Verify your identity to continue" gate on Post Listing —
-// individual owners only, mirrors the agent onboarding-document screens.
-// GET /owners/me/verification is @Roles('owner')-gated server-side, so the
-// query is disabled for any other role — PostListingScreen calls this hook
-// unconditionally (rules of hooks), and without this guard every agent
-// opening Post Listing would fire a doomed, retried 403 request.
+// Backs the "Verify your identity to continue" gate on Post Listing — one
+// shared CNIC+selfie identity check for any individual, whether they end
+// up posting as an owner or as an independent (non-agency) agent; an
+// agency-affiliated agent is covered by their agency's own onboarding
+// instead. GET /owners/me/verification is @Roles('owner', 'agent')-gated
+// server-side (relaxed from 'owner'-only alongside this hook), so the
+// query is disabled for every other role — PostListingScreen/become-an-agent
+// call this hook unconditionally (rules of hooks), and without this guard
+// a buyer/super_admin opening either flow would fire a doomed, retried 403
+// request.
 export function useOwnerVerificationViewModel() {
   const { role } = useAuthViewModel();
   const queryClient = useQueryClient();
@@ -18,7 +22,7 @@ export function useOwnerVerificationViewModel() {
   const query = useQuery({
     queryKey,
     queryFn: ownersRepository.getMyVerification,
-    enabled: role === 'owner',
+    enabled: role === 'owner' || role === 'agent',
   });
 
   const uploadDocument = useMutation({

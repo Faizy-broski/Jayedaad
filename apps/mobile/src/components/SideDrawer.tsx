@@ -102,6 +102,9 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
             <NavRow icon="home" label="Home" active onPress={() => go('Home')} />
             <NavRow icon="add-circle-outline" label="Add Property" onPress={() => go('PostListing')} />
             <NavRow icon="search-outline" label="Search Properties" onPress={() => go('BuyerSearch')} />
+            {/* Ungated — mirrors web Header.tsx's top-level "Agents" nav
+                link, visible to every visitor whether signed in or not. */}
+            <NavRow icon="business-outline" label="Agencies" onPress={() => go('Agencies')} />
             <NavRow icon="heart-outline" label="Favorites" onPress={() => go('Favorites', { initialTab: 'favorites' })} />
             <NavRow icon="bookmark-outline" label="Saved Searches" onPress={() => go('Favorites', { initialTab: 'saved' })} />
 

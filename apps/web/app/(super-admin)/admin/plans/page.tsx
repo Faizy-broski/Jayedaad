@@ -4,14 +4,29 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
+  CreateCreditPackInput,
   CreateSubscriptionTierInput,
+  CreditPack,
   SubscriptionTier,
   formatPrice,
   useAdminAgentsViewModel,
+  useCreditPackManagementViewModel,
   usePlanManagementViewModel,
 } from '@jayedaad/core';
 import { Button, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
-import { ArrowRightLeft, BarChart3, CreditCard, Home, Layers, Pencil, PlusCircle, Sparkles, Trash2, Users } from 'lucide-react';
+import {
+  ArrowRightLeft,
+  BarChart3,
+  CreditCard,
+  Home,
+  Layers,
+  Pencil,
+  PlusCircle,
+  Sparkles,
+  Ticket,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
 const PAGE_SIZE = 20;
@@ -23,12 +38,29 @@ const EMPTY_FORM: CreateSubscriptionTierInput = {
   analyticsDepth: { analyticsDepth: 'basic', viewCountDetail: 'total_only' },
   hotCreditsPerPeriod: 0,
   superHotCreditsPerPeriod: 0,
+  refreshCreditsPerPeriod: 0,
+  storyCreditsPerPeriod: 0,
   stripePriceId: '',
   listingDurationDays: null,
 };
 
 const ANALYTICS_DEPTH_OPTIONS = ['basic', 'standard', 'advanced', 'full'] as const;
 const VIEW_COUNT_DETAIL_OPTIONS = ['total_only', 'breakdown_by_source', 'full_timeseries'] as const;
+
+// Purchasable credit types only — 'listing_quota' is deliberately excluded,
+// same reasoning as services/api's CreateCreditPackDto: a top-up buys more
+// of a spendable action, not more listing slots.
+const CREDIT_PACK_TYPE_OPTIONS = ['hot', 'super_hot', 'refresh', 'story'] as const;
+const CREDIT_PACK_TYPE_LABEL: Record<string, string> = { hot: 'Hot', super_hot: 'Super Hot', refresh: 'Refresh', story: 'Story' };
+
+const EMPTY_PACK_FORM: CreateCreditPackInput = {
+  name: '',
+  creditType: 'hot',
+  quantity: 1,
+  price: 0,
+  stripePriceId: '',
+  active: true,
+};
 
 // Real counts (subscriber-per-tier, average price) derived from the fetched
 // tiers/agents lists — same "compute from what's already loaded" approach as
@@ -48,6 +80,11 @@ export default function PlansPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionTier | null>(null);
   const [form, setForm] = useState<CreateSubscriptionTierInput>(EMPTY_FORM);
+
+  const { packs, isLoading: isPacksLoading, createPack, updatePack, removePack } = useCreditPackManagementViewModel();
+  const [packModalOpen, setPackModalOpen] = useState(false);
+  const [editingPack, setEditingPack] = useState<CreditPack | null>(null);
+  const [packForm, setPackForm] = useState<CreateCreditPackInput>(EMPTY_PACK_FORM);
 
   const [assignAgentId, setAssignAgentId] = useState('');
   const [assignTierId, setAssignTierId] = useState('');
@@ -88,6 +125,8 @@ export default function PlansPage() {
       analyticsDepth: tier.analyticsDepth,
       hotCreditsPerPeriod: tier.hotCreditsPerPeriod,
       superHotCreditsPerPeriod: tier.superHotCreditsPerPeriod,
+      refreshCreditsPerPeriod: tier.refreshCreditsPerPeriod,
+      storyCreditsPerPeriod: tier.storyCreditsPerPeriod,
       stripePriceId: tier.stripePriceId ?? '',
       listingDurationDays: tier.listingDurationDays,
     });
@@ -134,6 +173,56 @@ export default function PlansPage() {
         onError: () => toast.error('Something went wrong — please try again.'),
       },
     );
+  }
+
+  function openCreatePack() {
+    setEditingPack(null);
+    setPackForm(EMPTY_PACK_FORM);
+    setPackModalOpen(true);
+  }
+
+  function openEditPack(pack: CreditPack) {
+    setEditingPack(pack);
+    setPackForm({
+      name: pack.name,
+      creditType: pack.creditType,
+      quantity: pack.quantity,
+      price: pack.price,
+      stripePriceId: pack.stripePriceId ?? '',
+      active: pack.active,
+    });
+    setPackModalOpen(true);
+  }
+
+  function handleSavePack() {
+    if (editingPack) {
+      updatePack.mutate(
+        { id: editingPack.id, input: packForm },
+        {
+          onSuccess: () => {
+            toast.success('Credit pack updated.');
+            setPackModalOpen(false);
+          },
+          onError: () => toast.error('Something went wrong — please try again.'),
+        },
+      );
+    } else {
+      createPack.mutate(packForm, {
+        onSuccess: () => {
+          toast.success('Credit pack created.');
+          setPackModalOpen(false);
+        },
+        onError: () => toast.error('Something went wrong — please try again.'),
+      });
+    }
+  }
+
+  function handleDeletePack(id: string, name: string) {
+    if (!confirm(`Delete credit pack "${name}"?`)) return;
+    removePack.mutate(id, {
+      onSuccess: () => toast.success('Credit pack deleted.'),
+      onError: () => toast.error('Something went wrong — please try again.'),
+    });
   }
 
   return (
@@ -286,6 +375,76 @@ export default function PlansPage() {
         </div>
       </Reveal>
 
+      <Reveal>
+        <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-1.5 font-medium text-foreground">
+              <Ticket className="h-4 w-4 text-muted-foreground" />
+              Credit Packs
+            </h2>
+            <Button size="sm" onClick={openCreatePack}>
+              <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+              New Pack
+            </Button>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Standalone top-up purchases — agents can buy these outside their plan&apos;s period allotment from the Plan page.
+          </p>
+
+          {isPacksLoading ? (
+            <div className="mt-4 h-24 animate-pulse rounded-md bg-muted/40" />
+          ) : packs.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No credit packs yet — create one to let agents top up.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">Name</th>
+                    <th className="py-2 pr-4 font-medium">Credit Type</th>
+                    <th className="py-2 pr-4 font-medium">Quantity</th>
+                    <th className="py-2 pr-4 font-medium">Price</th>
+                    <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium">Stripe Price</th>
+                    <th className="py-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {packs.map((pack) => (
+                    <tr key={pack.id} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4 text-foreground">{pack.name}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{CREDIT_PACK_TYPE_LABEL[pack.creditType] ?? pack.creditType}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{pack.quantity}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{formatPrice(pack.price)}</td>
+                      <td className="py-2 pr-4">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            pack.active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {pack.active ? 'Active' : 'Retired'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-muted-foreground">{pack.stripePriceId || 'Not set'}</td>
+                      <td className="py-2 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openEditPack(pack)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleDeletePack(pack.id, pack.name)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Reveal>
+
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Plan' : 'New Plan'}>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -336,7 +495,7 @@ export default function PlansPage() {
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="space-y-1.5">
               <Label>Hot credits / period</Label>
               <Input
@@ -351,6 +510,22 @@ export default function PlansPage() {
                 type="number"
                 value={form.superHotCreditsPerPeriod}
                 onChange={(e) => setForm((prev) => ({ ...prev, superHotCreditsPerPeriod: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Refresh credits / period</Label>
+              <Input
+                type="number"
+                value={form.refreshCreditsPerPeriod}
+                onChange={(e) => setForm((prev) => ({ ...prev, refreshCreditsPerPeriod: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Story credits / period</Label>
+              <Input
+                type="number"
+                value={form.storyCreditsPerPeriod}
+                onChange={(e) => setForm((prev) => ({ ...prev, storyCreditsPerPeriod: Number(e.target.value) }))}
               />
             </div>
           </div>
@@ -380,6 +555,68 @@ export default function PlansPage() {
           </div>
           <Button onClick={handleSave} disabled={createTier.isPending || updateTier.isPending} className="w-full">
             {createTier.isPending || updateTier.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={packModalOpen} onClose={() => setPackModalOpen(false)} title={editingPack ? 'Edit Credit Pack' : 'New Credit Pack'}>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input value={packForm.name} onChange={(e) => setPackForm((prev) => ({ ...prev, name: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Credit Type</Label>
+              <Select
+                value={packForm.creditType}
+                onChange={(e) => setPackForm((prev) => ({ ...prev, creditType: e.target.value as CreateCreditPackInput['creditType'] }))}
+              >
+                {CREDIT_PACK_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {CREDIT_PACK_TYPE_LABEL[opt]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Quantity</Label>
+              <Input
+                type="number"
+                value={packForm.quantity}
+                onChange={(e) => setPackForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Price (PKR)</Label>
+            <Input
+              type="number"
+              value={packForm.price}
+              onChange={(e) => setPackForm((prev) => ({ ...prev, price: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Stripe Price ID</Label>
+            <Input
+              placeholder="price_... (leave blank until this pack can be checked out)"
+              value={packForm.stripePriceId}
+              onChange={(e) => setPackForm((prev) => ({ ...prev, stripePriceId: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Required before agents can buy this pack — create a matching one-time Price in the Stripe dashboard first.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={packForm.active}
+              onChange={(e) => setPackForm((prev) => ({ ...prev, active: e.target.checked }))}
+            />
+            Active (visible to agents on the Plan page)
+          </label>
+          <Button onClick={handleSavePack} disabled={createPack.isPending || updatePack.isPending} className="w-full">
+            {createPack.isPending || updatePack.isPending ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </Modal>

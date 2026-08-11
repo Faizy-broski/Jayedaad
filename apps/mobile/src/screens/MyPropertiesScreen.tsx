@@ -109,7 +109,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
     purpose: applied.purpose || undefined,
   };
 
-  const { listings, isLoading, remove, boost, renew } = useMyListingsViewModel(filters);
+  const { listings, isLoading, remove, boost, renew, refresh, postStory } = useMyListingsViewModel(filters);
   const { preferences } = usePreferencesViewModel();
   const { role } = useAuthViewModel();
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
@@ -178,6 +178,24 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   function handleRenew(listingId: string) {
     renew.mutate(listingId, {
       onSuccess: () => showToast('Listing renewed.'),
+      onError: (err: any) => showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error'),
+    });
+  }
+
+  // Spends one of the agent's plan-granted Refresh credits to bump this
+  // listing's sort position within its current boost tier.
+  function handleRefresh(listingId: string) {
+    refresh.mutate(listingId, {
+      onSuccess: () => showToast('Listing refreshed.'),
+      onError: (err: any) => showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error'),
+    });
+  }
+
+  // Spends one of the agent's plan-granted Story credits to feature this
+  // listing for a fixed 24h window.
+  function handlePostStory(listingId: string) {
+    postStory.mutate(listingId, {
+      onSuccess: () => showToast('Listing posted as a story.'),
       onError: (err: any) => showToast(err?.response?.data?.message || 'Something went wrong — please try again.', 'error'),
     });
   }
@@ -286,6 +304,12 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
                   </View>
                 )}
+                {listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
+                  <View style={styles.storyBadge}>
+                    <Ionicons name="film-outline" size={11} color="#A21CAF" />
+                    <Text style={styles.storyBadgeText}>Story</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.rowSubtitle} numberOfLines={1}>
                 {listing.area}, {listing.city}
@@ -345,6 +369,14 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     >
                       <Ionicons name="flame-outline" size={16} color={theme.colors.primary} />
                       <Text style={styles.actionTextPrimary}>Super Hot</Text>
+                    </Pressable>
+                    <Pressable style={styles.actionButton} disabled={refresh.isPending} onPress={() => handleRefresh(listing.id)}>
+                      <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />
+                      <Text style={styles.actionTextPrimary}>Refresh</Text>
+                    </Pressable>
+                    <Pressable style={styles.actionButton} disabled={postStory.isPending} onPress={() => handlePostStory(listing.id)}>
+                      <Ionicons name="film-outline" size={16} color={theme.colors.primary} />
+                      <Text style={styles.actionTextPrimary}>Story</Text>
                     </Pressable>
                   </>
                 )}
@@ -698,6 +730,16 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   boostBadgeText: { fontSize: 11, fontWeight: '700', color: '#B45309' },
+  storyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FAE8FF',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  storyBadgeText: { fontSize: 11, fontWeight: '700', color: '#A21CAF' },
   rowSubtitle: {
     fontSize: 13,
     color: theme.colors.muted,

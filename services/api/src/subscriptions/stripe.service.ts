@@ -52,6 +52,29 @@ export class StripeService {
     });
   }
 
+  // Standalone credit top-up purchases — mode: 'payment', not 'subscription',
+  // since a credit pack is a one-off charge, not a recurring plan. The
+  // webhook branches on session.mode to tell the two apart (see
+  // SubscriptionsController.webhook()).
+  async createOneTimeCheckoutSession(params: {
+    priceId: string;
+    customerEmail: string;
+    clientReferenceId: string;
+    metadata: Record<string, string>;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<Stripe.Checkout.Session> {
+    return this.require().checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{ price: params.priceId, quantity: 1 }],
+      customer_email: params.customerEmail,
+      client_reference_id: params.clientReferenceId,
+      metadata: params.metadata,
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+    });
+  }
+
   // Raw body (Buffer) required — Stripe's signature check hashes the exact
   // bytes received, which is why main.ts carves out a raw-body exception
   // for this one route instead of using the global JSON body parser.

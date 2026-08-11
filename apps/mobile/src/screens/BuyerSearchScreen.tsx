@@ -5,11 +5,11 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteListingSearchViewModel, usePreferencesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
-import { TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
 import { PropertyListCard } from '../components/PropertyListCard';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
-import { DEFAULT_SEARCH_FILTERS, SearchFilterState, toListingSearchFilters } from '../lib/searchFilters';
+import { DEFAULT_SEARCH_FILTERS, SearchFilterState, SORT_OPTIONS, toListingSearchFilters } from '../lib/searchFilters';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -101,6 +101,18 @@ export function BuyerSearchScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.sortRow}>
+        <Text style={styles.sortLabel}>Sort</Text>
+        <PickerField
+          value={filters.sortBy}
+          options={[...SORT_OPTIONS]}
+          placeholder="Featured"
+          title="Sort by"
+          variant="pill"
+          onChange={(v) => setFilters((prev) => ({ ...prev, sortBy: v as SearchFilterState['sortBy'] }))}
+        />
+      </View>
+
       <Pressable style={styles.saveSearchButton} onPress={handleSaveSearch} disabled={createSavedSearch.isPending}>
         <Ionicons name="bookmark-outline" size={16} color={theme.colors.primary} />
         <Text style={styles.saveSearchText}>{createSavedSearch.isPending ? 'Saving…' : 'Save Search'}</Text>
@@ -157,6 +169,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+  },
+  sortLabel: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   saveSearchButton: {
     flexDirection: 'row',
     alignItems: 'center',
