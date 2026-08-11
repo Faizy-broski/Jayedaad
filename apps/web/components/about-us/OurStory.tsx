@@ -11,16 +11,16 @@ export function OurStory() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 sm:py-20">
 
-      <div className="mt-10 grid grid-cols-1 gap-10 sm:grid-cols-12">
-      <Reveal className="sm:col-span-4">
+      <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-12">
+      <Reveal className="md:col-span-4">
         <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">
           01 — Our Story
         </span>
-        <h2 className="mt-2 max-w-lg text-3xl font-bold leading-tight text-heading-gradient sm:text-4xl">
+        <h2 className="mt-2 max-w-lg text-3xl font-bold leading-tight text-heading-gradient sm:text-[2.6rem]">
           Real estate isn&apos;t just about properties. It&apos;s about building futures.
         </h2>
       </Reveal>
-        <Reveal className="flex sm:flex-col gap-8 sm:col-span-3 mx-auto">
+        <Reveal className="flex md:flex-col gap-8 justify-between md:col-span-3 mx-auto">
           {STATS.map((stat) => (
             <div key={stat.id} className="flex flex-col gap-1">
               <span className="text-primary text-3xl font-bold sm:text-4xl">{stat.value}</span>
@@ -29,7 +29,7 @@ export function OurStory() {
           ))}
         </Reveal>
 
-        <Reveal delay={0.1} className="flex flex-col gap-4 text-sm leading-relaxed text-muted-foreground sm:col-span-5 sm:text-base">
+        <Reveal delay={0.1} className="flex flex-col gap-4 text-sm leading-relaxed text-muted-foreground md:col-span-5 sm:text-base">
           <p>
             We began with a simple observation: buying a home in Pakistan had become an act of faith. Listings
             unverified, agents unaccountable, information scattered across corners of the internet.
@@ -48,7 +48,7 @@ export function OurStory() {
 
       {/* Full-width photo banner with a centered wordmark, closing out the
           story section before the values grid. */}
-      <Reveal delay={0.15} className="relative mt-14 aspect-[16/9] lg:aspect-[16/7] w-full overflow-hidden rounded-3xl sm:mt-16">
+      <Reveal delay={0.15} className="relative mt-14 aspect-[16/9] md:aspect-[16/8] lg:aspect-[16/7] w-full overflow-hidden rounded-3xl sm:mt-16">
         <Image
           src="/images/about-us/our-story.jpg"
           alt="Jayedaad House entrance — glass facade with landscaped greenery"
@@ -63,7 +63,7 @@ export function OurStory() {
             alt="Jayedaad — Building Trust in Real Estate"
             width={220}
             height={248}
-            className="h-[70%] w-auto opacity-65 sm:h-full"
+            className="h-[70%] w-auto sm:h-[90%]"
           />
         </div>
       </Reveal>

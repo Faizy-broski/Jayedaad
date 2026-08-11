@@ -47,6 +47,7 @@ interface PropertySearchBarProps {
   variant?: SearchBarVariant;
   defaultPurpose?: SearchBarPurpose;
   className?: string;
+  showPurposeToggle?: boolean;
 }
 
 const FIELD_BUTTON =
@@ -209,7 +210,12 @@ function RangeDropdown({
 // the homepage Hero and every SearchHero-backed page (/listings,
 // /developments) so there's exactly one search bar implementation instead of
 // three divergent copies.
-export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy', className = '' }: PropertySearchBarProps) {
+export function PropertySearchBar({
+  variant = 'listings',
+  defaultPurpose = 'buy',
+  className = '',
+  showPurposeToggle = true,
+}: PropertySearchBarProps) {
   const router = useRouter();
   const [purpose, setPurpose] = useState<SearchBarPurpose>(defaultPurpose);
   const [openField, setOpenField] = useState<string | null>(null);
@@ -314,14 +320,14 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
 
   return (
     <div className={`flex w-full flex-col items-center gap-4 ${className}`}>
-      {variant === 'listings' && (
+      {variant === 'listings' && showPurposeToggle && (
         <div className="pointer-events-auto inline-flex items-center gap-1 self-center rounded-full border border-white/25 bg-white/10 p-1 backdrop-blur-md">
           {(['buy', 'rent'] as SearchBarPurpose[]).map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => setPurpose(p)}
-              className="relative rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-6 sm:py-2 sm:text-sm"
+              className="relative rounded-full px-3 py-1.5 text-xs font-medium transition-transform duration-150 ease-out active:scale-90 sm:px-6 sm:py-2 sm:text-sm"
             >
               {purpose === p && (
                 <motion.span
@@ -408,7 +414,7 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
             <button
               type="button"
               onClick={handleSearch}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-7 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-7 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md active:translate-y-0 active:scale-95 sm:w-auto"
             >
               <SearchIcon className="h-4 w-4" />
               Search
@@ -417,7 +423,7 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
               <button
                 type="button"
                 onClick={() => setSeeMore((v) => !v)}
-                className="flex items-center gap-1 text-xs font-semibold text-primary"
+                className="flex items-center gap-1 text-xs font-semibold text-primary transition-transform duration-150 ease-out active:scale-95"
               >
                 {seeMore ? 'See Less' : 'See More'}
                 {seeMore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}

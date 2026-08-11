@@ -9,17 +9,17 @@ const STATS = [
 export function ServicesOverview() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
-      <Reveal className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
-        <div>
+      <Reveal className="grid grid-cols-1 items-stretch gap-8 md:grid-cols-2 md:gap-10 lg:gap-16">
+        <div className="flex h-full flex-col justify-center">
           <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">
             01 — Overview
           </span>
-          <h2 className="mt-2 max-w-sm text-3xl font-bold leading-tight text-heading-gradient sm:text-4xl">
+          <h2 className="mt-2 max-w-sm text-3xl font-bold leading-tight text-heading-gradient sm:text-[40px]">
             Everything you need. One trusted platform.
           </h2>
         </div>
 
-        <div className="max-w-2xl">
+        <div className="flex h-full max-w-2xl flex-col justify-center">
           <p className="text-sm leading-relaxed text-muted-foreground">
             Jayedaad simplifies the complete property journey. Whether
             you&apos;re acquiring your first home, listing a family estate,
@@ -27,7 +27,7 @@ export function ServicesOverview() {
             dedicated advisor guides you through discovery, verification,
             negotiation, legal, and long-term care.
           </p>
-          <div className="mt-10 grid grid-cols-3 gap-x-4 gap-y-6 sm:flex sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-10">
+          <div className="mt-8 grid grid-cols-3 gap-x-4 gap-y-6 sm:mt-10 sm:flex sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-10">
             {STATS.map((stat, index) => (
               <Reveal
                 key={stat.id}

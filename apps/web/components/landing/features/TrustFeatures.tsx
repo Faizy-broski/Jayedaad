@@ -17,7 +17,7 @@ const FEATURES = [
 
 export function TrustFeatures() {
   return (
-    <section className="relative z-10 mx-auto max-w-6xl px-4 py-8 md:py-18">
+    <section className="relative z-10 mx-auto max-w-6xl px-4 pt-20 pb-8 md:py-18">
       <div className="grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-5 md:gap-8 lg:divide-x lg:divide-slate-200">
         {FEATURES.map(({ label, icon: Icon }, index) => (
           <Reveal

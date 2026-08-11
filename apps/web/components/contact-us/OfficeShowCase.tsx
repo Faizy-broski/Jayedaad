@@ -95,10 +95,10 @@ export function OfficeShowcaseSection() {
             rounded-2xl
             border
             border-white/70
-            bg-white/95
+            bg-white/75
             p-5
             shadow-xl
-            backdrop-blur-md
+            backdrop-blur-[2px]
 
             sm:-mt-10
             sm:mx-6
@@ -132,7 +132,7 @@ export function OfficeShowcaseSection() {
                 font-semibold
                 uppercase
                 tracking-[0.2em]
-                text-slate-500
+                text-[#6B727E]
                 sm:text-[11px]
               "
             >
@@ -143,10 +143,10 @@ export function OfficeShowcaseSection() {
               className="
                 mt-2
                 text-2xl
-                font-bold
+                font-semibold
                 leading-[1.15]
-                text-heading-gradient
-
+                text-black
+                font-plus-jakarta-sans
                 sm:mt-3
                 sm:text-3xl
 

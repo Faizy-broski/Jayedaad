@@ -1,11 +1,12 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, ChevronDown } from 'lucide-react';
 import { useContactViewModel } from '@jayedaad/core';
+import { useClickOutside } from '@/lib/useClickOutside';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -25,9 +26,85 @@ const LOCATION_FEATURES = ['Metro · 4 min', 'Parking on-site', 'Main Boulevard 
 const MAP_EMBED_SRC =
   'https://www.google.com/maps?q=Gulberg+III,+Lahore,+Pakistan&output=embed';
 
+// Custom underline-styled dropdown, replacing the native <select> so it
+// matches the rest of the form's fields (same label/underline treatment as
+// the text inputs) and the floating-panel look used site-wide by
+// PropertySearchBar's FilterField, instead of the browser's native select
+// popup. A hidden input carries the value for the uncontrolled FormData
+// read in handleSubmit — the visible trigger/panel below is just UI.
+function SelectField({
+  name,
+  label,
+  optional,
+  required,
+  placeholder = 'Select...',
+  options,
+  value,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  optional?: boolean;
+  required?: boolean;
+  placeholder?: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false), open);
+
+  return (
+    <div ref={ref} className="relative flex flex-col gap-2">
+      <input type="hidden" name={name} value={value} required={required} />
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {label} {optional && <span className="normal-case text-slate-300">(optional)</span>}
+      </span>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center justify-between gap-2 border-b border-slate-200 bg-transparent pb-2 text-left text-sm font-medium focus:border-primary focus:outline-none"
+      >
+        <span className="text-primary">{value || placeholder}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full z-30 mt-2 w-full min-w-[10rem] rounded-2xl border border-slate-100 bg-white p-1.5 text-slate-800 shadow-2xl"
+          >
+            {options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+                className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${option === value ? 'bg-primary/10 font-medium text-primary' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                {option}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function ConsultationSection() {
   const { submit } = useContactViewModel();
   const [submitted, setSubmitted] = useState(false);
+  const [purpose, setPurpose] = useState('');
+  const [city, setCity] = useState('');
 
   // Uncontrolled form (every field already has a matching `name` attribute)
   // read via FormData at submit time — this was previously entirely fake
@@ -48,6 +125,8 @@ export function ConsultationSection() {
       });
       setSubmitted(true);
       form.reset();
+      setPurpose('');
+      setCity('');
     } catch {
       toast.error('Something went wrong — please try again.');
     }
@@ -55,7 +134,7 @@ export function ConsultationSection() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20 lg:py-28">
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
+      <div className="grid grid-cols-1 items-stretch gap-10 lg:grid-cols-2 lg:gap-16">
         {/* Left column — pitch + location */}
         <motion.div
           initial="hidden"
@@ -82,7 +161,7 @@ export function ConsultationSection() {
           <ul className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
             {LOCATION_FEATURES.map((feature) => (
               <li key={feature} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 sm:text-sm">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-heading-gradient" />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#00A24F]" />
                 {feature}
               </li>
             ))}
@@ -96,15 +175,6 @@ export function ConsultationSection() {
               referrerPolicy="no-referrer-when-downgrade"
               className="h-full w-full border-0 grayscale-[15%]"
             />
-
-            <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur-sm">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-heading-gradient">
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-              </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 sm:text-[11px]">
-                Gulberg III, Lahore
-              </span>
-            </div>
           </div>
         </motion.div>
 
@@ -115,7 +185,7 @@ export function ConsultationSection() {
           viewport={{ once: true, amount: 0.3 }}
           variants={fadeUp}
           transition={{ delay: 0.1 }}
-          className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8 md:p-10"
+          className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8 md:p-10"
         >
           {/* Watermark logo — sits behind the fields, faint, centered across
               the whole card so it reads at a glance rather than hiding as a
@@ -126,16 +196,14 @@ export function ConsultationSection() {
               alt=""
               width={420}
               height={420}
-              className="h-auto w-[85%] max-w-md select-none"
+              className="h-[80dvh] w-auto shrink-0 object-cover select-none"
             />
           </div>
 
-          <form className="relative z-10 flex flex-col gap-6" onSubmit={handleSubmit}>
+          <form className="relative z-10 flex h-full flex-col gap-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Full name <span className="normal-case text-slate-300">(optional)</span>
-                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Full name</span>
                 <input
                   name="fullName"
                   placeholder="Your full name"
@@ -144,9 +212,7 @@ export function ConsultationSection() {
               </label>
 
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Email <span className="normal-case text-slate-300">(optional)</span>
-                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Email</span>
                 <input
                   type="email"
                   name="email"
@@ -166,44 +232,22 @@ export function ConsultationSection() {
                 />
               </label>
 
-              <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Purpose <span className="normal-case text-slate-300">(optional)</span>
-                </span>
-                <select
-                  name="purpose"
-                  defaultValue=""
-                  className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 focus:border-primary focus:outline-none [&:required:invalid]:text-slate-400"
-                >
-                  <option value="">Select...</option>
-                  {PURPOSE_OPTIONS.map((option) => (
-                    <option key={option} value={option} className="text-slate-800">
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                name="purpose"
+                label="Purpose"
+                options={PURPOSE_OPTIONS}
+                value={purpose}
+                onChange={setPurpose}
+              />
 
-              <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Preferred city
-                </span>
-                <select
-                  name="city"
-                  defaultValue=""
-                  required
-                  className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 focus:border-primary focus:outline-none [&:required:invalid]:text-slate-400"
-                >
-                  <option value="" disabled>
-                    Select...
-                  </option>
-                  {CITY_OPTIONS.map((option) => (
-                    <option key={option} value={option} className="text-slate-800">
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                name="city"
+                label="Preferred city"
+                required
+                options={CITY_OPTIONS}
+                value={city}
+                onChange={setCity}
+              />
 
               <label className="flex flex-col gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -226,30 +270,31 @@ export function ConsultationSection() {
                 className="resize-none border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
               />
             </label>
+            <div className="mt-auto">
+              <button
+                type="submit"
+                disabled={submit.isPending || submitted}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-6 py-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Request received
+                  </>
+                ) : submit.isPending ? (
+                  'Sending…'
+                ) : (
+                  <>
+                    Schedule consultation
+                    <ArrowUpRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
 
-            <button
-              type="submit"
-              disabled={submit.isPending || submitted}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-heading-gradient px-6 py-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {submitted ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Request received
-                </>
-              ) : submit.isPending ? (
-                'Sending…'
-              ) : (
-                <>
-                  Schedule consultation
-                  <ArrowUpRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-
-            <p className="text-center text-[11px] leading-relaxed text-slate-400">
-              By submitting, you agree to Jayedaad&apos;s private consultation policy.
-            </p>
+              <p className="text-center text-[11px] leading-relaxed mt-4 text-slate-400">
+                By submitting, you agree to Jayedaad&apos;s private consultation policy.
+              </p>
+            </div>
           </form>
         </motion.div>
       </div>

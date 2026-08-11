@@ -1,6 +1,6 @@
 export interface AboutValue {
   id: string;
-  size: 'lg-dark' | 'lg-photo' | 'sm-light' | 'sm-photo' | 'sm-accent';
+  size: 'lg-dark' | 'lg-photo' | 'sm-light' | 'sm-photo' | 'sm-accent' | 'wide-light' | 'md-light' | 'outline-light';
   label: string;
   title: string;
   description?: string;
@@ -19,7 +19,7 @@ export const ABOUT_VALUES: AboutValue[] = [
     id: 'homes-chosen',
     size: 'lg-photo',
     label: 'Customer First',
-    title: "Homes chosen the way families actually live.",
+    title: 'Homes chosen the way families actually live.',
     image: '/images/about-us/customer.jpg',
   },
   {
@@ -27,7 +27,7 @@ export const ABOUT_VALUES: AboutValue[] = [
     size: 'sm-light',
     label: 'Technology Driven',
     title: 'Intelligent matching between people and places.',
-    description: 'AI-first preference, not price alone.',
+    description: 'AI that learns preference, not price alone.',
   },
   {
     id: 'documents-protected',
@@ -44,19 +44,19 @@ export const ABOUT_VALUES: AboutValue[] = [
   },
   {
     id: 'innovation',
-    size: 'sm-light',
+    size: 'wide-light',
     label: 'Innovation',
     title: 'Software that treats a home like a home — not a listing.',
   },
   {
     id: 'legal-compliance',
-    size: 'sm-light',
+    size: 'md-light',
     label: 'Legal Compliance',
     title: 'Every deed, title and clause vetted by our in-house counsel.',
   },
   {
     id: 'community',
-    size: 'sm-light',
+    size: 'outline-light',
     label: 'Community',
     title: 'Neighbourhoods, not just numbers.',
   },

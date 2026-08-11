@@ -1,23 +1,23 @@
 $ next build
+[@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead.
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead.
   ▲ Next.js 14.2.35
   - Environments: .env
+  - Experiments (use with caution):
+    · instrumentationHook
 
    Creating an optimized production build ...
+[@sentry/nextjs] It seems like you don't have a global error handler set up. It is recommended that you add a 'global-error.js' file with Sentry instrumentation so that React rendering errors are reported to Sentry. Read more: https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#react-render-errors-in-app-router (you can suppress this warning by setting SENTRY_SUPPRESS_GLOBAL_ERROR_HANDLER_FILE_WARNING=1 as environment variable)
+[@sentry/nextjs] DEPRECATION WARNING: It is recommended renaming your `sentry.client.config.ts` file, or moving its content to `instrumentation-client.ts`. When using Turbopack `sentry.client.config.ts` will no longer work. Read more about the `instrumentation-client.ts` file: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (132kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (106kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (253kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
  ✓ Compiled successfully
    Linting and checking validity of types ...
 Failed to compile.
 
-./app/(agent)/agent-settings/page.tsx:82:37
-Type error: Property 'icon' does not exist on type '{ id: SettingsTab; label: string; }'.
+Type error: Invalid value for '--ignoreDeprecations'.
 
-[0m [90m 80 |[39m               [33m<[39m[33mnav[39m className[33m=[39m[32m"flex gap-1 overflow-x-auto lg:flex-col"[39m[33m>[39m[0m
-[0m [90m 81 |[39m                 {[33mSUB_NAV[39m[33m.[39mmap((item) [33m=>[39m {[0m
-[0m[31m[1m>[22m[39m[90m 82 |[39m                   [36mconst[39m [33mIcon[39m [33m=[39m item[33m.[39micon[33m;[39m[0m
-[0m [90m    |[39m                                     [31m[1m^[22m[39m[0m
-[0m [90m 83 |[39m                   [36mconst[39m active [33m=[39m tab [33m===[39m item[33m.[39mid[33m;[39m[0m
-[0m [90m 84 |[39m                   [36mreturn[39m ([0m
-[0m [90m 85 |[39m                     [33m<[39m[33mbutton[39m[0m
 Next.js build worker exited with code: 1 and signal: null
 [ELIFECYCLE] Command failed with exit code 1.

@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthViewModel } from '@jayedaad/core';
 
 const LIST_A_HOME_CLASSES =
-  'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90';
+  'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md active:translate-y-0 active:scale-95';
 
 const NAV_LINKS = [
   { label: 'Buy & Sell', href: '/listings?purpose=sale' },

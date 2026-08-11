@@ -6,10 +6,12 @@ export default function ListingsPage() {
   return (
     <main>
       <SearchHero
-        eyebrow="Listings"
-        title="Find your next property"
-        backgroundImage="/images/about-us/about-us-hero.jpg"
+        // eyebrow="Listings"
+        // title="Find your next property"
+        backgroundImage="/images/listing-hero-bg.png"
         defaultPurpose="buy"
+        className='h-[20vh] sm:h-[40vh]'
+        showPurposeToggle={false}
       />
 
       {/* ListingsBrowserSection reads ?propertyTypeCategory=/?city= via

@@ -24,7 +24,7 @@ export function OurProcess() {
           {ABOUT_PROCESS_STEPS.map((step, index) => (
             <Reveal key={step.id} delay={index * 0.08} className="relative flex flex-col gap-3">
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-heading-gradient" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[#259F56]" />
                 <span className="text-xs font-medium text-slate-400">
                   {String(index + 1).padStart(2, '0')}
                 </span>

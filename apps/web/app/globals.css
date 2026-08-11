@@ -202,7 +202,7 @@
      safe for solid-color text but clipped when paired with the gradient
      utilities above (see note there). */
   .heading-display {
-    @apply text-4xl font-bold leading-[1.2] sm:text-5xl md:text-6xl;
+    @apply text-3xl font-bold leading-[1.2] sm:text-5xl md:text-6xl;
   }
   .heading-1 {
     @apply text-3xl font-bold leading-[1.25] sm:text-4xl;

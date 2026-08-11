@@ -30,7 +30,7 @@ verified listings, trusted professionals and intelligent technology."
           <Image src="/images/about-bg.png" alt="" fill sizes="100vw" className="object-contain object-center" />
         </div>
 
-       <FeaturedLocationsSection embedded />
+        <FeaturedLocationsSection embedded />
         <RealStories testimonials={TESTIMONIALS} embedded />
       </section>
     </>
