@@ -22,42 +22,42 @@ export function PropertyCard({ property }: { property: Property }) {
     listingType,
     verified,
     beds,
-     viewCount,
+    viewCount,
     baths,
     areaSqft,
   } = property;
 
   return (
-    <article className="w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
-      <div className="relative aspect-[4/3] w-full overflow-hidden">
+    <article className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden">
         <Image
           src={image}
           alt={title}
           fill
-          sizes="288px"
+          sizes="(min-width: 1280px) 288px, (min-width: 768px) 33vw, 100vw"
           className="object-cover"
         />
-        <div>
-          {verified && (
-            <span className="flex absolute left-2.5 top-2.5 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-              <BadgeCheck className="h-3 w-3 text-primary" />
-              Verified
-            </span>
-          )}
-          <button
-            type="button"
-            aria-label="Save listing"
-            className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-500 transition-colors hover:text-primary"
-          >
-            <Heart className="h-3.5 w-3.5" />
-          </button>
-        </div>
+
+        {verified && (
+          <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
+            <BadgeCheck className="h-3 w-3 text-primary" />
+            Verified
+          </span>
+        )}
+
+        <button
+          type="button"
+          aria-label="Save listing"
+          className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-500 transition-colors hover:text-primary"
+        >
+          <Heart className="h-3.5 w-3.5" />
+        </button>
 
         <div className="absolute left-2.5 bottom-2.5 flex gap-1.5">
           <span className="rounded-full bg-heading-gradient px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
             {listingType === "sale" ? "For Sale" : "For Rent"}
           </span>
-           {typeof viewCount === "number" && (
+          {typeof viewCount === "number" && (
             <span className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
               <Eye className="h-3 w-3 text-primary" />
               {viewCount.toLocaleString()}
@@ -66,9 +66,11 @@ export function PropertyCard({ property }: { property: Property }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5 p-4">
+      <div className="flex flex-1 flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          <h3 className="line-clamp-1 text-sm font-semibold text-slate-900">
+            {title}
+          </h3>
           <span className="shrink-0 text-sm font-semibold text-primary">
             {price}
           </span>
@@ -76,8 +78,9 @@ export function PropertyCard({ property }: { property: Property }) {
 
         <p className="flex items-center gap-1 text-xs text-slate-500">
           <MapPin className="h-3.5 w-3.5 shrink-0" />
-          {location}
+          <span className="line-clamp-1">{location}</span>
         </p>
+
         <div className="flex gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <Bed className="h-3.5 w-3.5" />
@@ -93,7 +96,7 @@ export function PropertyCard({ property }: { property: Property }) {
           </span>
         </div>
 
-        <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">
+        <div className="mt-auto flex gap-3 border-t border-slate-200 pt-3 text-xs">
           <Link
             href={`/listings/${id}`}
             className="mr-auto flex items-center gap-1 text-xs font-medium text-primary hover:underline"

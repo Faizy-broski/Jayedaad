@@ -197,7 +197,7 @@ function HeaderInner() {
             width={160}
             height={45}
             priority
-            className="h-10 w-auto sm:h-11"
+            className="h-10 w-auto sm:h-14"
           />
         </Link>
 

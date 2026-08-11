@@ -25,6 +25,7 @@ const config: Config = {
       // system-font stack even though the variable is set on <html>.
       fontFamily: {
         sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
+      outfit: ['var(--font-outfit)'],
       },
       // Maps the CSS-variable tokens defined in app/globals.css — standard
       // shadcn/ui convention. `hsl(var(--x) / <alpha-value>)` (rather than

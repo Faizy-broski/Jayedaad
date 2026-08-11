@@ -20,7 +20,7 @@ export function OurStory() {
           Real estate isn&apos;t just about properties. It&apos;s about building futures.
         </h2>
       </Reveal>
-        <Reveal className="flex lg:flex-col gap-8 sm:col-span-3 mx-auto">
+        <Reveal className="flex sm:flex-col gap-8 sm:col-span-3 mx-auto">
           {STATS.map((stat) => (
             <div key={stat.id} className="flex flex-col gap-1">
               <span className="text-primary text-3xl font-bold sm:text-4xl">{stat.value}</span>

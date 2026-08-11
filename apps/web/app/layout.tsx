@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Outfit } from 'next/font/google';
 import { Providers } from './providers';
 import { AppChrome } from '../components/layout/AppChrome';
 import './globals.css';
@@ -13,6 +14,12 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   variable: '--font-sans',
 });
 
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'Jayedaad — Building Trust in Real Estate',
   description: 'Verified real estate marketplace',
@@ -20,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={plusJakartaSans.variable}>
+    <html lang="en" className={`${plusJakartaSans.variable} ${outfit.variable}`}>
       {/* overflow-x-hidden guards against the classic `w-screen`/`100vw`
           full-bleed bug (see OfficeShowCase.tsx) — 100vw includes the
           scrollbar's own width on browsers with a classic (non-overlay)

@@ -10,7 +10,7 @@ interface BrowseByCategoryProps {
 
 export function BrowseByCategory({ categories }: BrowseByCategoryProps) {
   return (
-<section className="relative overflow-hidden py-4">
+<section className="relative overflow-hidden py-12">
       {/* Faint building silhouette bleeding in from the right, behind the
           heading/cards — matches the reference screenshot's watermark bg. */}
       <div className="pointer-events-none absolute inset-y-0 right-0 -bottom-20 w-full max-w-3xl">
@@ -28,13 +28,19 @@ export function BrowseByCategory({ categories }: BrowseByCategoryProps) {
           </p>
         </Reveal>
 
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
-          {categories.map((category, index) => (
-            <Reveal key={category.id} delay={(index % 4) * 0.08}>
-              <CategoryCard category={category} />
-            </Reveal>
-          ))}
-        </div>
+        {categories.length === 0 ? (
+          <p className="mt-8 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-muted-foreground">
+            No categories available right now.
+          </p>
+        ) : (
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
+            {categories.map((category, index) => (
+              <Reveal key={category.id} delay={(index % 4) * 0.08}>
+                <CategoryCard category={category} />
+              </Reveal>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

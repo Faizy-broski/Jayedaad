@@ -53,9 +53,8 @@ const FIELD_BUTTON =
   'flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left sm:px-5';
 
 function optionClass(active: boolean) {
-  return `w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-    active ? 'bg-primary/10 font-medium text-primary' : 'text-slate-600 hover:bg-slate-50'
-  }`;
+  return `w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${active ? 'bg-primary/10 font-medium text-primary' : 'text-slate-600 hover:bg-slate-50'
+    }`;
 }
 
 // Shared floating-panel shell every field below renders its own content
@@ -71,6 +70,7 @@ function FilterField({
   onToggle,
   children,
   panelClassName = 'w-72',
+  wrapperClassName = 'flex-1',
   last = false,
 }: {
   icon: typeof MapPin;
@@ -81,6 +81,7 @@ function FilterField({
   onToggle: (next: boolean) => void;
   children: React.ReactNode;
   panelClassName?: string;
+  wrapperClassName?: string;
   last?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -89,7 +90,7 @@ function FilterField({
   return (
     <div
       ref={ref}
-      className={`relative flex-1 border-b border-slate-100 sm:border-b-0 sm:border-r sm:border-slate-100 ${last ? 'sm:border-r-0' : ''}`}
+      className={`relative ${wrapperClassName} border-b border-slate-100 sm:border-b-0 sm:border-r sm:border-slate-100 ${last ? 'sm:border-r-0' : ''}`}
     >
       <button type="button" onClick={() => onToggle(!open)} className={FIELD_BUTTON}>
         <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
@@ -108,9 +109,8 @@ function FilterField({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className={`absolute top-full z-30 mt-2 max-w-[90vw] rounded-2xl border border-slate-100 bg-white p-4 text-slate-800 shadow-2xl ${
-              last ? 'right-0' : 'left-0'
-            } ${panelClassName}`}
+            className={`absolute top-full z-30 mt-2 max-w-[90vw] rounded-2xl border border-slate-100 bg-white p-4 text-slate-800 shadow-2xl ${last ? 'right-0' : 'left-0'
+              } ${panelClassName}`}
           >
             {children}
           </motion.div>
@@ -338,7 +338,7 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
         </div>
       )}
 
-      <div className="w-full rounded-3xl bg-white p-3 shadow-2xl sm:rounded-[28px]">
+      <div className="relative w-full rounded-3xl bg-white p-3 shadow-2xl sm:rounded-[28px]">
         <div className="flex flex-col divide-y divide-slate-100 sm:flex-row sm:items-stretch sm:divide-y-0">
           <FilterField
             icon={MapPin}
@@ -387,117 +387,24 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
             </div>
           </FilterField>
 
-          <FilterField
-            icon={Locate}
-            label="Area"
-            valueLabel={area}
-            placeholder="Any Area"
-            open={openField === 'areaLocation'}
-            onToggle={() => toggleField('areaLocation')}
-            panelClassName="w-72"
-          >
-            <PlacesAutocompleteInput value={area} onChange={setArea} placeholder="e.g. Bahria Town, DHA" className="w-full" />
-          </FilterField>
-
-          <FilterField
-            icon={Home}
-            label="Property Type"
-            valueLabel={selectedTypeLabel}
-            placeholder="All"
-            open={openField === 'type'}
-            onToggle={() => toggleField('type')}
-            panelClassName="w-80"
-          >
-            <div className="mb-3 flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
-              <div className="flex gap-3 overflow-x-auto">
-                {categories.map((c) => (
-                  <button
-                    key={c.slug}
-                    type="button"
-                    onClick={() => {
-                      setCategorySlug(c.slug);
-                      setPropertyTypeSlug('');
-                    }}
-                    className={`shrink-0 whitespace-nowrap pb-1.5 text-sm font-medium transition-colors ${
-                      c.slug === activeCategoryTab ? 'border-b-2 border-primary text-primary' : 'text-slate-500'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setPropertyTypeSlug('');
-                setOpenField(null);
-              }}
-              className={`${optionClass(propertyTypeSlug === '')} mb-2`}
-            >
-              All Types
-            </button>
-            <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
-              {typesInActiveCategory.map((t) => (
-                <button
-                  key={t.slug}
-                  type="button"
-                  onClick={() => {
-                    setPropertyTypeSlug(t.slug);
-                    setOpenField(null);
-                  }}
-                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-sm transition-colors ${
-                    propertyTypeSlug === t.slug ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Home className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </FilterField>
-
-          <FilterField
-            icon={Wallet}
-            label="Budget Range"
-            valueLabel={budgetLabel}
-            placeholder="0 – Any"
-            open={openField === 'budget'}
-            onToggle={() => toggleField('budget')}
-            panelClassName="w-80"
-          >
-            <RangeDropdown
-              minValue={minPrice}
-              maxValue={maxPrice}
-              options={PRICE_OPTIONS}
-              formatOption={priceOptionLabel}
-              onChangeMin={setMinPrice}
-              onChangeMax={setMaxPrice}
+          {/* Area is a live search box (Google Places autocomplete manages its
+              own suggestion dropdown), not a click-to-open panel like the
+              other fields — typing should work immediately without an extra
+              click first. */}
+          <div className="flex flex-[2] flex-col items-start gap-0.5 border-b border-slate-100 px-4 py-2.5 sm:border-b-0 sm:border-r-0 sm:px-5">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+              <Locate className="h-3.5 w-3.5 text-primary" />
+              Area
+            </span>
+            <PlacesAutocompleteInput
+              value={area}
+              onChange={setArea}
+              placeholder="e.g. Bahria Town, DHA"
+              className="h-auto w-full border-none bg-transparent p-0 text-sm font-medium text-primary placeholder:font-normal placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-          </FilterField>
+          </div>
 
-          <FilterField
-            icon={Ruler}
-            label="Area Range"
-            valueLabel={areaLabel}
-            placeholder="0 – Any"
-            open={openField === 'area'}
-            onToggle={() => toggleField('area')}
-            panelClassName="w-80"
-            last
-          >
-            <RangeDropdown
-              minValue={minArea}
-              maxValue={maxArea}
-              options={areaOptions}
-              formatOption={(v) => String(v)}
-              onChangeMin={setMinArea}
-              onChangeMax={setMaxArea}
-              unit={{ value: areaUnit, onChange: setAreaUnit }}
-            />
-          </FilterField>
-
-          <div className="flex items-center justify-center px-1 pt-2 sm:pl-2 sm:pt-0">
+          <div className="flex flex-col items-center justify-center px-1 pt-2 sm:pl-2 sm:pt-0">
             <button
               type="button"
               onClick={handleSearch}
@@ -506,11 +413,6 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
               <SearchIcon className="h-4 w-4" />
               Search
             </button>
-          </div>
-        </div>
-
-        {variant === 'projects' && (
-          <>
             <div className="flex justify-end px-2 pt-1">
               <button
                 type="button"
@@ -521,117 +423,225 @@ export function PropertySearchBar({ variant = 'listings', defaultPurpose = 'buy'
                 {seeMore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </button>
             </div>
+          </div>
+        </div>
 
-            <AnimatePresence initial={false}>
-              {seeMore && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
+        <AnimatePresence>
+          {seeMore && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              // Absolutely positioned below the card (top-full), same as every
+              // individual FilterField dropdown, instead of a flow-affecting
+              // height animation — that way opening it never grows the card
+              // itself, which matters because the Hero's desktop wrapper
+              // anchors this card by its bottom edge (-bottom-28); a taller
+              // card there grows upward, so real content growth here used to
+              // read as the whole search bar jumping up instead of the panel
+              // dropping down.
+              className="absolute inset-x-0 top-full z-20 mt-2 rounded-2xl border border-slate-100 bg-white shadow-2xl"
+            >
+              <div className="flex flex-col divide-y divide-slate-100 sm:flex-row sm:items-stretch sm:divide-y-0">
+                <FilterField
+                  icon={Home}
+                  label="Property Type"
+                  valueLabel={selectedTypeLabel}
+                  placeholder="All"
+                  open={openField === 'type'}
+                  onToggle={() => toggleField('type')}
+                  panelClassName="w-80"
                 >
-                  <div className="grid grid-cols-1 gap-4 border-t border-slate-100 p-3 pt-4 sm:grid-cols-2">
-                    <div className="relative">
-                      <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-                        <Building2 className="h-3.5 w-3.5 text-primary" />
-                        Project Title
-                      </label>
-                      <input
-                        value={keyword}
-                        onChange={(e) => setKeyword(e.target.value)}
-                        onFocus={() => setOpenField('project')}
-                        placeholder="Select Projects"
-                        className="w-full rounded-lg border-b border-slate-200 px-1 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
-                      />
-                      {openField === 'project' && keyword.trim().length >= 2 && (
-                        <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl">
-                          {projectSuggestQuery.isLoading ? (
-                            <p className="px-2 py-1.5 text-xs text-slate-400">Searching…</p>
-                          ) : (projectSuggestQuery.data?.items.length ?? 0) === 0 ? (
-                            <p className="px-2 py-1.5 text-xs text-slate-400">No projects found.</p>
-                          ) : (
-                            projectSuggestQuery.data!.items.map((p) => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => {
-                                  setOpenField(null);
-                                  router.push(`/developments/${p.slug}`);
-                                }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                              >
-                                <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                                <span className="shrink-0 text-xs text-slate-400">{p.city}</span>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="relative">
-                      <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-                        <User2 className="h-3.5 w-3.5 text-primary" />
-                        Developer Title
-                      </label>
-                      <div className="flex items-center gap-1">
-                        <input
-                          value={developerInput}
-                          onChange={(e) => {
-                            setDeveloperInput(e.target.value);
-                            if (developerSlug) setDeveloperSlug('');
+                  <div className="mb-3 flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+                    <div className="flex gap-3 overflow-x-auto">
+                      {categories.map((c) => (
+                        <button
+                          key={c.slug}
+                          type="button"
+                          onClick={() => {
+                            setCategorySlug(c.slug);
+                            setPropertyTypeSlug('');
                           }}
-                          onFocus={() => setOpenField('developer')}
-                          placeholder="Select Developers"
-                          className="w-full rounded-lg border-b border-slate-200 px-1 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
-                        />
-                        {developerSlug && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeveloperSlug('');
-                              setDeveloperInput('');
-                            }}
-                            aria-label="Clear developer"
-                            className="shrink-0 text-slate-400 hover:text-slate-600"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {developerSlug && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                      </div>
-                      {openField === 'developer' && developerInput.trim().length >= 1 && (
-                        <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl">
-                          {developerMatches.length === 0 ? (
-                            <p className="px-2 py-1.5 text-xs text-slate-400">No developers found.</p>
-                          ) : (
-                            developerMatches.map((d) => (
-                              <button
-                                key={d.id}
-                                type="button"
-                                onClick={() => {
-                                  setDeveloperSlug(d.slug);
-                                  setDeveloperInput(d.name);
-                                  setOpenField(null);
-                                }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                              >
-                                <User2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                <span className="min-w-0 flex-1 truncate">{d.name}</span>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
+                          className={`shrink-0 whitespace-nowrap pb-1.5 text-sm font-medium transition-colors ${c.slug === activeCategoryTab ? 'border-b-2 border-primary text-primary' : 'text-slate-500'
+                            }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </motion.div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPropertyTypeSlug('');
+                      setOpenField(null);
+                    }}
+                    className={`${optionClass(propertyTypeSlug === '')} mb-2`}
+                  >
+                    All Types
+                  </button>
+                  <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
+                    {typesInActiveCategory.map((t) => (
+                      <button
+                        key={t.slug}
+                        type="button"
+                        onClick={() => {
+                          setPropertyTypeSlug(t.slug);
+                          setOpenField(null);
+                        }}
+                        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-sm transition-colors ${propertyTypeSlug === t.slug ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                      >
+                        <Home className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </FilterField>
+
+                <FilterField
+                  icon={Wallet}
+                  label="Budget Range"
+                  valueLabel={budgetLabel}
+                  placeholder="0 – Any"
+                  open={openField === 'budget'}
+                  onToggle={() => toggleField('budget')}
+                  panelClassName="w-80"
+                >
+                  <RangeDropdown
+                    minValue={minPrice}
+                    maxValue={maxPrice}
+                    options={PRICE_OPTIONS}
+                    formatOption={priceOptionLabel}
+                    onChangeMin={setMinPrice}
+                    onChangeMax={setMaxPrice}
+                  />
+                </FilterField>
+
+                <FilterField
+                  icon={Ruler}
+                  label="Area Range"
+                  valueLabel={areaLabel}
+                  placeholder="0 – Any"
+                  open={openField === 'area'}
+                  onToggle={() => toggleField('area')}
+                  panelClassName="w-80"
+                  last
+                >
+                  <RangeDropdown
+                    minValue={minArea}
+                    maxValue={maxArea}
+                    options={areaOptions}
+                    formatOption={(v) => String(v)}
+                    onChangeMin={setMinArea}
+                    onChangeMax={setMaxArea}
+                    unit={{ value: areaUnit, onChange: setAreaUnit }}
+                  />
+                </FilterField>
+              </div>
+
+              {variant === 'projects' && (
+                <div className="grid grid-cols-1 gap-4 border-t border-slate-100 p-3 pt-4 sm:grid-cols-2">
+                  <div className="relative">
+                    <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                      <Building2 className="h-3.5 w-3.5 text-primary" />
+                      Project Title
+                    </label>
+                    <input
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                      onFocus={() => setOpenField('project')}
+                      placeholder="Select Projects"
+                      className="w-full rounded-lg border-b border-slate-200 px-1 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                    />
+                    {openField === 'project' && keyword.trim().length >= 2 && (
+                      <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl">
+                        {projectSuggestQuery.isLoading ? (
+                          <p className="px-2 py-1.5 text-xs text-slate-400">Searching…</p>
+                        ) : (projectSuggestQuery.data?.items.length ?? 0) === 0 ? (
+                          <p className="px-2 py-1.5 text-xs text-slate-400">No projects found.</p>
+                        ) : (
+                          projectSuggestQuery.data!.items.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setOpenField(null);
+                                router.push(`/developments/${p.slug}`);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                              <span className="shrink-0 text-xs text-slate-400">{p.city}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                      <User2 className="h-3.5 w-3.5 text-primary" />
+                      Developer Title
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={developerInput}
+                        onChange={(e) => {
+                          setDeveloperInput(e.target.value);
+                          if (developerSlug) setDeveloperSlug('');
+                        }}
+                        onFocus={() => setOpenField('developer')}
+                        placeholder="Select Developers"
+                        className="w-full rounded-lg border-b border-slate-200 px-1 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                      />
+                      {developerSlug && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeveloperSlug('');
+                            setDeveloperInput('');
+                          }}
+                          aria-label="Clear developer"
+                          className="shrink-0 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {developerSlug && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                    </div>
+                    {openField === 'developer' && developerInput.trim().length >= 1 && (
+                      <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl">
+                        {developerMatches.length === 0 ? (
+                          <p className="px-2 py-1.5 text-xs text-slate-400">No developers found.</p>
+                        ) : (
+                          developerMatches.map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => {
+                                setDeveloperSlug(d.slug);
+                                setDeveloperInput(d.name);
+                                setOpenField(null);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              <User2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <span className="min-w-0 flex-1 truncate">{d.name}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </AnimatePresence>
-          </>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

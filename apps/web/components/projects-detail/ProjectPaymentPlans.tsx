@@ -6,6 +6,14 @@ interface ProjectPaymentPlansProps {
 }
 
 export function ProjectPaymentPlans({ plans }: ProjectPaymentPlansProps) {
+  if (plans.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500">
+        No payment plans available yet.
+      </p>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {plans.map((plan) => (

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { PAKISTAN_CITIES, useTaxonomyViewModel, type AreaUnit } from '@jayedaad/core';
-import { Select } from '@jayedaad/ui-web';
+import { Checkbox, Select, cn } from '@jayedaad/ui-web';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
-import { AREA_UNITS, areaUnitLabel } from '@/lib/areaOptions';
+import { AREA_UNIT_OPTIONS, AREA_UNITS, areaUnitLabel } from '@/lib/areaOptions';
 
 export interface ListingFiltersState {
   city: string;
@@ -20,7 +19,9 @@ export interface ListingFiltersState {
   propertyTypeSlugs: string[];
   minBedrooms: number | null;
   minBathrooms: number | null;
+  verifiedOnly: boolean;
   furnished: boolean;
+  newProjects: boolean;
   readyToMove: boolean;
   amenities: string[];
 }
@@ -37,17 +38,20 @@ export const DEFAULT_LISTING_FILTERS: ListingFiltersState = {
   propertyTypeSlugs: [],
   minBedrooms: null,
   minBathrooms: null,
+  verifiedOnly: false,
   furnished: false,
+  newProjects: false,
   readyToMove: false,
   amenities: [],
 };
 
-// const PROPERTY_TYPE_OPTIONS: PropertyTypeOption[] = ['Villa', 'Apartment', 'Penthouse', 'Townhouse', 'House', 'Bungalow'];
-const BED_BATH_OPTIONS = [1, 2, 3, 4, 5];
-// const AMENITY_OPTIONS: AmenityOption[] = ['Swimming Pool', 'Parking', 'Garden', 'Gym', 'Security', 'Elevator'];
+const BEDROOM_OPTIONS = [1, 2, 3, 4, 5, 6];
+const BATHROOM_OPTIONS = [1, 2, 3, 4, 5];
 
-const PREFERENCE_TOGGLES: { key: 'furnished' | 'readyToMove'; label: string }[] = [
+const PREFERENCE_TOGGLES: { key: 'verifiedOnly' | 'furnished' | 'newProjects' | 'readyToMove'; label: string }[] = [
+  { key: 'verifiedOnly', label: 'Verified only' },
   { key: 'furnished', label: 'Furnished' },
+  { key: 'newProjects', label: 'New Projects' },
   { key: 'readyToMove', label: 'Ready to Move' },
 ];
 
@@ -62,11 +66,183 @@ interface PropertyFiltersProps {
   onReset: () => void;
 }
 
+// Shared pill/chip button used for Property Type, Amenities, Bedrooms & Bathrooms
+function Chip({
+  active,
+  onClick,
+  disabled,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        active
+          ? 'border-primary bg-primary/10 text-primary'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Section({ children, first }: { children: React.ReactNode; first?: boolean }) {
+  return <div className={first ? '' : 'border-t border-slate-100 pt-6'}>{children}</div>;
+}
+
+// Checkbox-list dropdown used for Property Type & Amenities — same
+// button/panel look as the ui-web <Select> used for City & Category above
+// (rounded-full trigger, rounded-md listbox panel with the same border/
+// shadow/hover tokens), just with checkboxes instead of single-select.
+function MultiSelectDropdown({
+  options,
+  selected,
+  onToggle,
+  placeholder,
+  emptyMessage,
+}: {
+  options: { key: string; value: string; label: string }[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  placeholder: string;
+  emptyMessage: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  const summary =
+    selected.length === 0
+      ? placeholder
+      : selected.length === 1
+        ? options.find((o) => o.value === selected[0])?.label ?? selected[0]
+        : `${selected.length} selected`;
+
+  return (
+    <div ref={containerRef} className="relative mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-full border border-slate-200 bg-background px-4 py-2 text-left text-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <span className={cn('truncate', selected.length === 0 && 'text-muted-foreground')}>{summary}</span>
+        <ChevronIcon open={open} />
+      </button>
+
+      <ul
+        role="listbox"
+        className={cn(
+          'absolute z-50 mt-1.5 max-h-60 w-full origin-top overflow-auto rounded-md border border-border bg-background p-1 shadow-lg transition-all duration-150 ease-out',
+          open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0',
+        )}
+      >
+        {options.length === 0 ? (
+          <li className="px-2.5 py-2 text-sm text-muted-foreground">{emptyMessage}</li>
+        ) : (
+          options.map((option) => {
+            const checked = selected.includes(option.value);
+            return (
+              <li key={option.key} role="option" aria-selected={checked}>
+                <label
+                  className={cn(
+                    'flex cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm transition-colors hover:bg-muted',
+                    checked ? 'text-primary' : 'text-foreground',
+                  )}
+                >
+                  <Checkbox checked={checked} onChange={() => onToggle(option.value)} />
+                  <span className="truncate">{option.label}</span>
+                </label>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  );
+}
+
+// Same chevron glyph as ui-web's <Select>, kept local since it isn't exported.
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200', open && 'rotate-180')}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 export function PropertyFilters({ filters, onChange, onApply, onReset }: PropertyFiltersProps) {
-  const [propertyTypesOpen, setPropertyTypesOpen] = useState(false);
-  const [amenitiesOpen, setAmenitiesOpen] = useState(false);
   const set = <K extends keyof ListingFiltersState>(key: K, value: ListingFiltersState[K]) =>
     onChange({ ...filters, [key]: value });
+
+  // Price slider is index-based over PRICE_OPTIONS: index 0 == "No Min",
+  // the last index == "Any Price" (max), both stored as '' in filters.
+  const priceMaxIndex = PRICE_OPTIONS.length - 1;
+  const minIndex = filters.minPrice ? Math.max(0, PRICE_OPTIONS.indexOf(Number(filters.minPrice))) : 0;
+  const maxIndex = filters.maxPrice ? Math.max(0, PRICE_OPTIONS.indexOf(Number(filters.maxPrice))) : priceMaxIndex;
+  const minPercent = (minIndex / priceMaxIndex) * 100;
+  const maxPercent = (maxIndex / priceMaxIndex) * 100;
+
+  const handleMinIndexChange = (idx: number) => {
+    const clamped = Math.min(idx, maxIndex);
+    onChange({ ...filters, minPrice: clamped === 0 ? '' : String(PRICE_OPTIONS[clamped]) });
+  };
+  const handleMaxIndexChange = (idx: number) => {
+    const clamped = Math.max(idx, minIndex);
+    onChange({ ...filters, maxPrice: clamped === priceMaxIndex ? '' : String(PRICE_OPTIONS[clamped]) });
+  };
+
+  // Area slider is index-based over the unit's preset band, same pattern as
+  // the price slider above — index 0 == "No Min", the last index == "Any"
+  // (max), both stored as '' in filters.
+  const areaOptions = AREA_UNIT_OPTIONS[filters.areaUnit];
+  const areaMaxIndex = areaOptions.length - 1;
+  const minAreaIndex = filters.minAreaValue ? Math.max(0, areaOptions.indexOf(Number(filters.minAreaValue))) : 0;
+  const maxAreaIndex = filters.maxAreaValue
+    ? Math.max(0, areaOptions.indexOf(Number(filters.maxAreaValue)))
+    : areaMaxIndex;
+  const minAreaPercent = (minAreaIndex / areaMaxIndex) * 100;
+  const maxAreaPercent = (maxAreaIndex / areaMaxIndex) * 100;
+
+  const handleMinAreaIndexChange = (idx: number) => {
+    const clamped = Math.min(idx, maxAreaIndex);
+    onChange({ ...filters, minAreaValue: clamped === 0 ? '' : String(areaOptions[clamped]) });
+  };
+  const handleMaxAreaIndexChange = (idx: number) => {
+    const clamped = Math.max(idx, minAreaIndex);
+    onChange({ ...filters, maxAreaValue: clamped === areaMaxIndex ? '' : String(areaOptions[clamped]) });
+  };
+  // Each unit has its own scale (Marla vs. Sq. Ft aren't comparable), so a
+  // unit switch resets the range rather than keeping indices that would now
+  // point at a wildly different value.
+  const handleAreaUnitChange = (unit: AreaUnit) => {
+    onChange({ ...filters, areaUnit: unit, minAreaValue: '', maxAreaValue: '' });
+  };
 
   const { propertyTypes } = useTaxonomyViewModel();
   const { amenities } = useTaxonomyViewModel(filters.categorySlug || undefined);
@@ -81,60 +257,63 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
   return (
     <aside className="flex w-full flex-col gap-6 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Price Range (PKR)</h3>
-        <div className="mt-3 flex items-center gap-2">
-          <Select
-            value={filters.minPrice}
-            onChange={(e) => {
-              const nextMin = e.target.value;
-              // Selecting a Min above the current Max clears Max instead of
-              // silently sending minPrice > maxPrice to the API.
-              const maxBelowMin = filters.maxPrice && Number(filters.maxPrice) <= Number(nextMin);
-              onChange({ ...filters, minPrice: nextMin, maxPrice: maxBelowMin ? '' : filters.maxPrice });
-            }}
-            className="w-full"
-          >
-            <option value="">No Min</option>
-            {PRICE_OPTIONS.map((p) => (
-              <option key={p} value={p}>
-                {priceOptionLabel(p)}
-              </option>
-            ))}
-          </Select>
-          <span className="shrink-0 text-slate-300">–</span>
-          <Select value={filters.maxPrice} onChange={(e) => set('maxPrice', e.target.value)} className="w-full">
-            <option value="">Any Price</option>
-            {PRICE_OPTIONS.filter((p) => !filters.minPrice || p > Number(filters.minPrice)).map((p) => (
-              <option key={p} value={p}>
-                {priceOptionLabel(p)}
-              </option>
-            ))}
-          </Select>
+      {/* Price Range — dual min/max slider */}
+      <Section first>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Price Range (PKR)</h3>
+          <span className="text-xs font-medium text-slate-600">
+            {filters.minPrice ? priceOptionLabel(Number(filters.minPrice)) : 'No Min'}
+            {' – '}
+            {filters.maxPrice ? priceOptionLabel(Number(filters.maxPrice)) : 'Any'}
+          </span>
         </div>
-      </div>
 
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area Range</h3>
-        <div className="mt-3 flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            placeholder="Min"
-            value={filters.minAreaValue}
-            onChange={(e) => set('minAreaValue', e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+        <div className="relative mt-5 h-4">
+          {/* base track */}
+          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-200" />
+          {/* selected range fill */}
+          <div
+            className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-heading-gradient"
+            style={{ left: `${minPercent}%`, right: `${100 - maxPercent}%` }}
           />
-          <span className="shrink-0 text-slate-300">–</span>
+
           <input
-            type="number"
+            type="range"
             min={0}
-            placeholder="Max"
-            value={filters.maxAreaValue}
-            onChange={(e) => set('maxAreaValue', e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+            max={priceMaxIndex}
+            step={1}
+            value={minIndex}
+            onChange={(e) => handleMinIndexChange(Number(e.target.value))}
+            aria-label="Minimum price"
+            className="pointer-events-none absolute inset-0 z-20 h-4 w-full cursor-pointer appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
           />
-          <Select value={filters.areaUnit} onChange={(e) => set('areaUnit', e.target.value as AreaUnit)} className="w-28 shrink-0">
+          <input
+            type="range"
+            min={0}
+            max={priceMaxIndex}
+            step={1}
+            value={maxIndex}
+            onChange={(e) => handleMaxIndexChange(Number(e.target.value))}
+            aria-label="Maximum price"
+            className="pointer-events-none absolute inset-0 z-30 h-4 w-full cursor-pointer appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
+          />
+        </div>
+
+        <div className="mt-2 flex justify-between text-[11px] text-slate-400">
+          <span>{priceOptionLabel(PRICE_OPTIONS[0])}</span>
+          <span>{priceOptionLabel(PRICE_OPTIONS[priceMaxIndex])}+</span>
+        </div>
+      </Section>
+
+      {/* Area Range — dual min/max slider, same pattern as Price Range */}
+      <Section>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area Range</h3>
+          <Select
+            value={filters.areaUnit}
+            onChange={(e) => handleAreaUnitChange(e.target.value as AreaUnit)}
+            className="w-24 shrink-0 rounded-full border-slate-200 px-3 py-1.5 text-xs"
+          >
             {AREA_UNITS.map((unit) => (
               <option key={unit} value={unit}>
                 {areaUnitLabel(unit)}
@@ -142,11 +321,56 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
             ))}
           </Select>
         </div>
-      </div>
 
-      <div>
+        <div className="mt-1 text-xs font-medium text-slate-600">
+          {filters.minAreaValue ? `${filters.minAreaValue} ${areaUnitLabel(filters.areaUnit)}` : 'No Min'}
+          {' – '}
+          {filters.maxAreaValue ? `${filters.maxAreaValue} ${areaUnitLabel(filters.areaUnit)}` : 'Any'}
+        </div>
+
+        <div className="relative mt-4 h-4">
+          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-200" />
+          <div
+            className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-heading-gradient"
+            style={{ left: `${minAreaPercent}%`, right: `${100 - maxAreaPercent}%` }}
+          />
+
+          <input
+            type="range"
+            min={0}
+            max={areaMaxIndex}
+            step={1}
+            value={minAreaIndex}
+            onChange={(e) => handleMinAreaIndexChange(Number(e.target.value))}
+            aria-label="Minimum area"
+            className="pointer-events-none absolute inset-0 z-20 h-4 w-full cursor-pointer appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
+          />
+          <input
+            type="range"
+            min={0}
+            max={areaMaxIndex}
+            step={1}
+            value={maxAreaIndex}
+            onChange={(e) => handleMaxAreaIndexChange(Number(e.target.value))}
+            aria-label="Maximum area"
+            className="pointer-events-none absolute inset-0 z-30 h-4 w-full cursor-pointer appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
+          />
+        </div>
+
+        <div className="mt-2 flex justify-between text-[11px] text-slate-400">
+          <span>{areaOptions[0]}</span>
+          <span>{areaOptions[areaMaxIndex]}+</span>
+        </div>
+      </Section>
+
+      {/* City */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">City</h3>
-        <Select value={filters.city} onChange={(e) => set('city', e.target.value)} className="mt-3">
+        <Select
+          value={filters.city}
+          onChange={(e) => set('city', e.target.value)}
+          className="mt-3 w-full rounded-full border-slate-200 px-4 py-2 text-sm"
+        >
           <option value="">Any City</option>
           {PAKISTAN_CITIES.map((c) => (
             <option key={c} value={c}>
@@ -154,24 +378,26 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
             </option>
           ))}
         </Select>
-      </div>
+      </Section>
 
-      <div>
+      {/* Area / Location */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area / Location</h3>
         <PlacesAutocompleteInput
           value={filters.area}
           onChange={(v) => set('area', v)}
           placeholder="e.g. Bahria Town, DHA"
-          className="mt-3 rounded-xl border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-primary"
+          className="mt-3 rounded-full border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-primary"
         />
-      </div>
+      </Section>
 
-      <div>
+      {/* Category */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</h3>
         <Select
           value={filters.categorySlug}
           onChange={(e) => onChange({ ...filters, categorySlug: e.target.value, propertyTypeSlugs: [], amenities: [] })}
-          className="mt-3"
+          className="mt-3 w-full rounded-full border-slate-200 px-4 py-2 text-sm"
         >
           <option value="">Any Category</option>
           {categories.map((c) => (
@@ -180,100 +406,54 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
             </option>
           ))}
         </Select>
-      </div>
+      </Section>
 
-      <div className="relative">
+      {/* Property Type — checkbox dropdown */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type</h3>
-        <button
-          type="button"
-          onClick={() => setPropertyTypesOpen((v) => !v)}
-          disabled={typesInSelectedCategory.length === 0}
-          className="mt-3 flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span className={filters.propertyTypeSlugs.length === 0 ? 'text-muted-foreground' : undefined}>
-            {filters.propertyTypeSlugs.length > 0 ? `${filters.propertyTypeSlugs.length} Selected` : 'Any Type'}
-          </span>
-          <ChevronDown
-            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${propertyTypesOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
+        <MultiSelectDropdown
+          options={typesInSelectedCategory.map((type) => ({ key: type.slug, value: type.slug, label: type.label }))}
+          selected={filters.propertyTypeSlugs}
+          onToggle={(value) => set('propertyTypeSlugs', toggleInList(filters.propertyTypeSlugs, value))}
+          placeholder="Any Property Type"
+          emptyMessage="Pick a category above to see property types."
+        />
+      </Section>
 
-        {propertyTypesOpen && typesInSelectedCategory.length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-64 overflow-y-auto rounded-md border border-border bg-background p-1 shadow-lg">
-            {typesInSelectedCategory.map((type) => {
-              const active = filters.propertyTypeSlugs.includes(type.slug);
-              return (
-                <label
-                  key={type.slug}
-                  className={`flex cursor-pointer items-center gap-2 rounded-sm px-2.5 py-2 text-sm transition-colors ${active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-                    }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={active}
-                    onChange={() => set('propertyTypeSlugs', toggleInList(filters.propertyTypeSlugs, type.slug))}
-                    className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                  />
-                  {type.label}
-                </label>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setPropertyTypesOpen(false)}
-              className="mt-1 w-full rounded-sm bg-primary py-1.5 text-sm font-medium text-primary-foreground"
-            >
-              Done
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div>
+      {/* Bedrooms */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bedrooms</h3>
-        <div className="mt-3 grid grid-cols-5 gap-2">
-          {BED_BATH_OPTIONS.map((n) => {
-            const active = filters.minBedrooms === n;
-            return (
-              <button
-                key={n}
-                type="button"
-                onClick={() => set('minBedrooms', active ? null : n)}
-                className={`flex h-9 w-full items-center justify-center rounded-full border text-xs font-medium transition-colors ${active
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-              >
-                {n}+
-              </button>
-            );
-          })}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {BEDROOM_OPTIONS.map((n) => (
+            <Chip
+              key={n}
+              active={filters.minBedrooms === n}
+              onClick={() => set('minBedrooms', filters.minBedrooms === n ? null : n)}
+            >
+              {n}+
+            </Chip>
+          ))}
         </div>
-      </div>
+      </Section>
 
-      <div>
+      {/* Bathrooms */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bathrooms</h3>
-        <div className="mt-3 grid grid-cols-5 gap-2">
-          {BED_BATH_OPTIONS.map((n) => {
-            const active = filters.minBathrooms === n;
-            return (
-              <button
-                key={n}
-                type="button"
-                onClick={() => set('minBathrooms', active ? null : n)}
-                className={`flex h-9 w-full items-center justify-center rounded-full border text-xs font-medium transition-colors ${active
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-              >
-                {n}+
-              </button>
-            );
-          })}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {BATHROOM_OPTIONS.map((n) => (
+            <Chip
+              key={n}
+              active={filters.minBathrooms === n}
+              onClick={() => set('minBathrooms', filters.minBathrooms === n ? null : n)}
+            >
+              {n}+
+            </Chip>
+          ))}
         </div>
-      </div>
+      </Section>
 
-      <div>
+      {/* Preferences */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preferences</h3>
         <div className="mt-3 flex flex-col gap-3">
           {PREFERENCE_TOGGLES.map(({ key, label }) => (
@@ -283,69 +463,34 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
                 role="switch"
                 aria-checked={filters[key]}
                 onClick={() => set(key, !filters[key])}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${filters[key] ? 'bg-heading-gradient' : 'bg-slate-200'
-                  }`}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  filters[key] ? 'bg-heading-gradient' : 'bg-slate-200'
+                }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${filters[key] ? 'translate-x-4' : 'translate-x-0.5'
-                    }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    filters[key] ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
                 />
               </span>
             </label>
           ))}
         </div>
-      </div>
+      </Section>
 
-      <div className="relative">
+      {/* Amenities — checkbox dropdown */}
+      <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amenities</h3>
-        <button
-          type="button"
-          onClick={() => setAmenitiesOpen((v) => !v)}
-          disabled={amenities.length === 0}
-          className="mt-3 flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span className={filters.amenities.length === 0 ? 'text-muted-foreground' : undefined}>
-            {filters.amenities.length > 0 ? `${filters.amenities.length} Selected` : 'Any Amenities'}
-          </span>
-          <ChevronDown
-            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${amenitiesOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
+        <MultiSelectDropdown
+          options={amenities.map((amenity) => ({ key: amenity.slug, value: amenity.label, label: amenity.label }))}
+          selected={filters.amenities}
+          onToggle={(value) => set('amenities', toggleInList(filters.amenities, value))}
+          placeholder="Any Amenities"
+          emptyMessage="Pick a category above to see its amenities."
+        />
+      </Section>
 
-        {amenities.length === 0 ? (
-          <p className="mt-2 text-xs text-muted-foreground">Pick a category above to see its amenities.</p>
-        ) : (
-          amenitiesOpen && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-64 overflow-y-auto rounded-md border border-border bg-background p-1 shadow-lg">
-              {amenities.map((amenity) => {
-                const active = filters.amenities.includes(amenity.label);
-                return (
-                  <label
-                    key={amenity.slug}
-                    className={`flex cursor-pointer items-center gap-2 rounded-sm px-2.5 py-2 text-sm transition-colors ${active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-                      }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() => set('amenities', toggleInList(filters.amenities, amenity.label))}
-                      className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                    />
-                    {amenity.label}
-                  </label>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setAmenitiesOpen(false)}
-                className="mt-1 w-full rounded-sm bg-primary py-1.5 text-sm font-medium text-primary-foreground">
-                Done
-              </button>
-            </div>
-          )
-        )}
-      </div>
-
+      {/* Actions */}
       <div className="flex gap-2 border-t border-slate-100 pt-4">
         <button
           type="button"

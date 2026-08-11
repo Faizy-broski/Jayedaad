@@ -95,39 +95,47 @@ export function FeaturedProperties({ properties, children }: FeaturedPropertiesP
           </div>
         </div>
 
-        {/* Embla viewport — overflow-hidden is required by Embla itself, not
-            just styling, so the track can translate beyond view without the
-            page scrolling horizontally. */}
-        <div className="mt-8 overflow-hidden" ref={emblaRef}>
-          <div className="-ml-5 flex">
-            {properties.map((property, index) => (
-              <div
-                key={property.id}
-                className="min-w-0 shrink-0 grow-0 basis-[85%] pl-5 py-4 xs:basis-[70%] sm:basis-1/2 lg:basis-1/4"
-              >
-                <Reveal delay={(index % 4) * 0.08}>
-                  <PropertyCard property={property} />
-                </Reveal>
+        {properties.length === 0 ? (
+          <p className="mt-8 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+            No featured properties available right now.
+          </p>
+        ) : (
+          <>
+            {/* Embla viewport — overflow-hidden is required by Embla itself, not
+                just styling, so the track can translate beyond view without the
+                page scrolling horizontally. */}
+            <div className="mt-8 overflow-hidden" ref={emblaRef}>
+              <div className="-ml-5 flex">
+                {properties.map((property, index) => (
+                  <div
+                    key={property.id}
+                    className="min-w-0 shrink-0 grow-0 basis-[85%] pl-5 py-4 xs:basis-[70%] sm:basis-1/2 lg:basis-1/4"
+                  >
+                    <Reveal delay={(index % 4) * 0.08}>
+                      <PropertyCard property={property} />
+                    </Reveal>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Dot indicators — mobile only, since desktop already shows the full
-            row via the 1/4-basis slides and doesn't need a position cue. */}
-        <div className="mt-6 flex items-center justify-center gap-1.5 sm:hidden">
-          {scrollSnaps.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              aria-label={`Go to slide ${index + 1}`}
-              onClick={() => scrollTo(index)}
-              className={`h-1.5 rounded-full transition-all ${
-                index === selectedIndex ? 'w-5 bg-primary' : 'w-1.5 bg-slate-200'
-              }`}
-            />
-          ))}
-        </div>
+            {/* Dot indicators — mobile only, since desktop already shows the full
+                row via the 1/4-basis slides and doesn't need a position cue. */}
+            <div className="mt-6 flex items-center justify-center gap-1.5 sm:hidden">
+              {scrollSnaps.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  aria-label={`Go to slide ${index + 1}`}
+                  onClick={() => scrollTo(index)}
+                  className={`h-1.5 rounded-full transition-all ${
+                    index === selectedIndex ? 'w-5 bg-primary' : 'w-1.5 bg-slate-200'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Same "Show all listings" CTA as the desktop header row, just
             shown here instead since that row is hidden below sm. */}
@@ -139,8 +147,9 @@ export function FeaturedProperties({ properties, children }: FeaturedPropertiesP
             Show all listings
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
-            {children}
         </div>
+
+        {children}
       </div>
     </section>
   );

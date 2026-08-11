@@ -19,13 +19,19 @@ export function FeaturedLocations({ cities, embedded = false }: FeaturedLocation
         </h2>
       </Reveal>
 
-      <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-         {cities.map((city, index) => (
-          <Reveal key={city.id} delay={(index % 3) * 0.08}>
-            <CityCard city={city} />
-          </Reveal>
-        ))}
-      </div>
+      {cities.length === 0 ? (
+        <p className="mt-10 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+          No locations available right now.
+        </p>
+      ) : (
+        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {cities.map((city, index) => (
+            <Reveal key={city.id} delay={(index % 3) * 0.08}>
+              <CityCard city={city} />
+            </Reveal>
+          ))}
+        </div>
+      )}
     </>
   );
 
