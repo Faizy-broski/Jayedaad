@@ -1,12 +1,11 @@
 'use client';
 
 import { FormEvent, Suspense, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Eye, EyeOff, Home } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuthViewModel } from '@jayedaad/core';
 import { Button, Input, Label } from '@jayedaad/ui-web';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 // Same split-screen, no-scroll shell as /login and /signup (see those files
 // for the centering rationale) — AppChrome omits Header/Footer on this
@@ -56,50 +55,27 @@ function ResetPasswordForm() {
   const errorMessage = (confirmPasswordReset.error as any)?.response?.data?.message;
 
   return (
-    <main className="relative grid h-screen overflow-hidden lg:grid-cols-2">
-      <Link
-        href="/"
-        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-white"
-      >
-        <Home className="h-4 w-4" />
-        Home
-      </Link>
-
-      <div className="relative hidden overflow-hidden lg:block">
-        <Image
-          src="/images/login-bg.png"
-          alt="A curated Jayedaad home overlooking the coast"
-          fill
-          priority
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-
-        <div className="absolute left-8 top-8 flex items-center gap-2 text-white">
-          <span className="text-xl font-bold tracking-wide">JAYEDAAD</span>
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 space-y-4 p-10">
-          <span className="eyebrow-label text-white/70">Account recovery</span>
-          <h1 className="heading-display leading-[1.1] text-white">
-            Almost there.
-            <br />
-            Choose a new password.
-          </h1>
-        </div>
+    <AuthShell
+      heroEyebrow="Account recovery"
+      heroTitle={
+        <>
+          Almost there.
+          <br />
+          Choose a new password.
+        </>
+      }
+      rightPadding="py-6"
+      rightGap="space-y-5"
+    >
+      <div className="space-y-1">
+        <span className="eyebrow-label text-muted-foreground">Reset password</span>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Reset your password.</h2>
+        <p className="body-text-sm text-muted-foreground">
+          Enter the code we emailed you and choose a new password.
+        </p>
       </div>
 
-      <div className="flex justify-center overflow-y-auto px-6 py-6 sm:px-12">
-        <div className="my-auto w-full max-w-sm space-y-5">
-          <div className="space-y-1">
-            <span className="eyebrow-label text-muted-foreground">Reset password</span>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Reset your password.</h2>
-            <p className="body-text-sm text-muted-foreground">
-              Enter the code we emailed you and choose a new password.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email" className="eyebrow-label text-muted-foreground">
                 Email address
@@ -209,8 +185,6 @@ function ResetPasswordForm() {
               {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend code'}
             </button>
           </form>
-        </div>
-      </div>
-    </main>
+    </AuthShell>
   );
 }
