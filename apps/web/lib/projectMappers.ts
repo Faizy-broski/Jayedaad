@@ -36,6 +36,7 @@ export function projectToDisplayProject(project: Project, developer: Developer):
       phone: developer.phone ?? '',
       whatsapp: developer.whatsapp ?? developer.phone ?? '',
       city: developer.city ?? project.city,
+      email: developer.email,
     },
     description: project.description ?? '',
     city: project.city,

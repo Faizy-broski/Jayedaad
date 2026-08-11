@@ -7,7 +7,8 @@ export type NotificationType =
   | 'inquiry_reply'
   | 'verification_status'
   | 'lead_assigned'
-  | 'reminder';
+  | 'reminder'
+  | 'support_ticket';
 
 // In-app notification feed [Spec §2]. No public POST endpoint — notifications
 // are created by other backend processes (verification actions, lead

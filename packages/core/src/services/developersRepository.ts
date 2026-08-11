@@ -27,6 +27,7 @@ function mapDeveloperRow(row: any): Developer {
     phone: row.phone,
     whatsapp: row.whatsapp,
     city: row.city,
+    email: row.email,
   };
 }
 

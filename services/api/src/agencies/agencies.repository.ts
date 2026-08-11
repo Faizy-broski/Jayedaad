@@ -428,12 +428,37 @@ export class AgenciesRepository {
   async addDocument(agencyId: string, documentType: OnboardingDocumentType, file: Express.Multer.File) {
     const path = await this.documents.upload(`agencies/${agencyId}`, file);
 
+    // "Replace" superseding an existing document of this type: find prior
+    // rows for the same (agency_id, document_type) before inserting, so we
+    // can drop them afterward — without this, listDocuments keeps returning
+    // every historical upload and the newest one isn't guaranteed to be
+    // resolvable as "the" document for that type.
+    const { data: staleRows, error: staleError } = await this.supabase.client
+      .from('onboarding_documents')
+      .select('id, file_path')
+      .eq('agency_id', agencyId)
+      .eq('document_type', documentType);
+    if (staleError) throw staleError;
+
     const { data, error } = await this.supabase.client
       .from('onboarding_documents')
       .insert({ agency_id: agencyId, document_type: documentType, file_path: path })
       .select('id, document_type, file_path, uploaded_at')
       .single();
     if (error) throw error;
+
+    if (staleRows?.length) {
+      const { error: deleteError } = await this.supabase.client
+        .from('onboarding_documents')
+        .delete()
+        .in('id', staleRows.map((row) => row.id));
+      if (deleteError) throw deleteError;
+
+      // Storage cleanup is best-effort — the DB rows above are the source
+      // of truth for what's "the" document, so a failed object removal here
+      // just leaves an orphaned file rather than corrupting any state.
+      await Promise.all(staleRows.map((row) => this.documents.remove(row.file_path).catch(() => undefined)));
+    }
 
     return {
       id: data.id,
@@ -532,6 +557,7 @@ export class AgenciesRepository {
         name: input.agencyName,
         slug: input.agencySlug,
         phone: input.agencyPhone,
+        email: input.agencyEmail,
         city: input.agencyCity,
         verification_status: 'pending',
         sales_associate_count: input.salesAssociateCount,

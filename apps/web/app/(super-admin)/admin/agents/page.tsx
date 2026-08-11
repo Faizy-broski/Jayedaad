@@ -1,17 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
+  agentsRepository,
   AgentCreditType,
   AgentOverview,
-  agentsRepository,
-  OnboardingDocument,
+  CreateUserInput,
   OnboardingDocumentType,
+  PAKISTAN_CITIES,
+  UpdateAgentProfileInput,
   useAdminAgentsViewModel,
   useAdminStatsViewModel,
+  useAgencyManagementViewModel,
+  useUserManagementViewModel,
 } from '@jayedaad/core';
 import { Badge, Button, cn, Input, Label, Modal, Pagination, Select, Table, TableColumn } from '@jayedaad/ui-web';
 import {
@@ -19,29 +23,21 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
-  Download,
   FileCheck2,
+  Pencil,
+  PlusCircle,
   Search,
   ShieldCheck,
   ShieldX,
-  UploadCloud,
   User,
   Users,
   XCircle,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+import { AgentDocumentsSection } from '@/components/agents/AgentDocumentsSection';
 
 const CREDIT_TYPES: AgentCreditType[] = ['listing_quota', 'refresh', 'hot', 'super_hot'];
-
-// Same set required for an independent agent's own onboarding (agents.repository.ts's
-// getDocumentCompleteness), an agency-affiliated agent is covered by the
-// agency's own documents instead — see AgentsPage's "Documents" button,
-// only shown for agents with no agency.
-const DOCUMENT_TYPES: { type: OnboardingDocumentType; label: string }[] = [
-  { type: 'owner_id_card', label: "Owner's ID Card" },
-  { type: 'company_registration', label: 'Company Registration' },
-  { type: 'tax_certificate', label: 'Tax Certificate (optional)' },
-];
+const EMPTY_NEW_AGENT_FORM: CreateUserInput = { email: '', password: '', role: 'agent', displayName: '' };
 
 type AgentTab = 'all' | 'pending' | 'verified' | 'rejected';
 
@@ -72,7 +68,7 @@ export default function AgentsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const { agents, total, isLoading, grantCredits, setVerificationStatus } = useAdminAgentsViewModel({
+  const { agents, total, isLoading, grantCredits, setVerificationStatus, updateProfile } = useAdminAgentsViewModel({
     // A row added through an agency admin's "Agency Staff" screen needs no
     // individual identity verification of its own — same reasoning as it
     // being exempt from the document-completeness gate (see
@@ -89,10 +85,23 @@ export default function AgentsPage() {
     pageSize: PAGE_SIZE,
   });
   const { stats, isLoading: isStatsLoading } = useAdminStatsViewModel();
+  const queryClient = useQueryClient();
   const [creditsModalAgent, setCreditsModalAgent] = useState<AgentOverview | null>(null);
   const [docsModalAgent, setDocsModalAgent] = useState<AgentOverview | null>(null);
+  const [editingAgent, setEditingAgent] = useState<AgentOverview | null>(null);
+  const [editForm, setEditForm] = useState<UpdateAgentProfileInput>({});
   const [creditType, setCreditType] = useState<AgentCreditType>('listing_quota');
   const [creditTotal, setCreditTotal] = useState('');
+
+  // New Agent — reuses the exact same account-creation path as
+  // admin/users/page.tsx's "New User" modal (role locked to 'agent' here,
+  // no role selector), so this is a shortcut into that same flow, not a
+  // second implementation of it.
+  const { create: createUser } = useUserManagementViewModel();
+  const { agencies } = useAgencyManagementViewModel({ pageSize: 100 });
+  const [newAgentModalOpen, setNewAgentModalOpen] = useState(false);
+  const [newAgentForm, setNewAgentForm] = useState<CreateUserInput>(EMPTY_NEW_AGENT_FORM);
+  const [newAgentPendingDocs, setNewAgentPendingDocs] = useState<Partial<Record<OnboardingDocumentType, File>>>({});
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const counts = {
@@ -143,6 +152,52 @@ export default function AgentsPage() {
         onError: () => toast.error('Something went wrong — please try again.'),
       },
     );
+  }
+
+  function openEdit(agent: AgentOverview) {
+    setEditingAgent(agent);
+    setEditForm({ displayName: agent.displayName ?? '', phone: agent.phone ?? '', city: agent.city ?? '' });
+  }
+
+  function handleSaveEdit() {
+    if (!editingAgent) return;
+    updateProfile.mutate(
+      { agentId: editingAgent.id, input: editForm },
+      {
+        onSuccess: () => {
+          toast.success('Agent updated.');
+          setEditingAgent(null);
+        },
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
+  }
+
+  function openNewAgent() {
+    setNewAgentForm(EMPTY_NEW_AGENT_FORM);
+    setNewAgentPendingDocs({});
+    setNewAgentModalOpen(true);
+  }
+
+  async function handleCreateAgent() {
+    try {
+      const created = await createUser.mutateAsync(newAgentForm);
+      if (created.agentId) {
+        const uploads = Object.entries(newAgentPendingDocs) as [OnboardingDocumentType, File][];
+        for (const [documentType, file] of uploads) {
+          await agentsRepository.uploadDocument(created.agentId, documentType, file);
+        }
+      }
+      // useUserManagementViewModel's own mutation only invalidates
+      // ['admin','users'] — this page's roster is a separate query
+      // (['admin','agents-overview', ...] via useAdminAgentsViewModel), so
+      // without this the new agent wouldn't show up here until a manual refresh.
+      queryClient.invalidateQueries({ queryKey: ['admin', 'agents-overview'] });
+      toast.success('Agent created.');
+      setNewAgentModalOpen(false);
+    } catch {
+      toast.error('Something went wrong — please try again.');
+    }
   }
 
   const columns: TableColumn<AgentOverview>[] = [
@@ -199,6 +254,10 @@ export default function AgentsPage() {
               Reject
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => openEdit(agent)}>
+            <Pencil className="mr-1 h-3.5 w-3.5" />
+            Edit
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setCreditsModalAgent(agent)}>
             <CreditCard className="mr-1 h-3.5 w-3.5" />
             Credits
@@ -232,6 +291,14 @@ export default function AgentsPage() {
               <span className="font-semibold text-foreground">{counts.pending}</span> pending.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={openNewAgent}
+            className="bg-heading-gradient flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            <PlusCircle className="h-4 w-4" />
+            New Agent
+          </button>
         </div>
       </Reveal>
 
@@ -332,109 +399,110 @@ export default function AgentsPage() {
           directly, per services/api's own @Roles('agent', 'super_admin')
           allowance on POST /agents/:id/documents. */}
       <Modal open={!!docsModalAgent} onClose={() => setDocsModalAgent(null)} title={`Documents — ${docsModalAgent?.displayName ?? ''}`}>
-        {docsModalAgent && <AgentDocumentsSection agentId={docsModalAgent.id} />}
+        {docsModalAgent && (
+          <AgentDocumentsSection agentId={docsModalAgent.id} pendingDocs={{}} onPendingFileChange={() => {}} bordered={false} />
+        )}
       </Modal>
-    </div>
-  );
-}
 
-function AgentDocumentsSection({ agentId }: { agentId: string }) {
-  const queryClient = useQueryClient();
-  const queryKey = ['admin', 'agents', agentId, 'documents'];
+      {/* Previously the only way to fix a wrong/missing phone or city on an
+          existing agent was to delete and recreate them — PATCH /agents/:id
+          already accepted these fields from a super_admin (via
+          assertOwnAgentOrAdmin's super_admin bypass), just with no console
+          entry point to reach it. */}
+      <Modal open={!!editingAgent} onClose={() => setEditingAgent(null)} title={`Edit — ${editingAgent?.displayName ?? ''}`}>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input value={editForm.displayName ?? ''} onChange={(e) => setEditForm((prev) => ({ ...prev, displayName: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Phone</Label>
+            <Input value={editForm.phone ?? ''} onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>City</Label>
+            <Select value={editForm.city ?? ''} onChange={(e) => setEditForm((prev) => ({ ...prev, city: e.target.value }))}>
+              <option value="">Select city</option>
+              {PAKISTAN_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button onClick={handleSaveEdit} disabled={updateProfile.isPending} className="w-full">
+            {updateProfile.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </Modal>
 
-  const { data: documents, isLoading } = useQuery({
-    queryKey,
-    queryFn: () => agentsRepository.listDocuments(agentId),
-  });
-
-  // `url` is a signed URL good for 1 hour (agents.repository.ts::
-  // listDocuments re-signs it fresh on every call) — keyed by documentType
-  // here so a re-uploaded doc's row always links to the latest file, not a
-  // stale one from an earlier fetch.
-  const docByType = new Map((documents ?? []).map((d) => [d.documentType, d]));
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">Owner ID Card and Company Registration are required before this agent can be verified.</p>
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (
-        DOCUMENT_TYPES.map((doc) => (
-          <AgentDocumentRow
-            key={doc.type}
-            agentId={agentId}
-            documentType={doc.type}
-            label={doc.label}
-            document={docByType.get(doc.type)}
-            onUploaded={() => queryClient.invalidateQueries({ queryKey })}
+      {/* Shortcut into the same account-creation path as admin/users/page.tsx's
+          "New User" modal — role locked to 'agent', same phone/city/agency/
+          documents fields, so this page has its own entry point instead of
+          only being reachable via Users. */}
+      <Modal open={newAgentModalOpen} onClose={() => setNewAgentModalOpen(false)} title="New Agent">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input value={newAgentForm.email} onChange={(e) => setNewAgentForm((prev) => ({ ...prev, email: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Password</Label>
+            <Input
+              type="password"
+              value={newAgentForm.password}
+              onChange={(e) => setNewAgentForm((prev) => ({ ...prev, password: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              value={newAgentForm.displayName ?? ''}
+              onChange={(e) => setNewAgentForm((prev) => ({ ...prev, displayName: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input value={newAgentForm.phone ?? ''} onChange={(e) => setNewAgentForm((prev) => ({ ...prev, phone: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Select value={newAgentForm.city ?? ''} onChange={(e) => setNewAgentForm((prev) => ({ ...prev, city: e.target.value }))}>
+                <option value="">Select city</option>
+                {PAKISTAN_CITIES.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Agency (optional)</Label>
+            <Select
+              value={newAgentForm.agencyId ?? ''}
+              onChange={(e) => setNewAgentForm((prev) => ({ ...prev, agencyId: e.target.value || undefined }))}
+            >
+              <option value="">No agency (independent)</option>
+              {agencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <AgentDocumentsSection
+            agentId={undefined}
+            pendingDocs={newAgentPendingDocs}
+            onPendingFileChange={(type, file) => setNewAgentPendingDocs((prev) => ({ ...prev, [type]: file }))}
+            bordered={false}
           />
-        ))
-      )}
-    </div>
-  );
-}
-
-function AgentDocumentRow({
-  agentId,
-  documentType,
-  label,
-  document,
-  onUploaded,
-}: {
-  agentId: string;
-  documentType: OnboardingDocumentType;
-  label: string;
-  document: OnboardingDocument | undefined;
-  onUploaded: () => void;
-}) {
-  const uploaded = !!document;
-  const [isUploading, setIsUploading] = useState(false);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      await agentsRepository.uploadDocument(agentId, documentType, file);
-      onUploaded();
-      toast.success(`${label} uploaded.`);
-    } catch {
-      toast.error('Upload failed — please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-1.5 text-sm">
-        {label}
-        {uploaded && (
-          <span className="flex items-center gap-1 text-primary">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Uploaded
-          </span>
-        )}
-      </span>
-      <div className="flex shrink-0 items-center gap-2">
-        {document && (
-          <a
-            href={document.url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary"
-          >
-            <Download className="h-3.5 w-3.5" />
-            View
-          </a>
-        )}
-        <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-          <UploadCloud className="h-3.5 w-3.5" />
-          {isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}
-          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleUpload} />
-        </label>
-      </div>
+          <Button onClick={handleCreateAgent} disabled={createUser.isPending} className="w-full">
+            {createUser.isPending ? 'Creating…' : 'Create'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

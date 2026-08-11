@@ -4,18 +4,17 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { ArrowRight, MapPin } from 'lucide-react';
 import { useAgencyCitiesViewModel } from '@jayedaad/core';
-import { SAMPLE_AGENCY_CITIES } from '@/data/sampleAgencies';
 
 const VISIBLE_COUNT = 4;
 
 // Backed by GET /agencies/cities (AgenciesRepository.listCitiesWithCounts) —
-// real per-city agency counts. Falls back to SAMPLE_AGENCY_CITIES whenever
-// the real API has no cities yet (or errors) — see data/sampleAgencies.ts.
+// real per-city agency counts. Renders nothing once the real API confirms
+// there are no cities yet — no sample-data substitution.
 export function BrowseAgenciesByCitySection() {
-  const { cities: realCities, isLoading } = useAgencyCitiesViewModel();
+  const { cities, isLoading } = useAgencyCitiesViewModel();
   const [expanded, setExpanded] = useState(false);
 
-  const cities = !isLoading && realCities.length === 0 ? SAMPLE_AGENCY_CITIES : realCities;
+  if (!isLoading && cities.length === 0) return null;
   const visible = expanded ? cities : cities.slice(0, VISIBLE_COUNT);
 
   return (

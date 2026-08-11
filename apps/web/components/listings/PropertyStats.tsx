@@ -1,4 +1,4 @@
-import { Bed, Bath, Ruler, Car, Building2, Calendar, Tag, KeyRound } from 'lucide-react';
+import { Bed, Bath, Ruler, Car, Building2, Calendar, Tag, KeyRound, Wallet } from 'lucide-react';
 import type { ListingProperty } from '@/lib/types';
 
 interface PropertyStatsProps {
@@ -6,6 +6,12 @@ interface PropertyStatsProps {
 }
 
 export function PropertyStats({ listing }: PropertyStatsProps) {
+  // Real, computed directly from this listing — previously lived in the
+  // since-removed "Investment analysis" section alongside three fake
+  // market-estimate stats (Rental Yield/ROI/Area Growth); relocated here
+  // next to the rest of the page's real per-listing facts.
+  const pricePerSqft = Math.round(listing.priceValue / listing.areaSqft);
+
   const rows = [
     [
       { icon: Bed, label: 'Beds', value: listing.beds },
@@ -19,6 +25,7 @@ export function PropertyStats({ listing }: PropertyStatsProps) {
       { icon: Tag, label: 'Purpose', value: listing.listingType === 'sale' ? 'For Sale' : 'For Rent' },
       { icon: KeyRound, label: 'Ownership', value: listing.ownership },
     ],
+    [{ icon: Wallet, label: 'Price / Sq Ft', value: `PKR ${pricePerSqft.toLocaleString('en-PK')}` }],
   ];
 
   return (

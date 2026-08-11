@@ -29,6 +29,7 @@ import { ContactModule } from './contact/contact.module';
 import { BlogModule } from './blog/blog.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { TasksModule } from './tasks/tasks.module';
+import { SupportModule } from './support/support.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { TasksModule } from './tasks/tasks.module';
     BlogModule,
     RemindersModule,
     TasksModule,
+    SupportModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

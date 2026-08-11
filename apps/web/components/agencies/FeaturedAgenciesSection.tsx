@@ -4,20 +4,17 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { useAgenciesViewModel } from '@jayedaad/core';
 import { AgencyCard } from './AgencyCard';
-import { SAMPLE_AGENCIES } from '@/data/sampleAgencies';
-
-const SAMPLE_FEATURED = SAMPLE_AGENCIES.filter((a) => a.tier === 'featured');
 
 // Second placement tier — a fixed 2x4 grid (8 agencies), same convention as
 // the reference design. The arrow links out to the full Featured-only grid
-// once there's more than a page's worth to browse. Falls back to
-// SAMPLE_FEATURED whenever the real API has no Featured agencies yet (or
-// errors) — see data/sampleAgencies.ts.
+// once there's more than a page's worth to browse. Renders nothing once the
+// real API confirms there are no Featured agencies yet — no sample-data
+// substitution.
 export function FeaturedAgenciesSection() {
   const { agencies, total, isLoading } = useAgenciesViewModel({ tier: 'featured', pageSize: 8 });
 
-  const usingSample = !isLoading && agencies.length === 0;
-  const items = usingSample ? SAMPLE_FEATURED : agencies;
+  if (!isLoading && agencies.length === 0) return null;
+  const items = agencies;
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-8">
@@ -34,7 +31,7 @@ export function FeaturedAgenciesSection() {
             : items.map((agency) => <AgencyCard key={agency.id} agency={agency} />)}
         </div>
 
-        {!usingSample && total > agencies.length && (
+        {total > agencies.length && (
           <Link
             href="/agents?tier=featured"
             aria-label="View all featured agencies"

@@ -132,7 +132,7 @@ const PUBLIC_LISTING_COLUMNS = `
   listing_amenities (value, text_value, amenities (slug, label, category, value_type, value_unit, options)),
   listing_contact_numbers (type, country_code, number),
   agent_profiles (
-    id, display_name, photo_url,
+    id, user_id, display_name, photo_url,
     agencies (name, slug, logo_url),
     subscriptions (status, subscription_tiers (name))
   )
@@ -581,7 +581,20 @@ export class ListingsRepository {
       .eq('status', 'verified')
       .single();
     if (error) throw error;
-    return mapPublicListingRow(data);
+
+    const mapped = mapPublicListingRow(data);
+    // Real agent email, resolved only here (single-listing detail), not in
+    // findPublic()/search results — an admin API call per row across a
+    // whole search response would be a real N+1. Unlike developers (a plain
+    // admin-managed catalog with no login), an agent is always a real auth
+    // account, so this is always a genuine email, never a fake/generic one
+    // — AgentCard.tsx's Email quick-action can show it unconditionally.
+    const userId = (data as any)?.agent_profiles?.user_id;
+    if (mapped.agent && userId) {
+      const { data: userData } = await this.supabase.client.auth.admin.getUserById(userId);
+      return { ...mapped, agent: { ...mapped.agent, email: userData?.user?.email ?? null } };
+    }
+    return { ...mapped, agent: mapped.agent ? { ...mapped.agent, email: null } : null };
   }
 
   // "Similar properties" section seen on real Zameen detail pages — computed
@@ -936,12 +949,35 @@ export class ListingsRepository {
   async addDocument(listingId: string, documentType: ListingDocumentType, file: Express.Multer.File) {
     const path = await this.documents.upload(`listings/${listingId}`, file);
 
+    // "Replace" superseding an existing document of this type: find prior
+    // rows for the same (listing_id, document_type) before inserting, so we
+    // can drop them afterward — mirrors agencies.repository.ts::addDocument.
+    const { data: staleRows, error: staleError } = await this.supabase.client
+      .from('listing_documents')
+      .select('id, file_path')
+      .eq('listing_id', listingId)
+      .eq('document_type', documentType);
+    if (staleError) throw staleError;
+
     const { data, error } = await this.supabase.client
       .from('listing_documents')
       .insert({ listing_id: listingId, document_type: documentType, file_path: path })
       .select('id, document_type, file_path, uploaded_at')
       .single();
     if (error) throw error;
+
+    if (staleRows?.length) {
+      const { error: deleteError } = await this.supabase.client
+        .from('listing_documents')
+        .delete()
+        .in('id', staleRows.map((row) => row.id));
+      if (deleteError) throw deleteError;
+
+      // Storage cleanup is best-effort — the DB rows above are the source
+      // of truth for what's "the" document, so a failed object removal here
+      // just leaves an orphaned file rather than corrupting any state.
+      await Promise.all(staleRows.map((row) => this.documents.remove(row.file_path).catch(() => undefined)));
+    }
 
     return {
       id: data.id,

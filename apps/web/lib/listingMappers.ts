@@ -30,6 +30,7 @@ export function listingToListingProperty(listing: Listing): ListingProperty {
 
   return {
     ...listingToProperty(listing),
+    listingNumber: listing.listingNumber,
     // Real Super Admin-managed taxonomy — same property_types/
     // property_type_categories data the agent submit form's category ->
     // property type picker uses (apps/web/app/(agent)/submit/page.tsx),
@@ -55,6 +56,7 @@ export function listingToListingProperty(listing: Listing): ListingProperty {
       avatar: listing.agent?.photoUrl ?? '/images/agents/ahmed-raza.jpg',
       phone: contact ? `${contact.countryCode}${contact.number}` : '',
       subscriptionTierName: listing.agent?.subscriptionTierName ?? null,
+      email: listing.agent?.email ?? null,
     },
   };
 }

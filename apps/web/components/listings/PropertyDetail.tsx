@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { MapPin, Eye, Tag, Clock, BadgeCheck, CalendarCheck, Heart, ChevronRight } from 'lucide-react';
+import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { TestimonialCard } from '@/components/landing/testimonials/TestimonialCards';
 import { PropertyGallery } from './PropertyGallery';
@@ -12,7 +12,6 @@ import { PropertyStats } from './PropertyStats';
 import { PropertyAmenities } from './PropertyAmenities';
 import { PropertyLocation } from './PropertyLocation';
 import { MortgageCalculator } from './MortgageCalculator';
-import { InvestmentAnalysis } from './InvestmentAnalysis';
 import { SimilarProperties } from './SimilarProperties';
 import { TESTIMONIALS } from '@/data/testimonials';
 import type { ListingProperty } from '@/lib/types';
@@ -49,7 +48,11 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
 
   const city = listing.location.split(',').pop()?.trim() ?? listing.location;
   const views = hashToRange(listing.id, 800, 3200);
-  const referenceId = `JYD-${hashToRange(listing.id, 100, 999)}`;
+  // Real listings.listing_number (see lib/listingMappers.ts) — falls back to
+  // the old per-render hash only for the unused legacy sample fixtures in
+  // data/listings.ts, which carry no listingNumber.
+  const referenceNumber = listing.listingNumber ?? hashToRange(listing.id, 100, 999);
+  const referenceId = `JYD-${String(referenceNumber).padStart(5, '0')}`;
   const gallery = images && images.length > 0 ? images : PLACEHOLDER_GALLERY;
 
   return (
@@ -75,7 +78,7 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
 
       <PropertyGallery images={gallery} title={listing.title} />
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-10">
           <Reveal>
             <div className="flex flex-wrap items-center gap-2">
@@ -116,13 +119,6 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <span className="text-2xl font-bold text-primary">{listing.price}</span>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                <CalendarCheck className="h-4 w-4" />
-                Schedule visit
-              </button>
               <button
                 type="button"
                 onClick={() => setSaved((v) => !v)}
@@ -173,21 +169,14 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
             </div>
           </Reveal> */}
 
-          <Reveal delay={0.1}>
-            <h2 className="heading-2 text-heading-gradient">Investment analysis</h2>
-            <div className="mt-4">
-              <InvestmentAnalysis listing={listing} />
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.1}>
+          {/* <Reveal delay={0.1}>
             <h2 className="heading-2 text-heading-gradient">Verified reviews</h2>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {TESTIMONIALS.slice(0, 2).map((testimonial) => (
                 <TestimonialCard key={testimonial.id} testimonial={testimonial} />
               ))}
             </div>
-          </Reveal>
+          </Reveal> */}
         </div>
 
         <motion.div
@@ -196,7 +185,12 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
           transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
           className="lg:sticky lg:top-24 lg:h-fit"
         >
-          <AgentCard agent={listing.agent} />
+          <AgentCard
+            agent={listing.agent}
+            listingId={listing.id}
+            listingTitle={listing.title}
+            referenceLabel={String(referenceNumber).padStart(5, '0')}
+          />
         </motion.div>
       </div>
 

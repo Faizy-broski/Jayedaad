@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreateSavedSearchInput, savedSearchesRepository } from '../services/savedSearchesRepository';
+import { AlertFrequency } from '../models';
 import { useAuthViewModel } from './useAuthViewModel';
 
 // Drives the "Favorites & Saved" screen's Saved Searches tab — self-scoped,
@@ -26,10 +27,17 @@ export function useSavedSearchesViewModel() {
     onSuccess: invalidate,
   });
 
+  const updateAlertFrequency = useMutation({
+    mutationFn: ({ id, alertFrequency }: { id: string; alertFrequency: AlertFrequency }) =>
+      savedSearchesRepository.updateAlertFrequency(id, alertFrequency),
+    onSuccess: invalidate,
+  });
+
   return {
     savedSearches: savedSearchesQuery.data ?? [],
     isLoading: savedSearchesQuery.isLoading,
     create,
     remove,
+    updateAlertFrequency,
   };
 }

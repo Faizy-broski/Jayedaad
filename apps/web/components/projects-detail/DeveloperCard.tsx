@@ -1,12 +1,28 @@
+'use client';
+
 import Image from 'next/image';
-import { BadgeCheck, CalendarCheck, PhoneCall, MessageCircle, Mail } from 'lucide-react';
+import { BadgeCheck, Mail, PhoneCall } from 'lucide-react';
+import { EnquiryDialog } from '@/components/shared/EnquiryDialog';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import type { DisplayProject } from '@/lib/types';
 
 interface DeveloperCardProps {
   developer: DisplayProject['developer'];
+  projectId: string;
+  projectTitle: string;
+  /** Lets ProjectDetail's top "Schedule site visit" button drive this same
+   *  always-visible form (switches it to the visit template) instead of
+   *  duplicating a second form near the top of the page. Defaults to
+   *  'inquiry' when omitted. onIntentChange is accepted for API parity with
+   *  that controlled usage but isn't called from within this card anymore
+   *  — its own quick-action that used to reset back to 'inquiry' was
+   *  replaced by the real Email mailto: below (see the comment on the
+   *  quick-actions row). */
+  intent?: 'inquiry' | 'visit';
+  onIntentChange?: (intent: 'inquiry' | 'visit') => void;
 }
 
-export function DeveloperCard({ developer }: DeveloperCardProps) {
+export function DeveloperCard({ developer, projectId, projectTitle, intent = 'inquiry' }: DeveloperCardProps) {
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
@@ -26,17 +42,21 @@ export function DeveloperCard({ developer }: DeveloperCardProps) {
 
       <p className="text-xs leading-relaxed text-slate-500">{developer.description}</p>
 
+      <EnquiryDialog intent={intent} target={{ type: 'project', id: projectId, title: projectTitle }} />
+
+      {/* Quick links above the tracked form — Call/WhatsApp stay direct
+          tel:/wa.me. This row used to have a second "Send Enquiry" button
+          too, which just duplicated the form already visible right above —
+          replaced with a real mailto: (developers.email, see
+          0045_developer_email.sql). Always shown (not conditional on
+          having an email set) for a consistent layout with AgentCard.tsx —
+          a developer without one yet just gets a mailto: with no
+          pre-filled recipient rather than the button disappearing. WhatsApp
+          uses the real brand mark/green, not a generic message icon. */}
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          className="flex items-center justify-center gap-2 rounded-full bg-heading-gradient px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <CalendarCheck className="h-4 w-4" />
-          Book a site visit
-        </button>
         <a
           href={`tel:${developer.phone}`}
-          className="flex items-center justify-center gap-2 rounded-full bg-brand-dark px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="flex items-center justify-center gap-2 rounded-full bg-heading-gradient px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <PhoneCall className="h-4 w-4" />
           Call developer
@@ -46,17 +66,17 @@ export function DeveloperCard({ developer }: DeveloperCardProps) {
             href={`https://wa.me/${developer.whatsapp.replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#25D366] px-4 py-2.5 text-sm font-bold text-[#25D366] transition-colors hover:bg-[#25D366]/5"
           >
-            <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+            <WhatsAppIcon className="h-3.5 w-3.5 shrink-0" />
             WhatsApp
           </a>
           <a
-            href="mailto:hello@jayedaad.com"
-            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300"
+            href={`mailto:${developer.email ?? ''}`}
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-primary px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
           >
             <Mail className="h-3.5 w-3.5 shrink-0" />
-            Email
+            Send Email
           </a>
         </div>
       </div>

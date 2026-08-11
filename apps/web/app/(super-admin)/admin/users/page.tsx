@@ -3,8 +3,19 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AdminUser, CreateUserInput, Role, useAdminStatsViewModel, useUserManagementViewModel } from '@jayedaad/core';
+import {
+  AdminUser,
+  agentsRepository,
+  CreateUserInput,
+  OnboardingDocumentType,
+  PAKISTAN_CITIES,
+  Role,
+  useAdminStatsViewModel,
+  useAgencyManagementViewModel,
+  useUserManagementViewModel,
+} from '@jayedaad/core';
 import { Button, cn, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
+import { AgentDocumentsSection } from '@/components/agents/AgentDocumentsSection';
 import {
   Ban,
   Calendar,
@@ -70,8 +81,18 @@ export default function UsersPage() {
     pageSize: PAGE_SIZE,
   });
   const { stats } = useAdminStatsViewModel();
+  // Bounded, unpaginated-ish fetch (pageSize 100) to populate the New User
+  // modal's Agency dropdown — mirrors admin/plans/page.tsx's "Assign a
+  // plan" dropdown reasoning: this is a picker, not the paginated table, so
+  // it needs every agency at once, not one page's worth.
+  const { agencies } = useAgencyManagementViewModel({ pageSize: 100 });
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CreateUserInput>(EMPTY_FORM);
+  // Deferred-upload pattern (same as admin/agencies/page.tsx's New Agency
+  // modal): a brand-new agent has no id to upload documents against yet, so
+  // files picked while creating are held here and only actually uploaded
+  // once `create` resolves and a real agentId exists.
+  const [pendingDocs, setPendingDocs] = useState<Partial<Record<OnboardingDocumentType, File>>>({});
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const byRole = stats?.usersByRole ?? {};
@@ -94,15 +115,30 @@ export default function UsersPage() {
     setPage(1);
   }
 
-  function handleCreate() {
-    create.mutate(form, {
-      onSuccess: () => {
-        toast.success('User created.');
-        setModalOpen(false);
-        setForm(EMPTY_FORM);
-      },
-      onError: () => toast.error('Something went wrong — please try again.'),
-    });
+  function openCreate() {
+    setForm(EMPTY_FORM);
+    setPendingDocs({});
+    setModalOpen(true);
+  }
+
+  async function handleCreate() {
+    try {
+      const created = await create.mutateAsync(form);
+      // Only agent creations can have pendingDocs (the section only renders
+      // for role === 'agent'), and only once profiles.agent_id is actually
+      // backfilled (users.repository.ts::create()) does `created.agentId`
+      // come back non-null.
+      if (created.agentId) {
+        const uploads = Object.entries(pendingDocs) as [OnboardingDocumentType, File][];
+        for (const [documentType, file] of uploads) {
+          await agentsRepository.uploadDocument(created.agentId, documentType, file);
+        }
+      }
+      toast.success('User created.');
+      setModalOpen(false);
+    } catch {
+      toast.error('Something went wrong — please try again.');
+    }
   }
 
   function handleRoleChange(id: string, role: Role) {
@@ -148,7 +184,7 @@ export default function UsersPage() {
           </div>
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
+            onClick={openCreate}
             className="bg-heading-gradient flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
             <PlusCircle className="h-4 w-4" />
@@ -326,6 +362,50 @@ export default function UsersPage() {
               ))}
             </Select>
           </div>
+
+          {/* Agent-only — same fields the self-service become-an-agent flow
+              collects, available up front here too (previously this modal
+              left phone/city permanently null and required document upload
+              for every admin-created agent, unlike self-service). */}
+          {form.role === 'agent' && (
+            <div className="space-y-4 rounded-2xl border border-border bg-muted/30 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Phone</Label>
+                  <Input value={form.phone ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>City</Label>
+                  <Select value={form.city ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}>
+                    <option value="">Select city</option>
+                    {PAKISTAN_CITIES.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Agency (optional)</Label>
+                <Select value={form.agencyId ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, agencyId: e.target.value || undefined }))}>
+                  <option value="">No agency (independent)</option>
+                  {agencies.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <AgentDocumentsSection
+                agentId={undefined}
+                pendingDocs={pendingDocs}
+                onPendingFileChange={(type, file) => setPendingDocs((prev) => ({ ...prev, [type]: file }))}
+                bordered={false}
+              />
+            </div>
+          )}
+
           <Button onClick={handleCreate} disabled={create.isPending} className="w-full">
             {create.isPending ? 'Creating…' : 'Create'}
           </Button>

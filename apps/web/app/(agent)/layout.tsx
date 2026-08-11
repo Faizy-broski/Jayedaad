@@ -48,6 +48,7 @@ const NAV_ITEMS = [
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['owner', 'agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
   { href: '/plan', label: 'Plan', icon: CreditCard, roles: ['agent', 'super_admin'] },
+  { href: '/help', label: 'Help / Support', icon: HelpCircle, roles: ['agent', 'super_admin'] },
 ];
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
@@ -335,13 +336,13 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
-            <button
-              type="button"
+            <Link
+              href="/help"
               className="hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:block"
               aria-label="Help"
             >
               <HelpCircle className="h-5 w-5" />
-            </button>
+            </Link>
             <NotificationBell />
             <Link
               href="/property-management"

@@ -50,9 +50,24 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   // server-side per-request (agencies.controller.ts::assertCanManageStaff),
   // this is just the outer role gate.
   { prefix: '/agency-staff', roles: ['agent', 'super_admin'] },
+  // Buyer account area (Favorites & Saved Searches, notifications) — any
+  // authenticated role can favorite/save a search, not just buyers, so this
+  // stays as broad as /submit's role list above.
+  { prefix: '/account', roles: ['buyer', 'owner', 'agent', 'super_admin'] },
 ];
 
 export async function middleware(request: NextRequest) {
+  // Was a separate app/(account)/page.tsx doing a plain server-side
+  // redirect() with no JSX — under (account)/layout.tsx's 'use client'
+  // boundary, that combination made Vercel's build trace fail looking for a
+  // page_client-reference-manifest.js that never got generated for a
+  // manifest-less redirect-only page. Handling the redirect here instead
+  // avoids that file existing at all. Re-enters this same middleware on the
+  // redirected URL, so auth/role gating below still applies normally.
+  if (request.nextUrl.pathname === '/account') {
+    return NextResponse.redirect(new URL('/account/saved', request.url));
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const match = PROTECTED_ROUTES.find((route) => request.nextUrl.pathname.startsWith(route.prefix));
@@ -111,5 +126,6 @@ export const config = {
     '/become-an-agent/:path*',
     '/agent-verification/:path*',
     '/agency-staff/:path*',
+    '/account/:path*',
   ],
 };

@@ -30,9 +30,12 @@ export interface LeadListFilters {
 }
 
 // Mirrors services/api/src/leads/dto/create-lead.dto.ts — the public
-// "Contact Agent" intake, verified against a real Zameen.com form.
+// "Contact Agent" intake, verified against a real Zameen.com form. Exactly
+// one of listingId/projectId — the API 400s otherwise (see
+// LeadsRepository.create()'s XOR check).
 export interface CreateLeadInput {
-  listingId: string;
+  listingId?: string;
+  projectId?: string;
   name: string;
   phone: string;
   email: string;
@@ -74,6 +77,7 @@ function mapLeadRow(row: any): Lead {
   return {
     id: row.id,
     listingId: row.listing_id,
+    projectId: row.project_id,
     agentId: row.agent_id,
     name: row.name,
     phone: row.phone,

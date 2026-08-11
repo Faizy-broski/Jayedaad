@@ -1,34 +1,16 @@
 import { PropertyMap } from './PropertyMap';
 import type { ListingProperty } from '@/lib/types';
 
-// Generic proximity estimates — a real backend would compute these from the
-// listing's actual coordinates against a places API.
-const NEARBY = [
-  { label: 'Schools', time: '5 min' },
-  { label: 'Hospitals', time: '8 min' },
-  { label: 'Restaurants', time: '3 min' },
-  { label: 'Mosques', time: '2 min' },
-  { label: 'Parks', time: '6 min' },
-  { label: 'Metro', time: '12 min' },
-];
-
 interface PropertyLocationProps {
   listing: ListingProperty;
 }
 
+// Previously also fetched real per-listing travel times from a Google
+// Places/Distance Matrix-backed endpoint (GET /listings/:id/nearby-places)
+// — removed to avoid the ongoing external API cost. "Similar properties"
+// (SimilarProperties.tsx, fed by ListingsRepository.findSimilar's same-city
+// + same-property-type DB query) covers the "what else is nearby" need
+// without any external API involved. Just the real map remains here.
 export function PropertyLocation({ listing }: PropertyLocationProps) {
-  return (
-    <div>
-      <PropertyMap properties={[listing]} />
-
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        {NEARBY.map(({ label, time }) => (
-          <div key={label} className="flex flex-col gap-1 rounded-2xl border border-slate-100 bg-white px-3 py-2.5">
-            <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
-            <span className="block text-sm font-semibold text-slate-900">{time}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <PropertyMap properties={[listing]} />;
 }

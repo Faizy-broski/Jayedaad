@@ -154,9 +154,21 @@ export class LeadsRepository {
   }
 
   // Public intake path (contact form / call request / chatbot capture)
-  // [Dev Instr §3.1]. agent_id resolves from the listing's current agent —
-  // NULL (unassigned) if the listing has none, until J.Team assigns it.
+  // [Dev Instr §3.1]. Exactly one of listingId/projectId — mirrors the DB's
+  // leads_listing_or_project_chk constraint (0044_leads_project_enquiries.sql),
+  // checked here first so a bad request fails with a clear 400 instead of a
+  // raw Postgres constraint error.
   async create(input: CreateLeadDto) {
+    if (!!input.listingId === !!input.projectId) {
+      throw new BadRequestException('Provide exactly one of listingId or projectId.');
+    }
+
+    return input.listingId ? this.createForListing(input) : this.createForProject(input);
+  }
+
+  // agent_id resolves from the listing's current agent — NULL (unassigned)
+  // if the listing has none, until J.Team assigns it.
+  private async createForListing(input: CreateLeadDto) {
     const { data: listing, error: listingError } = await this.supabase.client
       .from('listings')
       .select('agent_id, owner_id')
@@ -173,7 +185,7 @@ export class LeadsRepository {
     const { data: recentDuplicate, error: dedupError } = await this.supabase.client
       .from('leads')
       .select(LEAD_COLUMNS)
-      .eq('listing_id', input.listingId)
+      .eq('listing_id', input.listingId!)
       .eq('email', input.email)
       .gte('created_at', dedupWindowStart)
       .limit(1)
@@ -232,6 +244,78 @@ export class LeadsRepository {
         listingId: data.listing_id,
         notes: input.message,
         status: 'requested',
+      });
+    }
+
+    return data;
+  }
+
+  // A project has no listings.agent_id equivalent — routes to the project's
+  // creator if they're an agent (agent_profiles row with matching user_id),
+  // otherwise falls back to every Super Admin, same "unassigned" convention
+  // as createForListing. No appointment side effect for isVisitRequest —
+  // there's no per-project calendar/agent to book against the way a
+  // listing's agent has one; a project visit request is just a flagged lead.
+  private async createForProject(input: CreateLeadDto) {
+    const { data: project, error: projectError } = await this.supabase.client
+      .from('projects')
+      .select('created_by')
+      .eq('id', input.projectId)
+      .single();
+    if (projectError) throw projectError;
+
+    let agentId: string | null = null;
+    if (project?.created_by) {
+      const { data: agent, error: agentError } = await this.supabase.client
+        .from('agent_profiles')
+        .select('id')
+        .eq('user_id', project.created_by)
+        .maybeSingle();
+      if (agentError) throw agentError;
+      agentId = agent?.id ?? null;
+    }
+
+    const dedupWindowStart = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: recentDuplicate, error: dedupError } = await this.supabase.client
+      .from('leads')
+      .select(LEAD_COLUMNS)
+      .eq('project_id', input.projectId!)
+      .eq('email', input.email)
+      .gte('created_at', dedupWindowStart)
+      .limit(1)
+      .maybeSingle();
+    if (dedupError) throw dedupError;
+    if (recentDuplicate) return recentDuplicate;
+
+    const { data, error } = await this.supabase.client
+      .from('leads')
+      .insert({
+        project_id: input.projectId,
+        agent_id: agentId,
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        message: input.message,
+        inquirer_type: input.inquirerType,
+        wants_similar_alerts: input.wantsSimilarAlerts ?? false,
+        source: input.source,
+        status: 'new',
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    if (agentId) {
+      await this.notifyAgent(agentId, {
+        title: 'New lead',
+        body: `${input.name} enquired about a project you manage.`,
+        relatedLeadId: data.id,
+      });
+    } else {
+      await this.notifySuperAdmins({
+        title: 'New unassigned lead',
+        body: `${input.name} enquired about a project with no assigned agent.`,
+        relatedLeadId: data.id,
       });
     }
 

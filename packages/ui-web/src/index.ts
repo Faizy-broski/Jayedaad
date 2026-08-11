@@ -11,6 +11,7 @@ export * from './Tabs';
 export * from './Card';
 export * from './Table';
 export * from './Pagination';
+export * from './ConfirmDialog';
 export * from './Modal';
 export * from './Badge';
 export * from './Accordion';

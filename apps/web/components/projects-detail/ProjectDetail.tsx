@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { MapPin, Eye, Tag, Clock, BadgeCheck, CalendarCheck, Heart, ChevronRight } from 'lucide-react';
+import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { ProjectGallery } from './ProjectGallery';
 import { DeveloperCard } from './DeveloperCard';
@@ -68,9 +68,15 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
         <span className="text-slate-700">{project.name}</span>
       </motion.nav>
 
-      <ProjectGallery images={project.galleryImageUrls} title={project.name} />
+      <ProjectGallery
+        images={project.galleryImageUrls}
+        title={project.name}
+        floorPlanUrls={project.floorPlanUrls}
+        videoUrl={project.videoUrl}
+        brochureUrl={project.brochureUrl}
+      />
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-10">
           <Reveal>
             <div className="flex flex-wrap items-center gap-2">
@@ -115,13 +121,6 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
                   ? `${formatPrice(project.priceRange.min)} – ${formatPrice(project.priceRange.max)}`
                   : formatPrice(project.priceRange.min)}
               </span>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                <CalendarCheck className="h-4 w-4" />
-                Schedule site visit
-              </button>
               <button
                 type="button"
                 onClick={() => setSaved((v) => !v)}
@@ -179,7 +178,7 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
           transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
           className="lg:sticky lg:top-24 lg:h-fit"
         >
-          <DeveloperCard developer={project.developer} />
+          <DeveloperCard developer={project.developer} projectId={project.id} projectTitle={project.name} />
         </motion.div>
       </div>
 

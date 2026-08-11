@@ -1,9 +1,10 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
-import { ChevronDown } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { BookmarkPlus, ChevronDown, Heart } from 'lucide-react';
 import {
   AreaUnit,
   FurnishingStatus,
@@ -13,13 +14,16 @@ import {
   PAKISTAN_CITIES,
   formatPrice,
   listingsRepository,
+  useAuthViewModel,
   useListingSearchViewModel,
   usePreferencesViewModel,
+  useSavedSearchesViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import { getViewerSessionId } from '@/lib/viewerSession';
 import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
+import { useFavorites } from '@/lib/favoritesContext';
 
 // Fires the real engagement-tracking event (backs the agent dashboard's
 // Calls/WhatsApp/SMS analytics, which were previously always 0 — nothing
@@ -36,14 +40,15 @@ function ContactActions({ listing }: { listing: Listing }) {
   const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
   const landline = listing.contactNumbers.find((c) => c.type === 'landline');
   const callContact = mobile ?? landline;
-  if (!callContact) return null;
+  if (!callContact) return <FavoriteButton listingId={listing.id} />;
 
   const callNumber = `${callContact.countryCode}${callContact.number}`;
   const whatsappDigits = mobile ? `${mobile.countryCode}${mobile.number}`.replace(/\D/g, '') : undefined;
   const smsNumber = mobile ? `${mobile.countryCode}${mobile.number}` : undefined;
 
   return (
-    <div className="mt-2 flex gap-2 text-xs">
+    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+      <FavoriteButton listingId={listing.id} />
       <button
         type="button"
         onClick={() => trackAndOpen(listing.id, 'call', `tel:${callNumber}`)}
@@ -70,6 +75,29 @@ function ContactActions({ listing }: { listing: Listing }) {
         </button>
       )}
     </div>
+  );
+}
+
+// Local heart affordance for this page's own list-style card — not
+// PropertyCard (which this page deliberately doesn't use, to keep
+// ContactActions' call/WhatsApp/SMS row exactly as-is), but wired to the
+// same shared FavoritesProvider context so state stays in sync everywhere.
+function FavoriteButton({ listingId }: { listingId: string }) {
+  const { isFavorited, toggle } = useFavorites();
+  const favorited = isFavorited(listingId);
+  return (
+    <button
+      type="button"
+      aria-label={favorited ? 'Remove from favorites' : 'Save listing'}
+      aria-pressed={favorited}
+      onClick={() => toggle(listingId)}
+      className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+        favorited ? 'border-primary text-primary' : 'border-slate-300 text-slate-500 hover:text-primary'
+      }`}
+    >
+      <Heart className="h-3.5 w-3.5" fill={favorited ? 'currentColor' : 'none'} />
+      {favorited ? 'Saved' : 'Save'}
+    </button>
   );
 }
 
@@ -117,9 +145,12 @@ export default function SearchPage() {
 }
 
 function SearchPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { propertyTypes } = useTaxonomyViewModel();
   const { preferences } = usePreferencesViewModel();
+  const { isAuthenticated } = useAuthViewModel();
+  const { create: createSavedSearch } = useSavedSearchesViewModel();
 
   const [purpose, setPurpose] = useState<ListingPurpose>(() => (searchParams.get('purpose') === 'rent' ? 'rent' : 'sale'));
   const [city, setCity] = useState(() => searchParams.get('city') ?? '');
@@ -188,9 +219,46 @@ function SearchPageContent() {
     : singleTypeResult.listings;
   const isLoading = isCategoryMode ? categoryQueries.some((q) => q.isLoading) : singleTypeResult.isLoading;
 
+  // Auto-generated from the active filters (e.g. "Flat · DHA · Rent") rather
+  // than prompting the buyer for a custom name — no "save search" creation
+  // UI exists on mobile to mirror, and this keeps the flow to one click.
+  const activeTypeLabel = propertyTypeSlug
+    ? typesInSelectedCategory.find((t) => t.slug === propertyTypeSlug)?.label
+    : categorySlug
+      ? categories.find((c) => c.slug === categorySlug)?.label
+      : undefined;
+  const savedSearchName = [activeTypeLabel ?? 'Properties', area || city || undefined, purpose === 'rent' ? 'Rent' : 'Buy']
+    .filter(Boolean)
+    .join(' · ');
+
+  function handleSaveSearch() {
+    if (!isAuthenticated) {
+      router.push(`/login?redirectTo=${encodeURIComponent('/search')}`);
+      return;
+    }
+    createSavedSearch.mutate(
+      { name: savedSearchName, filters: { ...baseFilters, propertyTypeSlug: propertyTypeSlug || undefined }, alertFrequency: 'daily' },
+      {
+        onSuccess: () => toast.success('Search saved — see it under Favorites & Saved Searches.'),
+        onError: () => toast.error('Could not save this search — please try again.'),
+      },
+    );
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Search Verified Properties</h1>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Search Verified Properties</h1>
+        <button
+          type="button"
+          onClick={handleSaveSearch}
+          disabled={createSavedSearch.isPending}
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+        >
+          <BookmarkPlus className="h-3.5 w-3.5" />
+          {createSavedSearch.isPending ? 'Saving…' : 'Save Search'}
+        </button>
+      </div>
 
       <div className="relative mb-8 rounded-xl bg-[hsl(var(--brand-dark))] shadow-lg">
         <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-6 sm:divide-x sm:divide-y-0">

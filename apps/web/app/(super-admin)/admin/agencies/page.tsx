@@ -625,7 +625,14 @@ function AgencyDocumentsSection({
   // `url` is a signed URL good for 1 hour (agencies.repository.ts::
   // listDocuments re-signs it fresh on every call) — keyed by documentType
   // so a re-uploaded doc's row always links to the latest file.
-  const docByType = new Map((documents ?? []).map((d) => [d.documentType, d]));
+  //
+  // listDocuments returns every historical row (newest first) since replace
+  // inserts rather than overwrites — take the first (newest) row per type,
+  // not `new Map(entries)`'s last-one-wins, which would keep the oldest.
+  const docByType = new Map<OnboardingDocumentType, OnboardingDocument>();
+  for (const d of documents ?? []) {
+    if (!docByType.has(d.documentType)) docByType.set(d.documentType, d);
+  }
 
   return (
     <div className={cn('space-y-3', bordered && 'border-t border-border pt-4')}>

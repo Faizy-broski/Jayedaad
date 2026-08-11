@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useNotificationsViewModel } from '@jayedaad/core';
 import { Bell, CheckCheck, Inbox } from 'lucide-react';
 
@@ -21,9 +22,28 @@ function relativeTime(iso: string): string {
 // the CRM overhaul (new lead, assignment, status change) and reminders was
 // write-only.
 export function NotificationBell() {
+  const router = useRouter();
   const { notifications, unreadCount, isLoading, markRead, markAllRead } = useNotificationsViewModel();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Click-through routing — every other notification type stays
+  // mark-read-only (no relevant page to jump to yet). support_ticket: a new
+  // agent ticket notifies every super_admin (support.repository.ts's
+  // notifySuperAdmins), routes to the help desk. new_match: created by
+  // saved-search-alerts.service.ts's hourly cron when a buyer's saved
+  // search matches a new listing — routes to that listing instead of
+  // leaving the buyer with nowhere to click through to.
+  function handleNotificationClick(id: string, type: string, readAt: string | null, relatedListingId: string | null) {
+    if (!readAt) markRead.mutate(id);
+    if (type === 'support_ticket') {
+      setOpen(false);
+      router.push('/admin/support');
+    } else if (type === 'new_match' && relatedListingId) {
+      setOpen(false);
+      router.push(`/listings/${relatedListingId}`);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -79,7 +99,7 @@ export function NotificationBell() {
                   <li key={n.id}>
                     <button
                       type="button"
-                      onClick={() => !n.readAt && markRead.mutate(n.id)}
+                      onClick={() => handleNotificationClick(n.id, n.type, n.readAt, n.relatedListingId)}
                       className={`w-full border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/50 ${
                         n.readAt ? '' : 'bg-primary/5'
                       }`}

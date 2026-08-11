@@ -1,4 +1,5 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from './lib/cn';
 
 export interface ModalProps {
@@ -20,9 +21,22 @@ export interface ModalProps {
 // while staying fully scrollable, so a long form's overflow doesn't interrupt
 // the rounded panel with a bar.
 export function Modal({ open, onClose, title, description, children, className }: ModalProps) {
-  if (!open) return null;
+  // Portal to document.body — position:fixed only covers the viewport if no
+  // ancestor has a transform/filter/will-change creating its own containing
+  // block. Several call sites (e.g. AgentCard/DeveloperCard) render inside a
+  // framer-motion element that leaves an inline `transform` behind even after
+  // its entrance animation finishes, which otherwise traps this dialog inside
+  // that small sidebar box instead of the full screen. Same fix already
+  // applied to ConfirmDialog.tsx. Mount-gated since document is unavailable
+  // during SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 animate-fade-in bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
@@ -49,6 +63,7 @@ export function Modal({ open, onClose, title, description, children, className }
         </div>
         <div className="no-scrollbar overflow-y-auto p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

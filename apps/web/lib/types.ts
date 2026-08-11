@@ -24,6 +24,16 @@ export interface Property {
 
 export interface ListingProperty extends Property {
   // propertyType: PropertyTypeOption;
+  /** Real listings.listing_number sequential reference — the human-facing
+   *  "Listing ID" (rendered as JYD-##### throughout the app, see
+   *  admin/listings/[id]/page.tsx), used by PropertyDetail.tsx's enquiry
+   *  form template instead of the previous per-render fake hash. Only on
+   *  ListingProperty (not the base Property every homepage card fixture
+   *  also constructs) since it's only needed by the detail page. Optional
+   *  because apps/web/data/listings.ts's unused legacy sample fixtures
+   *  don't carry one — every real listing (via listingToListingProperty)
+   *  always sets it. */
+  listingNumber?: number;
    /** Real property_types.label (e.g. "Flat/Apartment") — Super Admin-managed, not a fixed enum. */
   propertyType: string;
   propertyTypeSlug: string;
@@ -54,6 +64,10 @@ export interface ListingProperty extends Property {
     // Optional (not just nullable) so apps/web/data/listings.ts's legacy
     // mock fixtures don't need updating too.
     subscriptionTierName?: string | null;
+    /** Only populated on the single-listing detail fetch — see
+     *  ListingAgentSummary's comment in packages/core/src/models. Always a
+     *  real email when set (an agent is a real auth account). */
+    email?: string | null;
   };
 }
 
@@ -175,6 +189,9 @@ export interface ProjectDeveloper {
   phone: string;
   whatsapp: string;
   city: string;
+  /** Null when the developer has no email on file yet — DeveloperCard hides
+   *  the Email quick-action rather than showing a broken mailto. */
+  email: string | null;
 }
 
 export interface ProjectUnitType {
