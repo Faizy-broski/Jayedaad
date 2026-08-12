@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, SafeAreaView, Text, TextInput as RNTextInput, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LeadStatus, ReminderChannel, useLeadDetailViewModel, useLeadRemindersViewModel } from '@jayedaad/core';
 import { Button, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -39,6 +40,7 @@ function formatDate(iso: string): string {
 // the shared viewmodel, just was never wired into any mobile screen).
 export function LeadDetailScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'LeadDetail'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { leadId } = route.params;
   const { showToast } = useToast();
   const { lead, isLoading, isError, refetch, updateStatus, addNote } = useLeadDetailViewModel(leadId);
@@ -143,6 +145,28 @@ export function LeadDetailScreen() {
             <Text style={styles.messageText}>{lead.message}</Text>
           </View>
         ) : null}
+
+        {/* Exactly one of listingId/projectId is ever set (DB constraint —
+            see the Lead model comment) — jumps straight to the actual
+            listing/project this enquiry is about instead of leaving the
+            agent to guess from the free-text message alone. Projects go
+            through PostProject in view-only mode (not the public
+            ProjectDetail screen, which needs a slug this lead doesn't
+            have) — same screen MyProjectsScreen already uses to view one. */}
+        {(lead.listingId || lead.projectId) && (
+          <Pressable
+            style={styles.propertyLink}
+            onPress={() =>
+              lead.listingId
+                ? navigation.navigate('ListingDetail', { listingId: lead.listingId! })
+                : navigation.navigate('PostProject', { editProjectId: lead.projectId!, viewOnly: true })
+            }
+          >
+            <Ionicons name="business-outline" size={16} color={theme.colors.primary} />
+            <Text style={styles.propertyLinkText}>View {lead.listingId ? 'listing' : 'project'}</Text>
+            <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
+          </Pressable>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Status</Text>
@@ -255,6 +279,14 @@ const styles = StyleSheet.create({
   section: { marginTop: theme.spacing.xl },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.sm },
   messageText: { fontSize: 14, color: theme.colors.text, lineHeight: 20 },
+  propertyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: theme.spacing.sm,
+  },
+  propertyLinkText: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
   statusChip: {
     borderWidth: 1,

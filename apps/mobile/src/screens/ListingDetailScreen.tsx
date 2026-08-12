@@ -18,12 +18,12 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import {
   COUNTRIES,
-  formatPrice,
   getMaxPhoneDigits,
   leadsRepository,
   useAuthViewModel,
+  useFormattedArea,
+  useFormattedPrice,
   useListingDetailViewModel,
-  usePreferencesViewModel,
   Listing,
 } from '@jayedaad/core';
 import { Accordion, Badge, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
@@ -56,7 +56,8 @@ export function ListingDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { listingId } = route.params;
   const { listing, isLoading, similar } = useListingDetailViewModel(listingId);
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
+  const { format: formatArea } = useFormattedArea();
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryIntent, setEnquiryIntent] = useState<'inquiry' | 'visit'>('inquiry');
@@ -73,7 +74,7 @@ export function ListingDetailScreen() {
     );
   }
 
-  const price = formatPrice(Number(listing.price), preferences?.preferredCurrency);
+  const price = formatPrice(Number(listing.price));
   const amenitiesByCategory = listing.amenities.reduce<Record<string, typeof listing.amenities>>((acc, a) => {
     (acc[a.category] ??= []).push(a);
     return acc;
@@ -135,7 +136,7 @@ export function ListingDetailScreen() {
           <View style={styles.statsGrid}>
             {listing.bedrooms != null && <Stat icon="bed-outline" label="Beds" value={String(listing.bedrooms)} />}
             {listing.bathrooms != null && <Stat icon="water-outline" label="Baths" value={String(listing.bathrooms)} />}
-            <Stat icon="resize-outline" label="Area" value={`${listing.areaValue} ${listing.areaUnit}`} />
+            <Stat icon="resize-outline" label="Area" value={formatArea(Number(listing.areaValue), listing.areaUnit)} />
           </View>
 
           {/* MORE DETAILS */}
@@ -191,25 +192,25 @@ export function ListingDetailScreen() {
           {listing.installmentAvailable && (() => {
             const financingRows: { label: string; value: string }[] = [];
             if (listing.advanceAmount != null) {
-              financingRows.push({ label: 'Advance / Booking Amount', value: formatPrice(listing.advanceAmount, preferences?.preferredCurrency) });
+              financingRows.push({ label: 'Advance / Booking Amount', value: formatPrice(listing.advanceAmount) });
             }
             if (listing.numberOfInstallments != null) {
               financingRows.push({ label: 'Number of Installments', value: String(listing.numberOfInstallments) });
             }
             if (listing.monthlyInstallment != null) {
-              financingRows.push({ label: 'Monthly Installment', value: formatPrice(listing.monthlyInstallment, preferences?.preferredCurrency) });
+              financingRows.push({ label: 'Monthly Installment', value: formatPrice(listing.monthlyInstallment) });
             }
             if (listing.balloonPaymentAvailable && listing.balloonPaymentAmount != null) {
-              financingRows.push({ label: 'Balloon Payment', value: formatPrice(listing.balloonPaymentAmount, preferences?.preferredCurrency) });
+              financingRows.push({ label: 'Balloon Payment', value: formatPrice(listing.balloonPaymentAmount) });
             }
             if (listing.ballotingFeeApplicable && listing.ballotingFeeAmount != null) {
-              financingRows.push({ label: 'Balloting Fee', value: formatPrice(listing.ballotingFeeAmount, preferences?.preferredCurrency) });
+              financingRows.push({ label: 'Balloting Fee', value: formatPrice(listing.ballotingFeeAmount) });
             }
             if (listing.possessionFeeApplicable && listing.possessionFeeAmount != null) {
-              financingRows.push({ label: 'Possession Fee', value: formatPrice(listing.possessionFeeAmount, preferences?.preferredCurrency) });
+              financingRows.push({ label: 'Possession Fee', value: formatPrice(listing.possessionFeeAmount) });
             }
             if (listing.developmentFeeApplicable && listing.developmentFeeAmount != null) {
-              financingRows.push({ label: 'Development Fee', value: formatPrice(listing.developmentFeeAmount, preferences?.preferredCurrency) });
+              financingRows.push({ label: 'Development Fee', value: formatPrice(listing.developmentFeeAmount) });
             }
 
             return (
@@ -306,7 +307,6 @@ export function ListingDetailScreen() {
                 renderItem={({ item }) => (
                   <SimilarCard
                     listing={item}
-                    currency={preferences?.preferredCurrency}
                     onPress={() => navigation.push('ListingDetail', { listingId: item.id })}
                   />
                 )}
@@ -339,6 +339,7 @@ export function ListingDetailScreen() {
 }
 
 function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) {
+  const { format: formatPrice } = useFormattedPrice();
   const [index, setIndex] = useState(0);
   const media = listing.media;
   const items = media.length > 0 ? media : null;
@@ -439,7 +440,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SimilarCard({ listing, currency, onPress }: { listing: Listing; currency?: string; onPress: () => void }) {
+function SimilarCard({ listing, onPress }: { listing: Listing; onPress: () => void }) {
+  const { format: formatPrice } = useFormattedPrice();
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
   const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
   const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
@@ -470,7 +472,7 @@ function SimilarCard({ listing, currency, onPress }: { listing: Listing; currenc
         )}
         <FavoriteButton listing={listing} size={16} style={styles.similarFavorite} />
         <View style={styles.similarPriceOverlay}>
-          <Text style={styles.similarPriceOverlayText}>{formatPrice(Number(listing.price), currency)}</Text>
+          <Text style={styles.similarPriceOverlayText}>{formatPrice(Number(listing.price))}</Text>
         </View>
       </View>
       <View style={styles.similarBody}>

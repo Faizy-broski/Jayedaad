@@ -34,6 +34,7 @@ export function useAppointmentsViewModel(filters: AppointmentListFilters = {}) {
   return {
     appointments: query.data ?? [],
     isLoading: query.isLoading,
+    isError: query.isError,
     create,
     update,
     remove,

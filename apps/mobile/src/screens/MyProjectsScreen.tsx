@@ -32,7 +32,7 @@ export function MyProjectsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { role, user } = useAuthViewModel();
   const isSuperAdmin = role === 'super_admin';
-  const { projects, isLoading, setVerificationStatus, remove } = useManageProjectsViewModel();
+  const { projects, isLoading, error, setVerificationStatus, remove } = useManageProjectsViewModel();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'all' | ProjectStatus>('all');
 
@@ -87,6 +87,10 @@ export function MyProjectsScreen() {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <Text style={styles.muted}>Fetching projects…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.error}>Couldn't load projects — please try again.</Text>
         </View>
       ) : visibleProjects.length === 0 ? (
         <EmptyState onAddProject={() => navigation.navigate('PostProject')} />
@@ -192,6 +196,7 @@ const styles = StyleSheet.create({
   pillTextActive: { color: theme.colors.bg },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { fontSize: 14, color: theme.colors.mutedLight, fontWeight: '500' },
+  error: { fontSize: 14, color: theme.colors.danger, fontWeight: '500' },
   list: { paddingHorizontal: 24, paddingVertical: 20, gap: 16 },
   card: {
     backgroundColor: theme.colors.bg,

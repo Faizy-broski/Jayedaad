@@ -3,13 +3,12 @@ import { Pressable, Text, View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Listing, formatPrice } from '@jayedaad/core';
+import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import { FavoriteButton } from './ListingContactActions';
 
 export interface PropertyCardProps {
   listing: Listing;
-  currency?: string;
   onPress: () => void;
   // Optional extra content rendered below the price/stats — e.g.
   // BuyerSearchScreen's Call/WhatsApp/SMS row, which HomeScreen's preview
@@ -21,7 +20,9 @@ export interface PropertyCardProps {
 // (Featured Properties), extracted so BuyerSearchScreen's results can use
 // the same real photo/status-pill/price card instead of a plain bordered
 // text box.
-export function PropertyCard({ listing, currency, onPress, footer }: PropertyCardProps) {
+export function PropertyCard({ listing, onPress, footer }: PropertyCardProps) {
+  const { format: formatPrice } = useFormattedPrice();
+  const { format: formatArea } = useFormattedArea();
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
   const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
   const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
@@ -67,9 +68,9 @@ export function PropertyCard({ listing, currency, onPress, footer }: PropertyCar
       </View>
 
       <View style={styles.propertyBody}>
-        <Text style={styles.propertyPrice}>{formatPrice(Number(listing.price), currency)}</Text>
+        <Text style={styles.propertyPrice}>{formatPrice(Number(listing.price))}</Text>
         <Text style={styles.propertyStatsLine}>
-          {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths · {listing.areaValue} {listing.areaUnit}
+          {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths · {formatArea(Number(listing.areaValue), listing.areaUnit)}
         </Text>
         {footer}
       </View>

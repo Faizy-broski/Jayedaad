@@ -1,7 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PerUserThrottlerGuard } from './common/guards/per-user-throttler.guard';
 import { SupabaseModule } from './supabase/supabase.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { AuthModule } from './auth/auth.module';
@@ -30,13 +31,18 @@ import { BlogModule } from './blog/blog.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { TasksModule } from './tasks/tasks.module';
 import { SupportModule } from './support/support.module';
+import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 
 @Module({
   imports: [
     // Generous global default (every route gets *some* protection) —
     // individual routes override it with stricter @Throttle() limits where
-    // warranted (see auth/otp/otp.controller.ts).
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // warranted (see auth/otp/otp.controller.ts). 300 (not the original
+    // 100) because this is tracked per-user now (see PerUserThrottlerGuard
+    // below), not per-IP — a single busy screen alone can fire well over a
+    // dozen concurrent queries on mount, so 100 was tight even for one
+    // legitimate user, let alone a shared bucket.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     // Backs RemindersModule's @Cron firing job — registered once, here.
     ScheduleModule.forRoot(),
     SupabaseModule,
@@ -65,9 +71,10 @@ import { SupportModule } from './support/support.module';
     RemindersModule,
     TasksModule,
     SupportModule,
+    ExchangeRatesModule,
   ],
   controllers: [HealthController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: PerUserThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

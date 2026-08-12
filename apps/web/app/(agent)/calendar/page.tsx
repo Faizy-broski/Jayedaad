@@ -32,7 +32,7 @@ function formatTime(iso: string): string {
 // mirrors apps/mobile's CalendarScreen.tsx. Appointments come either from
 // "Book a Visit" on a listing (status 'requested') or created here manually.
 export default function CalendarPage() {
-  const { appointments, isLoading, create, update, remove } = useAppointmentsViewModel();
+  const { appointments, isLoading, isError, create, update, remove } = useAppointmentsViewModel();
   const [formOpen, setFormOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -97,7 +97,15 @@ export default function CalendarPage() {
 
       {isLoading && <div className="h-28 animate-pulse rounded-xl border border-border bg-muted/40" />}
 
-      {!isLoading && sections.length === 0 && (
+      {isError && (
+        <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+          <CalendarDays className="mb-3 h-10 w-10 text-destructive/50" />
+          <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load appointments</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+        </div>
+      )}
+
+      {!isLoading && !isError && sections.length === 0 && (
         <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
           <CalendarDays className="mb-3 h-10 w-10 text-muted-foreground/50" />
           <h3 className="text-sm font-semibold text-foreground">No appointments yet</h3>

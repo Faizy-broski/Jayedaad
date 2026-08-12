@@ -32,7 +32,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 // status-only lifecycle, see services/api/src/support/support.repository.ts).
 export function HelpDeskScreen() {
   const [page, setPage] = useState(1);
-  const { tickets, total, isLoading, submit, update, remove } = useSupportTicketsViewModel({ page, pageSize: PAGE_SIZE });
+  const { tickets, total, isLoading, isError, submit, update, remove } = useSupportTicketsViewModel({ page, pageSize: PAGE_SIZE });
   const { showToast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -153,6 +153,8 @@ export function HelpDeskScreen() {
         <Text style={styles.sectionTitle}>Your submitted issues</Text>
         {isLoading ? (
           <Text style={styles.muted}>Loading…</Text>
+        ) : isError ? (
+          <Text style={styles.error}>Couldn't load your tickets — please try again.</Text>
         ) : tickets.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="help-buoy-outline" size={32} color={theme.colors.mutedLight} />
@@ -243,6 +245,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.colors.text },
   cancelLink: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   muted: { fontSize: 13, color: theme.colors.muted },
+  error: { fontSize: 13, color: theme.colors.danger },
   emptyState: { alignItems: 'center', gap: theme.spacing.sm, paddingVertical: theme.spacing.xl },
   emptyText: { fontSize: 13, color: theme.colors.muted },
   list: { gap: theme.spacing.md },

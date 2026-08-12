@@ -4,16 +4,17 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  AgentCreditType,
   AreaUnit,
   ListingDocumentType,
   ListingPurpose,
   ListingStatus,
   MyListingsFilters,
   PAKISTAN_CITIES,
-  formatPrice,
   listingsRepository,
+  useAgentCreditsViewModel,
   useMyListingsViewModel,
-  usePreferencesViewModel,
+  useFormattedPrice,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import { Button, Card, CardContent, DateRange, DateRangePicker, Input, Select } from '@jayedaad/ui-web';
@@ -135,7 +136,7 @@ const EMPTY_DRAFT: DraftFilters = {
 export default function PropertyManagementPage() {
   const searchParams = useSearchParams();
   const { propertyTypes } = useTaxonomyViewModel();
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
   const [activeTab, setActiveTab] = useState<ListingStatus>('verified');
   const [draft, setDraft] = useState<DraftFilters>(EMPTY_DRAFT);
   const [applied, setApplied] = useState<DraftFilters>(EMPTY_DRAFT);
@@ -185,6 +186,7 @@ export default function PropertyManagementPage() {
     total,
     pageSize,
     isLoading,
+    isError,
     statusCounts,
     isStatusCountsLoading,
     remove,
@@ -194,12 +196,17 @@ export default function PropertyManagementPage() {
     refresh,
     postStory,
   } = useMyListingsViewModel(filters);
+  // Pre-flight balance so the Hot/Super Hot/Refresh/Story buttons can show
+  // "N left" and disable at 0 instead of only finding out via a server error
+  // after clicking — server (POST /listings/:id/boost|refresh|story) stays
+  // the actual source of truth, this is purely an additive UI convenience.
+  const { credits } = useAgentCreditsViewModel();
+  const creditsAvailable = (type: AgentCreditType) => credits.find((c) => c.creditType === type)?.available ?? 0;
 
   // Spends one of the agent's plan-granted Hot/Super Hot credits (topped up
   // on tier selection/renewal — see the Plan page) to feature this listing.
-  // The server is the source of truth on whether a credit is actually
-  // available (POST /listings/:id/boost) — this doesn't pre-check a balance
-  // client-side, it just surfaces whatever the server says.
+  // The server remains the source of truth on whether a credit is actually
+  // available (POST /listings/:id/boost).
   function handleBoost(listingId: string, boostTier: 'hot' | 'super_hot') {
     boost.mutate(
       { listingId, input: { boostTier } },
@@ -593,7 +600,15 @@ export default function PropertyManagementPage() {
         </div>
       )}
 
-      {!isLoading && listings.length === 0 && (
+      {isError && (
+        <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+          <ImageOff className="mb-3 h-10 w-10 text-destructive/50" />
+          <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load your listings</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+        </div>
+      )}
+
+      {!isLoading && !isError && listings.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -628,7 +643,13 @@ export default function PropertyManagementPage() {
                     whileHover={{ y: -2 }}
                     className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
                   >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    {/* items-start, not items-center — the button column
+                        (right) can now wrap onto 2-3 lines (see its own
+                        comment below), and center-aligning it against the
+                        info column (left) made the now-taller button block
+                        drift upward and visually overlap the title/price
+                        above it instead of sitting level with the card's top. */}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                       <div className="flex min-w-0 flex-1 items-start gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                           <Building2 className="h-4 w-4" />
@@ -675,9 +696,17 @@ export default function PropertyManagementPage() {
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      {/* No shrink-0 here (unlike the info column's icon,
+                          which does need it) — shrink-0 combined with
+                          flex-wrap lets the browser size this to its full
+                          unwrapped content width instead of constraining it
+                          to the card, so with 7 possible buttons (each
+                          lengthened further by the "(N)" credit counts)
+                          it overflowed the card and the viewport instead of
+                          actually wrapping onto a second line. */}
+                      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                         <span className="mr-1 text-sm font-semibold text-foreground">
-                          {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
+                          {formatPrice(Number(listing.price))}
                         </span>
                         <Link href={`/submit?edit=${listing.id}`}>
                           <Button variant="outline" size="sm">
@@ -714,42 +743,42 @@ export default function PropertyManagementPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={boost.isPending}
+                              disabled={boost.isPending || creditsAvailable('hot') <= 0}
                               onClick={() => handleBoost(listing.id, 'hot')}
                               title="Spend a Hot credit to feature this listing"
                             >
                               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                              Hot
+                              Hot ({creditsAvailable('hot')})
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={boost.isPending}
+                              disabled={boost.isPending || creditsAvailable('super_hot') <= 0}
                               onClick={() => handleBoost(listing.id, 'super_hot')}
                               title="Spend a Super Hot credit to feature this listing"
                             >
                               <Flame className="mr-1.5 h-3.5 w-3.5" />
-                              Super Hot
+                              Super Hot ({creditsAvailable('super_hot')})
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={refresh.isPending}
+                              disabled={refresh.isPending || creditsAvailable('refresh') <= 0}
                               onClick={() => handleRefresh(listing.id)}
                               title="Spend a Refresh credit to bump this listing back to the top"
                             >
                               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                              Refresh
+                              Refresh ({creditsAvailable('refresh')})
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={postStory.isPending}
+                              disabled={postStory.isPending || creditsAvailable('story') <= 0}
                               onClick={() => handlePostStory(listing.id)}
                               title="Spend a Story credit to feature this listing for 24 hours"
                             >
                               <Clapperboard className="mr-1.5 h-3.5 w-3.5" />
-                              Story
+                              Story ({creditsAvailable('story')})
                             </Button>
                           </>
                         )}

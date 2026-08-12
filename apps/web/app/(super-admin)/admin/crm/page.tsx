@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Lead, LeadStatus, useAdminAgentsViewModel, useAdminCrmStatsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
 import { Button, cn, Input, Pagination } from '@jayedaad/ui-web';
 import {
   AlertTriangle,
+  Building2,
   ChevronDown,
   Clock,
+  ExternalLink,
   Globe,
   Inbox,
   Mail,
@@ -363,6 +366,22 @@ export default function AdminCrmPage() {
                     </div>
 
                     {lead.message && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{lead.message}</p>}
+
+                    {/* Exactly one of listingId/projectId is ever set (DB
+                        constraint — see the Lead model comment) — admin
+                        detail pages, not the public ones, since Super Admin
+                        needs access regardless of verification status. */}
+                    {(lead.listingId || lead.projectId) && (
+                      <Link
+                        href={lead.listingId ? `/admin/listings/${lead.listingId}` : `/admin/projects/${lead.projectId}`}
+                        target="_blank"
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        View {lead.listingId ? 'listing' : 'project'}
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-foreground">

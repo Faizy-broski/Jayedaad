@@ -8,9 +8,9 @@ import {
   CreateSubscriptionTierInput,
   CreditPack,
   SubscriptionTier,
-  formatPrice,
   useAdminAgentsViewModel,
   useCreditPackManagementViewModel,
+  useFormattedPrice,
   usePlanManagementViewModel,
 } from '@jayedaad/core';
 import { Button, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
@@ -34,8 +34,8 @@ const PAGE_SIZE = 20;
 const EMPTY_FORM: CreateSubscriptionTierInput = {
   name: '',
   listingQuota: 0,
+  projectQuota: 0,
   price: 0,
-  analyticsDepth: { analyticsDepth: 'basic', viewCountDetail: 'total_only' },
   hotCreditsPerPeriod: 0,
   superHotCreditsPerPeriod: 0,
   refreshCreditsPerPeriod: 0,
@@ -43,9 +43,6 @@ const EMPTY_FORM: CreateSubscriptionTierInput = {
   stripePriceId: '',
   listingDurationDays: null,
 };
-
-const ANALYTICS_DEPTH_OPTIONS = ['basic', 'standard', 'advanced', 'full'] as const;
-const VIEW_COUNT_DETAIL_OPTIONS = ['total_only', 'breakdown_by_source', 'full_timeseries'] as const;
 
 // Purchasable credit types only — 'listing_quota' is deliberately excluded,
 // same reasoning as services/api's CreateCreditPackDto: a top-up buys more
@@ -67,6 +64,7 @@ const EMPTY_PACK_FORM: CreateCreditPackInput = {
 // the Agencies/Agents pages, no fabricated analytics endpoint.
 export default function PlansPage() {
   const [page, setPage] = useState(1);
+  const { format: formatPrice } = useFormattedPrice();
   const { tiers, total, isLoading, createTier, updateTier, removeTier, assignToAgent } = usePlanManagementViewModel({
     page,
     pageSize: PAGE_SIZE,
@@ -121,8 +119,8 @@ export default function PlansPage() {
     setForm({
       name: tier.name,
       listingQuota: tier.listingQuota,
+      projectQuota: tier.projectQuota,
       price: tier.price,
-      analyticsDepth: tier.analyticsDepth,
       hotCreditsPerPeriod: tier.hotCreditsPerPeriod,
       superHotCreditsPerPeriod: tier.superHotCreditsPerPeriod,
       refreshCreditsPerPeriod: tier.refreshCreditsPerPeriod,
@@ -314,6 +312,10 @@ export default function PlansPage() {
                       {tier.listingQuota} listing{tier.listingQuota === 1 ? '' : 's'} quota
                     </p>
                     <p className="flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      {tier.projectQuota} project{tier.projectQuota === 1 ? '' : 's'} quota
+                    </p>
+                    <p className="flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5 shrink-0" />
                       {subscribers} subscriber{subscribers === 1 ? '' : 's'}
                     </p>
@@ -460,40 +462,16 @@ export default function PlansPage() {
             />
           </div>
           <div className="space-y-1.5">
+            <Label>Project Quota</Label>
+            <Input
+              type="number"
+              value={form.projectQuota}
+              onChange={(e) => setForm((prev) => ({ ...prev, projectQuota: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label>Price (PKR/mo)</Label>
             <Input type="number" value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: Number(e.target.value) }))} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Analytics Depth</Label>
-              <Select
-                value={(form.analyticsDepth.analyticsDepth as string) ?? 'basic'}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, analyticsDepth: { ...prev.analyticsDepth, analyticsDepth: e.target.value } }))
-                }
-              >
-                {ANALYTICS_DEPTH_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>View Count Detail</Label>
-              <Select
-                value={(form.analyticsDepth.viewCountDetail as string) ?? 'total_only'}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, analyticsDepth: { ...prev.analyticsDepth, viewCountDetail: e.target.value } }))
-                }
-              >
-                {VIEW_COUNT_DETAIL_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </Select>
-            </div>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="space-y-1.5">
@@ -639,6 +617,7 @@ function StatTile({
   sub: string;
   isCurrency?: boolean;
 }) {
+  const { format: formatPrice } = useFormattedPrice();
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
       <div className="rounded-xl border border-border bg-background p-4 shadow-sm">

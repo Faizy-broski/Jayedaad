@@ -1,7 +1,11 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { BadgeCheck, MapPin, Layers, ArrowRight } from 'lucide-react';
+import { projectsRepository } from '@jayedaad/core';
 import type { ProjectCardData } from '@/lib/types';
+import { getViewerSessionId } from '@/lib/viewerSession';
 
 const STATUS_LABEL: Record<ProjectCardData['status'], string> = {
   planned: 'Planned',
@@ -20,6 +24,11 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
   return (
     <Link
       href={`/developments/${project.slug}`}
+      onClick={() =>
+        projectsRepository
+          .trackEngagement(project.id, { type: 'click', platform: 'web', viewerSessionId: getViewerSessionId() })
+          .catch(() => {})
+      }
       className="block w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">

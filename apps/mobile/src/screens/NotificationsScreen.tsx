@@ -25,7 +25,7 @@ function relativeTime(iso: string): string {
 // notifications felt broken/dead.
 export function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { notifications, unreadCount, isLoading, markRead, markAllRead } = useNotificationsViewModel();
+  const { notifications, unreadCount, isLoading, isError, markRead, markAllRead } = useNotificationsViewModel();
 
   function handlePress(item: Notification) {
     if (!item.readAt) markRead.mutate(item.id);
@@ -66,6 +66,8 @@ export function NotificationsScreen() {
 
       {isLoading ? (
         <Text style={styles.loading}>Loading…</Text>
+      ) : isError ? (
+        <Text style={styles.error}>Couldn't load notifications — please try again.</Text>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="notifications-off-outline" size={32} color={theme.colors.mutedLight} />
@@ -84,6 +86,7 @@ const styles = StyleSheet.create({
   markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: theme.spacing.xs },
   markAllText: { fontSize: 12, fontWeight: '600', color: theme.colors.primary },
   loading: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.xl },
+  error: { color: theme.colors.danger, textAlign: 'center', marginTop: theme.spacing.xl },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm },
   emptyText: { fontSize: 13, color: theme.colors.muted },
   list: { padding: theme.spacing.lg, gap: theme.spacing.sm },

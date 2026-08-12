@@ -2,25 +2,10 @@
 
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { formatPrice, usePreferencesViewModel, useSubscriptionViewModel } from '@jayedaad/core';
+import { useFormattedPrice, useSubscriptionViewModel } from '@jayedaad/core';
 import { Button, Card } from '@jayedaad/ui-web';
 import { Check, CreditCard, Gauge, Sparkles } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
-
-// Real entitlement fields spread onto SubscriptionTier.analyticsDepth by the
-// API (see services/api/src/subscriptions/entitlements.service.ts) — not a
-// free-form blob in practice, just typed loosely (Record<string, unknown>)
-// on the wire. Rendered as real plan features below, not invented ones.
-interface TierEntitlements {
-  analyticsDepth?: 'basic' | 'standard' | 'advanced' | 'full';
-  viewCountDetail?: 'total_only' | 'breakdown_by_source' | 'full_timeseries';
-}
-
-const VIEW_DETAIL_LABEL: Record<string, string> = {
-  total_only: 'Total view count',
-  breakdown_by_source: 'Views broken down by source',
-  full_timeseries: 'Full view history over time',
-};
 
 // Replaces the "Prop Shop" nav item. Free tiers (price 0) still change
 // instantly with no payment (services/api's subscriptions.repository.ts's
@@ -32,6 +17,7 @@ export default function PlanPage() {
     isCurrentLoading,
     tiers,
     isTiersLoading,
+    isTiersError,
     usage,
     creditPacks,
     isCreditPacksLoading,
@@ -41,7 +27,7 @@ export default function PlanPage() {
     openBillingPortal,
     checkoutCreditPack,
   } = useSubscriptionViewModel();
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
 
   // Standalone top-up — a real Stripe Checkout Session (mode: 'payment'),
   // same "server is the source of truth, this just navigates to the
@@ -104,7 +90,7 @@ export default function PlanPage() {
                   <>
                     <p className="mt-2 text-2xl font-bold sm:text-3xl">{current.tier.name}</p>
                     <p className="mt-1 text-sm text-primary-foreground/80">
-                      {formatPrice(current.tier.price, preferences?.preferredCurrency)} /mo · {current.tier.listingQuota}{' '}
+                      {formatPrice(current.tier.price)} /mo · {current.tier.listingQuota}{' '}
                       listing quota
                     </p>
                   </>
@@ -187,7 +173,15 @@ export default function PlanPage() {
           </div>
         )}
 
-        {!isTiersLoading && tiers.length === 0 && (
+        {isTiersError && (
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+            <Sparkles className="mb-3 h-10 w-10 text-destructive/50" />
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load plans</h3>
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">Please try again in a moment.</p>
+          </div>
+        )}
+
+        {!isTiersLoading && !isTiersError && tiers.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -205,11 +199,8 @@ export default function PlanPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tiers.map((tier, index) => {
               const isCurrent = current?.tierId === tier.id;
-              const entitlements = tier.analyticsDepth as TierEntitlements;
               const features = [
                 `${tier.listingQuota.toLocaleString()} listing quota`,
-                entitlements?.analyticsDepth && `${capitalize(entitlements.analyticsDepth)} analytics`,
-                entitlements?.viewCountDetail && VIEW_DETAIL_LABEL[entitlements.viewCountDetail],
                 tier.hotCreditsPerPeriod > 0 && `${tier.hotCreditsPerPeriod} Hot boost${tier.hotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
                 tier.superHotCreditsPerPeriod > 0 &&
                   `${tier.superHotCreditsPerPeriod} Super Hot boost${tier.superHotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
@@ -250,7 +241,7 @@ export default function PlanPage() {
                     </div>
 
                     <p className="text-3xl font-bold text-foreground">
-                      {formatPrice(tier.price, preferences?.preferredCurrency)}
+                      {formatPrice(tier.price)}
                       <span className="text-sm font-normal text-muted-foreground"> /mo</span>
                     </p>
 
@@ -318,7 +309,7 @@ export default function PlanPage() {
                     {pack.quantity} × {CREDIT_TYPE_LABEL[pack.creditType] ?? pack.creditType} credit
                     {pack.quantity === 1 ? '' : 's'}
                   </p>
-                  <p className="text-xl font-bold text-foreground">{formatPrice(pack.price, preferences?.preferredCurrency)}</p>
+                  <p className="text-xl font-bold text-foreground">{formatPrice(pack.price)}</p>
                   <Button
                     variant="outline"
                     disabled={checkoutCreditPack.isPending}
@@ -334,8 +325,4 @@ export default function PlanPage() {
       )}
     </div>
   );
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

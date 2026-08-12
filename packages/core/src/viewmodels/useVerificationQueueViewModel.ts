@@ -22,6 +22,7 @@ export function useVerificationQueueViewModel(filters: VerificationQueueFilters 
     page: query.data?.page ?? filters.page ?? 1,
     pageSize: query.data?.pageSize ?? filters.pageSize ?? 20,
     isLoading: query.isLoading,
+    isError: query.isError,
     act,
   };
 }

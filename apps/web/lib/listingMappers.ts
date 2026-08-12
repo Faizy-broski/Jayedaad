@@ -1,4 +1,4 @@
-import { formatPrice, type Listing, type TrendingListing } from '@jayedaad/core';
+import { convertArea, formatPrice, type Listing, type TrendingListing } from '@jayedaad/core';
 import type { ListingProperty, Property } from '@/lib/types';
 
 export function listingToProperty(listing: Listing): Property {
@@ -9,12 +9,17 @@ export function listingToProperty(listing: Listing): Property {
     title: listing.title,
     location: [listing.area, listing.city].filter(Boolean).join(', '),
     price: formatPrice(Number(listing.price)),
+    priceValue: Number(listing.price),
     image: cover?.url ?? '/images/properties/sky-view-villa.jpg',
     listingType: listing.purpose,
     verified: listing.status === 'verified',
     beds: listing.bedrooms ?? 0,
     baths: listing.bathrooms ?? 0,
-    areaSqft: Number(listing.areaValue),
+    // Was `Number(listing.areaValue)` — silently mislabeled as "sqft" by
+    // every consumer (PropertyCard.tsx) regardless of the listing's real
+    // stored areaUnit (a 10-Marla listing rendered as "10 sqft"). Now
+    // actually converted to true square feet via convertArea.
+    areaSqft: convertArea(Number(listing.areaValue), listing.areaUnit, 'sqft'),
     boostTier: listing.boostTier,
     storyExpiresAt: listing.storyExpiresAt,
   };

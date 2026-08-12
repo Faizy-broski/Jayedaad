@@ -9,7 +9,7 @@ import { Button } from '@jayedaad/ui-web';
 // as apps/web/app/(admin)/verification/page.tsx (shared with
 // verification_staff, no persistent nav).
 export default function AgentVerificationQueuePage() {
-  const { queue, isLoading, act } = useAgentVerificationQueueViewModel();
+  const { queue, isLoading, isError, act } = useAgentVerificationQueueViewModel();
 
   function runAction(agentId: string, status: 'verified' | 'rejected') {
     // Same optional-reason-on-reject convention as admin/agents/page.tsx.
@@ -61,7 +61,8 @@ export default function AgentVerificationQueuePage() {
             </div>
           </li>
         ))}
-        {!isLoading && queue.length === 0 && <p className="text-slate-500">No pending applications.</p>}
+        {isError && <p className="text-red-600">Couldn&apos;t load applications — please try again in a moment.</p>}
+        {!isLoading && !isError && queue.length === 0 && <p className="text-slate-500">No pending applications.</p>}
       </ul>
     </main>
   );

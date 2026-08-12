@@ -26,12 +26,13 @@ export class CreateLeadDto {
   @Length(1, 120)
   name!: string;
 
-  // Region-locked — every real caller of this public endpoint is a Pakistani
-  // buyer/tenant inquiring about a Pakistani listing (same assumption
-  // PAKISTAN_CITIES/COUNTRIES-with-PK-default make elsewhere in this app).
-  // Unregioned @IsPhoneNumber() validates unpredictably against bare local
-  // numbers without a country code.
-  @IsPhoneNumber('PK')
+  // Unregioned — the enquiry form's CountryCodeSelect lets a caller pick any
+  // of ~240 dial codes, so a hard PK region lock 400'd every non-Pakistani
+  // number. Phone is always submitted with an explicit dial code prefix
+  // (EnquiryDialog.tsx composes `+${dialCode}${digits}`), so the unregioned
+  // validator's "unpredictable against bare local numbers" caveat doesn't
+  // apply here.
+  @IsPhoneNumber()
   phone!: string;
 
   @IsEmail()

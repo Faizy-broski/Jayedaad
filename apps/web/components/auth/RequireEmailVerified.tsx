@@ -21,13 +21,18 @@ import { useAuthViewModel } from '@jayedaad/core';
 // fetch, so this is a brief redirect, not a persistent blocker.
 export function RequireEmailVerified({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isEmailVerified, isEmailVerifiedLoading } = useAuthViewModel();
+  const { isAuthenticated, isEmailVerified, isEmailVerifiedLoading, isEmailVerifiedError } = useAuthViewModel();
 
   useEffect(() => {
-    if (isAuthenticated && !isEmailVerifiedLoading && !isEmailVerified) {
+    // !isEmailVerifiedError matters — without it, a transient failure of
+    // the underlying GET /auth/otp/status check (isEmailVerified collapsing
+    // to false via `?? false` in useAuthViewModel) bounced an
+    // already-verified agent to /verify-email on any brief backend hiccup,
+    // re-firing on every navigation since this runs on every mount.
+    if (isAuthenticated && !isEmailVerifiedLoading && !isEmailVerifiedError && !isEmailVerified) {
       router.replace('/verify-email');
     }
-  }, [isAuthenticated, isEmailVerified, isEmailVerifiedLoading, router]);
+  }, [isAuthenticated, isEmailVerified, isEmailVerifiedLoading, isEmailVerifiedError, router]);
 
   return <>{children}</>;
 }

@@ -14,6 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ScopeGuard } from '../common/guards/scope.guard';
@@ -22,6 +23,7 @@ import { ProjectMediaService } from './project-media.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { SetProjectVerificationStatusDto } from './dto/set-verification-status.dto';
+import { TrackEngagementDto } from './dto/track-engagement.dto';
 
 @Controller('projects')
 export class ProjectsController {
@@ -129,7 +131,7 @@ export class ProjectsController {
   @Roles('agent', 'super_admin')
   @Post()
   create(@Req() req: any, @Body() body: CreateProjectDto) {
-    return this.projects.create(body, req.user.role, req.user.id);
+    return this.projects.create(body, req.user.role, req.user.id, req.user.agentId);
   }
 
   // Approve/reject — the publish gate agent-authored projects need before
@@ -196,5 +198,16 @@ export class ProjectsController {
   @UseInterceptors(FileInterceptor('file'))
   uploadMedia(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
     return this.projectMedia.upload(req.user.id, file);
+  }
+
+  // Mirrors ListingsController.trackEngagement — public, throttled below the
+  // global default since it's an unauthenticated write anyone can call.
+  // Declared after the literal 'media/upload' route so that POST request
+  // isn't captured by this param route.
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post(':id/track')
+  trackEngagement(@Param('id') id: string, @Body() body: TrackEngagementDto) {
+    return this.projects.trackEngagement(id, body);
   }
 }

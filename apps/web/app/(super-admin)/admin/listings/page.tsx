@@ -91,7 +91,7 @@ export default function AdminListingsPage() {
   // scale, filtering client-side after pagination would make `total`/
   // totalPages wrong and could show a near-empty page for a tab whose
   // matches happened to land on a different page.
-  const { listings, total, isLoading, statusCounts, setStatus: setListingStatus } = useAdminListingsViewModel({
+  const { listings, total, isLoading, isError, statusCounts, setStatus: setListingStatus } = useAdminListingsViewModel({
     status,
     source: sourceTab,
     page,
@@ -211,7 +211,15 @@ export default function AdminListingsPage() {
         </div>
       )}
 
-      {!isLoading && listings.length === 0 && (
+      {isError && (
+        <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+          <ImageOff className="mb-3 h-10 w-10 text-destructive/50" />
+          <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load listings</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+        </div>
+      )}
+
+      {!isLoading && !isError && listings.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

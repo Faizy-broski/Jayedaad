@@ -14,9 +14,13 @@ import {
   ProjectStatus,
   getMaxPhoneDigits,
   projectsRepository,
+  useAgentProfileViewModel,
+  useAuthViewModel,
   useDevelopersViewModel,
   useManageProjectsViewModel,
+  useOwnerVerificationViewModel,
   useProjectDetailViewModel,
+  useSubscriptionViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import {
@@ -234,6 +238,22 @@ export function ProjectForm({
   const { propertyTypes, amenities } = useTaxonomyViewModel();
   const { create, update } = useManageProjectsViewModel();
   const { project, isLoading: projectLoading } = useProjectDetailViewModel(projectId);
+
+  // Same two parameters Listings already enforce (apps/web/app/(agent)/submit/page.tsx),
+  // mirrored here for parity — owner role doesn't apply to projects (create
+  // stays agent/super_admin only), so there's no becomeOwner/isPromotingOwner branch.
+  const { role } = useAuthViewModel();
+  const { usage } = useSubscriptionViewModel();
+  const quotaReached = role === 'agent' && !projectId && !!usage && usage.projectUsed >= usage.projectQuota;
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  // Agency-affiliated agents are exempt (their agency's own onboarding
+  // covers them); independent agents need the same one-time CNIC+selfie
+  // check already required before a first listing.
+  const isIndependentAgent = role === 'agent' && !agentProfile?.agency;
+  const { verification, isLoading: verificationLoading } = useOwnerVerificationViewModel();
+  const needsIdentityVerification =
+    isIndependentAgent && !projectId && !verificationLoading && verification?.status !== 'verified';
 
   const [step, setStep] = useState(0);
   // Furthest step the user has validly reached — a step pill only becomes
@@ -549,6 +569,18 @@ export function ProjectForm({
       return;
     }
     handleSubmit(e);
+  }
+
+  if (needsIdentityVerification) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6 py-12 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Verify Your Identity</h1>
+        <p className="text-sm text-muted-foreground">
+          Before posting your first project, we need a quick one-time identity check — your CNIC and a selfie.
+        </p>
+        <Button onClick={() => router.push('/submit/verify-identity')}>Verify Identity</Button>
+      </div>
+    );
   }
 
   if (projectId && projectLoading) {
@@ -1191,13 +1223,19 @@ export function ProjectForm({
 
                     {!readOnly && (
                       <div className="flex flex-col items-center gap-5 py-4 text-center">
+                        {usage && role === 'agent' && !projectId && (
+                          <p className={`text-xs font-medium ${quotaReached ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {usage.projectUsed} of {usage.projectQuota} projects used on your plan
+                            {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+                          </p>
+                        )}
                         <div className="flex flex-wrap justify-center gap-3">
                           {!projectId && (
                             <Button type="button" variant="outline" disabled={isPending} onClick={handleSaveDraft}>
                               {savingDraft ? 'Saving…' : 'Save as Draft'}
                             </Button>
                           )}
-                          <Button type="submit" className="rounded-full" disabled={isPending}>
+                          <Button type="submit" className="rounded-full" disabled={isPending || quotaReached}>
                             {submitting ? 'Saving…' : projectId ? 'Save Changes' : 'Create Project'}
                           </Button>
                         </div>

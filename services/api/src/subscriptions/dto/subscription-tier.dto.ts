@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsObject, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
 
 // subscription_tiers.name is plain text, not a fixed enum — Super Admin
 // creates plans with whatever name they choose (real Zameen tier names
@@ -12,15 +12,17 @@ export class CreateSubscriptionTierDto {
   @IsPositive()
   listingQuota!: number;
 
+  // Separate counter from listingQuota — see EntitlementsService's
+  // projectQuota comment. 0 is a valid, common value (most tiers don't
+  // include project creation), so @IsPositive() would wrongly reject it —
+  // @Min(0) instead.
+  @IsInt()
+  @Min(0)
+  projectQuota!: number;
+
   @IsOptional()
   @IsNumber()
   price?: number;
-
-  // Depth/entitlement flags per tier (e.g. { analyticsDepth: 'full',
-  // viewCountDetail: 'full_timeseries' }) — see EntitlementsService, which
-  // already reads this shape from subscription_tiers.analytics_depth.
-  @IsObject()
-  analyticsDepth!: Record<string, unknown>;
 
   // Featured-listing allotment — granted to agent_credits on tier
   // (re-)selection and each successful renewal (see
@@ -61,12 +63,13 @@ export class UpdateSubscriptionTierDto {
   listingQuota?: number;
 
   @IsOptional()
-  @IsNumber()
-  price?: number;
+  @IsInt()
+  @Min(0)
+  projectQuota?: number;
 
   @IsOptional()
-  @IsObject()
-  analyticsDepth?: Record<string, unknown>;
+  @IsNumber()
+  price?: number;
 
   @IsOptional()
   @IsInt()

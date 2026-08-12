@@ -89,7 +89,7 @@ export default function AgenciesPage() {
   const [page, setPage] = useState(1);
   const isStaffTab = activeTab === 'staff';
 
-  const { agencies, total, isLoading, create, update, setVerificationStatus, setTier, remove } = useAgencyManagementViewModel({
+  const { agencies, total, isLoading, isError, create, update, setVerificationStatus, setTier, remove } = useAgencyManagementViewModel({
     verificationStatus: isStaffTab || activeTab === 'all' ? undefined : activeTab,
     search: search.trim() || undefined,
     page,
@@ -396,6 +396,14 @@ export default function AgenciesPage() {
             <div key={i} className="h-40 animate-pulse rounded-xl border border-border bg-muted/40" />
           ))}
         </div>
+      ) : isError ? (
+        <Reveal>
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+            <Building2 className="mb-3 h-10 w-10 text-destructive/50" />
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load agencies</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+          </div>
+        </Reveal>
       ) : agencies.length === 0 ? (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">

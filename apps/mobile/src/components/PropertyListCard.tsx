@@ -1,12 +1,11 @@
 import { Image, Pressable, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Listing, formatPrice } from '@jayedaad/core';
+import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import { FavoriteButton } from './ListingContactActions';
 
 export interface PropertyListCardProps {
   listing: Listing;
-  currency?: string;
   onPress: () => void;
 }
 
@@ -18,7 +17,9 @@ export interface PropertyListCardProps {
 // a long scrollable list). Same real listing data as PropertyCard, no
 // inline Call/WhatsApp/SMS row — those stay real and one tap away on
 // ListingDetailScreen instead of being duplicated on every row here.
-export function PropertyListCard({ listing, currency, onPress }: PropertyListCardProps) {
+export function PropertyListCard({ listing, onPress }: PropertyListCardProps) {
+  const { format: formatPrice } = useFormattedPrice();
+  const { format: formatArea } = useFormattedArea();
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
   const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
   const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
@@ -59,9 +60,9 @@ export function PropertyListCard({ listing, currency, onPress }: PropertyListCar
           <Ionicons name="location-outline" size={12} color={theme.colors.muted} />
           <Text style={styles.location} numberOfLines={1}>{listing.area}, {listing.city}</Text>
         </View>
-        <Text style={styles.price}>{formatPrice(Number(listing.price), currency)}</Text>
+        <Text style={styles.price}>{formatPrice(Number(listing.price))}</Text>
         <Text style={styles.statsLine} numberOfLines={1}>
-          {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths · {listing.areaValue} {listing.areaUnit}
+          {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths · {formatArea(Number(listing.areaValue), listing.areaUnit)}
         </Text>
       </View>
     </Pressable>

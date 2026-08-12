@@ -45,8 +45,8 @@ export class SubscriptionTiersRepository {
       .insert({
         name: input.name,
         listing_quota: input.listingQuota,
+        project_quota: input.projectQuota,
         price: input.price ?? 0,
-        analytics_depth: input.analyticsDepth,
         hot_credits_per_period: input.hotCreditsPerPeriod ?? 0,
         super_hot_credits_per_period: input.superHotCreditsPerPeriod ?? 0,
         refresh_credits_per_period: input.refreshCreditsPerPeriod ?? 0,
@@ -65,8 +65,8 @@ export class SubscriptionTiersRepository {
       .update({
         name: input.name,
         listing_quota: input.listingQuota,
+        project_quota: input.projectQuota,
         price: input.price,
-        analytics_depth: input.analyticsDepth,
         hot_credits_per_period: input.hotCreditsPerPeriod,
         super_hot_credits_per_period: input.superHotCreditsPerPeriod,
         refresh_credits_per_period: input.refreshCreditsPerPeriod,

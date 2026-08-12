@@ -23,12 +23,11 @@ import {
   useAgencyAnalyticsViewModel,
   useAgentDashboardViewModel,
   useSubscriptionViewModel,
-  usePreferencesViewModel,
+  useFormattedPrice,
   useLeadInboxViewModel,
   useAgentProfileViewModel,
   useAuthViewModel,
   useTasksViewModel,
-  formatPrice,
   AgentCreditType,
 } from '@jayedaad/core';
 import { Card, Button, Input } from '@jayedaad/ui-web';
@@ -131,11 +130,18 @@ export default function AgentDashboardPage() {
     isAnalyticsLoading,
     recentListings,
     isRecentListingsLoading,
+    isRecentListingsError,
   } = useAgentDashboardViewModel({ purpose: purposeFilter });
   const { current: currentPlan } = useSubscriptionViewModel();
-  const { preferences } = usePreferencesViewModel();
-  const { leads, isLoading: isLeadsLoading } = useLeadInboxViewModel({});
-  const { openTasks, isLoading: isTasksLoading, create: createTask, complete: completeTask } = useTasksViewModel();
+  const { format: formatPrice } = useFormattedPrice();
+  const { leads, isLoading: isLeadsLoading, isError: isLeadsError } = useLeadInboxViewModel({});
+  const {
+    openTasks,
+    isLoading: isTasksLoading,
+    isError: isTasksError,
+    create: createTask,
+    complete: completeTask,
+  } = useTasksViewModel();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   // Agency Admin's "full visibility to their overall performance, analytics,
   // and their sales associates" (Document Verification Phase 3).
@@ -423,6 +429,8 @@ export default function AgentDashboardPage() {
                   <div key={i} className="h-14 animate-pulse rounded-md bg-muted/40" />
                 ))}
               </div>
+            ) : isRecentListingsError ? (
+              <p className="mt-4 text-sm text-destructive">Couldn&apos;t load your listings — please try again.</p>
             ) : recentListings.length === 0 ? (
               <div className="mt-6 flex flex-col items-center py-6 text-center">
                 <ImageOff className="mb-3 h-10 w-10 text-muted-foreground/50" />
@@ -458,7 +466,7 @@ export default function AgentDashboardPage() {
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
                         <span className="text-sm font-semibold text-foreground">
-                          {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
+                          {formatPrice(Number(listing.price))}
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}>{status.label}</span>
                       </div>
@@ -484,6 +492,8 @@ export default function AgentDashboardPage() {
                   <div key={i} className="h-12 animate-pulse rounded-md bg-muted/40" />
                 ))}
               </div>
+            ) : isLeadsError ? (
+              <p className="mt-4 text-sm text-destructive">Couldn&apos;t load your inbox — please try again.</p>
             ) : recentLeads.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">No inquiries yet.</p>
             ) : (
@@ -540,6 +550,8 @@ export default function AgentDashboardPage() {
                 <div key={i} className="h-8 animate-pulse rounded-md bg-muted/40" />
               ))}
             </div>
+          ) : isTasksError ? (
+            <p className="mt-4 text-sm text-destructive">Couldn&apos;t load your tasks — please try again.</p>
           ) : openTasks.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">Nothing on your list — nice.</p>
           ) : (

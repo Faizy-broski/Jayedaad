@@ -37,6 +37,7 @@ export function useAgencyStaffViewModel(agencyId: string) {
   return {
     staff: query.data ?? [],
     isLoading: query.isLoading,
+    isError: query.isError,
     addStaff,
     setStaffAdmin,
     removeStaff,

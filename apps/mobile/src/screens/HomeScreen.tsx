@@ -18,7 +18,6 @@ import {
   useBlogViewModel,
   useListingSearchViewModel,
   useNotificationsViewModel,
-  usePreferencesViewModel,
   useProjectsViewModel,
 } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
@@ -106,14 +105,17 @@ export const HomeScreen = memo(function HomeScreen() {
   // homepage, which also pulls from a static array) — real verified
   // listings, newest first, so the cards are actually tappable to a real
   // ListingDetailScreen instead of dead-ending on fake ids.
-  const { listings: featuredListings, isLoading: featuredLoading } = useListingSearchViewModel({
+  const {
+    listings: featuredListings,
+    isLoading: featuredLoading,
+    error: featuredError,
+  } = useListingSearchViewModel({
     sortBy: 'newest',
     pageSize: 4,
   });
   // Previously NEW_PROJECTS was hardcoded mock data — real verified
   // projects, newest first, tappable to the real ProjectDetailScreen.
-  const { projects: newProjects } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
-  const { preferences } = usePreferencesViewModel();
+  const { projects: newProjects, error: projectsError } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
   // Previously BLOG_POSTS was hardcoded mock data — real published posts
   // from the Blog CMS, newest first.
   const { posts: blogPosts, isLoading: blogLoading } = useBlogViewModel({ limit: 3 });
@@ -198,6 +200,8 @@ export const HomeScreen = memo(function HomeScreen() {
           <View style={styles.propertyListVertical}>
             {featuredLoading ? (
               <Text style={styles.mutedText}>Loading…</Text>
+            ) : featuredError ? (
+              <Text style={styles.errorText}>Couldn't load listings — pull to refresh.</Text>
             ) : featuredListings.length === 0 ? (
               <Text style={styles.mutedText}>No listings yet.</Text>
             ) : (
@@ -205,7 +209,6 @@ export const HomeScreen = memo(function HomeScreen() {
                 <PropertyCard
                   key={listing.id}
                   listing={listing}
-                  currency={preferences?.preferredCurrency}
                   onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}
                 />
               ))
@@ -230,7 +233,6 @@ export const HomeScreen = memo(function HomeScreen() {
                 <PropertyCard
                   key={listing.id}
                   listing={listing}
-                  currency={preferences?.preferredCurrency}
                   onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}
                 />
               ))}
@@ -279,16 +281,20 @@ export const HomeScreen = memo(function HomeScreen() {
             </Pressable>
           </View>
 
-          <FlatList
-            data={newProjects}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.projectList}
-            renderItem={({ item }) => (
-              <ProjectCard project={item} onPress={() => navigation.navigate('ProjectDetail', { projectSlug: item.slug })} />
-            )}
-          />
+          {projectsError ? (
+            <Text style={styles.errorText}>Couldn't load projects — pull to refresh.</Text>
+          ) : (
+            <FlatList
+              data={newProjects}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.projectList}
+              renderItem={({ item }) => (
+                <ProjectCard project={item} onPress={() => navigation.navigate('ProjectDetail', { projectSlug: item.slug })} />
+              )}
+            />
+          )}
         </View>
 
         {(blogLoading || blogPosts.length > 0) && (
@@ -741,6 +747,7 @@ const styles = StyleSheet.create({
   propertyListVertical: { gap: theme.spacing.md },
   propertyImagePlaceholder: { backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   mutedText: { fontSize: 13, color: theme.colors.mutedLight, textAlign: 'center', paddingVertical: theme.spacing.lg },
+  errorText: { fontSize: 13, color: theme.colors.danger, textAlign: 'center', paddingVertical: theme.spacing.lg },
   projectList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
   projectCard: {
     width: 250,

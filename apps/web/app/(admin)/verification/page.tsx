@@ -35,7 +35,7 @@ function initials(name: string): string {
 // reviewer isn't approving/rejecting blind.
 export default function VerificationQueuePage() {
   const [page, setPage] = useState(1);
-  const { queue, total, isLoading, act } = useVerificationQueueViewModel({ page, pageSize: PAGE_SIZE });
+  const { queue, total, isLoading, isError, act } = useVerificationQueueViewModel({ page, pageSize: PAGE_SIZE });
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -69,6 +69,14 @@ export default function VerificationQueuePage() {
             <div key={i} className="h-40 animate-pulse rounded-xl border border-border bg-muted/40" />
           ))}
         </div>
+      ) : isError ? (
+        <Reveal>
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+            <ImageOff className="mb-3 h-10 w-10 text-destructive/50" />
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load the verification queue</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+          </div>
+        </Reveal>
       ) : queue.length === 0 ? (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">

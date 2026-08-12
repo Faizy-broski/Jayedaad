@@ -12,7 +12,8 @@ import type { AuthStackParamList } from '../navigation/AuthNavigator';
 // this is what LoginScreen/VerifyEmailScreen's "the gate handles navigation"
 // comments now actually refer to.
 export function AuthGateProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isEmailVerified, isEmailVerifiedLoading, sendOtp, role, agentId } = useAuthViewModel();
+  const { isAuthenticated, isEmailVerified, isEmailVerifiedLoading, isEmailVerifiedError, sendOtp, role, agentId } =
+    useAuthViewModel();
   // enabled: !!agentId inside the hook itself — a no-op fetch for buyers/
   // non-agents, so this costs nothing outside the agency-signup path.
   const { profile, isLoading: isProfileLoading } = useAgentProfileViewModel();
@@ -57,7 +58,14 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
   // have nothing to do with agency verification (confirmed: tapping the
   // heart icon shouldn't demand ID/company documents). needsAgencyDocuments
   // still matters below, just not for this.
-  const isVerified = isAuthenticated && !isEmailVerifiedLoading && isEmailVerified;
+  // isEmailVerifiedError matters — without it, a transient failure of the
+  // underlying GET /auth/otp/status check (isEmailVerified collapsing to
+  // false via `?? false` in useAuthViewModel) popped the verify-email gate
+  // over an already-verified agent on any brief backend hiccup. Fail open
+  // here (treat "couldn't confirm" the same as verified) rather than
+  // fail closed — a wrong "true" is harmless, a wrong "false" locks a real
+  // user out.
+  const isVerified = isAuthenticated && !isEmailVerifiedLoading && (isEmailVerified || isEmailVerifiedError);
   // Only used to keep the sheet open through the post-signup nag (see the
   // auto-close effect below) — not to decide whether requireAuth() should
   // let a generic action through.
@@ -95,15 +103,22 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
       pendingSuccessRef.current = onSuccess;
       setGateRouteAtOpen(gateRoute);
       setVisible(true);
-      // Only once we're sure (not mid-query) they're genuinely unverified —
-      // firing this during the isEmailVerifiedLoading flash could send a
+      // Only once we're sure (not mid-query, not a failed check) they're
+      // genuinely unverified — firing this during the isEmailVerifiedLoading
+      // flash, or off a transient isEmailVerifiedError, could send a
       // pointless code to an already-verified user.
-      if (gateRoute === 'VerifyEmail' && !isEmailVerifiedLoading && !isEmailVerified && !otpAutoSentRef.current) {
+      if (
+        gateRoute === 'VerifyEmail' &&
+        !isEmailVerifiedLoading &&
+        !isEmailVerifiedError &&
+        !isEmailVerified &&
+        !otpAutoSentRef.current
+      ) {
         otpAutoSentRef.current = true;
         sendOtp.mutate();
       }
     },
-    [isVerified, gateRoute, isEmailVerifiedLoading, isEmailVerified, sendOtp],
+    [isVerified, gateRoute, isEmailVerifiedLoading, isEmailVerifiedError, isEmailVerified, sendOtp],
   );
 
   useEffect(() => {

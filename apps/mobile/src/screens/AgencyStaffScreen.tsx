@@ -38,7 +38,7 @@ const VERIFICATION_COLORS: Record<AgencyStaffMember['verificationStatus'], { bg:
 export function AgencyStaffScreen() {
   const { profile, isLoading: isProfileLoading } = useAgentProfileViewModel();
   const agencyId = profile?.agency?.id;
-  const { staff, isLoading, addStaff, setStaffAdmin, removeStaff } = useAgencyStaffViewModel(agencyId ?? '');
+  const { staff, isLoading, isError, addStaff, setStaffAdmin, removeStaff } = useAgencyStaffViewModel(agencyId ?? '');
   const { showToast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<CreateAgencyStaffInput>(EMPTY_FORM);
@@ -130,6 +130,10 @@ export function AgencyStaffScreen() {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <Text style={styles.muted}>Fetching staff…</Text>
+        </View>
+      ) : isError ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.error}>Couldn't load staff — please try again.</Text>
         </View>
       ) : staff.length === 0 ? (
         <View style={styles.loadingContainer}>
@@ -237,6 +241,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { fontSize: 14, color: theme.colors.mutedLight, fontWeight: '500', textAlign: 'center' },
+  error: { fontSize: 14, color: theme.colors.danger, fontWeight: '500', textAlign: 'center' },
   list: { paddingHorizontal: 24, paddingVertical: 4, gap: 16 },
   card: {
     backgroundColor: theme.colors.bg,

@@ -1,10 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { BadgeCheck, Mail, PhoneCall } from 'lucide-react';
+import { BadgeCheck, Mail, MessageSquare, PhoneCall } from 'lucide-react';
+import { listingsRepository } from '@jayedaad/core';
 import { Badge } from '@jayedaad/ui-web';
 import { EnquiryDialog } from '@/components/shared/EnquiryDialog';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import { getViewerSessionId } from '@/lib/viewerSession';
 import type { ListingProperty } from '@/lib/types';
 
 interface AgentCardProps {
@@ -25,6 +27,15 @@ interface AgentCardProps {
 }
 
 export function AgentCard({ agent, listingId, listingTitle, referenceLabel, intent = 'inquiry' }: AgentCardProps) {
+  // Fire-and-forget — feeds the agent dashboard's Calls/WhatsApp/SMS/Emails
+  // analytics (see packages/core's listingsRepository.trackEngagement);
+  // never blocks the real tel:/wa.me/sms:/mailto: action.
+  function track(type: 'call' | 'whatsapp' | 'sms' | 'email') {
+    listingsRepository
+      .trackEngagement(listingId, { type, platform: 'web', viewerSessionId: getViewerSessionId() })
+      .catch(() => {});
+  }
+
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
@@ -58,6 +69,7 @@ export function AgentCard({ agent, listingId, listingTitle, referenceLabel, inte
       <div className="flex flex-col gap-2">
         <a
           href={`tel:${agent.phone}`}
+          onClick={() => track('call')}
           className="flex items-center justify-center gap-2 rounded-full bg-heading-gradient px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <PhoneCall className="h-4 w-4" />
@@ -68,13 +80,23 @@ export function AgentCard({ agent, listingId, listingTitle, referenceLabel, inte
             href={`https://wa.me/${agent.phone.replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track('whatsapp')}
             className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#25D366] px-4 py-2.5 text-sm font-bold text-[#25D366] transition-colors hover:bg-[#25D366]/5"
           >
             <WhatsAppIcon className="h-3.5 w-3.5 shrink-0" />
             WhatsApp
           </a>
           <a
+            href={`sms:${agent.phone}`}
+            onClick={() => track('sms')}
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-primary px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
+          >
+            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+            SMS
+          </a>
+          <a
             href={`mailto:${agent.email ?? ''}`}
+            onClick={() => track('email')}
             className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-primary px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
           >
             <Mail className="h-3.5 w-3.5 shrink-0" />

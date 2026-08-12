@@ -170,15 +170,18 @@ export const listingsRepository = {
     return data;
   },
 
-  // Backs the agent dashboard's Calls/WhatsApp/SMS analytics, and now also
-  // GET /listings/trending's "most visited" ranking via 'view' — public,
-  // fire-and-forget from the caller (a failed track shouldn't block the
- // real tel:/wa.me/sms: action, or the page rendering for a 'view').
-  // Mirrors services/api's TrackEngagementDto; 'email' is still not exposed
-  // here — no listing-level email action exists yet for it to attach to.
+  // Backs the agent dashboard's Clicks/Calls/WhatsApp/SMS/Emails analytics,
+  // and now also GET /listings/trending's "most visited" ranking via 'view'
+  // — public, fire-and-forget from the caller (a failed track shouldn't
+  // block the real tel:/wa.me/sms:/mailto: action, or the page rendering
+  // for a 'view'/'click'). Mirrors services/api's TrackEngagementDto.
   trackEngagement: async (
     listingId: string,
-     input: { type: 'view' | 'call' | 'whatsapp' | 'sms'; platform: 'web' | 'mobile'; viewerSessionId: string },
+    input: {
+      type: 'view' | 'click' | 'call' | 'whatsapp' | 'sms' | 'email';
+      platform: 'web' | 'mobile';
+      viewerSessionId: string;
+    },
   ): Promise<void> => {
     await httpClient.post(`/listings/${listingId}/track`, input);
   },

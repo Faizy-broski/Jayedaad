@@ -12,11 +12,10 @@ import {
   ListingPurpose,
   ListingSearchFilters,
   PAKISTAN_CITIES,
-  formatPrice,
   listingsRepository,
   useAuthViewModel,
+  useFormattedPrice,
   useListingSearchViewModel,
-  usePreferencesViewModel,
   useSavedSearchesViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
@@ -148,7 +147,7 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { propertyTypes } = useTaxonomyViewModel();
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
   const { isAuthenticated } = useAuthViewModel();
   const { create: createSavedSearch } = useSavedSearchesViewModel();
 
@@ -218,6 +217,12 @@ function SearchPageContent() {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     : singleTypeResult.listings;
   const isLoading = isCategoryMode ? categoryQueries.some((q) => q.isLoading) : singleTypeResult.isLoading;
+  // Previously the "No verified listings yet" text below fired on ANY
+  // failed fetch too (a 429/5xx renders an empty `listings` array
+  // identically to a real empty result) — distinguishing them so a backend
+  // hiccup shows up as a visible, retryable error instead of looking like
+  // there's genuinely nothing to find.
+  const isError = isCategoryMode ? categoryQueries.some((q) => q.isError) : !!singleTypeResult.error;
 
   // Auto-generated from the active filters (e.g. "Flat · DHA · Rent") rather
   // than prompting the buyer for a custom name — no "save search" creation
@@ -457,7 +462,7 @@ function SearchPageContent() {
             <h2 className="font-medium">{listing.title}</h2>
             <p className="text-sm text-slate-500">
               {listing.propertyType?.label} · {listing.area}, {listing.city} —{' '}
-              {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
+              {formatPrice(Number(listing.price))}
             </p>
             <p className="text-xs text-slate-400">
               {listing.bedrooms ?? '–'} bed · {listing.bathrooms ?? '–'} bath · {listing.areaValue} {listing.areaUnit}
@@ -465,7 +470,10 @@ function SearchPageContent() {
             <ContactActions listing={listing} />
           </li>
         ))}
-        {!isLoading && listings.length === 0 && <p className="text-slate-500">No verified listings yet.</p>}
+        {isError && (
+          <p className="text-red-600">Couldn&apos;t load listings — please try again in a moment.</p>
+        )}
+        {!isLoading && !isError && listings.length === 0 && <p className="text-slate-500">No verified listings yet.</p>}
       </ul>
     </main>
   );

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { formatPrice, useFavoritesViewModel, usePreferencesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
+import { useFavoritesViewModel, useFormattedPrice, useSavedSearchesViewModel } from '@jayedaad/core';
 // Removed Tabs from ui-native import to use the premium segmented control
 import { Button, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -69,7 +69,7 @@ export function FavoritesScreen() {
 
 function FavoritesTab() {
   const { favorites, isLoading, remove } = useFavoritesViewModel();
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
   const { showToast } = useToast();
   const navigation = useNavigation<Nav>();
 
@@ -112,7 +112,7 @@ function FavoritesTab() {
                     {favorite.listing.area}, {favorite.listing.city}
                   </Text>
                   <Text style={styles.cardPrice}>
-                    {formatPrice(Number(favorite.listing.price), preferences?.preferredCurrency)}
+                    {formatPrice(Number(favorite.listing.price))}
                   </Text>
                 </>
               )}

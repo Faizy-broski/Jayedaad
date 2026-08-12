@@ -25,11 +25,24 @@ export class SubscriptionsController {
   ) {}
 
   // "40 of 50 listings used" — real-time usage tracking [Spec §6/§8.1].
+  // Extended to also return project usage in the same round trip (parity
+  // with listings' quota — see EntitlementsService.getProjectUsage) rather
+  // than a second endpoint, since every existing caller already treats this
+  // as one SubscriptionUsage object.
   @UseGuards(ScopeGuard)
   @Roles('agent', 'super_admin')
   @Get('usage')
-  usage(@Req() req: any) {
-    return this.entitlements.getListingUsage(req.user.agentId);
+  async usage(@Req() req: any) {
+    const [listing, project] = await Promise.all([
+      this.entitlements.getListingUsage(req.user.agentId),
+      this.entitlements.getProjectUsage(req.user.agentId, req.user.id),
+    ]);
+    return {
+      used: listing.used,
+      quota: listing.quota,
+      projectUsed: project.used,
+      projectQuota: project.quota,
+    };
   }
 
   // The agent's own current plan — findForAgent() already existed but was

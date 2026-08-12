@@ -21,6 +21,7 @@ export function useAdminDashboardViewModel() {
   return {
     stats: statsQuery.data,
     isStatsLoading: statsQuery.isLoading,
+    isStatsError: statsQuery.isError,
     agents,
     isAgentsLoading: agentsQuery.isLoading,
   };

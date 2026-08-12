@@ -1,4 +1,5 @@
 import { Bed, Bath, Ruler, Car, Building2, Calendar, Tag, KeyRound, Wallet } from 'lucide-react';
+import { useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import type { ListingProperty } from '@/lib/types';
 
 interface PropertyStatsProps {
@@ -6,17 +7,24 @@ interface PropertyStatsProps {
 }
 
 export function PropertyStats({ listing }: PropertyStatsProps) {
+  const { format: formatPrice } = useFormattedPrice();
+  const { format: formatArea } = useFormattedArea();
+
   // Real, computed directly from this listing — previously lived in the
   // since-removed "Investment analysis" section alongside three fake
   // market-estimate stats (Rental Yield/ROI/Area Growth); relocated here
-  // next to the rest of the page's real per-listing facts.
-  const pricePerSqft = Math.round(listing.priceValue / listing.areaSqft);
+  // next to the rest of the page's real per-listing facts. Computed in
+  // raw PKR-per-canonical-sqft first (a fixed, unit-independent ratio),
+  // currency-converted for display only — "price per sq ft" wouldn't mean
+  // anything if the numerator and denominator used different unit
+  // conversions independently.
+  const pricePerSqftPKR = Math.round(listing.priceValue / listing.areaSqft);
 
   const rows = [
     [
       { icon: Bed, label: 'Beds', value: listing.beds },
       { icon: Bath, label: 'Baths', value: listing.baths },
-      { icon: Ruler, label: 'Area', value: `${listing.areaSqft.toLocaleString()} sqft` },
+      { icon: Ruler, label: 'Area', value: formatArea(listing.areaSqft, 'sqft') },
       { icon: Car, label: 'Parking', value: `${listing.parkingSpots} cars` },
     ],
     [
@@ -25,7 +33,7 @@ export function PropertyStats({ listing }: PropertyStatsProps) {
       { icon: Tag, label: 'Purpose', value: listing.listingType === 'sale' ? 'For Sale' : 'For Rent' },
       { icon: KeyRound, label: 'Ownership', value: listing.ownership },
     ],
-    [{ icon: Wallet, label: 'Price / Sq Ft', value: `PKR ${pricePerSqft.toLocaleString('en-PK')}` }],
+    [{ icon: Wallet, label: 'Price / Sq Ft', value: `${formatPrice(pricePerSqftPKR)} / sqft` }],
   ];
 
   return (

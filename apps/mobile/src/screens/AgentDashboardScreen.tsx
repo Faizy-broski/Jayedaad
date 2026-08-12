@@ -10,7 +10,6 @@ import {
   useAgentDashboardViewModel,
   useAgentProfileViewModel,
   useLeadInboxViewModel,
-  usePreferencesViewModel,
   useSubscriptionViewModel,
   useTasksViewModel,
 } from '@jayedaad/core';
@@ -71,14 +70,27 @@ export function AgentDashboardScreen() {
   const [purposeFilter, setPurposeFilter] = useState<'sale' | 'rent' | undefined>(undefined);
   const [activeCreditTab, setActiveCreditTab] = useState<AgentCreditType>('listing_quota');
 
-  const { stats, analytics, dailyAnalytics, recentListings, isRecentListingsLoading, credits, isCreditsLoading } =
-    useAgentDashboardViewModel({
+  const {
+    stats,
+    analytics,
+    dailyAnalytics,
+    recentListings,
+    isRecentListingsLoading,
+    isRecentListingsError,
+    credits,
+    isCreditsLoading,
+  } = useAgentDashboardViewModel({
       purpose: purposeFilter,
     });
   const { current: currentPlan } = useSubscriptionViewModel();
-  const { preferences } = usePreferencesViewModel();
   const { leads: recentLeads } = useLeadInboxViewModel({});
-  const { openTasks, isLoading: isTasksLoading, create: createTask, complete: completeTask } = useTasksViewModel();
+  const {
+    openTasks,
+    isLoading: isTasksLoading,
+    isError: isTasksError,
+    create: createTask,
+    complete: completeTask,
+  } = useTasksViewModel();
   const { showToast } = useToast();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   // Agency Admin's "full visibility to their overall performance, analytics,
@@ -363,6 +375,8 @@ export function AgentDashboardScreen() {
 
             {isTasksLoading ? (
               <Text style={styles.centeredMuted}>Loading…</Text>
+            ) : isTasksError ? (
+              <Text style={styles.errorText}>Couldn't load your tasks.</Text>
             ) : openTasks.length === 0 ? (
               <Text style={styles.muted}>Nothing on your list — nice.</Text>
             ) : (
@@ -409,6 +423,8 @@ export function AgentDashboardScreen() {
 
         {isRecentListingsLoading ? (
           <Text style={styles.centeredMuted}>Loading…</Text>
+        ) : isRecentListingsError ? (
+          <Text style={styles.errorText}>Couldn't load your listings.</Text>
         ) : recentListings.length === 0 ? (
           <Card>
             <CardContent style={styles.recentListingsContent}>
@@ -430,7 +446,6 @@ export function AgentDashboardScreen() {
               <PropertyCard
                 key={listing.id}
                 listing={listing}
-                currency={preferences?.preferredCurrency}
                 onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}
               />
             ))}
@@ -572,6 +587,7 @@ const styles = StyleSheet.create({
   followUpDue: { fontSize: 11, color: theme.colors.muted },
   recentListingsContent: { paddingVertical: theme.spacing.xl },
   centeredMuted: { fontSize: 13, color: theme.colors.muted, textAlign: 'center' },
+  errorText: { fontSize: 13, color: theme.colors.danger, textAlign: 'center' },
   emptyState: { alignItems: 'center' },
   emptyHeading: { marginTop: theme.spacing.sm, fontSize: 13, fontWeight: '700', color: theme.colors.text },
   emptySubtext: { marginTop: theme.spacing.xs, fontSize: 12, color: theme.colors.muted },

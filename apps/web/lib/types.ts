@@ -6,12 +6,25 @@ export interface Property {
   id: string;
   title: string;
   location: string;
+  /** Pre-formatted in PKR at mapping time — static, not reactive to the
+   *  viewer's currency preference. Kept for non-reactive contexts (share
+   *  text, recently-viewed snapshots); any live price display should use
+   *  `priceValue` with useFormattedPrice() instead. */
   price: string;
+  /** Raw PKR amount — feed this to useFormattedPrice().format() for a
+   *  live, currency-preference-aware display instead of the static
+   *  `price` string above. */
+  priceValue: number;
   image: string;
   listingType: ListingType;
   verified?: boolean;
   beds: number;
   baths: number;
+  /** Always true square feet (converted via convertArea from the
+   *  listing's real stored unit) — previously this was the listing's raw
+   *  areaValue relabeled "sqft" regardless of its actual unit. Feed this
+   *  to useFormattedArea().format(areaSqft, 'sqft') for a live,
+   *  unit-preference-aware display. */
   areaSqft: number;
    /** Only set for the homepage's Most Visited carousel (GET /listings/trending). */
   viewCount?: number;
@@ -45,8 +58,6 @@ export interface ListingProperty extends Property {
   propertyTypeSlug: string;
   /** Real property_type_categories.slug ("residential" | "plot" | "commercial") — used to filter by category. */
   propertyTypeCategorySlug: string;
-  /** Numeric PKR value backing `price`, used for range filtering/sorting. */
-  priceValue: number;
   furnished: boolean;
   // newProject: boolean;
   readyToMove: boolean;

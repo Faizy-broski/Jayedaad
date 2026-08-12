@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { resolvePagination, sanitizeKeyword } from '../common/pagination';
+import { EntitlementsService } from '../subscriptions/entitlements.service';
 
 // Confirmed real on the Zameen New Projects search page: City, Property
 // Type (via the "Browse Projects by Category" taxonomy), Budget Range,
@@ -166,7 +168,10 @@ function mapProjectDetailRow(row: any) {
 // unit types; individual listings may optionally reference a project.
 @Injectable()
 export class ProjectsRepository {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   // includeUnverified: set by the authenticated agent/super_admin "manage"
   // route (findAll below) — the public search route never sets this, so a
@@ -439,7 +444,24 @@ export class ProjectsRepository {
   // the same authority that would otherwise approve it); an agent-authored
   // one starts 'pending' and stays out of public search until approved via
   // setVerificationStatus below — same publish gate listings already have.
-  async create(input: CreateProjectDto, creatorRole: 'agent' | 'super_admin', creatorId: string) {
+  async create(
+    input: CreateProjectDto,
+    creatorRole: 'agent' | 'super_admin',
+    creatorId: string,
+    agentId?: string,
+  ) {
+    // Real quota enforcement, mirroring ListingsRepository.create()'s
+    // entitlements check — super_admin-created projects have no plan to
+    // check against, same as owner-submitted listings. Row-count is keyed
+    // on creatorId (what `created_by` actually stores — see
+    // EntitlementsService.getProjectUsage's comment), tier lookup on agentId.
+    if (creatorRole === 'agent' && agentId) {
+      const allowed = await this.entitlements.canCreateProject(agentId, creatorId);
+      if (!allowed) {
+        throw new ForbiddenException('Project quota reached for your current plan — upgrade or free up a slot.');
+      }
+    }
+
     const { data: project, error } = await this.supabase.client
       .from('projects')
       .insert({
@@ -562,5 +584,18 @@ export class ProjectsRepository {
       .single();
     if (error) throw error;
     return mapProjectRow(data, null);
+  }
+
+  // Mirrors ListingsRepository.trackEngagement — same
+  // view/click/call/whatsapp/sms/email event shape, scoped to
+  // project_engagement_events instead of listing_engagement_events.
+  async trackEngagement(projectId: string, input: TrackEngagementDto) {
+    const { error } = await this.supabase.client.from('project_engagement_events').insert({
+      project_id: projectId,
+      type: input.type,
+      platform: input.platform,
+      viewer_session_id: input.viewerSessionId,
+    });
+    if (error) throw error;
   }
 }

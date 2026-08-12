@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { agentsRepository, AgentAnalyticsFilters } from '../services/agentsRepository';
 import { listingsRepository } from '../services/listingsRepository';
+import { useAgentCreditsViewModel } from './useAgentCreditsViewModel';
 import { useAuthViewModel } from './useAuthViewModel';
 
 // Drives the Profolio-style agent Dashboard — stats/credits/analytics
@@ -16,11 +17,10 @@ export function useAgentDashboardViewModel(analyticsFilters: AgentAnalyticsFilte
     enabled: !!agentId,
   });
 
-  const creditsQuery = useQuery({
-    queryKey: ['agents', agentId, 'credits'],
-    queryFn: () => agentsRepository.getCredits(agentId!),
-    enabled: !!agentId,
-  });
+  // Shared with MyPropertiesScreen (mobile) and the property-management
+  // page (web), which also spend these credits — one cache entry per
+  // agent, not a duplicate fetch, since it uses the same query key.
+  const { credits, isLoading: isCreditsLoading } = useAgentCreditsViewModel();
 
   const analyticsQuery = useQuery({
     queryKey: ['agents', agentId, 'analytics', analyticsFilters],
@@ -43,13 +43,14 @@ export function useAgentDashboardViewModel(analyticsFilters: AgentAnalyticsFilte
   return {
     stats: statsQuery.data,
     isStatsLoading: statsQuery.isLoading,
-    credits: creditsQuery.data ?? [],
-    isCreditsLoading: creditsQuery.isLoading,
+    credits,
+    isCreditsLoading,
     analytics: analyticsQuery.data,
     isAnalyticsLoading: analyticsQuery.isLoading,
     dailyAnalytics: dailyAnalyticsQuery.data ?? [],
     isDailyAnalyticsLoading: dailyAnalyticsQuery.isLoading,
     recentListings: recentListingsQuery.data?.items ?? [],
     isRecentListingsLoading: recentListingsQuery.isLoading,
+    isRecentListingsError: recentListingsQuery.isError,
   };
 }

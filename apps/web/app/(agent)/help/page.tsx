@@ -39,7 +39,7 @@ const STATUS_VARIANT: Record<string, 'warning' | 'default' | 'success'> = {
 // by status. No reply thread — status-only, per the confirmed scope.
 export default function HelpPage() {
   const [page, setPage] = useState(1);
-  const { tickets, total, isLoading, submit, update, remove } = useSupportTicketsViewModel({ page, pageSize: PAGE_SIZE });
+  const { tickets, total, isLoading, isError, submit, update, remove } = useSupportTicketsViewModel({ page, pageSize: PAGE_SIZE });
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   // Editing an existing (still-open) ticket reuses the same form, in place
@@ -193,6 +193,12 @@ export default function HelpPage() {
               {[0, 1, 2].map((i) => (
                 <div key={i} className="h-20 animate-pulse rounded-xl border border-border bg-muted/40" />
               ))}
+            </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+              <LifeBuoy className="mb-3 h-10 w-10 text-destructive/50" />
+              <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load your tickets</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
             </div>
           ) : tickets.length === 0 ? (
             <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">

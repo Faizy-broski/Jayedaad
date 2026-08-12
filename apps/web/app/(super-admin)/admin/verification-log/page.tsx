@@ -45,7 +45,7 @@ const PAGE_SIZE = 20;
 export default function VerificationLogPage() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState<VerificationAuditAction | 'all'>('all');
-  const { entries, total, isLoading } = useVerificationAuditLogViewModel({
+  const { entries, total, isLoading, isError } = useVerificationAuditLogViewModel({
     action: actionFilter === 'all' ? undefined : actionFilter,
     page,
     pageSize: PAGE_SIZE,
@@ -135,7 +135,17 @@ export default function VerificationLogPage() {
         </div>
       )}
 
-      {!isLoading && entries.length === 0 && (
+      {isError && (
+        <Reveal>
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+            <ScrollText className="mb-3 h-10 w-10 text-destructive/50" />
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load the verification log</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+          </div>
+        </Reveal>
+      )}
+
+      {!isLoading && !isError && entries.length === 0 && (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
             <ScrollText className="mb-3 h-10 w-10 text-muted-foreground/50" />

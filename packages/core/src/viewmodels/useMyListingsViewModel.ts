@@ -47,11 +47,17 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
   });
 
   // Spends a Hot/Super Hot credit to feature a listing — the Property
-  // Management "Boost" action.
+  // Management "Boost" action. Also invalidates the ['agents', agentId,
+  // 'credits'] query (useAgentCreditsViewModel) — without this, a balance
+  // shown next to the Boost/Refresh/Story buttons would go stale after a
+  // successful spend until an unrelated refetch happened to occur.
   const boost = useMutation({
     mutationFn: ({ listingId, input }: { listingId: string; input: BoostListingInput }) =>
       listingsRepository.boostListing(listingId, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['agents', 'credits'] });
+    },
   });
 
   // Resets an expired listing back to 'verified' with a fresh expiry — the
@@ -62,17 +68,25 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
   });
 
   // Spends a Refresh credit to bump a listing's sort position — the
-  // Property Management "Refresh" action, alongside Boost.
+  // Property Management "Refresh" action, alongside Boost. Same credits
+  // invalidation as boost above.
   const refresh = useMutation({
     mutationFn: (listingId: string) => listingsRepository.refreshListing(listingId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['agents', 'credits'] });
+    },
   });
 
   // Spends a Story credit to feature a listing for 24h — the Property
-  // Management "Story" action, alongside Boost/Refresh.
+  // Management "Story" action, alongside Boost/Refresh. Same credits
+  // invalidation as boost above.
   const postStory = useMutation({
     mutationFn: (listingId: string) => listingsRepository.postListingStory(listingId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['agents', 'credits'] });
+    },
   });
 
   return {
@@ -81,6 +95,7 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
     page: listingsQuery.data?.page ?? filters.page ?? 1,
     pageSize: listingsQuery.data?.pageSize ?? filters.pageSize ?? 20,
     isLoading: listingsQuery.isLoading,
+    isError: listingsQuery.isError,
     statusCounts: statusCountsQuery.data ?? {},
     isStatusCountsLoading: statusCountsQuery.isLoading,
     update,

@@ -66,6 +66,7 @@ export function ContactIconActions({ listing, onMessagePress }: { listing: Listi
   const callContact = mobile ?? landline;
   const callNumber = callContact ? `${callContact.countryCode}${callContact.number}` : undefined;
   const whatsappDigits = mobile ? `${mobile.countryCode}${mobile.number}`.replace(/\D/g, '') : undefined;
+  const smsNumber = mobile ? `${mobile.countryCode}${mobile.number}` : undefined;
 
   return (
     <View style={styles.iconRow}>
@@ -81,6 +82,11 @@ export function ContactIconActions({ listing, onMessagePress }: { listing: Listi
           hitSlop={6}
         >
           <Ionicons name="logo-whatsapp" size={18} color={theme.colors.primary} />
+        </Pressable>
+      )}
+      {smsNumber && (
+        <Pressable style={styles.iconButton} onPress={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)} hitSlop={6}>
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.colors.primary} />
         </Pressable>
       )}
       <Pressable style={styles.iconButton} onPress={onMessagePress} hitSlop={6}>

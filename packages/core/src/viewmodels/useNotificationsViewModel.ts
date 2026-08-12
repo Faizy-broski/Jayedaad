@@ -42,6 +42,7 @@ export function useNotificationsViewModel() {
     notifications,
     unreadCount,
     isLoading: query.isLoading,
+    isError: query.isError,
     markRead,
     markAllRead,
   };

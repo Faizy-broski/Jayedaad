@@ -14,9 +14,13 @@ import {
   PAKISTAN_CITIES,
   ProjectStatus,
   projectsRepository,
+  useAgentProfileViewModel,
+  useAuthViewModel,
   useDevelopersViewModel,
   useManageProjectsViewModel,
+  useOwnerVerificationViewModel,
   useProjectDetailViewModel,
+  useSubscriptionViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import { Button, Dialog, PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
@@ -81,6 +85,22 @@ export function PostProjectScreen() {
   const { propertyTypes, amenities } = useTaxonomyViewModel();
   const { create, update } = useManageProjectsViewModel();
   const { project, isLoading: projectLoading } = useProjectDetailViewModel(editProjectId);
+
+  // Same two parameters Listings already enforce (PostListingScreen.tsx),
+  // mirrored here for parity — owner role doesn't apply to projects (create
+  // stays agent/super_admin only), so there's no isPromotingOwner branch.
+  const { role } = useAuthViewModel();
+  const { usage } = useSubscriptionViewModel();
+  const quotaReached = role === 'agent' && !editProjectId && !!usage && usage.projectUsed >= usage.projectQuota;
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  // Agency-affiliated agents are exempt (their agency's own onboarding
+  // covers them); independent agents need the same one-time CNIC+selfie
+  // check already required before a first listing.
+  const isIndependentAgent = role === 'agent' && !agentProfile?.agency;
+  const { verification, isLoading: verificationLoading } = useOwnerVerificationViewModel();
+  const needsIdentityVerification =
+    isIndependentAgent && !editProjectId && !verificationLoading && verification?.status !== 'verified';
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -323,6 +343,18 @@ export function PostProjectScreen() {
     } finally {
       setSavingDraft(false);
     }
+  }
+
+  if (needsIdentityVerification) {
+    return (
+      <View style={styles.gateContainer}>
+        <Text style={styles.gateTitle}>Verify Your Identity</Text>
+        <Text style={styles.gateSubtitle}>
+          Before posting your first project, we need a quick one-time identity check — your CNIC and a selfie.
+        </Text>
+        <Button label="Verify Identity" onPress={() => navigation.navigate('OwnerIdentityVerification')} size="lg" />
+      </View>
+    );
   }
 
   if (editProjectId && projectLoading) {
@@ -612,12 +644,22 @@ export function PostProjectScreen() {
         )}
       </View>
 
+      {usage && role === 'agent' && !editProjectId && (
+        <Text style={[styles.quotaText, quotaReached && styles.quotaTextReached]}>
+          {usage.projectUsed} of {usage.projectQuota} projects used on your plan
+          {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+        </Text>
+      )}
       {!viewOnly && (
         <View style={styles.submitContainer}>
           {!editProjectId && (
             <Button label={savingDraft ? 'Saving…' : 'Save as Draft'} variant="secondary" onPress={handleSaveDraft} disabled={isPending} />
           )}
-          <Button label={submitting ? 'Saving…' : editProjectId ? 'Save Changes' : 'Create Project'} onPress={handleSubmit} disabled={isPending} />
+          <Button
+            label={submitting ? 'Saving…' : editProjectId ? 'Save Changes' : 'Create Project'}
+            onPress={handleSubmit}
+            disabled={isPending || quotaReached}
+          />
         </View>
       )}
 
@@ -680,6 +722,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.bg },
   loadingRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.bg },
   muted: { fontSize: 14, color: theme.colors.muted },
+  // Mirrors PostListingScreen.tsx's identical identity-verification gate.
+  gateContainer: { flex: 1, backgroundColor: theme.colors.bg, padding: 24, justifyContent: 'center', gap: 16 },
+  gateTitle: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
+  gateSubtitle: { fontSize: 14, color: theme.colors.muted, marginBottom: 8 },
+  quotaText: { marginTop: 16, fontSize: 12, fontWeight: '500', color: theme.colors.muted, textAlign: 'center' },
+  quotaTextReached: { color: theme.colors.danger },
   content: { paddingHorizontal: theme.spacing.lg, paddingTop: 24, paddingBottom: 60 },
   section: { gap: 16 },
   divider: { height: 1, backgroundColor: theme.colors.surfaceAlt, marginVertical: 28 },

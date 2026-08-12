@@ -73,8 +73,8 @@ export function EnquiryDialog({ target, intent }: EnquiryDialogProps) {
       toast.success(intent === 'visit' ? 'Visit request sent.' : 'Enquiry sent.');
       setMessage(buildTemplate(target, intent));
       setPhone('');
-    } catch {
-      toast.error('Something went wrong — please try again.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Something went wrong — please try again.');
     } finally {
       setSubmitting(false);
     }

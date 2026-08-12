@@ -7,9 +7,8 @@ import toast from 'react-hot-toast';
 import { Bell, Heart, Search, Trash2 } from 'lucide-react';
 import {
   AlertFrequency,
-  formatPrice,
   useFavoritesViewModel,
-  usePreferencesViewModel,
+  useFormattedPrice,
   useSavedSearchesViewModel,
 } from '@jayedaad/core';
 
@@ -90,7 +89,7 @@ function EmptyState({ icon: Icon, heading, message }: { icon: typeof Heart; head
 
 function FavoritesTab() {
   const { favorites, isLoading, remove } = useFavoritesViewModel();
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
 
   if (isLoading) return <p className="py-12 text-center text-sm text-muted-foreground">Fetching favorites…</p>;
 
@@ -114,7 +113,7 @@ function FavoritesTab() {
                 {favorite.listing.area}, {favorite.listing.city}
               </p>
               <p className="mt-1 text-sm font-bold text-primary">
-                {formatPrice(Number(favorite.listing.price), preferences?.preferredCurrency)}
+                {formatPrice(Number(favorite.listing.price))}
               </p>
             </Link>
           ) : (

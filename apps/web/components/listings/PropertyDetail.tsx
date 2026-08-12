@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight, Flame, Sparkles, Clapperboard } from 'lucide-react';
+import { useFormattedPrice } from '@jayedaad/core';
 import { Reveal } from '@/components/Reveal';
 import { TestimonialCard } from '@/components/landing/testimonials/TestimonialCards';
 import { PropertyGallery } from './PropertyGallery';
@@ -45,6 +46,7 @@ interface PropertyDetailProps {
 export function PropertyDetail({ listing, similar, images }: PropertyDetailProps) {
   const [saved, setSaved] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const { format: formatPrice } = useFormattedPrice();
 
   const city = listing.location.split(',').pop()?.trim() ?? listing.location;
   const views = hashToRange(listing.id, 800, 3200);
@@ -132,7 +134,7 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <span className="text-2xl font-bold text-primary">{listing.price}</span>
+              <span className="text-2xl font-bold text-primary">{formatPrice(listing.priceValue)}</span>
               <button
                 type="button"
                 onClick={() => setSaved((v) => !v)}

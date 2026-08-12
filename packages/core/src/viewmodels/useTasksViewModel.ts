@@ -38,6 +38,7 @@ export function useTasksViewModel() {
     tasks,
     openTasks,
     isLoading: query.isLoading,
+    isError: query.isError,
     create,
     complete,
     remove,

@@ -12,11 +12,24 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jayedaad.app"
+      "bundleIdentifier": "com.jayedaad.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Jayedaad uses your camera to take a selfie for identity verification.",
+        "NSPhotoLibraryUsageDescription": "Jayedaad needs access to your photos so you can upload identity documents and listing photos."
+      }
     },
     "android": {
-      "package": "com.jayedaad.app"
+      "package": "com.jayedaad.app",
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Jayedaad needs access to your photos so you can upload identity documents and listing photos.",
+          "cameraPermission": "Jayedaad uses your camera to take a selfie for identity verification."
+        }
+      ]
+    ]
   }
 }

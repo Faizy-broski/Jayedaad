@@ -78,4 +78,18 @@ export const projectsRepository = {
     const { data } = await httpClient.patch(`/projects/${id}/verification`, input);
     return data;
   },
+
+  // Mirrors listingsRepository.trackEngagement — public, fire-and-forget
+  // from the caller (a failed track shouldn't block the real
+  // tel:/wa.me/sms:/mailto: action, or the page rendering for a 'view'/'click').
+  trackEngagement: async (
+    projectId: string,
+    input: {
+      type: 'view' | 'click' | 'call' | 'whatsapp' | 'sms' | 'email';
+      platform: 'web' | 'mobile';
+      viewerSessionId: string;
+    },
+  ): Promise<void> => {
+    await httpClient.post(`/projects/${projectId}/track`, input);
+  },
 };

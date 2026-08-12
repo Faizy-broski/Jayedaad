@@ -82,6 +82,7 @@ export function useSubscriptionViewModel() {
     isCurrentLoading: currentQuery.isLoading,
     tiers: tiersQuery.data ?? [],
     isTiersLoading: tiersQuery.isLoading,
+    isTiersError: tiersQuery.isError,
     usage: usageQuery.data,
     creditPacks: creditPacksQuery.data ?? [],
     isCreditPacksLoading: creditPacksQuery.isLoading,

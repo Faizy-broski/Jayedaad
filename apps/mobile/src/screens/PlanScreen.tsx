@@ -4,20 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ExpoLinking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatPrice, usePreferencesViewModel, useSubscriptionViewModel } from '@jayedaad/core';
+import { useFormattedPrice, useSubscriptionViewModel } from '@jayedaad/core';
 import { Card, CardContent, theme, useToast } from '@jayedaad/ui-native';
 
-const VIEW_DETAIL_LABEL: Record<string, string> = {
-  total_only: 'Total view count',
-  breakdown_by_source: 'Views broken down by source',
-  full_timeseries: 'Full view history over time',
-};
-
 const CREDIT_TYPE_LABEL: Record<string, string> = { hot: 'Hot', super_hot: 'Super Hot', refresh: 'Refresh', story: 'Story' };
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 // Brought up to parity with apps/web's (agent)/plan/page.tsx — same
 // useSubscriptionViewModel (packages/core), same real Stripe checkout for
@@ -47,7 +37,7 @@ export function PlanScreen() {
     openBillingPortal,
     checkoutCreditPack,
   } = useSubscriptionViewModel();
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -107,7 +97,7 @@ export function PlanScreen() {
               <View>
                 <Text style={styles.currentName}>{current.tier.name}</Text>
                 <Text style={styles.currentDetail}>
-                  {formatPrice(current.tier.price, preferences?.preferredCurrency)} · {current.tier.listingQuota} listings ·
+                  {formatPrice(current.tier.price)} · {current.tier.listingQuota} listings ·
                   status: {current.status}
                   {current.currentPeriodEnd &&
                     ` · ${current.cancelAtPeriodEnd ? 'cancels' : 'renews'} ${new Date(current.currentPeriodEnd).toLocaleDateString()}`}
@@ -166,12 +156,9 @@ export function PlanScreen() {
           <View style={styles.tierGrid}>
             {tiers.map((tier) => {
               const isCurrent = current?.tierId === tier.id;
-              const entitlements = tier.analyticsDepth as { analyticsDepth?: string; viewCountDetail?: string };
               const isPaid = Number(tier.price) > 0;
               const features = [
                 `${tier.listingQuota.toLocaleString()} listing quota`,
-                entitlements?.analyticsDepth && `${capitalize(entitlements.analyticsDepth)} analytics`,
-                entitlements?.viewCountDetail && VIEW_DETAIL_LABEL[entitlements.viewCountDetail],
                 tier.hotCreditsPerPeriod > 0 && `${tier.hotCreditsPerPeriod} Hot boost${tier.hotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
                 tier.superHotCreditsPerPeriod > 0 &&
                   `${tier.superHotCreditsPerPeriod} Super Hot boost${tier.superHotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
@@ -190,7 +177,7 @@ export function PlanScreen() {
                       {isCurrent && <Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />}
                     </View>
                     <Text style={styles.tierPrice}>
-                      {formatPrice(tier.price, preferences?.preferredCurrency)}
+                      {formatPrice(tier.price)}
                       <Text style={styles.tierPriceSuffix}> /mo</Text>
                     </Text>
                     <View style={styles.featureList}>
@@ -256,7 +243,7 @@ export function PlanScreen() {
                       {pack.quantity} × {CREDIT_TYPE_LABEL[pack.creditType] ?? pack.creditType} credit
                       {pack.quantity === 1 ? '' : 's'}
                     </Text>
-                    <Text style={styles.tierPrice}>{formatPrice(pack.price, preferences?.preferredCurrency)}</Text>
+                    <Text style={styles.tierPrice}>{formatPrice(pack.price)}</Text>
                     <Pressable
                       disabled={checkoutCreditPack.isPending}
                       onPress={() => handleBuyCreditPack(pack.id)}

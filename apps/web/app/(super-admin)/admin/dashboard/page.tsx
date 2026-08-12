@@ -76,7 +76,7 @@ function sum(record: Record<string, number> | undefined) {
 // is still real, a fresh platform shows all zeros rather than any
 // placeholder/sample data, same principle as the agent dashboard.
 export default function AdminDashboardPage() {
-  const { stats, isStatsLoading, agents, isAgentsLoading } = useAdminDashboardViewModel();
+  const { stats, isStatsLoading, isStatsError, agents, isAgentsLoading } = useAdminDashboardViewModel();
   const { user } = useAuthViewModel();
   const [breakdown, setBreakdown] = useState<BreakdownKey>('agencies');
 
@@ -192,6 +192,8 @@ export default function AdminDashboardPage() {
             <p className="text-sm text-muted-foreground">How the platform&apos;s accounts break down</p>
             {isStatsLoading ? (
               <div className="mt-6 h-60 animate-pulse rounded-md bg-muted/40" />
+            ) : isStatsError ? (
+              <EmptyChartState isError />
             ) : usersByRoleData.length === 0 ? (
               <EmptyChartState />
             ) : (
@@ -262,6 +264,8 @@ export default function AdminDashboardPage() {
 
             {isStatsLoading ? (
               <div className="mt-4 h-44 flex-1 animate-pulse rounded-md bg-muted/40" />
+            ) : isStatsError ? (
+              <EmptyChartState compact isError />
             ) : breakdownData.length === 0 ? (
               <EmptyChartState compact />
             ) : (
@@ -322,11 +326,13 @@ export default function AdminDashboardPage() {
   );
 }
 
-function EmptyChartState({ compact }: { compact?: boolean }) {
+function EmptyChartState({ compact, isError }: { compact?: boolean; isError?: boolean }) {
   return (
     <div className={`mt-4 flex flex-1 flex-col items-center justify-center text-center ${compact ? 'py-6' : 'py-10'}`}>
-      <ShieldCheck className="mb-2 h-8 w-8 text-muted-foreground/40" />
-      <p className="text-xs text-muted-foreground">No data yet.</p>
+      <ShieldCheck className={`mb-2 h-8 w-8 ${isError ? 'text-destructive/50' : 'text-muted-foreground/40'}`} />
+      <p className={`text-xs ${isError ? 'text-destructive' : 'text-muted-foreground'}`}>
+        {isError ? "Couldn't load this — please try again." : 'No data yet.'}
+      </p>
     </div>
   );
 }

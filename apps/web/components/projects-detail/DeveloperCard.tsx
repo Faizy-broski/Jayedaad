@@ -1,9 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { BadgeCheck, Mail, PhoneCall } from 'lucide-react';
+import { BadgeCheck, Mail, MessageSquare, PhoneCall } from 'lucide-react';
+import { projectsRepository } from '@jayedaad/core';
 import { EnquiryDialog } from '@/components/shared/EnquiryDialog';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import { getViewerSessionId } from '@/lib/viewerSession';
 import type { DisplayProject } from '@/lib/types';
 
 interface DeveloperCardProps {
@@ -23,6 +25,15 @@ interface DeveloperCardProps {
 }
 
 export function DeveloperCard({ developer, projectId, projectTitle, intent = 'inquiry' }: DeveloperCardProps) {
+  // Fire-and-forget — feeds project-level Calls/WhatsApp/SMS/Emails
+  // analytics (see packages/core's projectsRepository.trackEngagement);
+  // never blocks the real tel:/wa.me/sms:/mailto: action.
+  function track(type: 'call' | 'whatsapp' | 'sms' | 'email') {
+    projectsRepository
+      .trackEngagement(projectId, { type, platform: 'web', viewerSessionId: getViewerSessionId() })
+      .catch(() => {});
+  }
+
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
@@ -56,6 +67,7 @@ export function DeveloperCard({ developer, projectId, projectTitle, intent = 'in
       <div className="flex flex-col gap-2">
         <a
           href={`tel:${developer.phone}`}
+          onClick={() => track('call')}
           className="flex items-center justify-center gap-2 rounded-full bg-heading-gradient px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <PhoneCall className="h-4 w-4" />
@@ -66,13 +78,23 @@ export function DeveloperCard({ developer, projectId, projectTitle, intent = 'in
             href={`https://wa.me/${developer.whatsapp.replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track('whatsapp')}
             className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#25D366] px-4 py-2.5 text-sm font-bold text-[#25D366] transition-colors hover:bg-[#25D366]/5"
           >
             <WhatsAppIcon className="h-3.5 w-3.5 shrink-0" />
             WhatsApp
           </a>
           <a
+            href={`sms:${developer.phone}`}
+            onClick={() => track('sms')}
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-primary px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
+          >
+            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+            SMS
+          </a>
+          <a
             href={`mailto:${developer.email ?? ''}`}
+            onClick={() => track('email')}
             className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-primary px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
           >
             <Mail className="h-3.5 w-3.5 shrink-0" />

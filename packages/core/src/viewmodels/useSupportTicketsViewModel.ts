@@ -38,6 +38,7 @@ export function useSupportTicketsViewModel(filters: { page?: number; pageSize?: 
     page: query.data?.page ?? filters.page ?? 1,
     pageSize: query.data?.pageSize ?? filters.pageSize ?? 20,
     isLoading: query.isLoading,
+    isError: query.isError,
     submit,
     update,
     remove,

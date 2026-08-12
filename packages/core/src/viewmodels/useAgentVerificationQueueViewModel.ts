@@ -23,6 +23,7 @@ export function useAgentVerificationQueueViewModel() {
   return {
     queue: query.data ?? [],
     isLoading: query.isLoading,
+    isError: query.isError,
     act,
   };
 }

@@ -74,7 +74,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const { users, total, isLoading, create, updateRole, suspend, unsuspend, remove } = useUserManagementViewModel({
+  const { users, total, isLoading, isError, create, updateRole, suspend, unsuspend, remove } = useUserManagementViewModel({
     roles: roleFilter === 'all' ? undefined : [roleFilter],
     search: search.trim() || undefined,
     page,
@@ -246,7 +246,17 @@ export default function UsersPage() {
         </div>
       )}
 
-      {!isLoading && users.length === 0 && (
+      {isError && (
+        <Reveal>
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-destructive/40 py-16 text-center">
+            <Users className="mb-3 h-10 w-10 text-destructive/50" />
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load users</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
+          </div>
+        </Reveal>
+      )}
+
+      {!isLoading && !isError && users.length === 0 && (
         <Reveal>
           <div className="flex flex-col items-center rounded-xl border border-dashed border-border py-16 text-center">
             <Users className="mb-3 h-10 w-10 text-muted-foreground/50" />

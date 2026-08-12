@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useInfiniteListingSearchViewModel, usePreferencesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
+import { useInfiniteListingSearchViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
 import { PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
 import { PropertyListCard } from '../components/PropertyListCard';
@@ -49,11 +49,10 @@ export function BuyerSearchScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [listingNumberInput, setListingNumberInput] = useState('');
   const [listingNumber, setListingNumber] = useState<number | undefined>(undefined);
-  const { listings, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel({
+  const { listings, isLoading, error, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel({
     ...toListingSearchFilters(filters),
     listingNumber,
   });
-  const { preferences } = usePreferencesViewModel();
   const { create: createSavedSearch } = useSavedSearchesViewModel();
   const { requireAuth } = useAuthGate();
   const { showToast } = useToast();
@@ -126,16 +125,16 @@ export function BuyerSearchScreen() {
       />
 
       {isLoading && <Text style={styles.loading}>Loading…</Text>}
+      {!isLoading && error && <Text style={styles.error}>Couldn't load listings — pull to refresh.</Text>}
 
       <FlatList
         data={listings}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={!isLoading ? <Text style={styles.empty}>No verified listings yet.</Text> : null}
+        ListEmptyComponent={!isLoading && !error ? <Text style={styles.empty}>No verified listings yet.</Text> : null}
         renderItem={({ item }) => (
           <PropertyListCard
             listing={item}
-            currency={preferences?.preferredCurrency}
             onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
           />
         )}
@@ -194,5 +193,6 @@ const styles = StyleSheet.create({
   loading: { textAlign: 'center', color: theme.colors.muted, marginTop: theme.spacing.md },
   list: { padding: theme.spacing.lg, gap: theme.spacing.md },
   empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
+  error: { color: theme.colors.danger, textAlign: 'center', marginTop: theme.spacing.lg },
   footerLoader: { marginVertical: theme.spacing.lg },
 });

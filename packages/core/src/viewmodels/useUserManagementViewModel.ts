@@ -58,6 +58,7 @@ export function useUserManagementViewModel(filters: ListUsersFilters = {}) {
     page: result.page,
     pageSize: result.pageSize,
     isLoading: query.isLoading,
+    isError: query.isError,
     create,
     updateRole,
     suspend,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
@@ -21,6 +22,8 @@ import {
   Globe,
   PhoneCall,
   Search,
+  Building2,
+  ExternalLink,
 } from 'lucide-react';
 import { SetReminderPopover } from '@/components/crm/SetReminderPopover';
 
@@ -285,6 +288,23 @@ export default function CrmPage() {
                     </div>
 
                     {lead.message && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{lead.message}</p>}
+
+                    {/* Exactly one of listingId/projectId is ever set (DB
+                        constraint — see the Lead model comment) — jumps
+                        straight to the actual listing/project this enquiry
+                        is about instead of leaving the agent to guess from
+                        the free-text message alone. */}
+                    {(lead.listingId || lead.projectId) && (
+                      <Link
+                        href={lead.listingId ? `/listings/${lead.listingId}` : `/projects/${lead.projectId}`}
+                        target="_blank"
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        View {lead.listingId ? 'listing' : 'project'}
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-foreground">

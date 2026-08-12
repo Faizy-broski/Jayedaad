@@ -5,16 +5,17 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import {
+  AgentCreditType,
   ListingDocumentType,
   ListingPurpose,
   ListingStatus,
   MyListingsFilters,
-  formatPrice,
   listingsRepository,
+  useAgentCreditsViewModel,
   useAgentProfileViewModel,
   useAuthViewModel,
+  useFormattedPrice,
   useMyListingsViewModel,
-  usePreferencesViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
 import { Button, PickerField, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
@@ -109,9 +110,15 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
     purpose: applied.purpose || undefined,
   };
 
-  const { listings, isLoading, remove, boost, renew, refresh, postStory } = useMyListingsViewModel(filters);
-  const { preferences } = usePreferencesViewModel();
+  const { listings, isLoading, isError, remove, boost, renew, refresh, postStory } = useMyListingsViewModel(filters);
+  const { format: formatPrice } = useFormattedPrice();
   const { role } = useAuthViewModel();
+  // Pre-flight balance so Hot/Super Hot/Refresh/Story buttons can show
+  // "N left" and disable at 0, instead of only finding out via a server
+  // error after tapping — server stays the actual source of truth (this is
+  // purely an additive UI convenience, not a replacement for it).
+  const { credits } = useAgentCreditsViewModel();
+  const creditsAvailable = (type: AgentCreditType) => credits.find((c) => c.creditType === type)?.available ?? 0;
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
   const { profile: agentProfile } = useAgentProfileViewModel();
   // Required for owners AND independent agents (no agency) — only an
@@ -275,6 +282,10 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
         <View style={styles.loadingContainer}>
           <Text style={styles.muted}>Fetching properties…</Text>
         </View>
+      ) : isError ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.error}>Couldn't load your properties — please try again.</Text>
+        </View>
       ) : listings.length === 0 ? (
         <EmptyState
           heading={`No ${activeLabel} Properties`}
@@ -292,7 +303,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   <Text style={styles.idBadgeText}>{formatListingCode(listing.listingNumber)}</Text>
                 </Pressable>
                 <Text style={styles.priceText}>
-                  {formatPrice(Number(listing.price), preferences?.preferredCurrency)}
+                  {formatPrice(Number(listing.price))}
                 </Text>
               </View>
 
@@ -322,10 +333,10 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
 
               <View style={styles.cardDivider} />
               
-              <View style={styles.rowActions}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowActions}>
                 <Pressable style={styles.actionButton} onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}>
                   <Ionicons name="eye-outline" size={16} color={theme.colors.primary} />
-                  <Text style={styles.actionTextPrimary}>View</Text>
+                  <Text style={styles.actionTextPrimary} numberOfLines={1}>View</Text>
                 </Pressable>
 
                 <Pressable
@@ -333,7 +344,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   onPress={() => navigation.navigate('PostListing', { editListingId: listing.id })}
                 >
                   <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
-                  <Text style={styles.actionTextPrimary}>Edit details</Text>
+                  <Text style={styles.actionTextPrimary} numberOfLines={1}>Edit details</Text>
                 </Pressable>
 
                 {/* Ownership proof/utility bill are required for owners and
@@ -347,7 +358,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
                   >
                     <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
-                    <Text style={styles.actionTextPrimary}>Documents</Text>
+                    <Text style={styles.actionTextPrimary} numberOfLines={1}>Documents</Text>
                   </Pressable>
                 )}
 
@@ -358,25 +369,37 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     'verified' tab is active during a search. */}
                 {listing.status === 'verified' && (
                   <>
-                    <Pressable style={styles.actionButton} disabled={boost.isPending} onPress={() => handleBoost(listing.id, 'hot')}>
+                    <Pressable
+                      style={styles.actionButton}
+                      disabled={boost.isPending || creditsAvailable('hot') <= 0}
+                      onPress={() => handleBoost(listing.id, 'hot')}
+                    >
                       <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary}>Hot</Text>
+                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Hot ({creditsAvailable('hot')})</Text>
                     </Pressable>
                     <Pressable
                       style={styles.actionButton}
-                      disabled={boost.isPending}
+                      disabled={boost.isPending || creditsAvailable('super_hot') <= 0}
                       onPress={() => handleBoost(listing.id, 'super_hot')}
                     >
                       <Ionicons name="flame-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary}>Super Hot</Text>
+                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Super Hot ({creditsAvailable('super_hot')})</Text>
                     </Pressable>
-                    <Pressable style={styles.actionButton} disabled={refresh.isPending} onPress={() => handleRefresh(listing.id)}>
+                    <Pressable
+                      style={styles.actionButton}
+                      disabled={refresh.isPending || creditsAvailable('refresh') <= 0}
+                      onPress={() => handleRefresh(listing.id)}
+                    >
                       <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary}>Refresh</Text>
+                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Refresh ({creditsAvailable('refresh')})</Text>
                     </Pressable>
-                    <Pressable style={styles.actionButton} disabled={postStory.isPending} onPress={() => handlePostStory(listing.id)}>
+                    <Pressable
+                      style={styles.actionButton}
+                      disabled={postStory.isPending || creditsAvailable('story') <= 0}
+                      onPress={() => handlePostStory(listing.id)}
+                    >
                       <Ionicons name="film-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary}>Story</Text>
+                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Story ({creditsAvailable('story')})</Text>
                     </Pressable>
                   </>
                 )}
@@ -384,7 +407,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                 {listing.status === 'expired' && (
                   <Pressable style={styles.actionButton} disabled={renew.isPending} onPress={() => handleRenew(listing.id)}>
                     <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />
-                    <Text style={styles.actionTextPrimary}>Renew</Text>
+                    <Text style={styles.actionTextPrimary} numberOfLines={1}>Renew</Text>
                   </Pressable>
                 )}
 
@@ -394,9 +417,9 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   onPress={() => handleDelete(listing.id, listing.title)}
                 >
                   <Ionicons name="trash-outline" size={16} color={DESTRUCTIVE_COLOR} />
-                  <Text style={styles.actionTextDestructive}>Delete</Text>
+                  <Text style={styles.actionTextDestructive} numberOfLines={1}>Delete</Text>
                 </Pressable>
-              </View>
+              </ScrollView>
 
             </View>
           ))}
@@ -408,12 +431,12 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
 
 function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { listings, isLoading, remove, submitForVerification } = useMyListingsViewModel({
+  const { listings, isLoading, isError, remove, submitForVerification } = useMyListingsViewModel({
     status: 'draft',
     page: 1,
     pageSize: 20,
   });
-  const { preferences } = usePreferencesViewModel();
+  const { format: formatPrice } = useFormattedPrice();
   const { role } = useAuthViewModel();
   // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
   const { profile: agentProfile } = useAgentProfileViewModel();
@@ -467,6 +490,14 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
     );
   }
 
+  if (isError) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.error}>Couldn't load your drafts — please try again.</Text>
+      </View>
+    );
+  }
+
   if (listings.length === 0) {
     return (
       <EmptyState
@@ -486,7 +517,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               <Ionicons name="document-text-outline" size={12} color={theme.colors.muted} />
               <Text style={styles.idBadgeText}>DRAFT</Text>
             </Pressable>
-            <Text style={styles.priceText}>{formatPrice(Number(listing.price), preferences?.preferredCurrency)}</Text>
+            <Text style={styles.priceText}>{formatPrice(Number(listing.price))}</Text>
           </View>
 
           <Text style={styles.rowTitle} numberOfLines={1}>{listing.title || 'Untitled draft'}</Text>
@@ -496,13 +527,13 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
 
           <View style={styles.cardDivider} />
 
-          <View style={styles.rowActions}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowActions}>
             <Pressable
               style={styles.actionButton}
               onPress={() => navigation.navigate('PostListing', { editListingId: listing.id })}
             >
               <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
-              <Text style={styles.actionTextPrimary}>Edit details</Text>
+              <Text style={styles.actionTextPrimary} numberOfLines={1}>Edit details</Text>
             </Pressable>
 
             <Pressable
@@ -511,7 +542,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               onPress={() => handleSubmit(listing.id)}
             >
               <Ionicons name="send-outline" size={16} color={theme.colors.primary} />
-              <Text style={styles.actionTextPrimary}>Submit</Text>
+              <Text style={styles.actionTextPrimary} numberOfLines={1}>Submit</Text>
             </Pressable>
 
             {documentsRequired && (
@@ -520,7 +551,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
                 onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
               >
                 <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
-                <Text style={styles.actionTextPrimary}>Documents</Text>
+                <Text style={styles.actionTextPrimary} numberOfLines={1}>Documents</Text>
               </Pressable>
             )}
 
@@ -530,9 +561,9 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               onPress={() => handleDelete(listing.id, listing.title)}
             >
               <Ionicons name="trash-outline" size={16} color={DESTRUCTIVE_COLOR} />
-              <Text style={styles.actionTextDestructive}>Delete</Text>
+              <Text style={styles.actionTextDestructive} numberOfLines={1}>Delete</Text>
             </Pressable>
-          </View>
+          </ScrollView>
         </View>
       ))}
     </ScrollView>
@@ -663,12 +694,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  muted: { 
-    fontSize: 14, 
+  muted: {
+    fontSize: 14,
     color: theme.colors.mutedLight,
     fontWeight: '500',
   },
-  list: { 
+  error: {
+    fontSize: 14,
+    color: theme.colors.danger,
+    fontWeight: '500',
+  },
+  list: {
     paddingHorizontal: 24,
     paddingVertical: 20,
     gap: 16, 
@@ -751,16 +787,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
     marginVertical: 16,
   },
-  rowActions: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between',
+  rowActions: {
+    flexDirection: 'row',
+    gap: 18,
   },
-  actionButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    gap: 6, 
+    gap: 6,
   },
   actionTextPrimary: { 
     fontSize: 13, 

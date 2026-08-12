@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { Alert, StyleSheet, Text, View, Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { OwnerIdentityDocumentType, useOwnerVerificationViewModel } from '@jayedaad/core';
 import { theme, useToast } from '@jayedaad/ui-native';
@@ -80,24 +80,33 @@ function DocumentRow({
   const { showToast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
 
-  async function handleUpload() {
-    const permission = useCamera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      showToast(useCamera ? 'Camera permission is required.' : 'Photo library permission is required.', 'error');
-      return;
-    }
-    const result = useCamera
-      ? await ImagePicker.launchCameraAsync({ cameraType: ImagePicker.CameraType.front, quality: 0.8 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
-    const filename = asset.uri.split('/').pop() ?? `${documentType}.jpg`;
-    const mimeType = asset.mimeType ?? 'image/jpeg';
-    setIsUploading(true);
+  // Whole thing wrapped in try/catch now — previously the permission
+  // request + launch* calls (lines that used to sit above this function's
+  // try block) weren't guarded at all, so a rejected/thrown promise there
+  // (e.g. camera permission unavailable because expo-image-picker's config
+  // plugin was never applied, so no NSCameraUsageDescription exists) surfaced
+  // as an unhandled promise rejection and silently did nothing instead of
+  // showing the user any feedback.
+  async function pickAndUpload(source: 'camera' | 'library') {
     try {
+      const permission =
+        source === 'camera'
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showToast(source === 'camera' ? 'Camera permission is required.' : 'Photo library permission is required.', 'error');
+        return;
+      }
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync({ cameraType: ImagePicker.CameraType.front, quality: 0.8 })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      const filename = asset.uri.split('/').pop() ?? `${documentType}.jpg`;
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+      setIsUploading(true);
       await onUpload({ uri: asset.uri, name: filename, type: mimeType });
       showToast(`${label} uploaded.`);
     } catch {
@@ -107,13 +116,29 @@ function DocumentRow({
     }
   }
 
+  // Selfie offers a Camera/Library choice (front camera can be flaky or
+  // unavailable, e.g. simulator or missing permission entitlement — the
+  // gallery is always a working fallback); CNIC front/back stay
+  // library-only since those are photos of a physical card, not a selfie.
+  function handlePress() {
+    if (!useCamera) {
+      pickAndUpload('library');
+      return;
+    }
+    Alert.alert(label, 'Take a new photo or choose one from your gallery.', [
+      { text: 'Take Photo', onPress: () => pickAndUpload('camera') },
+      { text: 'Choose from Library', onPress: () => pickAndUpload('library') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
   return (
     <View style={styles.row}>
       <View>
         <Text style={styles.rowLabel}>{label}</Text>
         {uploaded && <Text style={styles.rowUploaded}>Uploaded</Text>}
       </View>
-      <Pressable style={styles.uploadButton} onPress={handleUpload} disabled={isUploading}>
+      <Pressable style={styles.uploadButton} onPress={handlePress} disabled={isUploading}>
         <Text style={styles.uploadButtonText}>{isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}</Text>
       </Pressable>
     </View>

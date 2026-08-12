@@ -15,15 +15,17 @@ import {
   Sparkles,
   Clapperboard,
 } from "lucide-react";
+import { listingsRepository, useFormattedArea, useFormattedPrice } from "@jayedaad/core";
 import type { Property } from "@/lib/types";
 import { useFavorites } from "@/lib/favoritesContext";
+import { getViewerSessionId } from "@/lib/viewerSession";
 
 export function PropertyCard({ property }: { property: Property }) {
   const {
     id,
     title,
     location,
-    price,
+    priceValue,
     image,
     listingType,
     verified,
@@ -36,12 +38,25 @@ export function PropertyCard({ property }: { property: Property }) {
   } = property;
   const { isFavorited, toggle } = useFavorites();
   const favorited = isFavorited(id);
+  // Real conversion (useExchangeRatesViewModel-backed rates,
+  // convertArea-backed unit math) — previously `price`/`{areaSqft} sqft`
+  // were static, PKR-baked-in-at-mapping-time strings that never reacted
+  // to the viewer's currency/area-unit preference, and areaSqft itself
+  // used to be the listing's raw stored value mislabeled "sqft" regardless
+  // of its real unit.
+  const { format: formatPrice } = useFormattedPrice();
+  const { format: formatArea } = useFormattedArea();
   const isBoosted = boostTier === "hot" || boostTier === "super_hot";
   const hasActiveStory = !!storyExpiresAt && new Date(storyExpiresAt) > new Date();
 
   return (
     <Link
       href={`/listings/${id}`}
+      onClick={() =>
+        listingsRepository
+          .trackEngagement(id, { type: "click", platform: "web", viewerSessionId: getViewerSessionId() })
+          .catch(() => {})
+      }
       className="block w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
@@ -107,7 +122,7 @@ export function PropertyCard({ property }: { property: Property }) {
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           <span className="shrink-0 text-sm font-semibold text-primary">
-            {price}
+            {formatPrice(priceValue)}
           </span>
         </div>
 
@@ -126,7 +141,7 @@ export function PropertyCard({ property }: { property: Property }) {
           </span>
           <span className="flex items-center gap-1">
             <Ruler className="h-3.5 w-3.5" />
-            {areaSqft.toLocaleString()} sqft
+            {formatArea(areaSqft, 'sqft')}
           </span>
         </div>
 

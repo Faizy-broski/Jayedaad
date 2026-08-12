@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PAKISTAN_CITIES, useInfiniteListingSearchViewModel, usePreferencesViewModel } from '@jayedaad/core';
+import { PAKISTAN_CITIES, useInfiniteListingSearchViewModel } from '@jayedaad/core';
 import { PickerField, theme } from '@jayedaad/ui-native';
 import { AllPropertiesFilterSheet } from '../components/AllPropertiesFilterSheet';
 import { PropertyListCard } from '../components/PropertyListCard';
@@ -36,10 +36,9 @@ export function AllPropertiesScreen() {
       setFilters({ ...DEFAULT_ALL_PROPERTIES_FILTERS, ...route.params.initialFilters });
     }
   }, [route.params?.initialFilters]);
-  const { listings, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel(
+  const { listings, isLoading, error, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel(
     toAllPropertiesSearchFilters(filters),
   );
-  const { preferences } = usePreferencesViewModel();
 
   function set<K extends keyof AllPropertiesFilterState>(key: K, val: AllPropertiesFilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: val }));
@@ -107,16 +106,18 @@ export function AllPropertiesScreen() {
       />
 
       {isLoading && <Text style={styles.loading}>Loading…</Text>}
+      {!isLoading && error && <Text style={styles.error}>Couldn't load listings — pull to refresh.</Text>}
 
       <FlatList
         data={listings}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={!isLoading ? <Text style={styles.empty}>No properties match your filters.</Text> : null}
+        ListEmptyComponent={
+          !isLoading && !error ? <Text style={styles.empty}>No properties match your filters.</Text> : null
+        }
         renderItem={({ item }) => (
           <PropertyListCard
             listing={item}
-            currency={preferences?.preferredCurrency}
             onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
           />
         )}
@@ -155,5 +156,6 @@ const styles = StyleSheet.create({
   loading: { textAlign: 'center', color: theme.colors.muted, marginTop: theme.spacing.md },
   list: { padding: theme.spacing.lg, gap: theme.spacing.md },
   empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
+  error: { color: theme.colors.danger, textAlign: 'center', marginTop: theme.spacing.lg },
   footerLoader: { marginVertical: theme.spacing.lg },
 });

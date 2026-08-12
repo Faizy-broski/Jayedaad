@@ -3,8 +3,10 @@ import { SupabaseService } from '../supabase/supabase.service';
 
 export interface TierEntitlements {
   listingQuota: number;
-  analyticsDepth: 'basic' | 'standard' | 'advanced' | 'full';
-  viewCountDetail: 'total_only' | 'breakdown_by_source' | 'full_timeseries';
+  // Separate from listingQuota — a project is a much bigger undertaking
+  // than a single listing, so it's priced/limited independently rather
+  // than sharing the same counter. See getProjectUsage/canCreateProject.
+  projectQuota: number;
   // Days a listing stays 'verified' before PlanLifecycleService's cron
   // expires it — null means unlimited. Also read by ListingsRepository.renew()
   // to recompute a fresh expiry the same way record_verification_action()
@@ -45,8 +47,8 @@ export class EntitlementsService {
       const tier = (subscription as any).subscription_tiers;
       return {
         listingQuota: tier.listing_quota,
+        projectQuota: tier.project_quota,
         listingDurationDays: tier.listing_duration_days,
-        ...(tier.analytics_depth as Omit<TierEntitlements, 'listingQuota' | 'listingDurationDays'>),
       };
     }
 
@@ -69,13 +71,13 @@ export class EntitlementsService {
     if (liteTier) {
       return {
         listingQuota: liteTier.listing_quota,
+        projectQuota: liteTier.project_quota,
         listingDurationDays: liteTier.listing_duration_days,
-        ...(liteTier.analytics_depth as Omit<TierEntitlements, 'listingQuota' | 'listingDurationDays'>),
       };
     }
 
     // Safety net only — reached if the Lite plan was ever deleted/renamed.
-    return { listingQuota: 5, analyticsDepth: 'basic', viewCountDetail: 'total_only', listingDurationDays: 30 };
+    return { listingQuota: 5, projectQuota: 0, listingDurationDays: 30 };
   }
 
   async getListingUsage(agentId: string): Promise<{ used: number; quota: number }> {
@@ -101,6 +103,29 @@ export class EntitlementsService {
 
   async canCreateListing(agentId: string): Promise<boolean> {
     const { used, quota } = await this.getListingUsage(agentId);
+    return used < quota;
+  }
+
+  // Mirrors getListingUsage above, with one difference: projects.created_by
+  // stores the creator's auth user id (req.user.id), NOT their agent_profiles
+  // id — confirmed by ProjectsController.assertOwnProject comparing
+  // createdBy against req.user.id, never agentId. So the tier/quota lookup
+  // stays keyed on agentId (same as listings), but the row-count is keyed on
+  // userId to actually match what's stored in the projects table.
+  async getProjectUsage(agentId: string, userId: string): Promise<{ used: number; quota: number }> {
+    const [entitlements, { count, error }] = await Promise.all([
+      this.getEntitlements(agentId),
+      this.supabase.client
+        .from('projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', userId),
+    ]);
+    if (error) throw error;
+    return { used: count ?? 0, quota: entitlements.projectQuota };
+  }
+
+  async canCreateProject(agentId: string, userId: string): Promise<boolean> {
+    const { used, quota } = await this.getProjectUsage(agentId, userId);
     return used < quota;
   }
 }

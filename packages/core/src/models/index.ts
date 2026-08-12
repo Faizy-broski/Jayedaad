@@ -421,6 +421,10 @@ export interface UpdateTaskInput {
 export interface SubscriptionUsage {
   used: number;
   quota: number;
+  // Separate counter from listings' used/quota — see
+  // EntitlementsService.getProjectUsage on the backend.
+  projectUsed: number;
+  projectQuota: number;
 }
 
 export interface AuthUser {
@@ -501,9 +505,10 @@ export interface SubscriptionTier {
   id: string;
   name: string;
   listingQuota: number;
+  // Separate counter from listingQuota — a project is a much bigger
+  // undertaking than a single listing, priced/limited independently.
+  projectQuota: number;
   price: number;
-  // Depth/entitlement flags per tier, e.g. { analyticsDepth: 'full' }.
-  analyticsDepth: Record<string, unknown>;
   // Featured-listing allotment — granted to agent_credits on tier
   // (re-)selection/renewal, spent via POST /listings/:id/boost.
   hotCreditsPerPeriod: number;
@@ -522,8 +527,8 @@ export interface SubscriptionTier {
 export interface CreateSubscriptionTierInput {
   name: string;
   listingQuota: number;
+  projectQuota: number;
   price?: number;
-  analyticsDepth: Record<string, unknown>;
   hotCreditsPerPeriod?: number;
   superHotCreditsPerPeriod?: number;
   refreshCreditsPerPeriod?: number;
@@ -535,8 +540,8 @@ export interface CreateSubscriptionTierInput {
 export interface UpdateSubscriptionTierInput {
   name?: string;
   listingQuota?: number;
+  projectQuota?: number;
   price?: number;
-  analyticsDepth?: Record<string, unknown>;
   hotCreditsPerPeriod?: number;
   superHotCreditsPerPeriod?: number;
   refreshCreditsPerPeriod?: number;

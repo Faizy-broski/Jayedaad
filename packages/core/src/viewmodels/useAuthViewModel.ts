@@ -68,6 +68,16 @@ export function useAuthViewModel() {
     queryFn: getEmailVerified,
     enabled: !!session,
     staleTime: Infinity,
+    // More retries than the app's generic 1-retry default (queryClient.ts)
+    // — deliberately asymmetric risk: a wrong "true" here is harmless
+    // (nothing bad happens showing the dashboard to someone who really is
+    // verified), but a wrong "false" locks a real, already-verified user
+    // out of their own account via RequireEmailVerified/AuthGateProvider's
+    // redirect. A single transient failure (RLS blip, connection reset —
+    // see otp.repository.ts's getEmailVerified) shouldn't be enough to
+    // trigger that.
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10_000),
   });
 
   const sendOtp = useMutation({ mutationFn: () => sendOtpCode() });
@@ -103,6 +113,11 @@ export function useAuthViewModel() {
     isInitializing,
     isEmailVerified: emailVerifiedQuery.data ?? false,
     isEmailVerifiedLoading: emailVerifiedQuery.isLoading,
+    // Lets callers distinguish "confirmed not verified" from "couldn't
+    // confirm right now" — RequireEmailVerified (web) and AuthGateProvider
+    // (mobile) both need this to avoid bouncing an already-verified user to
+    // the OTP screen just because this one check failed transiently.
+    isEmailVerifiedError: emailVerifiedQuery.isError,
     // For callers that need an up-to-date answer synchronously right after
     // signIn resolves (e.g. login/page.tsx deciding where to redirect),
     // rather than waiting on the query's own enabled/staleTime lifecycle.
