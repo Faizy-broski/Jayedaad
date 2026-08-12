@@ -63,6 +63,13 @@ services:
         NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
     restart: unless-stopped
     logging: *default-logging
+    environment:
+      # Compose sets HOSTNAME to the container's own id/name at creation
+      # time, overriding the image's `ENV HOSTNAME=0.0.0.0` (apps/web/
+      # Dockerfile) — Next's standalone server.js then binds to that
+      # unreachable-from-inside hostname instead of all interfaces. Setting
+      # it here wins over Compose's auto-assignment.
+      HOSTNAME: "0.0.0.0"
     depends_on:
       api:
         condition: service_healthy
