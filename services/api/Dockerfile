@@ -5,7 +5,7 @@
 #   docker build -f services/api/Dockerfile -t jayedaad-api .
 # (run from the repo root; docker-compose.yml is already set up this way)
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN corepack enable
 
 FROM base AS build
