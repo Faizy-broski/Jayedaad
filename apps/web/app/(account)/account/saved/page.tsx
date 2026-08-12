@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Bell, Heart, Search, Trash2 } from 'lucide-react';
 import {
@@ -26,7 +27,24 @@ const ALERT_FREQUENCIES: AlertFrequency[] = ['instant', 'daily', 'weekly', 'off'
 // optimistic remove-with-toast pattern, ported to this app's ui-web/toast
 // conventions instead of ui-native's.
 export default function SavedPage() {
-  const [tab, setTab] = useState<TabId>('favorites');
+  // useSearchParams requires a Suspense boundary (Next.js de-opts an
+  // unwrapped client component into full client-side rendering otherwise)
+  // — same wrapping pattern Header.tsx already uses for the same hook.
+  return (
+    <Suspense>
+      <SavedPageInner />
+    </Suspense>
+  );
+}
+
+function SavedPageInner() {
+  const searchParams = useSearchParams();
+  // Header.tsx's new "Favourites"/"Saved Searches" mobile-menu links land
+  // here with ?tab=favorites|saved — falls back to 'favorites' for the
+  // plain /account/saved link (and the sidebar nav item), same default the
+  // local tab state always had before this query param existed.
+  const initialTab: TabId = searchParams.get('tab') === 'saved' ? 'saved' : 'favorites';
+  const [tab, setTab] = useState<TabId>(initialTab);
 
   return (
     <div className="mx-auto max-w-3xl">

@@ -33,12 +33,31 @@ export default function PlanPage() {
     tiers,
     isTiersLoading,
     usage,
+    creditPacks,
+    isCreditPacksLoading,
     selectTier,
     checkoutTier,
     cancelSubscription,
     openBillingPortal,
+    checkoutCreditPack,
   } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
+
+  // Standalone top-up — a real Stripe Checkout Session (mode: 'payment'),
+  // same "server is the source of truth, this just navigates to the
+  // returned URL" pattern as the tier checkout below. agent_credits itself
+  // only changes once the webhook confirms payment.
+  function handleBuyCreditPack(packId: string) {
+    checkoutCreditPack.mutate({ packId }, {
+      onSuccess: (result) => {
+        if (result.url) window.location.href = result.url;
+        else toast.error('Checkout is not available for this pack yet — contact support.');
+      },
+      onError: () => toast.error('Could not start checkout — please try again.'),
+    });
+  }
+
+  const CREDIT_TYPE_LABEL: Record<string, string> = { hot: 'Hot', super_hot: 'Super Hot', refresh: 'Refresh', story: 'Story' };
 
   function handleCancel() {
     if (!confirm('Cancel your subscription? You’ll keep access until the end of the current billing period.')) return;
@@ -194,6 +213,10 @@ export default function PlanPage() {
                 tier.hotCreditsPerPeriod > 0 && `${tier.hotCreditsPerPeriod} Hot boost${tier.hotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
                 tier.superHotCreditsPerPeriod > 0 &&
                   `${tier.superHotCreditsPerPeriod} Super Hot boost${tier.superHotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
+                tier.refreshCreditsPerPeriod > 0 &&
+                  `${tier.refreshCreditsPerPeriod} Refresh credit${tier.refreshCreditsPerPeriod === 1 ? '' : 's'}/mo`,
+                tier.storyCreditsPerPeriod > 0 &&
+                  `${tier.storyCreditsPerPeriod} Story credit${tier.storyCreditsPerPeriod === 1 ? '' : 's'}/mo`,
                 tier.listingDurationDays != null ? `Listings live for ${tier.listingDurationDays} days` : 'Listings never expire',
               ].filter((f): f is string => !!f);
 
@@ -245,7 +268,7 @@ export default function PlanPage() {
                       disabled={isCurrent || selectTier.isPending || checkoutTier.isPending}
                       onClick={() => {
                         if (Number(tier.price) > 0) {
-                          checkoutTier.mutate(tier.id, {
+                          checkoutTier.mutate({ tierId: tier.id }, {
                             onSuccess: (result) => {
                               if (result.url) window.location.href = result.url;
                               else toast.error('Checkout is not available for this plan yet — contact support.');
@@ -279,6 +302,36 @@ export default function PlanPage() {
         )}
         {selectTier.isError && <p className="mt-2 text-sm text-destructive">Something went wrong — please try again.</p>}
       </div>
+
+      {!isCreditPacksLoading && creditPacks.length > 0 && (
+        <Reveal>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Buy more credits</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Run out mid-period? Top up Hot, Super Hot, or Refresh credits without waiting for renewal.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {creditPacks.map((pack) => (
+                <Card key={pack.id} className="flex flex-col gap-3 p-5">
+                  <p className="text-sm font-semibold text-foreground">{pack.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {pack.quantity} × {CREDIT_TYPE_LABEL[pack.creditType] ?? pack.creditType} credit
+                    {pack.quantity === 1 ? '' : 's'}
+                  </p>
+                  <p className="text-xl font-bold text-foreground">{formatPrice(pack.price, preferences?.preferredCurrency)}</p>
+                  <Button
+                    variant="outline"
+                    disabled={checkoutCreditPack.isPending}
+                    onClick={() => handleBuyCreditPack(pack.id)}
+                  >
+                    {checkoutCreditPack.isPending ? 'Please wait…' : 'Buy with Stripe'}
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      )}
     </div>
   );
 }

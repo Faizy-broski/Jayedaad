@@ -22,6 +22,7 @@ export class PlanLifecycleService {
   async runLifecycleSweep(): Promise<void> {
     await this.expireLapsedSubscriptions();
     await this.revertExpiredBoosts();
+    await this.revertExpiredStories();
     await this.expireListings();
   }
 
@@ -60,6 +61,23 @@ export class PlanLifecycleService {
       return;
     }
     if (data?.length) this.logger.log(`Reverted ${data.length} expired listing boost(s) to basic.`);
+  }
+
+  // A spent Story credit (ListingsRepository.postStory()) sets
+  // story_expires_at ~24h out — clears it back to null once that window
+  // passes. Unlike revertExpiredBoosts, there's no tier to revert to: a
+  // Story placement is a plain on/off flag, not a rank.
+  private async revertExpiredStories(): Promise<void> {
+    const { data, error } = await this.supabase.client
+      .from('listings')
+      .update({ story_expires_at: null })
+      .lt('story_expires_at', new Date().toISOString())
+      .select('id');
+    if (error) {
+      this.logger.error('Failed to revert expired listing stories', error as Error);
+      return;
+    }
+    if (data?.length) this.logger.log(`Reverted ${data.length} expired listing stor${data.length === 1 ? 'y' : 'ies'}.`);
   }
 
   // expires_at is set on approval/renewal (record_verification_action() in

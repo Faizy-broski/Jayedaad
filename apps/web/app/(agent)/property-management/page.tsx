@@ -30,7 +30,9 @@ import {
   ImageOff,
   MapPin,
   PlusCircle,
+  RefreshCw,
   Sparkles,
+  Clapperboard,
   SlidersHorizontal,
   Trash2,
   X,
@@ -178,8 +180,20 @@ export default function PropertyManagementPage() {
   };
 
   const router = useRouter();
-  const { listings, total, pageSize, isLoading, statusCounts, isStatusCountsLoading, remove, submitForVerification, boost, renew } =
-    useMyListingsViewModel(filters);
+  const {
+    listings,
+    total,
+    pageSize,
+    isLoading,
+    statusCounts,
+    isStatusCountsLoading,
+    remove,
+    submitForVerification,
+    boost,
+    renew,
+    refresh,
+    postStory,
+  } = useMyListingsViewModel(filters);
 
   // Spends one of the agent's plan-granted Hot/Super Hot credits (topped up
   // on tier selection/renewal — see the Plan page) to feature this listing.
@@ -202,6 +216,26 @@ export default function PropertyManagementPage() {
   function handleRenew(listingId: string) {
     renew.mutate(listingId, {
       onSuccess: () => toast.success('Listing renewed.'),
+      onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
+    });
+  }
+
+  // Spends one of the agent's plan-granted Refresh credits to bump this
+  // listing's sort position within its current boost tier (POST
+  // /listings/:id/refresh) — same "server is the source of truth on
+  // available credits" approach as handleBoost.
+  function handleRefresh(listingId: string) {
+    refresh.mutate(listingId, {
+      onSuccess: () => toast.success('Listing refreshed.'),
+      onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
+    });
+  }
+
+  // Spends one of the agent's plan-granted Story credits to feature this
+  // listing for a fixed 24h window (POST /listings/:id/story).
+  function handlePostStory(listingId: string) {
+    postStory.mutate(listingId, {
+      onSuccess: () => toast.success('Listing posted as a story.'),
       onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
     });
   }
@@ -611,6 +645,12 @@ export default function PropertyManagementPage() {
                                 {listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
                               </span>
                             )}
+                            {listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
+                              <span className="flex items-center gap-1 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[11px] font-medium text-fuchsia-700">
+                                <Clapperboard className="h-3 w-3" />
+                                Story
+                              </span>
+                            )}
                           </div>
                           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
@@ -690,6 +730,26 @@ export default function PropertyManagementPage() {
                             >
                               <Flame className="mr-1.5 h-3.5 w-3.5" />
                               Super Hot
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={refresh.isPending}
+                              onClick={() => handleRefresh(listing.id)}
+                              title="Spend a Refresh credit to bump this listing back to the top"
+                            >
+                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                              Refresh
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={postStory.isPending}
+                              onClick={() => handlePostStory(listing.id)}
+                              title="Spend a Story credit to feature this listing for 24 hours"
+                            >
+                              <Clapperboard className="mr-1.5 h-3.5 w-3.5" />
+                              Story
                             </Button>
                           </>
                         )}

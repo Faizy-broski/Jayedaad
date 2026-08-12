@@ -15,6 +15,8 @@ export function listingToProperty(listing: Listing): Property {
     beds: listing.bedrooms ?? 0,
     baths: listing.bathrooms ?? 0,
     areaSqft: Number(listing.areaValue),
+    boostTier: listing.boostTier,
+    storyExpiresAt: listing.storyExpiresAt,
   };
 }
 

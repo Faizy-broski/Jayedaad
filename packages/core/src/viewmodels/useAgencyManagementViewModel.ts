@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { agenciesRepository } from '../services/agenciesRepository';
 import { adminRepository } from '../services/adminRepository';
-import { CreateAgencyInput, SetAgencyVerificationStatusInput, UpdateAgencyInput } from '../models';
+import { CreateAgencyInput, SetAgencyTierInput, SetAgencyVerificationStatusInput, UpdateAgencyInput } from '../models';
 
 // Super Admin agency management — full CRUD + verification decision. Rosters
 // via GET /admin/agencies (every verification status), not
@@ -44,6 +44,14 @@ export function useAgencyManagementViewModel(
     onSuccess: invalidate,
   });
 
+  // Super Admin-curated Titanium/Featured placement — agenciesRepository.setTier
+  // already existed with no caller anywhere, so every agency was
+  // permanently stuck at 'basic' regardless of how well-established it was.
+  const setTier = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: SetAgencyTierInput }) => agenciesRepository.setTier(id, input),
+    onSuccess: invalidate,
+  });
+
   const remove = useMutation({
     mutationFn: (id: string) => agenciesRepository.remove(id),
     onSuccess: invalidate,
@@ -58,6 +66,7 @@ export function useAgencyManagementViewModel(
     create,
     update,
     setVerificationStatus,
+    setTier,
     remove,
   };
 }

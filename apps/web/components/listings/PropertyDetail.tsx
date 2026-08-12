@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight } from 'lucide-react';
+import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight, Flame, Sparkles, Clapperboard } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { TestimonialCard } from '@/components/landing/testimonials/TestimonialCards';
 import { PropertyGallery } from './PropertyGallery';
@@ -54,6 +54,8 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
   const referenceNumber = listing.listingNumber ?? hashToRange(listing.id, 100, 999);
   const referenceId = `JYD-${String(referenceNumber).padStart(5, '0')}`;
   const gallery = images && images.length > 0 ? images : PLACEHOLDER_GALLERY;
+  const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
+  const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
 
   return (
     // pt is clearance for the Header, which is fixed/floating (out of flow)
@@ -94,6 +96,18 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
                 {listing.propertyType}
               </span>
+              {isBoosted && (
+                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                  {listing.boostTier === 'super_hot' ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                  {listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
+                </span>
+              )}
+              {hasActiveStory && (
+                <span className="flex items-center gap-1 rounded-full bg-fuchsia-100 px-2.5 py-1 text-[11px] font-semibold text-fuchsia-700">
+                  <Clapperboard className="h-3 w-3" />
+                  Story
+                </span>
+              )}
             </div>
 
             <h1 className="heading-1 mt-3 text-slate-900">{listing.title}</h1>

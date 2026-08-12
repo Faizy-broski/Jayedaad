@@ -53,6 +53,7 @@ import {
   TrendingUp,
   Circle,
   ListTodo,
+  Clapperboard,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
@@ -61,6 +62,7 @@ const CREDIT_TABS: { id: AgentCreditType; label: string; icon: typeof Home }[] =
   { id: 'refresh', label: 'Refresh', icon: TrendingUp },
   { id: 'hot', label: 'Hot', icon: Sparkles },
   { id: 'super_hot', label: 'Super Hot', icon: Flame },
+  { id: 'story', label: 'Story', icon: Clapperboard },
 ];
 
 const PURPOSE_FILTERS = [

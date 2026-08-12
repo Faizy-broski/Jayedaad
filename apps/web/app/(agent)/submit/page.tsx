@@ -203,13 +203,17 @@ export default function SubmitListingPage() {
   // Mirrors the identical agency_id distinction the server now makes in
   // getDocumentCompleteness.
   const isIndependentAgent = role === 'agent' && !agentProfile?.agency;
-  // Individual owners need a one-time CNIC+selfie identity check before
-  // their first listing — agents are exempt (their own agency-level
-  // onboarding-document flow covers them instead). Document Verification
-  // Phase 1, backfilled onto web here in Phase 4.
+  // Any individual — owner or independent (non-agency) agent — needs the
+  // same one-time CNIC+selfie identity check before their first listing;
+  // an agency-affiliated agent is exempt (their agency's own onboarding
+  // covers them instead). Previously only owners were gated here, treating
+  // an independent agent as if their separate onboarding-document flow
+  // already covered this — it now goes through the exact same check
+  // (services/api/src/agents/agents.repository.ts::setVerificationStatus
+  // was updated to match).
   const { verification, isLoading: verificationLoading, becomeOwner } = useOwnerVerificationViewModel();
   const needsIdentityVerification =
-    role === 'owner' && !editId && !verificationLoading && verification?.status !== 'verified';
+    (role === 'owner' || isIndependentAgent) && !editId && !verificationLoading && verification?.status !== 'verified';
 
   // No signup path ever grants 'owner' directly — every fresh individual
   // signup is 'buyer' by default (handle_new_user() in

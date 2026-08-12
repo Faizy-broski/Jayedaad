@@ -57,8 +57,12 @@ export const ownersRepository = {
     return data;
   },
 
-  setVerificationStatus: async (userId: string, status: 'verified' | 'rejected'): Promise<{ userId: string; status: string; reviewedAt: string | null }> => {
-    const { data } = await httpClient.patch(`/owners/${userId}/verify`, { status });
+  setVerificationStatus: async (
+    userId: string,
+    status: 'verified' | 'rejected',
+    reason?: string,
+  ): Promise<{ userId: string; status: string; reviewedAt: string | null; rejectionReason: string | null }> => {
+    const { data } = await httpClient.patch(`/owners/${userId}/verify`, { status, reason });
     return data;
   },
 };

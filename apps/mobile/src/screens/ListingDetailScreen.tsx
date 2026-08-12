@@ -106,6 +106,18 @@ export function ListingDetailScreen() {
                 <Text style={styles.pillBadgeText}>{listing.propertyType.label.toUpperCase()}</Text>
               </View>
             )}
+            {(listing.boostTier === 'hot' || listing.boostTier === 'super_hot') && (
+              <View style={styles.boostBadge}>
+                <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
+                <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'SUPER HOT' : 'HOT'}</Text>
+              </View>
+            )}
+            {!!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
+              <View style={styles.storyBadge}>
+                <Ionicons name="film" size={11} color="#A21CAF" />
+                <Text style={styles.storyBadgeText}>STORY</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.title}>{listing.title}</Text>
@@ -429,6 +441,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 function SimilarCard({ listing, currency, onPress }: { listing: Listing; currency?: string; onPress: () => void }) {
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
+  const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
+  const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
   return (
     <Pressable style={styles.similarCard} onPress={onPress}>
       <View style={styles.similarImageWrap}>
@@ -442,6 +456,16 @@ function SimilarCard({ listing, currency, onPress }: { listing: Listing; currenc
         {listing.status === 'verified' && (
           <View style={styles.similarVerifiedBadge}>
             <Text style={styles.similarVerifiedText}>VERIFIED</Text>
+          </View>
+        )}
+        {isBoosted && (
+          <View style={[styles.similarVerifiedBadge, styles.similarBoostBadge]}>
+            <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={9} color="#B45309" />
+          </View>
+        )}
+        {hasActiveStory && (
+          <View style={[styles.similarVerifiedBadge, styles.similarStoryBadge]}>
+            <Ionicons name="film" size={9} color="#A21CAF" />
           </View>
         )}
         <FavoriteButton listing={listing} size={16} style={styles.similarFavorite} />
@@ -600,6 +624,26 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   verifiedBadgeText: { fontSize: 10, fontWeight: '800', color: FIGMA_SURFACE, letterSpacing: 0.5 },
+  boostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  boostBadgeText: { fontSize: 10, fontWeight: '800', color: '#B45309', letterSpacing: 0.5 },
+  storyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAE8FF',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  storyBadgeText: { fontSize: 10, fontWeight: '800', color: '#A21CAF', letterSpacing: 0.5 },
   pillBadge: { backgroundColor: FIGMA_MUTED_BG, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   pillBadgeText: { fontSize: 10, fontWeight: '700', color: theme.colors.text, letterSpacing: 0.5 },
 
@@ -735,6 +779,8 @@ const styles = StyleSheet.create({
   similarImageWrap: { position: 'relative', borderRadius: 16, overflow: 'hidden' },
   similarImage: { width: '100%', height: 160 },
   similarVerifiedBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: FIGMA_PRIMARY, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  similarBoostBadge: { top: 36, backgroundColor: '#FEF3C7', paddingHorizontal: 6 },
+  similarStoryBadge: { top: 60, backgroundColor: '#FAE8FF', paddingHorizontal: 6 },
   similarVerifiedText: { fontSize: 9, fontWeight: '800', color: FIGMA_SURFACE, letterSpacing: 0.5 },
   similarFavorite: { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 16, backgroundColor: FIGMA_SURFACE, alignItems: 'center', justifyContent: 'center' },
   similarPriceOverlay: { position: 'absolute', bottom: 12, left: 12, right: 12 },

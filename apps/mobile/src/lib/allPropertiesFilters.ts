@@ -1,4 +1,5 @@
 import { AreaUnit, ListingSearchFilters } from '@jayedaad/core';
+import { SORT_TO_API, SortOption } from './searchFilters';
 
 // Draft/UI shape for the "All Properties" browse screen (Home's Featured
 // Properties "See all") — deliberately has NO purpose field, unlike
@@ -18,6 +19,7 @@ export interface AllPropertiesFilterState {
   bedrooms: string;
   minBathrooms: string;
   keyword: string;
+  sortBy: SortOption;
 }
 
 export const DEFAULT_ALL_PROPERTIES_FILTERS: AllPropertiesFilterState = {
@@ -32,6 +34,7 @@ export const DEFAULT_ALL_PROPERTIES_FILTERS: AllPropertiesFilterState = {
   bedrooms: '',
   minBathrooms: '',
   keyword: '',
+  sortBy: 'Featured',
 };
 
 export function toAllPropertiesSearchFilters(filters: AllPropertiesFilterState): ListingSearchFilters {
@@ -47,5 +50,6 @@ export function toAllPropertiesSearchFilters(filters: AllPropertiesFilterState):
     minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
     maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
     keyword: filters.keyword || undefined,
+    sortBy: SORT_TO_API[filters.sortBy],
   };
 }

@@ -28,8 +28,10 @@ export default function OwnersPage() {
   const [docsModalOwner, setDocsModalOwner] = useState<PendingOwnerVerification | null>(null);
 
   function handleVerify(userId: string, status: 'verified' | 'rejected') {
+    // Same optional-reason-on-reject convention as admin/agents/page.tsx.
+    const reason = status === 'rejected' ? (prompt('Reason for rejection (optional):') ?? undefined) : undefined;
     setVerificationStatus.mutate(
-      { userId, status },
+      { userId, status, reason },
       {
         onSuccess: () => toast.success(`Owner ${status}.`),
         // Same convention as admin/agents/page.tsx's handleVerify — the

@@ -275,6 +275,31 @@ export class ListingsController {
     return this.listings.boost(id, req.user.agentId, body);
   }
 
+  // Spends one of the agent's plan-granted Refresh credits (agent_credits,
+  // credit_type 'refresh' — topped up on tier selection/renewal, same as
+  // boost's Hot/Super Hot) to bump this listing's sort position without
+  // changing its boost tier. No request body — unlike boost, there's only
+  // one thing a refresh can do.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/refresh')
+  async refreshListing(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnListing(req, id);
+    return this.listings.refresh(id, req.user.agentId);
+  }
+
+  // Spends one of the agent's plan-granted Story credits (agent_credits,
+  // credit_type 'story') to feature this listing for a fixed 24h window —
+  // a separate placement, not a boost_tier change, same "no request body"
+  // shape as refresh.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/story')
+  async postStory(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnListing(req, id);
+    return this.listings.postStory(id, req.user.agentId);
+  }
+
   // Resets an expired listing (PlanLifecycleService's cron, once its plan's
   // listing_duration_days lapses) back to 'verified' with a fresh expiry —
   // agent-only, same reasoning as boost: an owner-only listing has no plan

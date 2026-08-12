@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthViewModel } from '@jayedaad/core';
+import { PreferencesMenu } from './PreferencesMenu';
 
 const LIST_A_HOME_CLASSES =
   'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md active:translate-y-0 active:scale-95';
@@ -225,6 +226,7 @@ function HeaderInner() {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
+          {isAuthenticated && <PreferencesMenu />}
           {isAuthenticated ? (
             <div ref={userMenuRef} className="relative">
               <button
@@ -335,6 +337,27 @@ function HeaderInner() {
                 >
                   Dashboard
                 </Link>
+                {/* Direct links alongside the generic Dashboard link above —
+                    both land on /account/saved (dashboardHref for role
+                    'buyer' already does too), just deep-linked to a tab via
+                    the ?tab= param (account)/saved/page.tsx now reads. */}
+                <Link
+                  href="/account/saved?tab=favorites"
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-md px-0 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+                >
+                  Favourites
+                </Link>
+                <Link
+                  href="/account/saved?tab=saved"
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-md px-0 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+                >
+                  Saved Searches
+                </Link>
+                <div className="flex items-center gap-2 pt-1">
+                  <PreferencesMenu />
+                </div>
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"

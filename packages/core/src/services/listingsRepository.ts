@@ -228,6 +228,21 @@ export const listingsRepository = {
     return data;
   },
 
+  // Spends one of the agent's plan-granted Refresh credits to bump this
+  // listing's sort position within its current boost tier — no body, unlike
+  // boostListing, since there's only one thing a refresh can do.
+  refreshListing: async (listingId: string): Promise<Listing> => {
+    const { data } = await httpClient.post(`/listings/${listingId}/refresh`);
+    return data;
+  },
+
+  // Spends one of the agent's plan-granted Story credits to feature this
+  // listing for a fixed 24h window — no body, same shape as refreshListing.
+  postListingStory: async (listingId: string): Promise<Listing> => {
+    const { data } = await httpClient.post(`/listings/${listingId}/story`);
+    return data;
+  },
+
   // Resets an expired listing (PlanLifecycleService's cron, once its plan's
   // listingDurationDays lapses) back to 'verified' with a fresh expiry.
   renewListing: async (listingId: string): Promise<Listing> => {

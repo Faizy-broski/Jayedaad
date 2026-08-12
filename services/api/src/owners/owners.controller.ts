@@ -31,15 +31,20 @@ export class OwnersController {
 
   // Self-service only — an owner's identity verification is scoped to their
   // own account (req.user.id), never addressable by another owner's id.
+  // Also open to role 'agent' — an independent (non-agency) agent goes
+  // through this exact same CNIC+selfie check as an owner, not a separate
+  // agent-specific document set (see AgentsRepository.setVerificationStatus,
+  // which now gates independent-agent approval on this same table). Table
+  // is keyed by user_id, not a role column, so this "just works" either way.
   @UseGuards(ScopeGuard)
-  @Roles('owner')
+  @Roles('owner', 'agent')
   @Get('me/verification')
   getMyVerification(@Req() req: any) {
     return this.owners.getVerification(req.user.id);
   }
 
   @UseGuards(ScopeGuard)
-  @Roles('owner')
+  @Roles('owner', 'agent')
   @Post('me/documents')
   @UseInterceptors(FileInterceptor('file'))
   uploadDocument(@Req() req: any, @Body() body: UploadOwnerIdentityDocumentDto, @UploadedFile() file: Express.Multer.File) {
@@ -78,6 +83,6 @@ export class OwnersController {
   @Roles('super_admin', 'verification_staff')
   @Patch(':id/verify')
   setVerificationStatus(@Param('id') id: string, @Body() body: SetOwnerVerificationStatusDto) {
-    return this.owners.setVerificationStatus(id, body.status);
+    return this.owners.setVerificationStatus(id, body.status, body.reason);
   }
 }

@@ -1,7 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ListingsRepository } from '../listings/listings.repository';
+import { NotificationsRepository } from '../notifications/notifications.repository';
 import { paginate, PaginationParams, resolvePagination } from '../common/pagination';
+
+const ACTION_TITLE: Record<'approve' | 'reject' | 'request_info', string> = {
+  approve: 'Your listing was verified',
+  reject: 'Your listing was rejected',
+  request_info: 'More information needed on your listing',
+};
 
 export interface AuditLogFilters extends PaginationParams {
   listingId?: string;
@@ -17,9 +24,12 @@ export interface AuditLogFilters extends PaginationParams {
 
 @Injectable()
 export class VerificationRepository {
+  private readonly logger = new Logger(VerificationRepository.name);
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly listings: ListingsRepository,
+    private readonly notifications: NotificationsRepository,
   ) {}
 
   // Delegates to ListingsRepository.findPendingForVerification() — the
@@ -54,6 +64,37 @@ export class VerificationRepository {
       p_note: note ?? null,
     });
     if (error) throw error;
+
+    await this.notifyOwner(listingId, action, note);
+  }
+
+  // 'verification_status' has existed as a NotificationType since
+  // 0009_notifications.sql with no code path ever using it — a listing's
+  // owner (listings.owner_id, the real submitter regardless of role, not
+  // agent_id) had no way to learn their listing was approved/rejected
+  // except by polling their own listing list. Best-effort, same discipline
+  // as SupportRepository.notifySuperAdmins — a notification failure must
+  // never fail the verification action itself, which has already
+  // committed by the time this runs.
+  private async notifyOwner(listingId: string, action: 'approve' | 'reject' | 'request_info', note?: string): Promise<void> {
+    try {
+      const { data: listing, error } = await this.supabase.client
+        .from('listings')
+        .select('owner_id, title')
+        .eq('id', listingId)
+        .maybeSingle();
+      if (error || !listing) return;
+
+      await this.notifications.create({
+        userId: listing.owner_id,
+        type: 'verification_status',
+        title: ACTION_TITLE[action],
+        body: note ?? listing.title,
+        relatedListingId: listingId,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to notify listing owner of verification action — listing ${listingId}`, err as Error);
+    }
   }
 
   // Read-back for verification_audit_log — every write already atomically

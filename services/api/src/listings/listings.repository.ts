@@ -14,6 +14,11 @@ import { PaginationParams, resolvePagination, sanitizeKeyword } from '../common/
 // matching the "N credits per month" allotment model.
 const BOOST_DURATION_DAYS = 30;
 
+// A spent Story credit (POST /listings/:id/story) features a listing for
+// this long — Zameen's own Story product is a 24-hour placement, unlike
+// Hot/Super Hot's month-long boost window.
+const STORY_DURATION_HOURS = 24;
+
 export type ListingDocumentType = 'id_card_front' | 'id_card_back' | 'ownership_proof' | 'utility_bill';
 
 // id_card_front/id_card_back moved to the one-time owner identity
@@ -110,16 +115,23 @@ function applySort(query: any, sortBy: ListingSearchFilters['sortBy']) {
     case 'relevance':
     default:
       // Boost tier first (super_hot -> hot -> premium -> basic, per the
-      // enum's declaration order), then recency — mirrors Zameen's real
-      // ranking: paid "Value Booster" placements rank above organic listings.
-      return query.order('boost_tier', { ascending: false }).order('created_at', { ascending: false });
+      // enum's declaration order), then a spent refresh credit (POST
+      // /listings/:id/refresh bumps refreshed_at to now(), nulls-last so
+      // listings never refreshed fall through to recency), then recency —
+      // mirrors Zameen's real ranking: paid "Value Booster" placements rank
+      // above organic listings, and a refresh bumps a listing back toward
+      // the top within its own boost tier without granting a new tier.
+      return query
+        .order('boost_tier', { ascending: false })
+        .order('refreshed_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
   }
 }
 
 const PUBLIC_LISTING_COLUMNS = `
   id, listing_number, title, description, price, purpose, city, area, society, sub_area,
   latitude, longitude, bedrooms, bathrooms, kitchens, floors, area_value,
-  area_unit, year_built, floor_level, furnishing_status, boost_tier, boost_expires_at, expires_at,
+  area_unit, year_built, floor_level, furnishing_status, boost_tier, boost_expires_at, refreshed_at, story_expires_at, expires_at,
   installment_available, ready_for_possession,
   advance_amount, number_of_installments, monthly_installment,
   balloon_payment_available, balloon_payment_amount,
@@ -616,6 +628,7 @@ export class ListingsRepository {
       .eq('property_type_id', current.property_type_id)
       .neq('id', listingId)
       .order('boost_tier', { ascending: false })
+      .order('refreshed_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -897,6 +910,115 @@ export class ListingsRepository {
     return mapPublicListingRow(data);
   }
 
+  // Spends one 'refresh' agent_credits row to bump refreshed_at to now() —
+  // the write path for a credit type that's existed in the schema since
+  // 0001_init.sql but never had one before this. Unlike boost(), this
+  // doesn't touch boost_tier/set an expiry: a refresh is a one-time bump
+  // within whatever boost tier the listing already has (applySort's
+  // secondary order('refreshed_at', ...) is what makes it matter), matching
+  // Zameen's Refresh credit ("resets a listing's timestamp"), not a timed
+  // featured state like Hot/Super Hot.
+  async refresh(listingId: string, agentId: string) {
+    const { data: listing, error: listingError } = await this.supabase.client
+      .from('listings')
+      .select('status')
+      .eq('id', listingId)
+      .maybeSingle();
+    if (listingError) throw listingError;
+    if (listing?.status !== 'verified') {
+      throw new BadRequestException('Only verified listings can be refreshed.');
+    }
+
+    const { data: credit, error: creditError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total, used')
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'refresh')
+      .maybeSingle();
+    if (creditError) throw creditError;
+
+    const available = (credit?.total ?? 0) - (credit?.used ?? 0);
+    if (available <= 0) {
+      throw new BadRequestException("No Refresh credits available — check your plan's allotment.");
+    }
+
+    // Same compare-and-swap guard as boost() — a stale-read race between two
+    // concurrent refresh requests must not spend two credits for one
+    // recorded refresh, or one credit for two.
+    const { data: spent, error: spendError } = await this.supabase.client
+      .from('agent_credits')
+      .update({ used: (credit?.used ?? 0) + 1 })
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'refresh')
+      .eq('used', credit?.used ?? 0)
+      .select('used');
+    if (spendError) throw spendError;
+    if (!spent || spent.length === 0) {
+      throw new BadRequestException('That credit was just spent by another request — please try again.');
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('listings')
+      .update({ refreshed_at: new Date().toISOString() })
+      .eq('id', listingId)
+      .select('*, property_types (slug, label, property_type_categories (slug, label))')
+      .single();
+    if (error) throw error;
+    return mapPublicListingRow(data);
+  }
+
+  // Spends one 'story' agent_credits row to feature this listing for
+  // STORY_DURATION_HOURS — a plain on/off flag (story_expires_at), not a
+  // tier like boost_tier, since a Story placement is a separate 24-hour
+  // spot rather than a rank against other listings. Same CAS-spend pattern
+  // as boost()/refresh().
+  async postStory(listingId: string, agentId: string) {
+    const { data: listing, error: listingError } = await this.supabase.client
+      .from('listings')
+      .select('status')
+      .eq('id', listingId)
+      .maybeSingle();
+    if (listingError) throw listingError;
+    if (listing?.status !== 'verified') {
+      throw new BadRequestException('Only verified listings can be posted as a story.');
+    }
+
+    const { data: credit, error: creditError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total, used')
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'story')
+      .maybeSingle();
+    if (creditError) throw creditError;
+
+    const available = (credit?.total ?? 0) - (credit?.used ?? 0);
+    if (available <= 0) {
+      throw new BadRequestException("No Story credits available — check your plan's allotment.");
+    }
+
+    const { data: spent, error: spendError } = await this.supabase.client
+      .from('agent_credits')
+      .update({ used: (credit?.used ?? 0) + 1 })
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'story')
+      .eq('used', credit?.used ?? 0)
+      .select('used');
+    if (spendError) throw spendError;
+    if (!spent || spent.length === 0) {
+      throw new BadRequestException('That credit was just spent by another request — please try again.');
+    }
+
+    const storyExpiresAt = new Date(Date.now() + STORY_DURATION_HOURS * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase.client
+      .from('listings')
+      .update({ story_expires_at: storyExpiresAt })
+      .eq('id', listingId)
+      .select('*, property_types (slug, label, property_type_categories (slug, label))')
+      .single();
+    if (error) throw error;
+    return mapPublicListingRow(data);
+  }
+
   // Resets an expired listing back to 'verified' with a fresh expiry window
   // — the alternative to losing all its photos/details/history just because
   // the plan's listing_duration_days lapsed (PlanLifecycleService's cron).
@@ -1083,6 +1205,8 @@ function mapPublicListingRow(row: any) {
     furnishingStatus: row.furnishing_status,
     boostTier: row.boost_tier,
     boostExpiresAt: row.boost_expires_at,
+    refreshedAt: row.refreshed_at,
+    storyExpiresAt: row.story_expires_at,
     expiresAt: row.expires_at,
     installmentAvailable: row.installment_available,
     readyForPossession: row.ready_for_possession,

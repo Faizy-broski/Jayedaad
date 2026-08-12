@@ -17,6 +17,13 @@ import { MyProjectsScreen } from '../screens/MyProjectsScreen';
 import { PostProjectScreen } from '../screens/PostProjectScreen';
 import { ProjectAmenitiesScreen } from '../screens/ProjectAmenitiesScreen';
 import { AgencyStaffScreen } from '../screens/AgencyStaffScreen';
+import { AgencySettingsScreen } from '../screens/AgencySettingsScreen';
+import { AgencyAnalyticsScreen } from '../screens/AgencyAnalyticsScreen';
+import { HelpDeskScreen } from '../screens/HelpDeskScreen';
+import { AgenciesScreen } from '../screens/AgenciesScreen';
+import { AgencyDetailScreen } from '../screens/AgencyDetailScreen';
+import { ApplyAsAgentScreen } from '../screens/auth/ApplyAsAgentScreen';
+import { BecomeAnAgentScreen } from '../screens/auth/BecomeAnAgentScreen';
 import { OwnerIdentityVerificationScreen } from '../screens/OwnerIdentityVerificationScreen';
 import { ListingDocumentsScreen } from '../screens/ListingDocumentsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
@@ -61,6 +68,17 @@ export type RootStackParamList = {
   };
   MyProjects: undefined;
   AgencyStaff: undefined;
+  AgencySettings: undefined;
+  AgencyAnalytics: undefined;
+  HelpDesk: undefined;
+  Agencies: undefined;
+  AgencyDetail: { agencySlug: string };
+  // Buyer self-service application (packages/core's useAgentApplicationViewModel)
+  // — a normal pushed screen, not part of AuthNavigator's login/signup sheet,
+  // even though it shares BecomeAnAgent (same component, registered as a
+  // second route here) for the document-upload step once applied.
+  ApplyAsAgent: undefined;
+  BecomeAnAgent: undefined;
   ListingDetail: { listingId: string };
   AllProperties: { initialFilters?: Partial<AllPropertiesFilterState> } | undefined;
   ProjectDetail: { projectSlug: string };
@@ -99,6 +117,13 @@ function MainStack() {
       <Stack.Screen name="AddFeatures" component={AddFeaturesScreen} options={{ title: 'Add Features' }} />
       <Stack.Screen name="MyProjects" component={MyProjectsScreen} options={{ title: 'My Projects' }} />
       <Stack.Screen name="AgencyStaff" component={AgencyStaffScreen} options={{ title: 'Agency Staff' }} />
+      <Stack.Screen name="AgencySettings" component={AgencySettingsScreen} options={{ title: 'Agency Settings' }} />
+      <Stack.Screen name="AgencyAnalytics" component={AgencyAnalyticsScreen} options={{ title: 'Agency Analytics' }} />
+      <Stack.Screen name="HelpDesk" component={HelpDeskScreen} options={{ title: 'Help Desk' }} />
+      <Stack.Screen name="Agencies" component={AgenciesScreen} options={{ title: 'Agencies' }} />
+      <Stack.Screen name="AgencyDetail" component={AgencyDetailScreen} options={{ title: 'Agency' }} />
+      <Stack.Screen name="ApplyAsAgent" component={ApplyAsAgentScreen} options={{ title: 'Become an Agent' }} />
+      <Stack.Screen name="BecomeAnAgent" component={BecomeAnAgentScreen} options={{ title: 'Verification', headerBackVisible: false }} />
       <Stack.Screen
         name="OwnerIdentityVerification"
         component={OwnerIdentityVerificationScreen}

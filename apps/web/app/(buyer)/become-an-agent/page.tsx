@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
   agenciesRepository,
-  agentsRepository,
   OnboardingDocumentType,
   PAKISTAN_CITIES,
   useAgentApplicationViewModel,
   useAgentProfileViewModel,
   useAuthViewModel,
+  useOwnerVerificationViewModel,
 } from '@jayedaad/core';
 import { Button, Card, CardContent, Input, Label, Select } from '@jayedaad/ui-web';
+import { IdentityVerificationPanel } from '@/components/shared/IdentityVerificationPanel';
 
 // Owner ID + Company Registration are mandatory (Document Verification
 // spec) — tax_certificate remains a valid upload type but is optional,
@@ -93,18 +94,34 @@ export default function BecomeAnAgentPage() {
   );
 }
 
+// Branches on profile.agency: an agency-registered admin uploads the
+// AGENCY's documents (Owner ID Card + Company Registration — the agency's
+// own verification covers its staff, unchanged). An independent applicant
+// goes through the same CNIC+selfie identity check an owner does
+// (IdentityVerificationPanel, shared with /submit/verify-identity) instead
+// of a separate "agent onboarding" document set — see
+// services/api/src/agents/agents.repository.ts::setVerificationStatus,
+// which now gates independent-agent approval on owner_identity_verifications.
 function DocumentUploadStep({ agentId }: { agentId: string }) {
-  const router = useRouter();
   const { profile } = useAgentProfileViewModel();
-  // An agency-registered admin uploads the AGENCY's documents (the agency's
-  // own verification covers its staff — see
-  // services/api/src/agents/agents.repository.ts::setVerificationStatus,
-  // which only requires an independent agent's own documents when
-  // agency_id is null). An independent applicant uploads their own.
-  const scope: { type: 'agency' | 'agent'; id: string } = profile?.agency
-    ? { type: 'agency', id: profile.agency.id }
-    : { type: 'agent', id: agentId };
-  const status = profile?.agency ? profile.agency.verificationStatus : profile?.verificationStatus;
+
+  if (profile?.agency) {
+    return <AgencyDocumentUploadStep agencyId={profile.agency.id} status={profile.agency.verificationStatus} rejectionReason={profile.agency.rejectionReason} />;
+  }
+
+  return <IndependentAgentIdentityStep />;
+}
+
+function AgencyDocumentUploadStep({
+  agencyId,
+  status,
+  rejectionReason,
+}: {
+  agencyId: string;
+  status: string;
+  rejectionReason: string | null;
+}) {
+  const router = useRouter();
 
   // Fetched from the server (not tracked locally per-row) — a returning
   // visitor to this page (it stays reachable as long as role stays
@@ -115,14 +132,12 @@ function DocumentUploadStep({ agentId }: { agentId: string }) {
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
 
   useEffect(() => {
-    const repository = scope.type === 'agency' ? agenciesRepository : agentsRepository;
-    repository
-      .listDocuments(scope.id)
+    agenciesRepository
+      .listDocuments(agencyId)
       .then((docs) => setUploadedTypes(new Set(docs.map((d) => d.documentType))))
       .catch(() => undefined)
       .finally(() => setIsLoadingDocs(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.type, scope.id]);
+  }, [agencyId]);
 
   const isComplete = REQUIRED_ONBOARDING_DOCUMENT_TYPES.every((type) => uploadedTypes.has(type));
 
@@ -131,10 +146,10 @@ function DocumentUploadStep({ agentId }: { agentId: string }) {
       <div>
         <h1 className="text-2xl font-semibold">Application Submitted</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {profile?.agency ? 'Your agency' : 'Your application'} is <span className="font-medium">{status ?? 'pending'}</span>.
-          Owner ID and Company Registration are required before you can continue — our team reviews everything
-          once uploaded.
+          Your agency is <span className="font-medium">{status ?? 'pending'}</span>. Owner ID and Company Registration
+          are required before you can continue — our team reviews everything once uploaded.
         </p>
+        {status === 'rejected' && rejectionReason && <p className="mt-2 text-sm text-destructive">Reason: {rejectionReason}</p>}
       </div>
 
       <Card>
@@ -142,7 +157,7 @@ function DocumentUploadStep({ agentId }: { agentId: string }) {
           {DOCUMENT_TYPES.map((doc) => (
             <DocumentRow
               key={doc.type}
-              scope={scope}
+              agencyId={agencyId}
               documentType={doc.type}
               label={doc.label}
               uploaded={uploadedTypes.has(doc.type)}
@@ -159,14 +174,40 @@ function DocumentUploadStep({ agentId }: { agentId: string }) {
   );
 }
 
+const REQUIRED_IDENTITY_DOCUMENT_TYPES = ['cnic_front', 'cnic_back', 'selfie'] as const;
+
+function IndependentAgentIdentityStep() {
+  const router = useRouter();
+  const { verification, isLoading } = useOwnerVerificationViewModel();
+  const uploadedTypes = new Set((verification?.documents ?? []).map((d) => d.documentType));
+  const isComplete = REQUIRED_IDENTITY_DOCUMENT_TYPES.every((type) => uploadedTypes.has(type));
+
+  return (
+    <div className="mx-auto max-w-lg space-y-6 py-12">
+      <div>
+        <h1 className="text-2xl font-semibold">Application Submitted</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your application is under review. Verify your identity below — our team reviews everything once uploaded.
+        </p>
+      </div>
+
+      <IdentityVerificationPanel />
+
+      <Button className="w-full" disabled={!isComplete || isLoading} onClick={() => router.push('/dashboard')}>
+        {isComplete ? 'Continue to Dashboard' : 'Upload your CNIC and selfie to continue'}
+      </Button>
+    </div>
+  );
+}
+
 function DocumentRow({
-  scope,
+  agencyId,
   documentType,
   label,
   uploaded,
   onUploaded,
 }: {
-  scope: { type: 'agency' | 'agent'; id: string };
+  agencyId: string;
   documentType: OnboardingDocumentType;
   label: string;
   uploaded: boolean;
@@ -179,8 +220,7 @@ function DocumentRow({
     if (!file) return;
     setIsUploading(true);
     try {
-      const repository = scope.type === 'agency' ? agenciesRepository : agentsRepository;
-      await repository.uploadDocument(scope.id, documentType, file);
+      await agenciesRepository.uploadDocument(agencyId, documentType, file);
       onUploaded();
       toast.success(`${label} uploaded.`);
     } catch {

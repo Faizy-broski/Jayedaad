@@ -19,13 +19,21 @@ import { listingToListingProperty } from '@/lib/listingMappers';
 import { ConciergeBanner } from './ConciergeBanner';
 import type { ListingProperty } from '@/lib/types';
 
-const SORT_OPTIONS = ['Newest', 'Price: Low to High', 'Price: High to Low'] as const;
+// 'Featured' surfaces the API's 'relevance' sort — boost_tier-aware ordering
+// (spent Hot/Super Hot/Refresh credits) that already existed server-side
+// (applySort() in listings.repository.ts) but had no UI to select it. Made
+// the default so a boosted listing's credit spend actually shows up as
+// "ranked higher" to a buyer without them having to change anything.
+const SORT_OPTIONS = ['Featured', 'Newest', 'Price: Low to High', 'Price: High to Low'] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
-const SORT_TO_API: Record<SortOption, 'newest' | 'price_asc' | 'price_desc'> = {
+const SORT_TO_API: Record<SortOption, 'relevance' | 'newest' | 'price_asc' | 'price_desc'> = {
+  Featured: 'relevance',
   Newest: 'newest',
   'Price: Low to High': 'price_asc',
   'Price: High to Low': 'price_desc',
 };
+
+const BOOST_RANK: Record<string, number> = { super_hot: 3, hot: 2, premium: 1, basic: 0 };
 
 const PAGE_SIZE = 9;
 
@@ -39,7 +47,12 @@ const FAN_OUT_PAGE_SIZE = 50;
 function sortMerged(listings: ListingProperty[], sort: SortOption): ListingProperty[] {
   const sorted = [...listings];
   if (sort === 'Price: Low to High') sorted.sort((a, b) => a.priceValue - b.priceValue);
- else if (sort === 'Price: High to Low') sorted.sort((a, b) => b.priceValue - a.priceValue);
+  else if (sort === 'Price: High to Low') sorted.sort((a, b) => b.priceValue - a.priceValue);
+  // Fan-out mode merges N real per-type server pages (each already sorted
+  // by boost_tier server-side) client-side — re-sorting by the same
+  // boost_tier rank here keeps that ordering across the merge instead of
+  // reverting to whatever order the per-type pages happened to interleave in.
+  else if (sort === 'Featured') sorted.sort((a, b) => (BOOST_RANK[b.boostTier ?? 'basic'] ?? 0) - (BOOST_RANK[a.boostTier ?? 'basic'] ?? 0));
   return sorted;
 }
 
@@ -77,7 +90,7 @@ export function ListingsBrowser({ initialFilters, purpose, agencySlug }: Listing
   const seed = { ...DEFAULT_LISTING_FILTERS, ...initialFilters };
   const [draftFilters, setDraftFilters] = useState<ListingFiltersState>(seed);
   const [appliedFilters, setAppliedFilters] = useState<ListingFiltersState>(seed);
-  const [sort, setSort] = useState<SortOption>('Newest');
+  const [sort, setSort] = useState<SortOption>('Featured');
   const [view, setView] = useState<'grid' | 'map'>('grid');
   const [page, setPage] = useState(1);
 

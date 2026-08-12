@@ -20,6 +20,8 @@ export interface PropertyListCardProps {
 // ListingDetailScreen instead of being duplicated on every row here.
 export function PropertyListCard({ listing, currency, onPress }: PropertyListCardProps) {
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
+  const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
+  const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -31,11 +33,23 @@ export function PropertyListCard({ listing, currency, onPress }: PropertyListCar
             <Ionicons name="image-outline" size={22} color={theme.colors.mutedLight} />
           </View>
         )}
-        {listing.status === 'verified' && (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark" size={10} color={theme.colors.bg} />
-          </View>
-        )}
+        <View style={styles.topLeftBadgeStack}>
+          {listing.status === 'verified' && (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark" size={10} color={theme.colors.bg} />
+            </View>
+          )}
+          {isBoosted && (
+            <View style={[styles.dotBadge, styles.boostDotBadge]}>
+              <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={10} color="#B45309" />
+            </View>
+          )}
+          {hasActiveStory && (
+            <View style={[styles.dotBadge, styles.storyDotBadge]}>
+              <Ionicons name="film" size={10} color="#A21CAF" />
+            </View>
+          )}
+        </View>
         <FavoriteButton listing={listing} size={15} style={styles.favoriteButton} />
       </View>
 
@@ -59,10 +73,8 @@ const styles = StyleSheet.create({
   thumbWrap: { position: 'relative' },
   thumb: { width: 96, height: 96, borderRadius: theme.radius.md },
   thumbPlaceholder: { backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  topLeftBadgeStack: { position: 'absolute', top: 6, left: 6, gap: 4 },
   verifiedBadge: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -70,6 +82,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dotBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boostDotBadge: { backgroundColor: '#FEF3C7' },
+  storyDotBadge: { backgroundColor: '#FAE8FF' },
   favoriteButton: {
     position: 'absolute',
     top: 4,

@@ -9,6 +9,12 @@ import { paginate, PaginationParams, resolvePagination } from '../common/paginat
 
 const SUPPORT_TICKET_COLUMNS = 'id, created_by, agency_id, subject, message, status, admin_note, created_at, updated_at';
 
+const STATUS_TITLE: Record<'open' | 'in_progress' | 'resolved', string> = {
+  open: 'Open',
+  in_progress: 'In Progress',
+  resolved: 'Resolved',
+};
+
 // Agent-facing help desk (apps/web /help) — an authenticated agent submits
 // an issue, every super_admin gets notified (same notifySuperAdmins pattern
 // leads.repository.ts uses for an unassigned lead), and Super Admin tracks
@@ -130,7 +136,27 @@ export class SupportRepository {
       .select(SUPPORT_TICKET_COLUMNS)
       .single();
     if (error) throw error;
+
+    await this.notifyOwner(data.created_by, data.subject, input.status);
     return data;
+  }
+
+  // The one-way half of this ticket system — notifySuperAdmins() above
+  // tells staff about a new ticket, but nothing told the submitter their
+  // ticket was updated; they only found out by revisiting /help. Mirrors
+  // notifySuperAdmins' shape exactly, just a single recipient.
+  private async notifyOwner(userId: string, subject: string, status: 'open' | 'in_progress' | 'resolved'): Promise<void> {
+    try {
+      await this.notifications.create({
+        userId,
+        type: 'support_ticket',
+        title: `Your ticket was updated: ${STATUS_TITLE[status]}`,
+        body: subject,
+      });
+    } catch {
+      // Best-effort, same discipline as notifySuperAdmins — a notification
+      // failure must never fail the status update itself.
+    }
   }
 
   // Mirrors leads.repository.ts's private notifySuperAdmins() exactly —

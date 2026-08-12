@@ -124,7 +124,7 @@ export class AgenciesController {
   @Roles('super_admin')
   @Patch(':id/verify')
   setVerificationStatus(@Param('id') id: string, @Body() body: SetAgencyVerificationStatusDto) {
-    return this.agencies.setVerificationStatus(id, body.status);
+    return this.agencies.setVerificationStatus(id, body.status, body.reason);
   }
 
   // Self-service for the agency's own admin, in addition to Super Admin —

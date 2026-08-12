@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useNotificationsViewModel } from '@jayedaad/core';
+import { useAuthViewModel, useNotificationsViewModel } from '@jayedaad/core';
 import { Bell, CheckCheck, Inbox } from 'lucide-react';
 
 function relativeTime(iso: string): string {
@@ -23,6 +23,7 @@ function relativeTime(iso: string): string {
 // write-only.
 export function NotificationBell() {
   const router = useRouter();
+  const { role } = useAuthViewModel();
   const { notifications, unreadCount, isLoading, markRead, markAllRead } = useNotificationsViewModel();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -33,7 +34,17 @@ export function NotificationBell() {
   // notifySuperAdmins), routes to the help desk. new_match: created by
   // saved-search-alerts.service.ts's hourly cron when a buyer's saved
   // search matches a new listing — routes to that listing instead of
-  // leaving the buyer with nowhere to click through to.
+  // leaving the buyer with nowhere to click through to. lead_assigned
+  // routes to /crm (or /admin/crm for a super_admin recipient — unassigned
+  // leads notify every super_admin, who don't have access to the
+  // agent-scoped /crm route) — neither page has a per-lead route to
+  // deep-link into (unlike mobile's LeadDetail screen, which takes a
+  // leadId directly), so this lands on the inbox rather than a specific
+  // lead. verification_status (agent/agency verified/rejected, listing
+  // verified/rejected) routes to /become-an-agent, which already reads
+  // both an agent's own and their agency's verificationStatus — good
+  // enough as "where to check on it" even for the listing-verification
+  // case; super_admins never receive this type so no role branch is needed.
   function handleNotificationClick(id: string, type: string, readAt: string | null, relatedListingId: string | null) {
     if (!readAt) markRead.mutate(id);
     if (type === 'support_ticket') {
@@ -42,6 +53,12 @@ export function NotificationBell() {
     } else if (type === 'new_match' && relatedListingId) {
       setOpen(false);
       router.push(`/listings/${relatedListingId}`);
+    } else if (type === 'lead_assigned') {
+      setOpen(false);
+      router.push(role === 'super_admin' ? '/admin/crm' : '/crm');
+    } else if (type === 'verification_status') {
+      setOpen(false);
+      router.push('/become-an-agent');
     }
   }
 

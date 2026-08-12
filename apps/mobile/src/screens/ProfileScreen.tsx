@@ -24,6 +24,10 @@ type ListAction = {
   // (`!item.agencyAdminOnly || role === 'super_admin' || profile?.isAgencyAdmin`)
   // — a regular (non-admin) agent shouldn't see this even though they pass agentOnly.
   agencyAdminOnly?: boolean;
+  // Opposite of agentOnly — "Become an Agent" only makes sense for a buyer
+  // who isn't one yet (packages/core's useAgentApplicationViewModel, no
+  // mobile entry point before this row).
+  buyerOnly?: boolean;
 };
 
 const ACCOUNT_ITEMS: ListAction[] = [
@@ -39,10 +43,17 @@ const SELLING_ITEMS: ListAction[] = [
   { label: 'My Projects', icon: 'business-outline', route: 'MyProjects', agentOnly: true },
   { label: 'Inbox', icon: 'mail-unread-outline', route: 'AgentCRM', agentOnly: true },
   { label: 'Agency Staff', icon: 'people-outline', route: 'AgencyStaff', agentOnly: true, agencyAdminOnly: true },
+  { label: 'Agency Settings', icon: 'business-outline', route: 'AgencySettings', agentOnly: true, agencyAdminOnly: true },
+  { label: 'Agency Analytics', icon: 'bar-chart-outline', route: 'AgencyAnalytics', agentOnly: true, agencyAdminOnly: true },
   { label: 'Plan', icon: 'card-outline', route: 'Plan', agentOnly: true },
+  { label: 'Become an Agent', icon: 'briefcase-outline', route: 'ApplyAsAgent', buyerOnly: true },
 ];
 
 const SUPPORT_ITEMS: ListAction[] = [
+  // Ticket creation is server-gated to role 'agent' (services/api/src/
+  // support), so Help Desk only makes sense for agents — everyone else
+  // still has the generic Contact Us screen.
+  { label: 'Help Desk', icon: 'help-buoy-outline', route: 'HelpDesk', agentOnly: true },
   { label: 'Contact Us', icon: 'chatbubble-ellipses-outline', route: 'Contact' },
   { label: 'Terms and Privacy Policy', icon: 'document-outline', route: 'Terms' },
 ];
@@ -109,7 +120,8 @@ export function ProfileScreen() {
     return items.filter(
       (action) =>
         (!action.agentOnly || isAgent) &&
-        (!action.agencyAdminOnly || role === 'super_admin' || agentProfile?.isAgencyAdmin),
+        (!action.agencyAdminOnly || role === 'super_admin' || agentProfile?.isAgencyAdmin) &&
+        (!action.buyerOnly || role === 'buyer'),
     );
   }
 

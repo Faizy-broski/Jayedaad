@@ -9,7 +9,7 @@ import { PickerField, theme } from '@jayedaad/ui-native';
 import { AllPropertiesFilterSheet } from '../components/AllPropertiesFilterSheet';
 import { PropertyListCard } from '../components/PropertyListCard';
 import { RangeFilterField } from '../components/RangeFilterField';
-import { AREA_UNITS } from '../lib/searchFilters';
+import { AREA_UNITS, SORT_OPTIONS } from '../lib/searchFilters';
 import { AllPropertiesFilterState, DEFAULT_ALL_PROPERTIES_FILTERS, toAllPropertiesSearchFilters } from '../lib/allPropertiesFilters';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -86,6 +86,17 @@ export function AllPropertiesScreen() {
           onUnitChange={(v) => set('areaUnit', v as AllPropertiesFilterState['areaUnit'])}
           onApply={(min, max) => setFilters((prev) => ({ ...prev, minAreaValue: min, maxAreaValue: max }))}
         />
+
+        <View style={styles.filterPill}>
+          <PickerField
+            value={filters.sortBy}
+            options={[...SORT_OPTIONS]}
+            placeholder="Featured"
+            title="Sort by"
+            variant="pill"
+            onChange={(v) => set('sortBy', v as AllPropertiesFilterState['sortBy'])}
+          />
+        </View>
       </ScrollView>
 
       <AllPropertiesFilterSheet

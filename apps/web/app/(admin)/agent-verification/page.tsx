@@ -12,8 +12,10 @@ export default function AgentVerificationQueuePage() {
   const { queue, isLoading, act } = useAgentVerificationQueueViewModel();
 
   function runAction(agentId: string, status: 'verified' | 'rejected') {
+    // Same optional-reason-on-reject convention as admin/agents/page.tsx.
+    const reason = status === 'rejected' ? (prompt('Reason for rejection (optional):') ?? undefined) : undefined;
     act.mutate(
-      { agentId, status },
+      { agentId, status, reason },
       {
         onSuccess: () => toast.success(status === 'verified' ? 'Agent approved.' : 'Agent rejected.'),
         // Surface the API's real 400 message (e.g. which required

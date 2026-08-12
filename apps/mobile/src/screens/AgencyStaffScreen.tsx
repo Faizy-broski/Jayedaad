@@ -160,6 +160,9 @@ export function AgencyStaffScreen() {
                 <View style={[styles.verificationBadge, { backgroundColor: verificationColor.bg }]}>
                   <Text style={[styles.verificationText, { color: verificationColor.text }]}>{agent.verificationStatus}</Text>
                 </View>
+                {agent.verificationStatus === 'rejected' && agent.rejectionReason && (
+                  <Text style={styles.rejectionReasonText}>Reason: {agent.rejectionReason}</Text>
+                )}
 
                 <View style={styles.cardDivider} />
 
@@ -260,6 +263,7 @@ const styles = StyleSheet.create({
   adminBadgeText: { fontSize: 11, fontWeight: '700', color: '#166534' },
   verificationBadge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   verificationText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  rejectionReasonText: { marginTop: 6, fontSize: 12, color: theme.colors.danger },
   cardDivider: { height: 1, backgroundColor: theme.colors.surfaceAlt, marginVertical: 16 },
   rowActions: { flexDirection: 'row', justifyContent: 'space-between' },
   actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 6 },

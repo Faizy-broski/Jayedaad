@@ -4,12 +4,14 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  AgentCreditType,
   LeadStatus,
   useAgencyAnalyticsViewModel,
   useAgentDashboardViewModel,
   useAgentProfileViewModel,
   useLeadInboxViewModel,
   usePreferencesViewModel,
+  useSubscriptionViewModel,
   useTasksViewModel,
 } from '@jayedaad/core';
 import { Button, Card, CardContent, theme, useToast } from '@jayedaad/ui-native';
@@ -24,6 +26,15 @@ const PURPOSE_FILTERS: { id: 'sale' | 'rent' | undefined; label: string }[] = [
   { id: undefined, label: 'All' },
   { id: 'sale', label: 'For Sale' },
   { id: 'rent', label: 'For Rent' },
+];
+
+// Same 5 tabs as apps/web's (agent)/dashboard/page.tsx's CREDIT_TABS.
+const CREDIT_TABS: { id: AgentCreditType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'listing_quota', label: 'Quota', icon: 'home-outline' },
+  { id: 'refresh', label: 'Refresh', icon: 'trending-up-outline' },
+  { id: 'hot', label: 'Hot', icon: 'sparkles-outline' },
+  { id: 'super_hot', label: 'Super Hot', icon: 'flame-outline' },
+  { id: 'story', label: 'Story', icon: 'film-outline' },
 ];
 
 const LEAD_STATUS_STYLE: Record<LeadStatus, { bg: string; text: string; label: string }> = {
@@ -47,18 +58,24 @@ function shortWeekday(dateStr: string): string {
 // this pass — web has no daily breakdown UI, this is a genuine mobile-only
 // addition on top of web's real numbers, not a replacement for any of
 // them). Recent Leads reuses the same useLeadInboxViewModel AgentCRMScreen's
-// Inquiry Inbox already relies on. Quota and Credits stays out of scope
-// here too — web's own version of this card is commented out (no
-// quota/credits UI actually ships there either). Earnings/Payouts/
+// Inquiry Inbox already relies on. Quota & Credits / My Plan / Grow faster
+// now mirror web's three cards exactly (a stale comment here previously
+// claimed web's own version was commented out — it wasn't; this closes
+// that real gap found in a parity audit), reusing the same
+// useAgentDashboardViewModel().credits and useSubscriptionViewModel().current
+// data web's cards already read, no new endpoints. Earnings/Payouts/
 // Appointments/Reviews/per-listing distance are intentionally absent — no
 // backing field exists anywhere for any of them.
 export function AgentDashboardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
   const [purposeFilter, setPurposeFilter] = useState<'sale' | 'rent' | undefined>(undefined);
+  const [activeCreditTab, setActiveCreditTab] = useState<AgentCreditType>('listing_quota');
 
-  const { stats, analytics, dailyAnalytics, recentListings, isRecentListingsLoading } = useAgentDashboardViewModel({
-    purpose: purposeFilter,
-  });
+  const { stats, analytics, dailyAnalytics, recentListings, isRecentListingsLoading, credits, isCreditsLoading } =
+    useAgentDashboardViewModel({
+      purpose: purposeFilter,
+    });
+  const { current: currentPlan } = useSubscriptionViewModel();
   const { preferences } = usePreferencesViewModel();
   const { leads: recentLeads } = useLeadInboxViewModel({});
   const { openTasks, isLoading: isTasksLoading, create: createTask, complete: completeTask } = useTasksViewModel();
@@ -73,6 +90,9 @@ export function AgentDashboardScreen() {
   );
 
   const activeListings = (stats?.forSaleCount ?? 0) + (stats?.forRentCount ?? 0);
+  const activeCredit = credits.find((c) => c.creditType === activeCreditTab);
+  const activeCreditPct = activeCredit && activeCredit.total > 0 ? Math.min(100, (activeCredit.available / activeCredit.total) * 100) : 0;
+  const listingQuotaCredit = credits.find((c) => c.creditType === 'listing_quota');
   const viewsData = dailyAnalytics.map((d) => ({ label: shortWeekday(d.date), value: d.views }));
   const engagementData = [
     { label: 'Clicks', value: analytics?.clicks ?? 0 },
@@ -125,6 +145,85 @@ export function AgentDashboardScreen() {
           <Text style={styles.headlineSub}>Last 30 days</Text>
         </View>
       </View>
+
+      {/* QUOTA & CREDITS — same tabbed gauge as web's dashboard card, over a
+          horizontal bar instead of a radial chart (no charting lib in use
+          here for this shape). */}
+      <Card style={styles.sectionSpacing}>
+        <CardContent>
+          <Text style={styles.sectionTitleLg}>Quota & Credits</Text>
+          <Text style={styles.muted}>Plan: {currentPlan?.tier.name ?? '—'}</Text>
+
+          <View style={styles.creditTabRow}>
+            {CREDIT_TABS.map((tab) => (
+              <Pressable
+                key={tab.id}
+                onPress={() => setActiveCreditTab(tab.id)}
+                style={[styles.creditTabChip, activeCreditTab === tab.id && styles.creditTabChipActive]}
+              >
+                <Ionicons name={tab.icon} size={12} color={activeCreditTab === tab.id ? theme.colors.bg : theme.colors.muted} />
+                <Text style={[styles.creditTabText, activeCreditTab === tab.id && styles.creditTabTextActive]}>{tab.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {isCreditsLoading ? (
+            <Text style={styles.centeredMuted}>Loading…</Text>
+          ) : (
+            <View style={styles.creditGaugeWrap}>
+              <View style={styles.usageLabelRow}>
+                <Text style={styles.usageLabel}>{activeCredit?.available ?? 0} available</Text>
+                <Text style={styles.usageLabel}>of {activeCredit?.total ?? 0}</Text>
+              </View>
+              <View style={styles.usageBarTrack}>
+                <View style={[styles.usageBarFill, { width: `${activeCreditPct}%` }]} />
+              </View>
+            </View>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* MY PLAN — tier/status/renewal/listing-slots, same figures as
+          PlanScreen's Current Plan card, surfaced here for at-a-glance
+          visibility without navigating away. */}
+      <Card style={styles.sectionSpacing}>
+        <CardContent>
+          <View style={styles.planHeaderRow}>
+            <Ionicons name="card-outline" size={14} color={theme.colors.muted} />
+            <Text style={styles.mutedUpper}>My Plan</Text>
+          </View>
+          <Text style={styles.planName}>{currentPlan?.tier.name ?? 'No active plan'}</Text>
+          <Text style={styles.muted}>{currentPlan?.status ?? '—'}</Text>
+          {currentPlan?.currentPeriodEnd && (
+            <Text style={styles.muted}>
+              Renews {new Date(currentPlan.currentPeriodEnd).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Text>
+          )}
+          {listingQuotaCredit && (
+            <Text style={styles.planQuotaText}>
+              {listingQuotaCredit.available} of {listingQuotaCredit.total} listing slots left
+            </Text>
+          )}
+          <Pressable onPress={() => navigation.navigate('Plan')} style={styles.manageplanRow}>
+            <Text style={styles.linkPrimary}>Manage plan</Text>
+            <Ionicons name="arrow-forward" size={14} color={theme.colors.primary} />
+          </Pressable>
+        </CardContent>
+      </Card>
+
+      {/* GROW FASTER — same boost promo as web's dark dashboard card. */}
+      <Card style={[styles.sectionSpacing, styles.growCard]}>
+        <CardContent>
+          <Text style={styles.growEyebrow}>Grow faster</Text>
+          <Text style={styles.growHeading}>
+            Boost a listing to <Text style={styles.growHeadingAccent}>Hot</Text> or{' '}
+            <Text style={styles.growHeadingAccent}>Super Hot</Text> to reach more buyers.
+          </Text>
+          <Pressable onPress={() => navigation.navigate('MyProperties')} style={styles.growButton}>
+            <Text style={styles.growButtonText}>Boost a listing</Text>
+          </Pressable>
+        </CardContent>
+      </Card>
 
       {/* AGENCY PERFORMANCE — Admin-only rollup across every sales associate */}
       {profile?.isAgencyAdmin && agencyAnalytics && (
@@ -369,6 +468,52 @@ const styles = StyleSheet.create({
   headlineSubLight: { fontSize: 11, color: '#ffffffaa' },
 
   chartWrap: { marginTop: theme.spacing.md },
+
+  creditTabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: theme.spacing.sm },
+  creditTabChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: theme.colors.secondaryBg,
+  },
+  creditTabChipActive: { backgroundColor: theme.colors.primary },
+  creditTabText: { fontSize: 11, fontWeight: '600', color: theme.colors.muted },
+  creditTabTextActive: { color: theme.colors.bg },
+  creditGaugeWrap: { marginTop: theme.spacing.md },
+  usageLabelRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  usageLabel: { fontSize: 11, color: theme.colors.muted },
+  usageBarTrack: {
+    marginTop: 6,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.secondaryBg,
+    overflow: 'hidden',
+  },
+  usageBarFill: { height: 8, borderRadius: 4, backgroundColor: theme.colors.primary },
+
+  planHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mutedUpper: { fontSize: 11, fontWeight: '700', color: theme.colors.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  planName: { marginTop: 6, fontSize: 18, fontWeight: '700', color: theme.colors.text },
+  planQuotaText: { marginTop: theme.spacing.sm, fontSize: 12, color: theme.colors.muted },
+  manageplanRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: theme.spacing.md },
+  linkPrimary: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
+
+  growCard: { backgroundColor: theme.colors.text, overflow: 'hidden' },
+  growEyebrow: { fontSize: 11, fontWeight: '700', color: '#ffffff99', textTransform: 'uppercase', letterSpacing: 0.4 },
+  growHeading: { marginTop: theme.spacing.sm, fontSize: 15, fontWeight: '600', color: '#ffffff', lineHeight: 21 },
+  growHeadingAccent: { color: theme.colors.primary },
+  growButton: {
+    marginTop: theme.spacing.md,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: '#ffffff',
+  },
+  growButtonText: { fontSize: 13, fontWeight: '700', color: theme.colors.text },
 
   associateList: { marginTop: theme.spacing.md, gap: theme.spacing.sm },
   associateRow: {

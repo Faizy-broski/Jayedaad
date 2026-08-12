@@ -1,13 +1,14 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateAgencyDto } from './dto/create-agency.dto';
 import { UpdateAgencyDto } from './dto/update-agency.dto';
 import { RegisterAgencyDto } from './dto/register-agency.dto';
 import { DocumentsService } from '../documents/documents.service';
 import { AgentsRepository } from '../agents/agents.repository';
+import { NotificationsRepository } from '../notifications/notifications.repository';
 
 const AGENCY_COLUMNS =
-  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count, tier';
+  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, rejection_reason, sales_associate_count, tier';
 
 export type AgencyTier = 'titanium' | 'featured' | 'basic';
 
@@ -64,10 +65,13 @@ export const REQUIRED_ONBOARDING_DOCUMENT_TYPES: OnboardingDocumentType[] = ['co
 // principle already established for view counts [Reqs §4.3].
 @Injectable()
 export class AgenciesRepository {
+  private readonly logger = new Logger(AgenciesRepository.name);
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly documents: DocumentsService,
     private readonly agents: AgentsRepository,
+    private readonly notifications: NotificationsRepository,
   ) {}
 
   // Agency Admin's "full visibility to their overall performance, analytics,
@@ -377,7 +381,7 @@ export class AgenciesRepository {
   // deliberately left unbuilt (every agency starts and stays 'pending' until
   // now). Mirrors the verification/rejection pattern already established for
   // listings (verification_audit_log's status transitions).
-  async setVerificationStatus(id: string, status: 'verified' | 'rejected') {
+  async setVerificationStatus(id: string, status: 'verified' | 'rejected', reason?: string) {
     // Hard gate — real business requirement: an agency can't be verified
     // without company registration, owner's ID card, and a tax certificate
     // already uploaded.
@@ -387,12 +391,44 @@ export class AgenciesRepository {
 
     const { data, error } = await this.supabase.client
       .from('agencies')
-      .update({ verification_status: status })
+      .update({ verification_status: status, rejection_reason: status === 'rejected' ? (reason ?? null) : null })
       .eq('id', id)
       .select(AGENCY_COLUMNS)
       .single();
     if (error) throw error;
+
+    await this.notifyAgencyAdmins(id, status, reason);
     return data;
+  }
+
+  // 'verification_status' has existed as a NotificationType since
+  // 0009_notifications.sql with no code path ever using it for agencies —
+  // notifies whoever registered/manages the agency (is_agency_admin=true),
+  // not every staff member, same "notify the people who act on this, not
+  // everyone affected" reasoning notifySuperAdmins-style helpers elsewhere
+  // apply. Best-effort, same discipline as SupportRepository.notifySuperAdmins.
+  private async notifyAgencyAdmins(agencyId: string, status: 'verified' | 'rejected', reason?: string): Promise<void> {
+    try {
+      const { data: admins, error } = await this.supabase.client
+        .from('agent_profiles')
+        .select('user_id')
+        .eq('agency_id', agencyId)
+        .eq('is_agency_admin', true);
+      if (error || !admins) return;
+
+      await Promise.all(
+        admins.map((admin: any) =>
+          this.notifications.create({
+            userId: admin.user_id,
+            type: 'verification_status',
+            title: status === 'verified' ? 'Your agency is now verified' : 'Your agency verification was rejected',
+            body: status === 'rejected' ? reason : undefined,
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to notify agency admins of verification status change — agency ${agencyId}`, err as Error);
+    }
   }
 
   async update(id: string, input: UpdateAgencyDto) {
@@ -527,7 +563,7 @@ export class AgenciesRepository {
   async listStaff(agencyId: string) {
     const { data, error } = await this.supabase.client
       .from('agent_profiles')
-      .select('id, display_name, phone, city, verification_status, is_agency_admin, photo_url')
+      .select('id, display_name, phone, city, verification_status, rejection_reason, is_agency_admin, photo_url')
       .eq('agency_id', agencyId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -537,6 +573,7 @@ export class AgenciesRepository {
       phone: row.phone,
       city: row.city,
       verificationStatus: row.verification_status,
+      rejectionReason: row.rejection_reason,
       isAgencyAdmin: row.is_agency_admin,
       photoUrl: row.photo_url,
     }));

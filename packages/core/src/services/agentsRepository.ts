@@ -98,8 +98,8 @@ export const agentsRepository = {
     return data;
   },
 
-  setVerificationStatus: async (agentId: string, status: 'verified' | 'rejected'): Promise<AgentProfileSummary> => {
-    const { data } = await httpClient.patch(`/agents/${agentId}/verify`, { status });
+  setVerificationStatus: async (agentId: string, status: 'verified' | 'rejected', reason?: string): Promise<AgentProfileSummary> => {
+    const { data } = await httpClient.patch(`/agents/${agentId}/verify`, { status, reason });
     return data;
   },
 

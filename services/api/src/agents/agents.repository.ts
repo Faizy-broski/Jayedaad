@@ -1,20 +1,30 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateAgentProfileDto } from './dto/update-profile.dto';
 import { GrantCreditsDto } from './dto/grant-credits.dto';
 import { ApplyAsAgentDto } from './dto/apply-as-agent.dto';
 import { DocumentsService } from '../documents/documents.service';
+import { NotificationsRepository } from '../notifications/notifications.repository';
+import { OwnersRepository } from '../owners/owners.repository';
 import { OnboardingDocumentType, REQUIRED_ONBOARDING_DOCUMENT_TYPES } from '../agencies/agencies.repository';
 
+// user_id is selected (but never included in mapProfileRow's return value)
+// purely so setVerificationStatus/listPendingVerification can look up an
+// independent agent's owner_identity_verifications row, keyed by user_id —
+// see the "one shared identity check" comment on setVerificationStatus.
 const PROFILE_COLUMNS =
-  'id, display_name, title, bio, phone, whatsapp, landline, city, address, photo_url, verification_status, is_agency_admin, agencies (id, name, slug, logo_url)';
+  'id, user_id, display_name, title, bio, phone, whatsapp, landline, city, address, photo_url, verification_status, rejection_reason, is_agency_admin, agencies (id, name, slug, logo_url, verification_status, rejection_reason)';
 
 @Injectable()
 export class AgentsRepository {
+  private readonly logger = new Logger(AgentsRepository.name);
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly documents: DocumentsService,
+    private readonly notifications: NotificationsRepository,
+    private readonly owners: OwnersRepository,
   ) {}
 
   // Supabase's implicit-join select returns raw snake_case (display_name,
@@ -38,8 +48,26 @@ export class AgentsRepository {
       address: row.address,
       photoUrl: row.photo_url,
       verificationStatus: row.verification_status,
+      rejectionReason: row.rejection_reason,
       isAgencyAdmin: row.is_agency_admin,
-      agency: row.agencies ?? null,
+      // Was `row.agencies ?? null` — passed the raw snake_case row straight
+      // through, so profile.agency.verificationStatus/logoUrl (both read by
+      // become-an-agent's DocumentUploadStep and AgencyStaffScreen) were
+      // silently undefined at runtime despite compiling fine (this crosses
+      // an untyped HTTP boundary, so nothing caught it). This is the fuller
+      // AgentProfileSummary.agency shape actually needs for what those
+      // screens read off it; packages/core's useMyAgencyViewModel still
+      // fetches the complete Agency row separately for anything beyond this.
+      agency: row.agencies
+        ? {
+            id: row.agencies.id,
+            name: row.agencies.name,
+            slug: row.agencies.slug,
+            logoUrl: row.agencies.logo_url,
+            verificationStatus: row.agencies.verification_status,
+            rejectionReason: row.agencies.rejection_reason,
+          }
+        : null,
     };
   }
 
@@ -55,7 +83,11 @@ export class AgentsRepository {
 
   // Staff review queue — every agent_profiles row still 'pending', with
   // document completeness inlined so a reviewer doesn't need a second
-  // request per row before deciding.
+  // request per row before deciding. An independent applicant's identity
+  // check is the same owner_identity_verifications (CNIC+selfie) table an
+  // owner uses, looked up by user_id — an agency-affiliated row is exempt
+  // (its agency's own onboarding covers it), same as setVerificationStatus
+  // below.
   async listPendingVerification() {
     const { data, error } = await this.supabase.client
       .from('agent_profiles')
@@ -67,7 +99,9 @@ export class AgentsRepository {
     return Promise.all(
       (data ?? []).map(async (row: any) => ({
         ...this.mapProfileRow(row),
-        documents: await this.getDocumentCompleteness(row.id),
+        documents: row.agencies
+          ? { required: [], uploaded: [], missing: [] }
+          : await this.owners.getDocumentCompleteness(row.user_id),
       })),
     );
   }
@@ -450,26 +484,33 @@ export class AgentsRepository {
   // Only independent agents (no agency_id) are gated on document
   // completeness — an agency-affiliated agent is covered by the agency's
   // own documents/verification.
-  async setVerificationStatus(agentId: string, status: 'verified' | 'rejected') {
+  //
+  // An independent agent is gated on the exact same identity check an
+  // owner goes through — CNIC front/back + selfie in
+  // owner_identity_verifications, looked up by this agent's own user_id —
+  // not a separate "agent onboarding" document set. An individual is an
+  // individual regardless of which side of the platform they end up
+  // posting on; Owner ID Card + Company Registration
+  // (AgentsRepository.getDocumentCompleteness/addDocument/listDocuments,
+  // still present below, unused by this gate now) stays reserved for
+  // actual agencies (AgenciesRepository's own onboarding flow).
+  async setVerificationStatus(agentId: string, status: 'verified' | 'rejected', reason?: string) {
     if (status === 'verified') {
       const { data: agent, error: agentError } = await this.supabase.client
         .from('agent_profiles')
-        .select('agency_id')
+        .select('agency_id, user_id')
         .eq('id', agentId)
         .single();
       if (agentError) throw agentError;
 
       if (!agent.agency_id) {
-        const { missing } = await this.getDocumentCompleteness(agentId);
+        const { missing } = await this.owners.getDocumentCompleteness(agent.user_id);
         if (missing.length > 0) {
           // Intentional 400, not a bug — an independent agent (no agency)
-          // must upload owner_id_card + company_registration before
-          // approval. Frontend surfaces this exact message via
+          // must upload CNIC front/back + selfie before approval, same as
+          // an owner. Frontend surfaces this exact message via
           // err.response.data.message (admin/agents/page.tsx,
-          // agent-verification/page.tsx); the real gap this error exposed
-          // was that the agent-facing upload screen (become-an-agent) had
-          // no persistent re-entry link for the independent-agent case —
-          // fixed in (agent)/layout.tsx and mobile's AuthGateProvider/SideDrawer.
+          // agent-verification/page.tsx).
           throw new BadRequestException(`Cannot verify agent — missing required documents: ${missing.join(', ')}`);
         }
       }
@@ -477,11 +518,38 @@ export class AgentsRepository {
 
     const { data, error } = await this.supabase.client
       .from('agent_profiles')
-      .update({ verification_status: status })
+      .update({ verification_status: status, rejection_reason: status === 'rejected' ? (reason ?? null) : null })
       .eq('id', agentId)
       .select(PROFILE_COLUMNS)
       .single();
     if (error) throw error;
+
+    await this.notifyVerificationStatus(agentId, status, reason);
     return this.mapProfileRow(data);
+  }
+
+  // 'verification_status' has existed as a NotificationType since
+  // 0009_notifications.sql with no code path ever using it for agents —
+  // best-effort, same discipline as SupportRepository.notifySuperAdmins;
+  // a notification failure must never fail the verification write above,
+  // which has already committed by the time this runs.
+  private async notifyVerificationStatus(agentId: string, status: 'verified' | 'rejected', reason?: string): Promise<void> {
+    try {
+      const { data: agent, error } = await this.supabase.client
+        .from('agent_profiles')
+        .select('user_id')
+        .eq('id', agentId)
+        .maybeSingle();
+      if (error || !agent) return;
+
+      await this.notifications.create({
+        userId: agent.user_id,
+        type: 'verification_status',
+        title: status === 'verified' ? 'You are now verified' : 'Your verification was rejected',
+        body: status === 'rejected' ? reason : undefined,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to notify agent of verification status change — agent ${agentId}`, err as Error);
+    }
   }
 }
