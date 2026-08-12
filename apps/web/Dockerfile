@@ -37,7 +37,7 @@ RUN pnpm --filter @jayedaad/web build
 # aren't included in the standalone output automatically and must be copied
 # alongside it.
 FROM base AS runner
-ENV NODE_ENV=production PORT=3000
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /repo
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
