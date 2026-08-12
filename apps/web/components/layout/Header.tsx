@@ -139,7 +139,7 @@ function HeaderInner() {
   // would just be a click that immediately redirects again. Route to
   // /verify-email directly instead, same destination the login-page
   // redirect already uses.
-  const dashboardHref = !isEmailVerifiedLoading && !isEmailVerified ? '/verify-email' : DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/search';
+  const dashboardHref = !isEmailVerifiedLoading && !isEmailVerified ? '/verify-email' : DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/listings';
 
   function handleLogout() {
     setUserMenuOpen(false);

@@ -105,13 +105,13 @@ export function PropertyCard({ property }: { property: Property }) {
 
       <div className="flex flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          <h3 className="min-w-0 truncate text-sm font-semibold text-slate-900">{title}</h3>
           <span className="shrink-0 text-sm font-semibold text-primary">
             {price}
           </span>
         </div>
 
-        <p className="flex items-center gap-1 text-xs text-slate-500">
+        <p className="flex items-center gap-1 truncate text-xs text-slate-500">
           <MapPin className="h-3.5 w-3.5 shrink-0" />
           {location}
         </p>

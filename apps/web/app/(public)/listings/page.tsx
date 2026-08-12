@@ -2,16 +2,22 @@ import { Suspense } from 'react';
 import { SearchHero } from '@/components/shared/SearchHero';
 import { ListingsBrowserSection } from '@/components/listings/ListingsBrowserSection';
 
-export default function ListingsPage() {
+interface ListingsPageProps {
+  searchParams: { purpose?: string };
+}
+
+export default function ListingsPage({ searchParams }: ListingsPageProps) {
+  const { purpose } = searchParams;
+
   return (
     <main>
       <SearchHero
         // eyebrow="Listings"
         // title="Find your next property"
         backgroundImage="/images/listing-hero-bg.png"
-        defaultPurpose="buy"
+        defaultPurpose={purpose === 'rent' ? 'rent' : 'buy'}
         className='h-[20vh] sm:h-[40vh]'
-        showPurposeToggle={false}
+        showPurposeToggle
       />
 
       {/* ListingsBrowserSection reads ?propertyTypeCategory=/?city= via

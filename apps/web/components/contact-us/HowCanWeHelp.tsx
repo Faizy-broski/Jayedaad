@@ -19,7 +19,7 @@ const CONTACT_OPTIONS: ContactOption[] = [
     eyebrow: 'Sales',
     title: 'Looking to buy or invest?',
     description: 'Speak with a dedicated property consultant.',
-    href: '/search',
+    href: '/listings',
     icon: Home,
     image: '/images/services-image.png',
   },
@@ -36,7 +36,7 @@ const CONTACT_OPTIONS: ContactOption[] = [
     eyebrow: 'Commercial',
     title: 'Need offices or commercial spaces?',
     description: 'Talk to our business advisors.',
-    href: '/search?type=commercial',
+    href: '/listings?type=commercial',
     icon: Briefcase,
   },
   {

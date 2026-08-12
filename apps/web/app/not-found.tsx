@@ -82,7 +82,7 @@ export default function NotFound() {
             Back to homepage
           </Link>
           <Link
-            href="/search"
+            href="/listings"
             className="flex items-center gap-2 rounded-full border border-slate-200 px-6 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
           >
             <Search className="h-4 w-4" />

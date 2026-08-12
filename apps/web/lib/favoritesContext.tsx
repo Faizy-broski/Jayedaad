@@ -16,8 +16,8 @@ const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 // every PropertyCard/listing surface across the app shares the same
 // favorited-ID lookup and mutation state, without each of the 6+ disconnected
 // call sites (FeaturedProperties, SimilarProperties, NewProjects,
-// NewlyStaged, RecentlyVisitedProperties, ListingsBrowser/PropertyGrid, and
-// (buyer)/search's own card) needing to fetch/pass isFavorited individually.
+// NewlyStaged, RecentlyVisitedProperties, and ListingsBrowser/PropertyGrid)
+// needing to fetch/pass isFavorited individually.
 // Deliberately NOT added to the shared Property/ListingProperty types
 // (apps/web/lib/types.ts) — those are also used by anonymous/unauthenticated
 // rendering paths and pure listing->view mappers with no user context.

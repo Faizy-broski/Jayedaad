@@ -332,6 +332,7 @@ export function PropertySearchBar({
               {purpose === p && (
                 <motion.span
                   layoutId="propertySearchBarPurposePill"
+                  initial={false}
                   className="absolute inset-0 rounded-full bg-white shadow-sm"
                   transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
