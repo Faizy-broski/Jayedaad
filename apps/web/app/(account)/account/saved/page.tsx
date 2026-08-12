@@ -78,7 +78,7 @@ function EmptyState({ icon: Icon, heading, message }: { icon: typeof Heart; head
       <p className="text-base font-semibold text-foreground">{heading}</p>
       <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
       <Link
-        href="/search"
+        href="/listings"
         className="mt-2 rounded-full bg-heading-gradient px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
       >
         Search Properties

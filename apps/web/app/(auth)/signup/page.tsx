@@ -1,12 +1,11 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowRight, Eye, EyeOff, Home } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { COUNTRIES, getMaxPhoneDigits, PAKISTAN_CITIES, useAgencyRegistrationViewModel, useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, CountryCodeSelect, Input, Label, Select } from '@jayedaad/ui-web';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 type AccountType = 'individual' | 'agency';
 
@@ -173,77 +172,27 @@ export default function SignupPage() {
   const isPending = isSubmitting || signUp.isPending || signIn.isPending || sendOtp.isPending || registerAgency.isPending;
 
   return (
-    <main className="relative grid h-screen overflow-hidden lg:grid-cols-2">
-      {/* Escape hatch back to the marketing site — AppChrome deliberately
-          omits Header/Footer on this route (see AppChrome.tsx), so this is
-          the only way back without hitting the browser back button. */}
-      <Link
-        href="/"
-        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-white"
-      >
-        <Home className="h-4 w-4" />
-        Home
-      </Link>
-
-      {/* Left: hero image + copy — hidden on mobile/tablet, same breakpoint
-          as /login. The whole page no longer scrolls (main is h-screen), so
-          this no longer needs to be sticky — it just fills its grid row. */}
-      <div className="relative hidden overflow-hidden lg:block">
-        <Image
-          src="/images/login-bg.png"
-          alt="A Jayedaad home ready to welcome its next owner"
-          fill
-          priority
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-
-        <div className="absolute left-8 top-8 flex items-center gap-2 text-white">
-          <span className="text-xl font-bold tracking-wide">JAYEDAAD</span>
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 space-y-4 p-10">
-          <span className="eyebrow-label text-white/70">Join Jayedaad</span>
-          <h1 className="heading-display leading-[1.1] text-white">
-            Start your search.
-            <br />
-            Find the place you&apos;ll call home.
-          </h1>
-
-          <div className="flex items-center gap-3 pt-2">
-            <div className="flex -space-x-3">
-              {['/images/auth/avatar-1.jpg', '/images/auth/avatar-2.jpg', '/images/auth/avatar-3.jpg'].map((src) => (
-                <div key={src} className="relative h-9 w-9 overflow-hidden rounded-full border-2 border-white">
-                  <Image src={src} alt="" fill className="object-cover" sizes="36px" />
-                </div>
-              ))}
-            </div>
-            <p className="body-text-sm text-white/80">
-              Trusted by discerning homeowners
-              <br />
-              across 40+ cities worldwide.
-            </p>
-          </div>
-        </div>
+    <AuthShell
+      heroEyebrow="Join Jayedaad"
+      heroTitle={
+        <>
+          Start your search.
+          <br />
+          Find the place you&apos;ll call home.
+        </>
+      }
+      showTrustRow
+      rightMaxWidth="max-w-md"
+      rightPadding="py-4"
+      rightGap="space-y-3"
+    >
+      <div className="space-y-0.5">
+        <span className="eyebrow-label text-muted-foreground">Create account</span>
+        <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Let&apos;s get you started.</h2>
+        <p className="body-text-sm text-muted-foreground">
+          Sign up to start buying, selling, or renting on Jayedaad.
+        </p>
       </div>
-
-      {/* Right: signup form. Centered via my-auto on the child (below), NOT
-          items-center on this container — align-items centering clips the
-          TOP half unreachably when a flex child overflows an overflow-y-auto
-          parent (scrollTop can't go negative), which is exactly what
-          happened before. margin:auto centering doesn't have that bug: it
-          collapses to 0 instead of clipping. overflow-y-auto itself is a
-          fallback for very short viewports; spacing below is tuned to fit
-          without scrolling on typical screens. */}
-      <div className="flex justify-center overflow-y-auto px-6 py-4 sm:px-10">
-        <div className="my-auto w-full max-w-md space-y-3">
-          <div className="space-y-0.5">
-            <span className="eyebrow-label text-muted-foreground">Create account</span>
-            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Let&apos;s get you started.</h2>
-            <p className="body-text-sm text-muted-foreground">
-              Sign up to start buying, selling, or renting on Jayedaad.
-            </p>
-          </div>
 
           {/* Google/Apple's OAuth round-trip has no way to collect the
               agency name/city/associate-count fields first, so both are
@@ -537,15 +486,13 @@ export default function SignupPage() {
             </Button>
           </form>
 
-          <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{' '}
-            <a href="/login" className="font-medium text-foreground underline underline-offset-2">
-              Sign in
-            </a>
-          </p>
-        </div>
-      </div>
-    </main>
+      <p className="text-center text-xs text-muted-foreground">
+        Already have an account?{' '}
+        <a href="/login" className="font-medium text-foreground underline underline-offset-2">
+          Sign in
+        </a>
+      </p>
+    </AuthShell>
   );
 }
 

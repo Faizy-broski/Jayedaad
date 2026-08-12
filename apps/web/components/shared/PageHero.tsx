@@ -24,7 +24,7 @@ export function PageHero({
     // mobile/md doesn't cover the hero; lg:pt-0 lets it float over the hero
     // instead, same convention as the homepage Hero.
     <div className="pt-16 sm:pt-[68px] lg:pt-0">
-      <section className="relative h-[300px] w-full overflow-hidden sm:h-[340px] md:h-[350px] lg:h-[450px]">
+      <section className="relative h-[300px] w-full overflow-hidden sm:h-[340px] md:h-[350px] lg:h-[550px]">
         <Image
           src={backgroundImage}
           alt={imageAlt}
@@ -46,7 +46,7 @@ export function PageHero({
             {eyebrow}
           </span>
 
-          <h1 className="heading-display max-w-md whitespace-pre-line text-white uppercase sm:max-w-lg md:max-w-2xl">
+          <h1 className="heading-display max-w-xl font-outfit whitespace-pre-line text-white uppercase sm:max-w-lg md:max-w-2xl">
             {title}
           </h1>
 

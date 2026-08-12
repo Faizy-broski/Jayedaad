@@ -11,6 +11,8 @@ interface SearchHeroProps {
   title?: string;
   defaultPurpose?: SearchBarPurpose;
   variant?: SearchBarVariant;
+  className?: string;
+  showPurposeToggle?: boolean;
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -28,6 +30,8 @@ export function SearchHero({
   title,
   defaultPurpose = 'buy',
   variant = 'listings',
+  className = 'h-[30vh] sm:h-[55vh] lg:h-[70vh]',
+  showPurposeToggle = true,
 }: SearchHeroProps) {
   return (
     // pt-16/pt-[68px] roughly match the header's real rendered height (logo
@@ -36,7 +40,7 @@ export function SearchHero({
     // instead, same convention as the homepage Hero.
     <div className="pt-16 sm:py-[68px] lg:pt-0">
       <section className="relative mb-8 sm:mb-20 md:mb-16">
-        <div className="relative h-[30vh] sm:h-[55vh] lg:h-[70vh] w-full overflow-hidden">
+        <div className={`relative w-full overflow-hidden ${className}`}>
           <Image
             src={backgroundImage}
             alt={imageAlt}
@@ -68,7 +72,7 @@ export function SearchHero({
           transition={{ duration: 0.7, ease: EASE, delay: 0.3 }}
           className="relative z-10 mx-auto -mt-10 flex w-full max-w-4xl flex-col px-4 sm:absolute sm:inset-x-4 sm:-bottom-16 sm:mt-0 sm:px-0 md:-bottom-10"
         >
-          <PropertySearchBar variant={variant} defaultPurpose={defaultPurpose} />
+          <PropertySearchBar variant={variant} defaultPurpose={defaultPurpose} showPurposeToggle={showPurposeToggle} />
         </motion.div>
       </section>
     </div>

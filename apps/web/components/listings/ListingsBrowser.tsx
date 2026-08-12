@@ -40,8 +40,8 @@ const PAGE_SIZE = 9;
 // Cap per-type fetch when fanning out across a category/multiple selected
 // types — GET /listings has no category-level filter, only a single
 // propertyTypeSlug, so this merges N real per-type pages client-side (same
-// approach as /search's SearchPageContent and /listings' own category
-// redirect). Pagination below then slices that real, merged result set.
+// approach as /listings' own category redirect). Pagination below then
+// slices that real, merged result set.
 const FAN_OUT_PAGE_SIZE = 50;
 
 function sortMerged(listings: ListingProperty[], sort: SortOption): ListingProperty[] {

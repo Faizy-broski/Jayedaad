@@ -134,7 +134,6 @@ export function Hero() {
         h-[420px]
         w-full
         overflow-hidden
-        rounded-b-[2rem]
 
         sm:h-[560px]
         md:h-[650px]
@@ -171,8 +170,7 @@ export function Hero() {
                 width={1200}
                 height={168}
                 priority
-                className=" h-14 w-auto max-w-[90%] sm:h-28 md:h-32 lg:h-36
-  "
+                className=" h-14 w-auto max-w-[90%] sm:h-28 md:h-32 lg:h-36"
               />
             </motion.div>
 
@@ -243,9 +241,9 @@ export function Hero() {
         z-20
 
         mx-4
-        -mt-8
+        -mt-36
 
-        sm:-mt-12
+        sm:-mt-20
 
         md:mx-auto
         md:max-w-4xl

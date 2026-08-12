@@ -4,38 +4,28 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     title: 'Properties',
     links: [
-      { label: 'Buy', href: '/search?purpose=sale' },
-      { label: 'Rent', href: '/search?purpose=rent' },
+      { label: 'Buy', href: '/listings?purpose=sale' },
+      { label: 'Rent', href: '/listings?purpose=rent' },
       { label: 'Sell', href: '/submit' },
-      { label: 'Commercial', href: '/search?type=commercial' },
-      { label: 'New Projects', href: '/search?status=upcoming' },
+      { label: 'Developments', href: '/developments' },
+      { label: 'Listings', href: '/listings' },
     ],
   },
   {
     title: 'Company',
     links: [
       { label: 'About', href: '/about-us' },
-      { label: 'Careers', href: '/careers' },
       { label: 'Blog', href: '/blog' },
-      { label: 'Press', href: '/press' },
+      { label: 'Agents', href: '/agents' },
+      { label: 'Services', href: '/services' },
       { label: 'Contact', href: '/contact-us' },
     ],
   },
   {
     title: 'Legal',
     links: [
-      { label: 'Privacy', href: '/privacy' },
       { label: 'Terms', href: '/terms' },
-      { label: 'Cookies', href: '/cookies' },
       { label: 'Disclaimers', href: '/disclaimers' },
-    ],
-  },
-  {
-    title: 'Support',
-    links: [
-      { label: 'Help center', href: '/help' },
-      { label: 'Trust & safety', href: '/trust-safety' },
-      { label: 'Contact us', href: '/contact-us' },
     ],
   },
 ];

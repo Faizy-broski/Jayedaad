@@ -104,7 +104,7 @@ export function SiteFooter() {
             "
           >
             <Link
-              href="/search"
+              href="/listings"
               className="
                 flex
                 items-center
@@ -180,7 +180,7 @@ export function SiteFooter() {
 
               sm:grid-cols-3
 
-              lg:grid-cols-[1.7fr_1fr_1fr_1fr_1fr]
+              lg:grid-cols-[1.7fr_1fr_1fr_1fr]
               lg:gap-8
             "
           >

@@ -9,7 +9,7 @@ import { useAuthViewModel } from '@jayedaad/core';
 import { PreferencesMenu } from './PreferencesMenu';
 
 const LIST_A_HOME_CLASSES =
-  'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90';
+  'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md active:translate-y-0 active:scale-95';
 
 const NAV_LINKS = [
   { label: 'Buy & Sell', href: '/listings?purpose=sale' },
@@ -139,7 +139,7 @@ function HeaderInner() {
   // would just be a click that immediately redirects again. Route to
   // /verify-email directly instead, same destination the login-page
   // redirect already uses.
-  const dashboardHref = !isEmailVerifiedLoading && !isEmailVerified ? '/verify-email' : DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/search';
+  const dashboardHref = !isEmailVerifiedLoading && !isEmailVerified ? '/verify-email' : DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/listings';
 
   function handleLogout() {
     setUserMenuOpen(false);

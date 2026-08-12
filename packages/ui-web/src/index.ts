@@ -9,6 +9,7 @@ export * from './Select';
 export * from './CountryCodeSelect';
 export * from './Tabs';
 export * from './Card';
+export * from './KpiCard';
 export * from './Table';
 export * from './Pagination';
 export * from './ConfirmDialog';

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
-import { Button, Input } from '@jayedaad/ui-web';
+import { Button, Input, Select } from '@jayedaad/ui-web';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -17,7 +17,6 @@ import {
   MessageCircle,
   Clock,
   Send,
-  ChevronDown,
   MessagesSquare,
   Globe,
   PhoneCall,
@@ -270,21 +269,18 @@ export default function CrmPage() {
                         </div>
                       </div>
 
-                      <div className="relative shrink-0">
-                        <select
-                          value={lead.status}
-                          onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
-                          disabled={updateStatus.isPending}
-                          className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                        >
-                          {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
-                            <option key={f.id} value={f.id}>
-                              {f.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      </div>
+                      <Select
+                        value={lead.status}
+                        onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
+                        disabled={updateStatus.isPending}
+                        className="h-7 w-auto shrink-0 rounded-full px-3 text-xs capitalize"
+                      >
+                        {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </Select>
                     </div>
 
                     {lead.message && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{lead.message}</p>}

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AgentOverview, useAdminDashboardViewModel, useAuthViewModel } from '@jayedaad/core';
-import { Badge, cn, Table, TableColumn } from '@jayedaad/ui-web';
+import { Badge, cn, KpiCard, Table, TableColumn } from '@jayedaad/ui-web';
 import {
   ArrowRight,
   Building2,
@@ -169,14 +169,25 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {isStatsLoading ? (
-          [0, 1, 2, 3, 4].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2, 3, 4].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-[24px] border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Users} label="Users" value={totals.users} sub="Across every role" />
-            <StatTile index={1} icon={Building2} label="Agencies" value={totals.agencies} sub="Registered" />
-            <StatTile index={2} icon={Home} label="Listings" value={totals.listings} sub="All statuses" />
-            <StatTile index={3} icon={Inbox} label="Leads" value={totals.leads} sub="All statuses" />
-            <StatTile index={4} icon={CreditCard} label="Subscriptions" value={totals.subscriptions} sub="Currently active" />
+            {[
+              { icon: Users, label: 'Users', value: totals.users, sub: 'Across every role' },
+              { icon: Building2, label: 'Agencies', value: totals.agencies, sub: 'Registered' },
+              { icon: Home, label: 'Listings', value: totals.listings, sub: 'All statuses' },
+              { icon: Inbox, label: 'Leads', value: totals.leads, sub: 'All statuses' },
+              { icon: CreditCard, label: 'Subscriptions', value: totals.subscriptions, sub: 'Currently active' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -184,7 +195,7 @@ export default function AdminDashboardPage() {
       {/* Charts: users-by-role bar chart, agencies-by-verification donut */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <Reveal className="lg:col-span-1">
-          <div className="h-full rounded-xl border border-border bg-background p-4 shadow-sm sm:p-6">
+          <div className="h-full rounded-[24px] border border-border bg-background p-4 shadow-sm sm:p-6">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
               <h2 className="text-base font-semibold text-foreground">Users by Role</h2>
@@ -225,7 +236,7 @@ export default function AdminDashboardPage() {
         </Reveal>
 
         <Reveal>
-          <div className="flex h-full flex-col rounded-xl border border-border bg-background p-4 shadow-sm sm:p-6">
+          <div className="flex h-full flex-col rounded-[24px] border border-border bg-background p-4 shadow-sm sm:p-6">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <PieChartIcon className="h-4 w-4 text-primary" />
@@ -337,29 +348,3 @@ function EmptyChartState({ compact, isError }: { compact?: boolean; isError?: bo
   );
 }
 
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Users;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
-  );
-}

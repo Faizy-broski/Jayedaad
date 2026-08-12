@@ -23,7 +23,7 @@ export function MarketInsights() {
 
           <Link
             href="/blog"
-            className="hidden shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline sm:flex"
+            className="hidden shrink-0 items-center gap-1 text-sm font-medium text-[#00A24F] hover:underline sm:flex"
           >
             All articles
             <ArrowRight className="h-3.5 w-3.5" />

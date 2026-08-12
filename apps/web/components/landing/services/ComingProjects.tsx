@@ -24,7 +24,7 @@ export function ComingProjects({ projects }: ComingProjectsProps) {
             </h2>
           </Reveal>
           <Link
-            href="/search?status=upcoming"
+            href="/developments"
             className="whitespace-nowrap border-b border-slate-300 pb-0.5 text-xs font-medium text-slate-500 transition-colors hover:border-primary hover:text-primary"
           >
             View all

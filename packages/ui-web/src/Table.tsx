@@ -32,7 +32,7 @@ export function Table<T>({ columns, rows, rowKey, isLoading, emptyMessage = 'No 
         <thead>
           <tr className="border-b border-border text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {columns.map((col) => (
-              <th key={col.key} className={cn('py-2 pr-4', col.className)}>
+              <th key={col.key} className={cn('whitespace-nowrap py-3 pr-6', col.className)}>
                 {col.header}
               </th>
             ))}
@@ -53,9 +53,9 @@ export function Table<T>({ columns, rows, rowKey, isLoading, emptyMessage = 'No 
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={rowKey(row)} className="align-middle">
+              <tr key={rowKey(row)} className="align-middle transition-colors hover:bg-muted/30">
                 {columns.map((col) => (
-                  <td key={col.key} className={cn('py-3 pr-4', col.className)}>
+                  <td key={col.key} className={cn('whitespace-nowrap py-3.5 pr-6', col.className)}>
                     {col.render(row)}
                   </td>
                 ))}

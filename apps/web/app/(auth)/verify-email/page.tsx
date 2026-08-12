@@ -1,12 +1,11 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Home } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
 import { Button, Input, Label } from '@jayedaad/ui-web';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
   super_admin: '/admin/dashboard',
@@ -88,50 +87,23 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <main className="relative grid h-screen overflow-hidden lg:grid-cols-2">
-      <Link
-        href="/"
-        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-white"
-      >
-        <Home className="h-4 w-4" />
-        Home
-      </Link>
-
-      <div className="relative hidden overflow-hidden lg:block">
-        <Image
-          src="/images/login-bg.png"
-          alt="A curated Jayedaad home overlooking the coast"
-          fill
-          priority
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-
-        <div className="absolute left-8 top-8 flex items-center gap-2 text-white">
-          <span className="text-xl font-bold tracking-wide">JAYEDAAD</span>
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 space-y-4 p-10">
-          <span className="eyebrow-label text-white/70">One last step</span>
-          <h1 className="heading-display leading-[1.1] text-white">
-            Check your inbox.
-            <br />
-            Let&apos;s verify it&apos;s you.
-          </h1>
-        </div>
+    <AuthShell
+      heroEyebrow="One last step"
+      heroTitle={
+        <>
+          Check your inbox.
+          <br />
+          Let&apos;s verify it&apos;s you.
+        </>
+      }
+    >
+      <div className="space-y-2">
+        <span className="eyebrow-label text-muted-foreground">Verify your email</span>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">Enter your code.</h2>
+        <p className="body-text text-muted-foreground">Enter the 6-digit code we just sent to your email.</p>
       </div>
 
-      <div className="flex justify-center overflow-y-auto px-6 py-10 sm:px-12">
-        <div className="my-auto w-full max-w-sm space-y-8">
-          <div className="space-y-2">
-            <span className="eyebrow-label text-muted-foreground">Verify your email</span>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Enter your code.</h2>
-            <p className="body-text text-muted-foreground">
-              Enter the 6-digit code we just sent to your email.
-            </p>
-          </div>
-
-          <form onSubmit={handleVerify} className="space-y-5">
+      <form onSubmit={handleVerify} className="space-y-5">
             <div className="space-y-1.5">
               <Label htmlFor="code" className="eyebrow-label text-muted-foreground">
                 Verification code
@@ -179,8 +151,6 @@ export default function VerifyEmailPage() {
               {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend code'}
             </button>
           </form>
-        </div>
-      </div>
-    </main>
+    </AuthShell>
   );
 }

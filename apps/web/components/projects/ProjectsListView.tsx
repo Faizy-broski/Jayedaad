@@ -183,9 +183,13 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
       className: 'text-right',
       render: (project) => (
         <div className="flex justify-end gap-2">
-          {isSuperAdmin && project.verificationStatus === 'pending' && (
+          {isSuperAdmin && (
             <>
-              <Button size="sm" onClick={() => handleVerify(project.id, 'verified')} disabled={setVerificationStatus.isPending}>
+              <Button
+                size="sm"
+                onClick={() => handleVerify(project.id, 'verified')}
+                disabled={setVerificationStatus.isPending || project.verificationStatus === 'verified'}
+              >
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                 Approve
               </Button>
@@ -194,7 +198,7 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
                 variant="outline"
                 className="text-destructive"
                 onClick={() => handleVerify(project.id, 'rejected')}
-                disabled={setVerificationStatus.isPending}
+                disabled={setVerificationStatus.isPending || project.verificationStatus === 'rejected'}
               >
                 <XCircle className="mr-1 h-3.5 w-3.5" />
                 Reject

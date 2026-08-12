@@ -1,13 +1,12 @@
 'use client';
 
 import { FormEvent, Suspense, useState } from 'react';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowRight, Eye, EyeOff, Home } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, Input, Label } from '@jayedaad/ui-web';
 import { makeSessionOnlyIfNotRemembered } from '@/lib/rememberMe';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 // Where a successfully-authenticated user lands when they didn't arrive via
 // a redirect from a protected route (see middleware.ts's redirectTo param).
@@ -89,81 +88,24 @@ function LoginForm() {
   }
 
   return (
-    <main className="relative grid h-screen overflow-hidden lg:grid-cols-2">
-      {/* Escape hatch back to the marketing site — AppChrome deliberately
-          omits Header/Footer on this route (see AppChrome.tsx), so this is
-          the only way back without hitting the browser back button. */}
-      <Link
-        href="/"
-        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-white"
-      >
-        <Home className="h-4 w-4" />
-        Home
-      </Link>
-
-      {/* Left: hero image + welcome copy — hidden on mobile/tablet */}
-      <div className="relative hidden overflow-hidden lg:block">
-        <Image
-          src="/images/login-bg.png"
-          alt="A curated Jayedaad home overlooking the coast"
-          fill
-          priority
-          className="object-cover"
-        />
-        {/* Bottom-weighted scrim so the white overlay text stays readable
-            against whatever's in the photo, without darkening the top. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-
-        {/* Logo */}
-        <div className="absolute left-8 top-8 flex items-center gap-2 text-white">
-          <span className="text-xl font-bold tracking-wide">JAYEDAAD</span>
-        </div>
-
-        {/* Welcome copy */}
-        <div className="absolute inset-x-0 bottom-0 space-y-4 p-10">
-          <span className="eyebrow-label text-white/70">A curated welcome</span>
-          <h1 className="heading-display leading-[1.1] text-white">
-            Welcome back.
-            <br />
-            Find the place you&apos;ll call home.
-          </h1>
-
-          <div className="flex items-center gap-3 pt-2">
-            <div className="flex -space-x-3">
-              {['/images/auth/avatar-1.jpg', '/images/auth/avatar-2.jpg', '/images/auth/avatar-3.jpg'].map(
-                (src, i) => (
-                  <div key={src} className="relative h-9 w-9 overflow-hidden rounded-full border-2 border-white">
-                    <Image src={src} alt="" fill className="object-cover" sizes="36px" />
-                  </div>
-                ),
-              )}
-            </div>
-            <p className="body-text-sm text-white/80">
-              Trusted by discerning homeowners
-              <br />
-              across 40+ cities worldwide.
-            </p>
-          </div>
-        </div>
+    <AuthShell
+      heroEyebrow="A curated welcome"
+      heroTitle={
+        <>
+          Welcome back.
+          <br />
+          Find the place you&apos;ll call home.
+        </>
+      }
+      showTrustRow
+    >
+      <div className="space-y-2">
+        <span className="eyebrow-label text-muted-foreground">Sign in</span>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">Good to see you again.</h2>
+        <p className="body-text text-muted-foreground">Enter your details to continue exploring your saved homes.</p>
       </div>
 
-      {/* Right: sign-in form. Centered via my-auto on the child (below), NOT
-          items-center on this container — align-items centering clips the
-          TOP half unreachably when a flex child overflows an overflow-y-auto
-          parent (scrollTop can't go negative). margin:auto centering doesn't
-          have that bug: it collapses to 0 instead of clipping. overflow-y-
-          auto itself is a fallback for very short viewports. */}
-      <div className="flex justify-center overflow-y-auto px-6 py-10 sm:px-12">
-        <div className="my-auto w-full max-w-sm space-y-6">
-          <div className="space-y-2">
-            <span className="eyebrow-label text-muted-foreground">Sign in</span>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Good to see you again.</h2>
-            <p className="body-text text-muted-foreground">
-              Enter your details to continue exploring your saved homes.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <Label htmlFor="email" className="eyebrow-label text-muted-foreground">
                 Email address
@@ -270,15 +212,13 @@ function LoginForm() {
             </button>
           </div>
 
-          <p className="text-center text-sm text-muted-foreground">
-            New to Jayedaad?{' '}
-            <a href="/signup" className="font-medium text-foreground underline underline-offset-2">
-              Create an account
-            </a>
-          </p>
-        </div>
-      </div>
-    </main>
+      <p className="text-center text-sm text-muted-foreground">
+        New to Jayedaad?{' '}
+        <a href="/signup" className="font-medium text-foreground underline underline-offset-2">
+          Create an account
+        </a>
+      </p>
+    </AuthShell>
   );
 }
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Amenity, AmenityCategory, AmenityValueType, PropertyType, PropertyTypeCategory, useTaxonomyManagementViewModel } from '@jayedaad/core';
-import { Button, cn, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
+import { Button, cn, Input, KpiCard, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
 import { Home, Layers, ListTree, Pencil, PlusCircle, Search, Sparkles, Trash2 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
@@ -69,12 +69,23 @@ export default function TaxonomyPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {vm.isLoading ? (
-          [0, 1, 2].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Layers} label="Categories" value={vm.categoriesTotal} sub="Property groupings" />
-            <StatTile index={1} icon={Home} label="Property Types" value={vm.propertyTypesTotal} sub="Across all categories" />
-            <StatTile index={2} icon={Sparkles} label="Amenities" value={vm.amenitiesTotal} sub="Across all categories" />
+            {[
+              { icon: Layers, label: 'Categories', value: vm.categoriesTotal, sub: 'Property groupings' },
+              { icon: Home, label: 'Property Types', value: vm.propertyTypesTotal, sub: 'Across all categories' },
+              { icon: Sparkles, label: 'Amenities', value: vm.amenitiesTotal, sub: 'Across all categories' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -114,33 +125,6 @@ export default function TaxonomyPage() {
         <AmenitiesTab vm={vm} search={amenitiesSearch} onSearchChange={setAmenitiesSearch} page={amenitiesPage} onPageChange={setAmenitiesPage} />
       )}
     </div>
-  );
-}
-
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Layers;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
   );
 }
 

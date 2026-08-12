@@ -30,7 +30,7 @@ import {
   useTasksViewModel,
   AgentCreditType,
 } from '@jayedaad/core';
-import { Card, Button, Input } from '@jayedaad/ui-web';
+import { Card, Button, Input, KpiCard } from '@jayedaad/ui-web';
 import {
   Home,
   Flame,
@@ -235,14 +235,25 @@ export default function AgentDashboardPage() {
       {/* Stat tiles */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {isStatsLoading || isAnalyticsLoading ? (
-          [0, 1, 2, 3, 4].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2, 3, 4].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-[24px] border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Home} label="Total Listings" value={activeListings} sub="For sale & rent" />
-            <StatTile index={1} icon={Home} label="For Sale" value={stats?.forSaleCount ?? 0} sub="Active" />
-            <StatTile index={2} icon={Home} label="For Rent" value={stats?.forRentCount ?? 0} sub="Active" />
-            <StatTile index={3} icon={Users} label="Leads" value={analytics?.leads ?? 0} sub="Last 30 days" />
-            <StatTile index={4} icon={Eye} label="Views" value={analytics?.views ?? 0} sub="Last 30 days" />
+            {[
+              { icon: Home, label: 'Total Listings', value: activeListings, sub: 'For sale & rent' },
+              { icon: Home, label: 'For Sale', value: stats?.forSaleCount ?? 0, sub: 'Active' },
+              { icon: Home, label: 'For Rent', value: stats?.forRentCount ?? 0, sub: 'Active' },
+              { icon: Users, label: 'Leads', value: analytics?.leads ?? 0, sub: 'Last 30 days' },
+              { icon: Eye, label: 'Views', value: analytics?.views ?? 0, sub: 'Last 30 days' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -250,15 +261,26 @@ export default function AgentDashboardPage() {
       {/* Agency Performance — Admin-only rollup across every sales associate */}
       {profile?.isAgencyAdmin && agencyAnalytics && (
         <Reveal>
-          <Card className="p-4 sm:p-6">
+          <Card className="rounded-[24px] p-4 sm:p-6">
             <h2 className="text-base font-semibold text-foreground">Agency Performance</h2>
             <p className="text-sm text-muted-foreground">Every sales associate in your agency</p>
 
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <StatTile index={0} icon={Home} label="Listings" value={agencyAnalytics.totals.forSaleCount + agencyAnalytics.totals.forRentCount} sub="For sale & rent" />
-              <StatTile index={1} icon={Users} label="Leads" value={agencyAnalytics.totals.leads} sub="Last 30 days" />
-              <StatTile index={2} icon={Users} label="Closings" value={agencyAnalytics.totals.closingsCount} sub="All time" />
-              <StatTile index={3} icon={Eye} label="Views" value={agencyAnalytics.totals.views} sub="Last 30 days" />
+              {[
+                { icon: Home, label: 'Listings', value: agencyAnalytics.totals.forSaleCount + agencyAnalytics.totals.forRentCount, sub: 'For sale & rent' },
+                { icon: Users, label: 'Leads', value: agencyAnalytics.totals.leads, sub: 'Last 30 days' },
+                { icon: Users, label: 'Closings', value: agencyAnalytics.totals.closingsCount, sub: 'All time' },
+                { icon: Eye, label: 'Views', value: agencyAnalytics.totals.views, sub: 'Last 30 days' },
+              ].map((tile, index) => (
+                <motion.div
+                  key={tile.label}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.06 }}
+                >
+                  <KpiCard index={index} {...tile} />
+                </motion.div>
+              ))}
             </div>
 
             <ul className="mt-4 divide-y divide-border">
@@ -281,7 +303,7 @@ export default function AgentDashboardPage() {
       {/* Charts: engagement bar chart, credits radial gauge, listings mix donut */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <Reveal className="lg:col-span-1">
-          <Card className="h-full p-4 sm:p-6">
+          <Card className="h-full rounded-[24px] p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-foreground">Listing engagement</h2>
@@ -320,7 +342,7 @@ export default function AgentDashboardPage() {
         </Reveal>
 
         <Reveal>
-          <Card className="flex h-full flex-col p-4 sm:p-6">
+          <Card className="flex h-full flex-col rounded-[24px] p-4 sm:p-6">
             <h2 className="text-base font-semibold text-foreground">Quota &amp; Credits</h2>
             <p className="text-xs text-muted-foreground">Plan: {currentPlan?.tier.name ?? '—'}</p>
 
@@ -372,7 +394,7 @@ export default function AgentDashboardPage() {
         </Reveal>
 
         <Reveal>
-          <Card className="flex h-full flex-col p-4 sm:p-6">
+          <Card className="flex h-full flex-col rounded-[24px] p-4 sm:p-6">
             <h2 className="text-base font-semibold text-foreground">Listings Mix</h2>
             <p className="text-xs text-muted-foreground">Sale vs. rent split</p>
 
@@ -416,7 +438,7 @@ export default function AgentDashboardPage() {
       {/* Recent listings + New inquiries */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <Reveal>
-          <Card className="p-4 sm:p-6">
+          <Card className="rounded-[24px] p-4 sm:p-6">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-foreground">Recent Listings</h2>
               <Link href="/property-management" className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline">
@@ -479,7 +501,7 @@ export default function AgentDashboardPage() {
         </Reveal>
 
         <Reveal>
-          <Card className="p-4 sm:p-6">
+          <Card className="rounded-[24px] p-4 sm:p-6">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-foreground">New Inquiries</h2>
               <Link href="/crm" className="text-sm font-medium text-primary hover:underline">
@@ -523,7 +545,7 @@ export default function AgentDashboardPage() {
           a lead, complements the CRM's per-lead reminders (SetReminderPopover
           on the /crm page). */}
       <Reveal>
-        <Card className="p-4 sm:p-6">
+        <Card className="rounded-[24px] p-4 sm:p-6">
           <div className="flex items-center justify-between gap-2">
             <h2 className="flex items-center gap-1.5 text-base font-semibold text-foreground">
               <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -583,7 +605,7 @@ export default function AgentDashboardPage() {
       {/* Insights + Plan + Promo */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Reveal>
-          <Card className="flex h-full flex-col items-center justify-center p-6 text-center">
+          <Card className="flex h-full flex-col items-center justify-center rounded-[24px] p-6 text-center">
             <div className="relative mb-3 rounded-full bg-muted p-3">
               <Gauge className="h-6 w-6 text-primary" />
               <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
@@ -598,7 +620,7 @@ export default function AgentDashboardPage() {
         </Reveal>
 
         <Reveal>
-          <Card className="h-full p-6">
+          <Card className="h-full rounded-[24px] p-6">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
               <CreditCardIcon className="h-3.5 w-3.5" />
               My Plan
@@ -620,7 +642,7 @@ export default function AgentDashboardPage() {
         </Reveal>
 
         <Reveal>
-          <Card className="flex h-full flex-col justify-between overflow-hidden bg-brand-dark p-6 text-white">
+          <Card className="flex h-full flex-col justify-between overflow-hidden rounded-[24px] bg-brand-dark p-6 text-white">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">Grow faster</p>
               <p className="mt-2 text-lg font-semibold leading-snug">
@@ -644,33 +666,3 @@ export default function AgentDashboardPage() {
   );
 }
 
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Home;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.06 }}
-    >
-      <Card className="p-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </Card>
-    </motion.div>
-  );
-}
