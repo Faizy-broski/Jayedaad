@@ -11,7 +11,7 @@ import {
 } from '@jayedaad/core';
 import { Badge, Button, Input, Label, Modal, Table, TableColumn } from '@jayedaad/ui-web';
 import { useMutation } from '@tanstack/react-query';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, ShieldCheck, ShieldOff, UserMinus } from 'lucide-react';
 
 const EMPTY_FORM: CreateAgencyStaffInput = { email: '', password: '', displayName: '' };
 
@@ -135,10 +135,26 @@ export default function AgencyStaffPage() {
       className: 'text-right',
       render: (a) => (
         <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={() => handleToggleAdmin(a.id, !a.isAgencyAdmin)}>
-            {a.isAgencyAdmin ? 'Revoke Admin' : 'Make Admin'}
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-w-[132px] justify-center"
+            onClick={() => handleToggleAdmin(a.id, !a.isAgencyAdmin)}
+          >
+            {a.isAgencyAdmin ? (
+              <>
+                <ShieldOff className="mr-1 h-3.5 w-3.5" />
+                Revoke Admin
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                Make Admin
+              </>
+            )}
           </Button>
           <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleRemove(a.id, a.displayName ?? 'this agent')}>
+            <UserMinus className="mr-1 h-3.5 w-3.5" />
             Remove
           </Button>
         </div>

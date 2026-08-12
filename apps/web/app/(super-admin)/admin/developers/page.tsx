@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CreateDeveloperInput, Developer, useDevelopersViewModel } from '@jayedaad/core';
-import { Button, Input, Label, Modal, Pagination, Table, TableColumn } from '@jayedaad/ui-web';
+import { Button, Input, KpiCard, Label, Modal, Pagination, Table, TableColumn } from '@jayedaad/ui-web';
 import { Building2, MapPin, Pencil, PhoneCall, PlusCircle, Search, Trash2 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
@@ -166,12 +166,23 @@ export default function DevelopersPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {isLoading ? (
-          [0, 1, 2].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Building2} label="Total Developers" value={stats.total} sub="All registered" />
-            <StatTile index={1} icon={MapPin} label="Cities (This Page)" value={stats.cities} sub="Unique locations" />
-            <StatTile index={2} icon={PhoneCall} label="Reachable (This Page)" value={stats.reachable} sub="Have a contact number" />
+            {[
+              { icon: Building2, label: 'Total Developers', value: stats.total, sub: 'All registered' },
+              { icon: MapPin, label: 'Cities (This Page)', value: stats.cities, sub: 'Unique locations' },
+              { icon: PhoneCall, label: 'Reachable (This Page)', value: stats.reachable, sub: 'Have a contact number' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -231,32 +242,5 @@ export default function DevelopersPage() {
         </div>
       </Modal>
     </div>
-  );
-}
-
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Building2;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
   );
 }

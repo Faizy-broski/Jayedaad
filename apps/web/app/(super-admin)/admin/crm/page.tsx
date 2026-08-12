@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Lead, LeadStatus, useAdminAgentsViewModel, useAdminCrmStatsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
-import { Button, cn, Input, Pagination } from '@jayedaad/ui-web';
+import { Button, cn, Input, KpiCard, Pagination, Select } from '@jayedaad/ui-web';
 import {
   AlertTriangle,
-  ChevronDown,
   Clock,
   Globe,
   Inbox,
@@ -163,14 +162,14 @@ export default function AdminCrmPage() {
             </p>
           </div>
 
-          <div className="relative w-full max-w-xs">
-            <select
+          <div className="w-full max-w-xs">
+            <Select
               value={agentFilter}
               onChange={(e) => {
                 setAgentFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-10 w-full appearance-none rounded-full border border-input bg-background px-4 pr-9 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-full px-4"
             >
               <option value="">All agents</option>
               {agents.map((a) => (
@@ -178,21 +177,31 @@ export default function AdminCrmPage() {
                   {a.displayName ?? a.id}
                 </option>
               ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </Select>
           </div>
         </div>
       </Reveal>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stats.isLoading ? (
-          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Inbox} label="Total Leads" value={stats.total} sub="All inquiries" />
-            <StatTile index={1} icon={MessageSquare} label="New" value={stats.new} sub="Not yet contacted" />
-            <StatTile index={2} icon={UserX} label="Unassigned" value={stats.unassigned} sub="Needs an agent" />
-            <StatTile index={3} icon={Users} label="Closed" value={stats.closed} sub="Deals won" />
+            {[
+              { icon: Inbox, label: 'Total Leads', value: stats.total, sub: 'All inquiries' },
+              { icon: MessageSquare, label: 'New', value: stats.new, sub: 'Not yet contacted' },
+              { icon: UserX, label: 'Unassigned', value: stats.unassigned, sub: 'Needs an agent' },
+              { icon: Users, label: 'Closed', value: stats.closed, sub: 'Deals won' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -315,40 +324,34 @@ export default function AdminCrmPage() {
                       </div>
 
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <div className="relative">
-                          <select
-                            value={lead.status}
-                            onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
-                            disabled={updateStatus.isPending}
-                            className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                          >
-                            {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
-                              <option key={f.id} value={f.id}>
-                                {f.label}
+                        <Select
+                          value={lead.status}
+                          onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
+                          disabled={updateStatus.isPending}
+                          className="h-7 w-auto rounded-full px-3 text-xs capitalize"
+                        >
+                          {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </Select>
+
+                        <Select
+                          value=""
+                          onChange={(e) => handleReassign(lead.id, e.target.value)}
+                          disabled={assign.isPending}
+                          className="h-7 w-auto rounded-full px-3 text-xs"
+                        >
+                          <option value="">Reassign to…</option>
+                          {agents
+                            .filter((a) => a.id !== lead.agentId)
+                            .map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.displayName ?? a.id}
                               </option>
                             ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                        </div>
-
-                        <div className="relative">
-                          <select
-                            value=""
-                            onChange={(e) => handleReassign(lead.id, e.target.value)}
-                            disabled={assign.isPending}
-                            className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                          >
-                            <option value="">Reassign to…</option>
-                            {agents
-                              .filter((a) => a.id !== lead.agentId)
-                              .map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.displayName ?? a.id}
-                                </option>
-                              ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                        </div>
+                        </Select>
 
                         <Button
                           size="sm"
@@ -441,32 +444,5 @@ export default function AdminCrmPage() {
         </>
       )}
     </div>
-  );
-}
-
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Inbox;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
   );
 }

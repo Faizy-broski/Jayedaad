@@ -14,12 +14,11 @@ import {
   useAgencyManagementViewModel,
   useUserManagementViewModel,
 } from '@jayedaad/core';
-import { Button, cn, Input, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
+import { Button, cn, Input, KpiCard, Label, Modal, Pagination, Select } from '@jayedaad/ui-web';
 import { AgentDocumentsSection } from '@/components/agents/AgentDocumentsSection';
 import {
   Ban,
   Calendar,
-  ChevronDown,
   Home,
   Mail,
   PlusCircle,
@@ -195,13 +194,24 @@ export default function UsersPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {isLoading ? (
-          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Users} label="Total Users" value={counts.total} sub="All roles" />
-            <StatTile index={1} icon={Home} label="Agents" value={counts.agent} sub="Listing on the platform" />
-            <StatTile index={2} icon={UserCheck} label="Buyers & Owners" value={counts.buyer + counts.owner} sub="Demand-side users" />
-            <StatTile index={3} icon={ShieldCheck} label="Admins & Staff" value={counts.super_admin + counts.verification_staff} sub="Internal team" />
+            {[
+              { icon: Users, label: 'Total Users', value: counts.total, sub: 'All roles' },
+              { icon: Home, label: 'Agents', value: counts.agent, sub: 'Listing on the platform' },
+              { icon: UserCheck, label: 'Buyers & Owners', value: counts.buyer + counts.owner, sub: 'Demand-side users' },
+              { icon: ShieldCheck, label: 'Admins & Staff', value: counts.super_admin + counts.verification_staff, sub: 'Internal team' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -301,21 +311,18 @@ export default function UsersPage() {
                     </div>
 
                     <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                      <div className="relative">
-                        <select
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value as Role)}
-                          disabled={updateRole.isPending}
-                          className="h-9 appearance-none rounded-full border border-input bg-background py-0 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {roleLabel(r)}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      </div>
+                      <Select
+                        value={user.role}
+                        onChange={(e) => handleRoleChange(user.id, e.target.value as Role)}
+                        disabled={updateRole.isPending}
+                        className="h-9 w-auto rounded-full px-3 text-xs capitalize"
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {roleLabel(r)}
+                          </option>
+                        ))}
+                      </Select>
                       <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, false)}>
                         <Ban className="mr-1 h-3.5 w-3.5" />
                         Suspend
@@ -412,32 +419,5 @@ export default function UsersPage() {
         </div>
       </Modal>
     </div>
-  );
-}
-
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Users;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
   );
 }

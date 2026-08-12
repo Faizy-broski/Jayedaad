@@ -40,7 +40,10 @@ export function mapAgencyRow(row: any): Agency {
     verificationStatus: row.verification_status,
     rejectionReason: row.rejection_reason ?? null,
     salesAssociateCount: row.sales_associate_count,
-    tier: row.tier,
+    // Column predates the tier feature — rows created before it was
+    // backfilled still come back null, which broke the admin tier <Select>
+    // (no option matches a null value, so it rendered with nothing selected).
+    tier: row.tier ?? 'basic',
   };
 }
 

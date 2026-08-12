@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAdminBlogViewModel } from '@jayedaad/core';
-import { Badge, Button, Input, Pagination } from '@jayedaad/ui-web';
+import { Badge, Button, Input, KpiCard, Pagination } from '@jayedaad/ui-web';
 import {
   CheckCircle2,
   FileEdit,
@@ -102,13 +102,24 @@ export default function BlogAdminPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {isLoading ? (
-          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Newspaper} label="Total Posts" value={total} sub="All statuses" />
-            <StatTile index={1} icon={CheckCircle2} label="Published" value={pageStats.published} sub="This page" />
-            <StatTile index={2} icon={FileEdit} label="Drafts" value={pageStats.draft} sub="This page" />
-            <StatTile index={3} icon={FolderOpen} label="Categories" value={categories.length} sub="All time" />
+            {[
+              { icon: Newspaper, label: 'Total Posts', value: total, sub: 'All statuses' },
+              { icon: CheckCircle2, label: 'Published', value: pageStats.published, sub: 'This page' },
+              { icon: FileEdit, label: 'Drafts', value: pageStats.draft, sub: 'This page' },
+              { icon: FolderOpen, label: 'Categories', value: categories.length, sub: 'All time' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -223,29 +234,3 @@ export default function BlogAdminPage() {
   );
 }
 
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Newspaper;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
-  );
-}

@@ -11,7 +11,7 @@ import {
   useAdminOwnersViewModel,
 } from '@jayedaad/core';
 import { Badge, Button, Modal, Table, TableColumn } from '@jayedaad/ui-web';
-import { CheckCircle2, Download, FileCheck2, UploadCloud } from 'lucide-react';
+import { CheckCircle2, Download, FileCheck2, UploadCloud, XCircle } from 'lucide-react';
 
 const OWNER_DOCUMENT_TYPES: { type: OwnerIdentityDocumentType; label: string }[] = [
   { type: 'cnic_front', label: 'CNIC — Front' },
@@ -64,12 +64,15 @@ export default function OwnersPage() {
           <Button
             size="sm"
             variant="outline"
+            className="text-primary"
             disabled={o.documents.missing.length > 0}
             onClick={() => handleVerify(o.userId, 'verified')}
           >
+            <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
             Verify
           </Button>
-          <Button size="sm" variant="outline" onClick={() => handleVerify(o.userId, 'rejected')}>
+          <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleVerify(o.userId, 'rejected')}>
+            <XCircle className="mr-1 h-3.5 w-3.5" />
             Reject
           </Button>
           <Button size="sm" variant="outline" onClick={() => setDocsModalOwner(o)}>

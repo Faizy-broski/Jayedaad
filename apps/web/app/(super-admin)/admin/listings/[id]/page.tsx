@@ -6,14 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ListingDocumentType, ListingStatus, formatPrice, listingsRepository, useAdminListingDetailViewModel } from '@jayedaad/core';
-import { Badge, cn } from '@jayedaad/ui-web';
+import { Badge, cn, Select } from '@jayedaad/ui-web';
 import {
   ArrowLeft,
   Bath,
   BedDouble,
   Building2,
   Calendar,
-  ChevronDown,
   Copy,
   Home,
   ImageOff,
@@ -164,22 +163,19 @@ export default function AdminListingDetailPage() {
 
           <div className="flex flex-col items-end gap-2">
             <p className="text-2xl font-bold text-foreground">{formatPrice(Number(listing.price))}</p>
-            <div className="relative">
-              <select
-                value=""
-                onChange={(e) => handleOverride(e.target.value as ListingStatus)}
-                disabled={setStatus.isPending}
-                className="h-9 appearance-none rounded-full border border-input bg-background py-0 pl-4 pr-9 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              >
-                <option value="">Override status…</option>
-                {OVERRIDE_STATUSES.filter((s) => s !== listing.status).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_BADGE[s].label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            </div>
+            <Select
+              value=""
+              onChange={(e) => handleOverride(e.target.value as ListingStatus)}
+              disabled={setStatus.isPending}
+              className="h-9 w-auto rounded-full px-4 text-xs"
+            >
+              <option value="">Override status…</option>
+              {OVERRIDE_STATUSES.filter((s) => s !== listing.status).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_BADGE[s].label}
+                </option>
+              ))}
+            </Select>
           </div>
         </div>
       </Reveal>

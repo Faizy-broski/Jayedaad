@@ -17,7 +17,7 @@ import {
   useAdminStatsViewModel,
   useAgencyManagementViewModel,
 } from '@jayedaad/core';
-import { Badge, Button, cn, Input, Label, Modal, Pagination, Select, Table, TableColumn } from '@jayedaad/ui-web';
+import { Badge, Button, cn, Input, KpiCard, Label, Modal, Pagination, Select, Table, TableColumn } from '@jayedaad/ui-web';
 import {
   Building2,
   CheckCircle2,
@@ -323,13 +323,24 @@ export default function AgenciesPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {isLoading ? (
-          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-xl border border-border bg-muted/40" />)
+          [0, 1, 2, 3].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-border bg-muted/40" />)
         ) : (
           <>
-            <StatTile index={0} icon={Building2} label="Total Agencies" value={counts.total} sub="All registered" />
-            <StatTile index={1} icon={ShieldCheck} label="Verified" value={counts.verified} sub="Active & trusted" />
-            <StatTile index={2} icon={Clock} label="Pending" value={counts.pending} sub="Awaiting review" />
-            <StatTile index={3} icon={ShieldX} label="Rejected" value={counts.rejected} sub="Needs resubmission" />
+            {[
+              { icon: Building2, label: 'Total Agencies', value: counts.total, sub: 'All registered' },
+              { icon: ShieldCheck, label: 'Verified', value: counts.verified, sub: 'Active & trusted' },
+              { icon: Clock, label: 'Pending', value: counts.pending, sub: 'Awaiting review' },
+              { icon: ShieldX, label: 'Rejected', value: counts.rejected, sub: 'Needs resubmission' },
+            ].map((tile, index) => (
+              <motion.div
+                key={tile.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.06 }}
+              >
+                <KpiCard index={index} {...tile} />
+              </motion.div>
+            ))}
           </>
         )}
       </div>
@@ -415,7 +426,7 @@ export default function AgenciesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: Math.min(index, 8) * 0.05 }}
             >
-              <div className="flex h-full flex-col rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+              <div className="flex h-full flex-col rounded-[24px] border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-primary">
@@ -431,13 +442,24 @@ export default function AgenciesPage() {
                       <p className="truncate text-xs text-muted-foreground">@{agency.slug}</p>
                     </div>
                   </div>
-                  <Badge
-                    variant={
-                      agency.verificationStatus === 'verified' ? 'success' : agency.verificationStatus === 'rejected' ? 'destructive' : 'warning'
-                    }
-                  >
-                    {agency.verificationStatus}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge
+                      variant={
+                        agency.verificationStatus === 'verified' ? 'success' : agency.verificationStatus === 'rejected' ? 'destructive' : 'warning'
+                      }
+                    >
+                      {agency.verificationStatus}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0 text-destructive"
+                      onClick={() => handleDelete(agency.id, agency.name)}
+                      aria-label="Delete agency"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex-1 space-y-1.5 text-xs text-muted-foreground">
@@ -468,14 +490,29 @@ export default function AgenciesPage() {
                   </Select>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                  {agency.verificationStatus !== 'verified' && (
+                {/* Fixed 2x2 grid, not flex-wrap — Verify/Reject stay in their
+                    slots (swapped for a static status chip once already
+                    verified/rejected) so every card's action row is the
+                    same height instead of wrapping to a 2nd row only for
+                    cards still pending. */}
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-3">
+                  {agency.verificationStatus === 'verified' ? (
+                    <span className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 text-sm font-medium text-primary">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Verified
+                    </span>
+                  ) : (
                     <Button size="sm" variant="outline" className="text-primary" onClick={() => handleVerify(agency.id, 'verified')}>
                       <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                       Verify
                     </Button>
                   )}
-                  {agency.verificationStatus !== 'rejected' && (
+                  {agency.verificationStatus === 'rejected' ? (
+                    <span className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 text-sm font-medium text-destructive">
+                      <XCircle className="h-3.5 w-3.5" />
+                      Rejected
+                    </span>
+                  ) : (
                     <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleVerify(agency.id, 'rejected')}>
                       <XCircle className="mr-1 h-3.5 w-3.5" />
                       Reject
@@ -488,9 +525,6 @@ export default function AgenciesPage() {
                   <Button size="sm" variant="outline" onClick={() => setDocsModalAgency(agency)}>
                     <FileCheck2 className="mr-1 h-3.5 w-3.5" />
                     Documents
-                  </Button>
-                  <Button size="sm" variant="outline" className="ml-auto text-destructive" onClick={() => handleDelete(agency.id, agency.name)}>
-                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -598,33 +632,6 @@ export default function AgenciesPage() {
         </div>
       </Modal>
     </div>
-  );
-}
-
-function StatTile({
-  index,
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  index: number;
-  icon: typeof Building2;
-  label: string;
-  value: number;
-  sub: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="mt-3 truncate text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-    </motion.div>
   );
 }
 
