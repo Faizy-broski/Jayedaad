@@ -617,44 +617,110 @@ export class AgenciesRepository {
     // insert, auth metadata sync, profiles sync) — PostgREST has no
     // multi-table transaction, so a failure here previously left the
     // agency row above permanently orphaned, blocking every retry on a
-    // slug uniqueness violation. Compensate by deleting whatever was
-    // created before re-throwing, so a failed attempt is always cleanly
+    // slug uniqueness violation. Compensate by deleting/reverting whatever
+    // was created before re-throwing, so a failed attempt is always cleanly
     // retryable — agent_profiles first (it FKs to agencies, so the agency
     // delete would otherwise fail with a foreign-key violation and mask
     // the original error).
+    //
+    // handle_new_user() (0055_default_signup_role_agent.sql) now
+    // auto-creates a minimal agent_profiles row (agency_id null) for every
+    // signup, including someone about to register an agency — so this can
+    // no longer assume a bare INSERT is safe; it collided on
+    // agent_profiles.user_id's unique constraint, threw, and the compensation
+    // above deleted the just-created agency, silently masking a 500 while
+    // leaving the caller's retry logic believing signup had failed outright
+    // (see the fix commit for the full trace). Find-then-update-or-insert
+    // instead, and track whether this call created the row or only updated
+    // a pre-existing one so failure compensation does the right thing either
+    // way (delete a row we created; revert one we merely updated, since
+    // deleting it would destroy state that predates this call).
     let agentProfileId: string | undefined;
+    let createdAgentProfile = false;
+    let priorProfileValues: { display_name: string | null; phone: string | null } | undefined;
     try {
-      const { data: agentProfile, error: agentError } = await this.supabase.client
+      const { data: existingProfile, error: findError } = await this.supabase.client
         .from('agent_profiles')
-        .insert({
-          user_id: userId,
-          display_name: input.displayName,
-          phone: input.agentPhone,
-          agency_id: agency.id,
-          is_agency_admin: true,
-        })
-        .select('id')
-        .single();
-      if (agentError) throw agentError;
-      agentProfileId = agentProfile.id;
+        .select('id, display_name, phone')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (findError) throw findError;
 
-      const { data: existing, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
+      if (existingProfile) {
+        priorProfileValues = { display_name: existingProfile.display_name, phone: existingProfile.phone };
+        const { data: updatedProfile, error: updateError } = await this.supabase.client
+          .from('agent_profiles')
+          .update({
+            display_name: input.displayName,
+            phone: input.agentPhone,
+            agency_id: agency.id,
+            is_agency_admin: true,
+          })
+          .eq('id', existingProfile.id)
+          .select('id')
+          .single();
+        if (updateError) throw updateError;
+        agentProfileId = updatedProfile.id;
+      } else {
+        const { data: insertedProfile, error: insertError } = await this.supabase.client
+          .from('agent_profiles')
+          .insert({
+            user_id: userId,
+            display_name: input.displayName,
+            phone: input.agentPhone,
+            agency_id: agency.id,
+            is_agency_admin: true,
+          })
+          .select('id')
+          .single();
+        if (insertError) {
+          // Narrow remaining race: two concurrent requests both pass the
+          // SELECT-found-nothing check above before either INSERTs. Give a
+          // clear, specific error instead of letting a raw 23505 surface as
+          // AllExceptionsFilter's generic masked 500 — same discipline as
+          // the agency-name collision handled above.
+          if ((insertError as { code?: string }).code === '23505') {
+            throw new ConflictException('You already have an agent account — please try again.');
+          }
+          throw insertError;
+        }
+        agentProfileId = insertedProfile.id;
+        createdAgentProfile = true;
+      }
+
+      const { data: existingUser, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
       if (getError) throw getError;
 
       const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
-        app_metadata: { ...existing.user.app_metadata, role: 'agent', agent_id: agentProfile.id },
+        app_metadata: { ...existingUser.user.app_metadata, role: 'agent', agent_id: agentProfileId },
       });
       if (metadataError) throw metadataError;
 
       const { error: profileError } = await this.supabase.client
         .from('profiles')
-        .update({ role: 'agent', agent_id: agentProfile.id })
+        .update({ role: 'agent', agent_id: agentProfileId })
         .eq('id', userId);
       if (profileError) throw profileError;
 
-      return { agency, agentId: agentProfile.id };
+      return { agency, agentId: agentProfileId };
     } catch (err) {
-      if (agentProfileId) await this.supabase.client.from('agent_profiles').delete().eq('id', agentProfileId);
+      if (agentProfileId) {
+        if (createdAgentProfile) {
+          await this.supabase.client.from('agent_profiles').delete().eq('id', agentProfileId);
+        } else {
+          // Restore the exact pre-existing values (captured above) rather
+          // than nulling them out — this row predates this call.
+          await this.supabase.client
+            .from('agent_profiles')
+            .update({
+              agency_id: null,
+              is_agency_admin: false,
+              display_name: priorProfileValues?.display_name ?? null,
+              phone: priorProfileValues?.phone ?? null,
+            })
+            .eq('id', agentProfileId);
+        }
+      }
       await this.supabase.client.from('agencies').delete().eq('id', agency.id);
       throw err;
     }

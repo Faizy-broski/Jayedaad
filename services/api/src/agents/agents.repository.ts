@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateAgentProfileDto } from './dto/update-profile.dto';
@@ -113,36 +113,92 @@ export class AgentsRepository {
   // 'pending' in the DB — the applicant lands in the same review queue a
   // super_admin-created agent would.
   async applyAsAgent(userId: string, input: ApplyAsAgentDto) {
-    const { data: agentProfile, error: insertError } = await this.supabase.client
+    // handle_new_user() (0055_default_signup_role_agent.sql) now
+    // auto-creates a minimal agent_profiles row for every signup — a bare
+    // INSERT here would collide on agent_profiles.user_id's unique
+    // constraint for anyone whose stale pre-refresh JWT still let them
+    // reach this 'buyer'-gated endpoint (same race as
+    // AgenciesRepository.registerSelfService, see its comment for the full
+    // trace). Find-then-update-or-insert instead, and track whether this
+    // call created the row or only updated a pre-existing one so failure
+    // compensation does the right thing either way.
+    const { data: existingProfile, error: findError } = await this.supabase.client
       .from('agent_profiles')
-      .insert({ user_id: userId, display_name: input.displayName, phone: input.phone, city: input.city })
-      .select('id')
-      .single();
-    if (insertError) throw insertError;
+      .select('id, display_name, phone, city')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    let agentProfileId: string;
+    let createdAgentProfile = false;
+    if (existingProfile) {
+      const { data: updatedProfile, error: updateError } = await this.supabase.client
+        .from('agent_profiles')
+        .update({ display_name: input.displayName, phone: input.phone, city: input.city })
+        .eq('id', existingProfile.id)
+        .select('id')
+        .single();
+      if (updateError) throw updateError;
+      agentProfileId = updatedProfile.id;
+    } else {
+      const { data: insertedProfile, error: insertError } = await this.supabase.client
+        .from('agent_profiles')
+        .insert({ user_id: userId, display_name: input.displayName, phone: input.phone, city: input.city })
+        .select('id')
+        .single();
+      if (insertError) {
+        // Narrow remaining race: two concurrent requests both pass the
+        // SELECT-found-nothing check above before either INSERTs. Give a
+        // clear, specific error instead of a raw 23505 surfacing as
+        // AllExceptionsFilter's generic masked 500.
+        if ((insertError as { code?: string }).code === '23505') {
+          throw new ConflictException('You already have an agent account — please try again.');
+        }
+        throw insertError;
+      }
+      agentProfileId = insertedProfile.id;
+      createdAgentProfile = true;
+    }
 
     // If the metadata/profile sync below fails, agent_profiles.user_id's
     // unique constraint would otherwise block every retry (same orphaned-
     // row class of bug as AgenciesRepository.registerSelfService — see its
-    // comment). Compensate by deleting the just-created row before
-    // re-throwing.
+    // comment). Compensate by deleting a row we created, or reverting one
+    // we merely updated (it predates this call, so deleting it would
+    // destroy state this call didn't own), before re-throwing.
     try {
       const { data: existing, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
       if (getError) throw getError;
 
       const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
-        app_metadata: { ...existing.user.app_metadata, role: 'agent', agent_id: agentProfile.id },
+        app_metadata: { ...existing.user.app_metadata, role: 'agent', agent_id: agentProfileId },
       });
       if (metadataError) throw metadataError;
 
       const { error: profileError } = await this.supabase.client
         .from('profiles')
-        .update({ role: 'agent', agent_id: agentProfile.id })
+        .update({ role: 'agent', agent_id: agentProfileId })
         .eq('id', userId);
       if (profileError) throw profileError;
 
-      return this.findProfile(agentProfile.id);
+      return this.findProfile(agentProfileId);
     } catch (err) {
-      await this.supabase.client.from('agent_profiles').delete().eq('id', agentProfile.id);
+      if (createdAgentProfile) {
+        await this.supabase.client.from('agent_profiles').delete().eq('id', agentProfileId);
+      } else {
+        // Restore the exact pre-existing values (captured above) rather
+        // than nulling them out — this row predates this call, so a failed
+        // attempt shouldn't lose whatever handle_new_user() (or an earlier
+        // successful call) had already set.
+        await this.supabase.client
+          .from('agent_profiles')
+          .update({
+            display_name: existingProfile!.display_name,
+            phone: existingProfile!.phone,
+            city: existingProfile!.city,
+          })
+          .eq('id', agentProfileId);
+      }
       throw err;
     }
   }
