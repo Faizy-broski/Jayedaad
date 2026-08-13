@@ -24,7 +24,17 @@ const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
 // (supabase/migrations/0013_profiles_email_verified.sql) already sets
 // profiles.email_verified = true for Google signups — no OTP step needed here.
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams, origin: requestOrigin } = new URL(request.url);
+  // Next's `output: 'standalone'` server (required for the Docker deploy)
+  // always builds request.url's origin from its own bind address
+  // (HOSTNAME=0.0.0.0, needed to listen on all interfaces) — never from the
+  // real Host header, even behind a correctly configured reverse proxy. So
+  // request.url's origin is always e.g. "http://0.0.0.0:3000" in production
+  // and can't be trusted here; NEXT_PUBLIC_SITE_URL is the real public
+  // origin instead (wired through Docker/CI same as the other NEXT_PUBLIC_*
+  // vars). requestOrigin is kept only as a last-resort fallback (local dev
+  // without .env filled in yet).
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || requestOrigin;
   const code = searchParams.get('code');
   const next = searchParams.get('next');
 

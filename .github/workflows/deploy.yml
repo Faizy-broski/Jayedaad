@@ -9,7 +9,10 @@ name: deploy
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions):
 #   NEXT_PUBLIC_API_BASE_URL, NEXT_PUBLIC_SUPABASE_URL,
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_GOOGLE_PLACES_API_KEY,
+#   NEXT_PUBLIC_SITE_URL (the real public origin, e.g. https://jayedaad.pk —
+#   needed because Next's standalone server can't derive its own origin from
+#   request.url behind a reverse proxy, see apps/web/middleware.ts)
 # (these aren't secret in the security sense — Next inlines them into the
 # public client bundle regardless — Actions secrets are just the easiest
 # place to store build-time config; repo Variables would work identically.)
@@ -68,6 +71,7 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
           tags: |
             ghcr.io/${{ env.IMAGE_OWNER }}/web:latest
             ghcr.io/${{ env.IMAGE_OWNER }}/web:${{ github.sha }}

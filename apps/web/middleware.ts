@@ -56,6 +56,16 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   { prefix: '/account', roles: ['buyer', 'owner', 'agent', 'super_admin'] },
 ];
 
+// Next's `output: 'standalone'` server (required for the Docker deploy)
+// always builds request.url's origin from its own bind address
+// (HOSTNAME=0.0.0.0, needed to listen on all interfaces) — never from the
+// real Host header, even behind a correctly configured reverse proxy. So
+// `new URL(path, request.url)` below would silently redirect to
+// "http://0.0.0.0:3000/..." in production; NEXT_PUBLIC_SITE_URL is the real
+// public origin instead (wired through Docker/CI same as the other
+// NEXT_PUBLIC_* vars), used as the base for every absolute redirect here.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
 export async function middleware(request: NextRequest) {
   // Was a separate app/(account)/page.tsx doing a plain server-side
   // redirect() with no JSX — under (account)/layout.tsx's 'use client'
@@ -65,7 +75,7 @@ export async function middleware(request: NextRequest) {
   // avoids that file existing at all. Re-enters this same middleware on the
   // redirected URL, so auth/role gating below still applies normally.
   if (request.nextUrl.pathname === '/account') {
-    return NextResponse.redirect(new URL('/account/saved', request.url));
+    return NextResponse.redirect(new URL('/account/saved', SITE_URL));
   }
 
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -99,14 +109,14 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL('/login', SITE_URL);
     loginUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   const role = user.app_metadata?.role as string | undefined;
   if (!role || !match.roles.includes(role)) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/', SITE_URL));
   }
 
   return response;
