@@ -87,9 +87,9 @@ function DocumentRow({
     setIsUploading(true);
     try {
       await onUpload(file);
-      toast.success(`${label} uploaded.`);
-    } catch {
-      toast.error('Upload failed — please try again.');
+      toast.success(`${label} uploaded — we'll review it within 24 hours.`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Upload failed — please try again.');
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -104,7 +104,11 @@ function DocumentRow({
       </div>
       <label className="cursor-pointer rounded-md border border-dashed border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
         {isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}
-        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleUpload} />
+        {/* Matches services/api's ALLOWED_DOCUMENT_MIME_TYPES exactly
+            (documents.service.ts) — previously offered image/webp here,
+            which the server has never accepted, so a WEBP pick always
+            silently 400'd (the bare catch above threw its message away). */}
+        <input type="file" accept="image/jpeg,image/png,application/pdf" className="hidden" onChange={handleUpload} />
       </label>
     </div>
   );

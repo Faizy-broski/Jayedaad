@@ -108,9 +108,9 @@ function DocumentRow({
       const mimeType = asset.mimeType ?? 'image/jpeg';
       setIsUploading(true);
       await onUpload({ uri: asset.uri, name: filename, type: mimeType });
-      showToast(`${label} uploaded.`);
-    } catch {
-      showToast('Upload failed — please try again.', 'error');
+      showToast(`${label} uploaded — we'll review it within 24 hours.`);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Upload failed — please try again.', 'error');
     } finally {
       setIsUploading(false);
     }
