@@ -30,6 +30,37 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
+  // Every prefix middleware.ts's PROTECTED_ROUTES gates — without this, the
+  // browser is free to bfcache a rendered protected page (e.g. /dashboard).
+  // middleware.ts's auth check only runs on a real network request, never
+  // on a bfcache restore, so pressing Back after logout could show a frozen
+  // snapshot of the page from before signOut() cleared the session cookie —
+  // cosmetically alarming (looks "still logged in") even though any real
+  // interaction/data fetch on that stale page would fail. no-store stops
+  // the browser from caching these responses at all, so Back always forces
+  // a fresh request that middleware actually sees.
+  async headers() {
+    const protectedPrefixes = [
+      '/verification',
+      '/crm',
+      '/submit',
+      '/calendar',
+      '/dashboard',
+      '/property-management',
+      '/projects',
+      '/agent-settings',
+      '/plan',
+      '/admin',
+      '/become-an-agent',
+      '/agent-verification',
+      '/agency-staff',
+      '/account',
+    ];
+    return protectedPrefixes.map((prefix) => ({
+      source: `${prefix}/:path*`,
+      headers: [{ key: 'Cache-Control', value: 'no-store' }],
+    }));
+  },
 };
 
 // withSentryConfig only affects the build (source map upload, tunnel route)

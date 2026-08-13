@@ -90,7 +90,12 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   }, [userMenuOpen]);
 
   function handleLogout() {
-    signOut.mutate(undefined, { onSuccess: () => router.push('/login') });
+    // Hard redirect (not router.push) — forces a real page unload so the
+    // browser can't bfcache this protected page. Without it, pressing Back
+    // after logout could restore a frozen pre-logout snapshot instead of
+    // hitting middleware.ts's auth check again (see next.config.js's
+    // matching no-store headers() for the other half of this fix).
+    signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/login') });
   }
 
   function handleSearchSubmit(e: React.FormEvent) {

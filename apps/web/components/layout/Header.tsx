@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthViewModel } from '@jayedaad/core';
 import { PreferencesMenu } from './PreferencesMenu';
@@ -120,7 +120,6 @@ const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
 };
 
 function HeaderInner() {
-  const router = useRouter();
   const { isAuthenticated, user, role, isEmailVerified, isEmailVerifiedLoading, signOut } = useAuthViewModel();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -144,7 +143,12 @@ function HeaderInner() {
   function handleLogout() {
     setUserMenuOpen(false);
     setMobileOpen(false);
-    signOut.mutate(undefined, { onSuccess: () => router.push('/') });
+    // Hard redirect (not router.push) — forces a real page unload so the
+    // browser can't bfcache the page being left. Without it, pressing Back
+    // after logout could restore a frozen pre-logout snapshot instead of
+    // hitting middleware.ts's auth check again (see next.config.js's
+    // matching no-store headers() for the other half of this fix).
+    signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/') });
   }
 
   useEffect(() => {

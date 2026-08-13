@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthViewModel } from '@jayedaad/core';
 import {
@@ -59,7 +59,6 @@ const NAV_ITEMS = [
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, signOut } = useAuthViewModel();
   const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Admin';
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -79,7 +78,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }, [userMenuOpen]);
 
   function handleLogout() {
-    signOut.mutate(undefined, { onSuccess: () => router.push('/login') });
+    // Hard redirect (not router.push) — forces a real page unload so the
+    // browser can't bfcache this protected page. Without it, pressing Back
+    // after logout could restore a frozen pre-logout snapshot instead of
+    // hitting middleware.ts's auth check again (see next.config.js's
+    // matching no-store headers() for the other half of this fix).
+    signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/login') });
   }
 
   const activeItem = NAV_ITEMS.find(
