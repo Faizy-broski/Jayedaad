@@ -1,0 +1,45 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_SCHEME": "jayedaad",
+        "EXPO_PUBLIC_API_BASE_URL": "http://192.168.18.119:3001",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://penavqszyhbcatopspqc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbmF2cXN6eWhiY2F0b3BzcHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MDYxMjIsImV4cCI6MjEwMDM4MjEyMn0.O8fRGf4VKZNuDT1tkSjpSpWPVXNJkpWBS3H9S2N-R_s",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyDufm1nNtiRs68YG2uVg3mGhDguUa5a71Q"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_SCHEME": "jayedaad",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.jayedaad.pk",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://penavqszyhbcatopspqc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbmF2cXN6eWhiY2F0b3BzcHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MDYxMjIsImV4cCI6MjEwMDM4MjEyMn0.O8fRGf4VKZNuDT1tkSjpSpWPVXNJkpWBS3H9S2N-R_s",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyDufm1nNtiRs68YG2uVg3mGhDguUa5a71Q"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_APP_SCHEME": "jayedaad",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.jayedaad.pk",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://penavqszyhbcatopspqc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbmF2cXN6eWhiY2F0b3BzcHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MDYxMjIsImV4cCI6MjEwMDM4MjEyMn0.O8fRGf4VKZNuDT1tkSjpSpWPVXNJkpWBS3H9S2N-R_s",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyDufm1nNtiRs68YG2uVg3mGhDguUa5a71Q"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

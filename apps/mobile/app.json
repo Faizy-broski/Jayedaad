@@ -27,7 +27,11 @@
         "foregroundImage": "./assets/images/jayedaad.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [
@@ -37,6 +41,12 @@
           "cameraPermission": "Jayedaad uses your camera to take a selfie for identity verification."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d7386659-47ca-494d-9f82-371c95f19bce"
+      }
+    },
+    "owner": "jayedaads-team"
   }
 }
