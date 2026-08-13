@@ -124,7 +124,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   // Required for owners AND independent agents (no agency) — only an
   // agency-affiliated agent is exempt, mirrors the server's
   // getDocumentCompleteness exemption.
-  const documentsRequired = role === 'owner' || (role === 'agent' && !agentProfile?.agency);
+  const documentsRequired = role === 'agent' && !agentProfile?.agency;
   const { showToast } = useToast();
   const activeLabel = STATUS_TABS.find((s) => s.id === status)?.label ?? '';
 
@@ -443,7 +443,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
   // Required for owners AND independent agents (no agency) — only an
   // agency-affiliated agent is exempt, mirrors the server's
   // getDocumentCompleteness exemption.
-  const documentsRequired = role === 'owner' || (role === 'agent' && !agentProfile?.agency);
+  const documentsRequired = role === 'agent' && !agentProfile?.agency;
   const { showToast } = useToast();
 
   function handleDelete(listingId: string, title: string) {

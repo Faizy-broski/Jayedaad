@@ -41,11 +41,11 @@ import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
 // an agency admin is still plain role 'agent', not a distinct role value.
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, roles: ['agent', 'super_admin'] },
-  { href: '/submit', label: 'Post Listing', icon: PlusCircle, roles: ['owner', 'agent', 'super_admin'] },
+  { href: '/submit', label: 'Post Listing', icon: PlusCircle, roles: ['agent', 'super_admin'] },
   { href: '/property-management', label: 'Property Management', icon: Building2, roles: ['agent', 'super_admin'] },
   { href: '/projects', label: 'Projects', icon: Landmark, roles: ['agent', 'super_admin'] },
   { href: '/crm', label: 'Inbox', icon: Inbox, roles: ['agent', 'super_admin'] },
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['owner', 'agent', 'super_admin'] },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
   { href: '/plan', label: 'Plan', icon: CreditCard, roles: ['agent', 'super_admin'] },
   { href: '/help', label: 'Help / Support', icon: HelpCircle, roles: ['agent', 'super_admin'] },

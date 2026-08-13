@@ -12,15 +12,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   { prefix: '/verification', roles: ['super_admin', 'verification_staff'] },
   { prefix: '/crm', roles: ['agent', 'super_admin'] },
-  // 'buyer' is allowed here (not just 'owner') because the page itself
-  // auto-promotes a fresh buyer to 'owner' on mount — see
-  // apps/web/app/(agent)/submit/page.tsx's needsOwnerPromotion effect.
-  // Blocking buyers here would prevent them from ever reaching that
-  // promotion in the first place.
-  { prefix: '/submit', roles: ['buyer', 'owner', 'agent', 'super_admin'] },
-  // Owners get a calendar too (Book a Visit on an owner-posted listing with
-  // no assigned agent lands there directly) — Document Verification Phase 3.
-  { prefix: '/calendar', roles: ['owner', 'agent', 'super_admin'] },
+  // 'buyer' is allowed here because the page itself auto-promotes a fresh
+  // buyer to 'agent' on mount — see apps/web/app/(agent)/submit/page.tsx's
+  // isPromotingOwner effect ('owner' role is retired, see
+  // supabase/migrations/0056_retire_owner_role.sql — that effect now lands
+  // on 'agent' too). Blocking buyers here would prevent them from ever
+  // reaching that promotion in the first place.
+  { prefix: '/submit', roles: ['buyer', 'agent', 'super_admin'] },
+  { prefix: '/calendar', roles: ['agent', 'super_admin'] },
   // Rest of the (agent) Profolio-style portal — see app/(agent)/layout.tsx.
   { prefix: '/dashboard', roles: ['agent', 'super_admin'] },
   { prefix: '/property-management', roles: ['agent', 'super_admin'] },
@@ -53,7 +52,7 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   // Buyer account area (Favorites & Saved Searches, notifications) — any
   // authenticated role can favorite/save a search, not just buyers, so this
   // stays as broad as /submit's role list above.
-  { prefix: '/account', roles: ['buyer', 'owner', 'agent', 'super_admin'] },
+  { prefix: '/account', roles: ['buyer', 'agent', 'super_admin'] },
 ];
 
 // Next's `output: 'standalone'` server (required for the Docker deploy)

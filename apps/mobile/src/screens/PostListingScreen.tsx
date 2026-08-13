@@ -75,14 +75,17 @@ export function PostListingScreen() {
   // an agency-affiliated agent is exempt (their agency's own onboarding
   // covers them instead).
   const { verification, isLoading: verificationLoading, becomeOwner } = useOwnerVerificationViewModel();
-  const needsIdentityVerification =
-    (role === 'owner' || isIndependentAgent) && !editId && !verificationLoading && verification?.status !== 'verified';
+  // 'owner' role is retired — isIndependentAgent alone covers this now,
+  // since the promotion below lands a fresh buyer on role='agent' with no
+  // agency.
+  const needsIdentityVerification = isIndependentAgent && !editId && !verificationLoading && verification?.status !== 'verified';
 
-  // No signup path ever grants 'owner' directly — every fresh individual
-  // signup is 'buyer' by default, and every owner-scoped endpoint requires
-  // role='owner'. Self-promote once, silently, the moment a buyer reaches
-  // this screen (nothing gates mobile nav by role, unlike web's
-  // middleware.ts, so no extra wiring needed there).
+  // No signup path ever grants 'agent' directly for a plain buyer — every
+  // fresh individual signup is 'buyer' by default. Self-promote once,
+  // silently, the moment a buyer reaches this screen (nothing gates mobile
+  // nav by role, unlike web's middleware.ts, so no extra wiring needed
+  // there). (Kept the becomeOwner/isPromotingOwner names — the endpoint
+  // they call now promotes to 'agent', not 'owner'.)
   const isPromotingOwner = role === 'buyer' && !editId;
   useEffect(() => {
     if (isPromotingOwner && !becomeOwner.isPending && !becomeOwner.isSuccess) {
@@ -160,10 +163,10 @@ export function PostListingScreen() {
       .catch(() => undefined);
   }, [editId]);
 
-  // Required for owners AND independent agents (no agency) — only an
-  // agency-affiliated agent is exempt, mirrors the server's
-  // getDocumentCompleteness exemption.
-  const documentsRequired = role === 'owner' || isIndependentAgent;
+  // Required for independent agents (no agency) — only an agency-affiliated
+  // agent is exempt, mirrors the server's getDocumentCompleteness exemption.
+  // ('owner' role retired.)
+  const documentsRequired = isIndependentAgent;
   const documentsComplete =
     !documentsRequired ||
     REQUIRED_LISTING_DOCUMENT_TYPES.every((type) => uploadedDocTypes.has(type) || !!documentFiles[type]);

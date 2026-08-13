@@ -37,14 +37,14 @@ export class OwnersController {
   // which now gates independent-agent approval on this same table). Table
   // is keyed by user_id, not a role column, so this "just works" either way.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent')
+  @Roles('agent')
   @Get('me/verification')
   getMyVerification(@Req() req: any) {
     return this.owners.getVerification(req.user.id);
   }
 
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent')
+  @Roles('agent')
   @Post('me/documents')
   @UseInterceptors(FileInterceptor('file'))
   uploadDocument(@Req() req: any, @Body() body: UploadOwnerIdentityDocumentDto, @UploadedFile() file: Express.Multer.File) {

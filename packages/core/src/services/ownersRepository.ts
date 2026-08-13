@@ -4,10 +4,12 @@ import { OwnerIdentityDocument, OwnerIdentityDocumentType, OwnerVerificationSumm
 // Backs the one-time owner identity verification gate on Post Listing.
 // Mirrors services/api/src/owners/owners.controller.ts's endpoints.
 export const ownersRepository = {
-  // Self-service buyer -> owner promotion — the missing link a fresh signup
-  // needs before any of the endpoints below (all @Roles('owner')-gated
-  // server-side) become reachable. No approval step.
-  becomeOwner: async (): Promise<{ userId: string; role: 'owner' }> => {
+  // Self-service buyer -> agent promotion ('owner' role is retired — see
+  // supabase/migrations/0056_retire_owner_role.sql — this now provisions a
+  // real agent_profiles row, same shape agentsRepository.applyAsAgent()
+  // produces) — the missing link a fresh signup needs before Post Listing's
+  // agent-gated endpoints become reachable. No approval step.
+  becomeOwner: async (): Promise<{ userId: string; role: 'agent'; agentId: string }> => {
     const { data } = await httpClient.post('/owners/become-owner');
     return data;
   },

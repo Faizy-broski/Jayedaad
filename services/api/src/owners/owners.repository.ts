@@ -20,26 +20,53 @@ export class OwnersRepository {
     private readonly documents: DocumentsService,
   ) {}
 
-  // Self-service buyer -> owner promotion — mirrors AgentsRepository
-  // .applyAsAgent()'s two-write sync (JWT app_metadata + profiles.role),
-  // minus the agent_profiles insert (owners have no separate profile
-  // table). No approval queue: unlike becoming an agent, declaring
-  // yourself an owner needs no review — the CNIC identity verification and
-  // per-listing ownership documents are the real checks, both still
-  // required afterward.
+  // Self-service buyer -> agent promotion (name kept as promoteToOwner for
+  // now — POST /owners/become-owner is called from both apps/web and
+  // apps/mobile and renaming the route/method is a separate cleanup,
+  // deliberately not bundled into this fix). 'owner' as a role is retired
+  // (0056_retire_owner_role.sql) — this used to just flip role='owner'
+  // with no agent_profiles row; now mirrors AgentsRepository.applyAsAgent()
+  // instead, including its idempotent find-or-insert (a buyer reaching
+  // this page could already have an agent_profiles row from an earlier
+  // partial attempt). No approval queue: unlike explicitly applying to
+  // become an agent, posting a listing needs no review to get in — the
+  // CNIC identity verification and per-listing ownership documents are the
+  // real checks, both still required afterward.
   async promoteToOwner(userId: string) {
+    const { data: existingProfile, error: findError } = await this.supabase.client
+      .from('agent_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    const agentProfileId = existingProfile
+      ? existingProfile.id
+      : await (async () => {
+          const { data: inserted, error: insertError } = await this.supabase.client
+            .from('agent_profiles')
+            .insert({ user_id: userId })
+            .select('id')
+            .single();
+          if (insertError) throw insertError;
+          return inserted.id;
+        })();
+
     const { data: existing, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
     if (getError) throw getError;
 
     const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
-      app_metadata: { ...existing.user.app_metadata, role: 'owner' },
+      app_metadata: { ...existing.user.app_metadata, role: 'agent', agent_id: agentProfileId },
     });
     if (metadataError) throw metadataError;
 
-    const { error: profileError } = await this.supabase.client.from('profiles').update({ role: 'owner' }).eq('id', userId);
+    const { error: profileError } = await this.supabase.client
+      .from('profiles')
+      .update({ role: 'agent', agent_id: agentProfileId })
+      .eq('id', userId);
     if (profileError) throw profileError;
 
-    return { userId, role: 'owner' as const };
+    return { userId, role: 'agent' as const, agentId: agentProfileId };
   }
 
   // owner_identity_verifications has no row until the owner uploads their

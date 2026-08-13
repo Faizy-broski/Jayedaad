@@ -142,7 +142,7 @@ export class ListingsController {
   // super_admin sees everything. Filters confirmed real on the live
   // Profolio "My Listings" filter panel.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Get('mine')
   findMine(
     @Req() req: any,
@@ -194,7 +194,7 @@ export class ListingsController {
   // Backs the status tab badges ("Active (0)", "Pending (0)", etc.) on the
   // real Profolio "My Listings" page.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Get('mine/status-counts')
   getMyStatusCounts(@Req() req: any) {
     return this.listings.getStatusCounts({ userId: req.user.id, role: req.user.role, agentId: req.user.agentId });
@@ -215,7 +215,7 @@ export class ListingsController {
   // owner_id/agent_id/status are all forced from the authenticated request —
   // the DTO cannot influence who owns the listing or what state it starts in.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Post()
   create(@Req() req: any, @Body() body: CreateListingDto) {
     return this.listings.create({
@@ -230,7 +230,7 @@ export class ListingsController {
   // partially-filled scratch save. See POST /listings/:id/submit to move it
   // into pending_verification once the agent/owner is ready.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Post('draft')
   createDraft(@Req() req: any, @Body() body: CreateListingDto) {
     return this.listings.create({
@@ -253,7 +253,7 @@ export class ListingsController {
   // direct-create path in create() below. Correctly a no-op for
   // agent-authored listings (getDocumentCompleteness exempts them).
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Post(':id/submit')
   async submitDraft(@Req() req: any, @Param('id') id: string) {
     await this.assertOwnListing(req, id);
@@ -318,7 +318,7 @@ export class ListingsController {
   // returned url is attached to the listing via CreateListingDto.media on
   // the subsequent POST /listings call.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Post('media/upload')
   @UseInterceptors(FileInterceptor('file'))
   uploadMedia(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
@@ -340,7 +340,7 @@ export class ListingsController {
   // own listing (or super_admin, any). See listings.repository.ts::update()
   // for the re-review-on-edit business rule.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Patch(':id')
   async update(@Req() req: any, @Param('id') id: string, @Body() body: UpdateListingDto) {
     await this.assertOwnListing(req, id);
@@ -351,7 +351,7 @@ export class ListingsController {
   // ListingStatus with its own My Listings tab) rather than a destructive
   // hard delete. Same self-scoping as update() above.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'super_admin')
+  @Roles('agent', 'super_admin')
   @Delete(':id')
   async remove(@Req() req: any, @Param('id') id: string) {
     await this.assertOwnListing(req, id);
@@ -363,7 +363,7 @@ export class ListingsController {
   // documents; verification_staff/super_admin bypass the ownership check
   // since they need to review any listing's documents ahead of approval.
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'verification_staff', 'super_admin')
+  @Roles('agent', 'verification_staff', 'super_admin')
   @Post(':id/documents')
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
@@ -377,7 +377,7 @@ export class ListingsController {
   }
 
   @UseGuards(ScopeGuard)
-  @Roles('owner', 'agent', 'verification_staff', 'super_admin')
+  @Roles('agent', 'verification_staff', 'super_admin')
   @Get(':id/documents')
   async listDocuments(@Req() req: any, @Param('id') id: string) {
     await this.assertCanAccessDocuments(req, id);

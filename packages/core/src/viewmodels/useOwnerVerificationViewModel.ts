@@ -22,7 +22,7 @@ export function useOwnerVerificationViewModel() {
   const query = useQuery({
     queryKey,
     queryFn: ownersRepository.getMyVerification,
-    enabled: role === 'owner' || role === 'agent',
+    enabled: role === 'agent',
   });
 
   const uploadDocument = useMutation({

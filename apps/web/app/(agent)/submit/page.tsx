@@ -212,15 +212,18 @@ export default function SubmitListingPage() {
   // (services/api/src/agents/agents.repository.ts::setVerificationStatus
   // was updated to match).
   const { verification, isLoading: verificationLoading, becomeOwner } = useOwnerVerificationViewModel();
-  const needsIdentityVerification =
-    (role === 'owner' || isIndependentAgent) && !editId && !verificationLoading && verification?.status !== 'verified';
+  // 'owner' role is retired (supabase/migrations/0056_retire_owner_role.sql)
+  // — isIndependentAgent alone covers this now, since the promotion below
+  // lands a fresh buyer on role='agent' with no agency.
+  const needsIdentityVerification = isIndependentAgent && !editId && !verificationLoading && verification?.status !== 'verified';
 
-  // No signup path ever grants 'owner' directly — every fresh individual
-  // signup is 'buyer' by default (handle_new_user() in
-  // 0002_profiles_and_trigger.sql), and every owner-scoped endpoint
-  // (including everything above) requires role='owner'. Self-promote once,
-  // silently, the moment a buyer reaches this page — mirrors middleware.ts
-  // now allowing 'buyer' here specifically so this effect can run.
+  // No signup path ever grants 'agent' directly for a plain buyer — every
+  // fresh individual signup is 'buyer' by default
+  // (0056_retire_owner_role.sql). Self-promote once, silently, the moment a
+  // buyer reaches this page — mirrors middleware.ts allowing 'buyer' here
+  // specifically so this effect can run. (Kept the becomeOwner/
+  // isPromotingOwner names — the endpoint they call now promotes to
+  // 'agent', not 'owner'; renaming this call site is a separate cleanup.)
   const isPromotingOwner = role === 'buyer' && !editId;
   useEffect(() => {
     if (isPromotingOwner && !becomeOwner.isPending && !becomeOwner.isSuccess) {
@@ -580,10 +583,10 @@ export default function SubmitListingPage() {
   // just checked per-step instead of all at once. This now also drives the
   // Continue button's disabled state and which step pills are unlocked, not
   // just the toast shown on a blocked click.
-  // Required for owners AND independent agents (no agency) — only an
-  // agency-affiliated agent is exempt, mirrors the server's
-  // getDocumentCompleteness exemption.
-  const documentsRequired = role === 'owner' || isIndependentAgent;
+  // Required for independent agents (no agency) — only an agency-affiliated
+  // agent is exempt, mirrors the server's getDocumentCompleteness exemption.
+  // ('owner' role retired — see 0056_retire_owner_role.sql.)
+  const documentsRequired = isIndependentAgent;
   const documentsComplete =
     !documentsRequired ||
     REQUIRED_LISTING_DOCUMENT_TYPES.every((type) => uploadedDocTypes.has(type) || !!documentFiles[type]);

@@ -12,7 +12,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 // their own to create/list appointments under.
 @Controller('appointments')
 @UseGuards(ScopeGuard)
-@Roles('agent', 'owner', 'super_admin')
+@Roles('agent', 'super_admin')
 export class AppointmentsController {
   constructor(private readonly appointments: AppointmentsRepository) {}
 
