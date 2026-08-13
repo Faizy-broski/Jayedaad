@@ -26,8 +26,11 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     logging: *default-logging
+    # Loopback-only — no auth on this Redis instance, so it must never be
+    # reachable from outside the VPS. Only api/web (same Docker network)
+    # need it; this binding is for host-level `redis-cli` debugging only.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - jayedaad_redis_data:/data
 
@@ -42,8 +45,13 @@ services:
       - ./services/api/.env
     environment:
       PORT: "3001"
+    # Loopback-only — Nginx (host-level) is the only intended entry point,
+    # terminating TLS and setting the real Host header. Publishing this to
+    # 0.0.0.0 let anyone hit the app directly by raw IP:port, bypassing
+    # Nginx/Cloudflare entirely and breaking anything that depends on the
+    # real Host header (e.g. the OAuth callback's redirect origin).
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
       interval: 30s
@@ -73,8 +81,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # Loopback-only — same reasoning as api's port binding above.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000"]
       interval: 30s
