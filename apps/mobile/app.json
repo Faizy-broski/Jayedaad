@@ -8,6 +8,8 @@
     "userInterfaceStyle": "automatic",
     "icon": "./assets/images/jayedaad.png",
     "splash": {
+      "image": "./assets/images/jayedaad.png",
+      "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
@@ -20,6 +22,11 @@
     },
     "android": {
       "package": "com.jayedaad.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/jayedaad.png",
+        "backgroundColor": "#ffffff"
+      },
       "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
     },
     "plugins": [
