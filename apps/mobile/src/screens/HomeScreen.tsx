@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { FlatList, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -25,8 +25,10 @@ import { useAuthGate } from '../auth/AuthGateContext';
 import { PropertyCard } from '../components/PropertyCard';
 import { SideDrawer } from '../components/SideDrawer';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
+import { CityPickerModal } from '../components/CityPickerModal';
 import { DEFAULT_SEARCH_FILTERS, SearchFilterState } from '../lib/searchFilters';
 import { getRecentlyViewed } from '../lib/recentlyViewedStorage';
+import { getHomeCity, setHomeCity } from '../lib/homeCityStorage';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
 import heroLogoImage from '../../assets/images/hero-logo.webp';
@@ -346,6 +348,21 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const { requireAuth } = useAuthGate();
   const [purpose, setPurpose] = useState<Purpose>('Buy');
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const [city, setCity] = useState('Lahore');
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
+
+  useEffect(() => {
+    getHomeCity().then((stored) => {
+      if (stored) setCity(stored);
+    });
+  }, []);
+
+  function handleSelectCity(next: string) {
+    setCity(next);
+    setCityPickerVisible(false);
+    setHomeCity(next);
+  }
+
   // useNotificationsViewModel is gated on `enabled: !!user`, so this is
   // effectively 0 (not an authenticated request at all) for a signed-out
   // guest — real unread count, was previously a permanently-on hardcoded
@@ -389,42 +406,22 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
 
           <Text style={styles.greeting}>Assalam-o-Alaikum 👋</Text>
           <Text style={styles.headline}>{firstName ? `${firstName}, find your address` : 'Find your address'}</Text>
-          <View style={styles.headerLocationRow}>
+          <Pressable style={styles.headerLocationRow} onPress={() => setCityPickerVisible(true)} hitSlop={8}>
             <Ionicons name="location" size={14} color={theme.colors.bg} />
-            <Text style={styles.headerLocationText}>Lahore, Punjab</Text>
-          </View>
+            <Text style={styles.headerLocationText}>{city}</Text>
+            <Ionicons name="chevron-down" size={12} color={theme.colors.bg} />
+          </Pressable>
         </View>
       </View>
 
       {/* Transparent wrap (no background of its own) so the negative
-          marginTop pulls just the opaque white search pill up over the
+          marginTop pulls the opaque white Buy/Rent band up over the
           still-visible photo behind it — this block previously had its own
           opaque white background, which masked the photo in the overlap
-          zone and made the bar look like it was sitting flush below the
-          banner instead of floating over it. */}
+          zone and made the band look like it was sitting flush below the
+          banner instead of floating over it. Buy/Rent now comes before the
+          search bar so the search intent (Buy vs Rent) is picked first. */}
       <View style={styles.searchBarFloatWrap}>
-        <View style={styles.searchBar}>
-          <Pressable
-            style={styles.searchBarTextArea}
-            onPress={() => navigation.navigate('BuyerSearch', { initialFilters: purposeToFilters(purpose) })}
-          >
-            <Ionicons name="search" size={16} color={theme.colors.muted} />
-            <Text style={styles.searchPlaceholder}>Search area, project or agency...</Text>
-          </Pressable>
-          <Pressable onPress={() => setFilterSheetVisible(true)} hitSlop={8} style={styles.searchFilterGlow}>
-            <LinearGradient
-              colors={theme.gradients.primary.colors}
-              start={theme.gradients.primary.start}
-              end={theme.gradients.primary.end}
-              style={styles.searchFilterButton}
-            >
-              <Ionicons name="options-outline" size={18} color={theme.colors.bg} />
-            </LinearGradient>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.purposeRowWrap}>
         <View style={styles.purposeRow}>
           {PURPOSE_TABS.map(({ value, icon }) => {
             const active = value === purpose;
@@ -442,12 +439,33 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
         </View>
       </View>
 
+      <View style={styles.purposeRowWrap}>
+        <View style={styles.searchBar}>
+          <Pressable style={styles.searchBarTextArea} onPress={() => setFilterSheetVisible(true)}>
+            <Ionicons name="search" size={16} color={theme.colors.muted} />
+            <Text style={styles.searchPlaceholder}>Search area, project or agency...</Text>
+          </Pressable>
+          <Pressable onPress={() => setFilterSheetVisible(true)} hitSlop={8} style={styles.searchFilterGlow}>
+            <LinearGradient
+              colors={theme.gradients.primary.colors}
+              start={theme.gradients.primary.start}
+              end={theme.gradients.primary.end}
+              style={styles.searchFilterButton}
+            >
+              <Ionicons name="options-outline" size={18} color={theme.colors.bg} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </View>
+
       <SearchFilterSheet
         visible={filterSheetVisible}
         onClose={() => setFilterSheetVisible(false)}
         value={{ ...DEFAULT_SEARCH_FILTERS, ...purposeToFilters(purpose) }}
         onApply={(applied) => navigation.navigate('BuyerSearch', { initialFilters: applied })}
       />
+
+      <CityPickerModal visible={cityPickerVisible} onClose={() => setCityPickerVisible(false)} onSelect={handleSelectCity} />
     </View>
   );
 }

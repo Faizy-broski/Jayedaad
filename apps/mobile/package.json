@@ -15,6 +15,7 @@
     "@expo/vector-icons": "14.1.0",
     "@jayedaad/core": "workspace:*",
     "@jayedaad/ui-native": "workspace:*",
+    "@ptomasroos/react-native-multi-slider": "^2.2.2",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native/assets-registry": "0.74.87",
     "@react-navigation/bottom-tabs": "^6.6.1",
