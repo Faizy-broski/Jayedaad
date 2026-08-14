@@ -40,7 +40,8 @@
           "photosPermission": "Jayedaad needs access to your photos so you can upload identity documents and listing photos.",
           "cameraPermission": "Jayedaad uses your camera to take a selfie for identity verification."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
