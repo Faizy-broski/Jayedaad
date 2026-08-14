@@ -101,8 +101,15 @@ export function LoginScreen() {
     setIsSubmitting(true);
     try {
       const result = await signInWithGoogle();
-      if (result.error) setSocialError(result.error);
-      else await goToVerifyIfNeeded();
+      // Was `if (result.error) ... else goToVerifyIfNeeded()` — result.error
+      // is also undefined when the user just cancelled/dismissed the
+      // browser sheet (cancelled: true, no session ever established), so
+      // that fell into the success branch too: refetchEmailVerified() with
+      // no session, sendOtp() with no session, both failing, landing the
+      // user on VerifyEmail with a false "couldn't send code" banner right
+      // after they cancelled. Branch on success explicitly instead.
+      if (result.success) await goToVerifyIfNeeded();
+      else if (result.error) setSocialError(result.error);
     } finally {
       setIsSubmitting(false);
     }
@@ -114,8 +121,8 @@ export function LoginScreen() {
     setIsSubmitting(true);
     try {
       const result = await signInWithApple();
-      if (result.error) setSocialError(result.error);
-      else await goToVerifyIfNeeded();
+      if (result.success) await goToVerifyIfNeeded();
+      else if (result.error) setSocialError(result.error);
     } finally {
       setIsSubmitting(false);
     }
