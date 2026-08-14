@@ -35,7 +35,20 @@ configureSupabaseClient({
   // src/lib/rememberMeStorage.ts and LoginScreen's checkbox).
   createClient: (url, anonKey) =>
     createClient(url, anonKey, {
-      auth: { storage: rememberMeStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      auth: {
+        storage: rememberMeStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        // Defaults to 'implicit' otherwise — Google's redirect back to
+        // jayedaad://auth/callback would then carry tokens in a URL
+        // #fragment instead of a ?code= query param, which
+        // useGoogleSignIn.ts's Linking.parse(...).queryParams?.code never
+        // finds (Expo's Linking.parse doesn't read fragments at all), so
+        // exchangeCodeForSession() was never even reached — a silent,
+        // unlogged dead end straight back to the Login screen.
+        flowType: 'pkce',
+      },
     }),
 });
 

@@ -127,14 +127,15 @@ export function PlacesAutocompleteInput({
 }
 
 const styles = StyleSheet.create({
-  container: { position: 'relative', zIndex: 10 },
+  // Deliberately NOT position:'absolute' — an absolutely-positioned child
+  // that spills outside this container's normal-flow bounds falls outside
+  // Android's touch hit-test for that container too, so taps on it silently
+  // miss and land on whatever's actually underneath (e.g. the next card).
+  // Keeping the dropdown in normal flow means it pushes following content
+  // down instead of floating over it, which also fixes the overlap.
+  container: {},
   dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     marginTop: 4,
-    maxHeight: 220,
     backgroundColor: theme.colors.bg,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
@@ -144,7 +145,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
-    zIndex: 20,
   },
   loadingRow: { paddingVertical: theme.spacing.md, alignItems: 'center' },
   row: { paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },

@@ -45,6 +45,21 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMeChecked] = useState(false);
+  const [socialError, setSocialError] = useState('');
+
+  async function handleGoogleSignIn() {
+    setSocialError('');
+    setRememberMe(rememberMe);
+    const result = await signInWithGoogle();
+    if (result.error) setSocialError(result.error);
+  }
+
+  async function handleAppleSignIn() {
+    setSocialError('');
+    setRememberMe(rememberMe);
+    const result = await signInWithApple();
+    if (result.error) setSocialError(result.error);
+  }
 
   async function handleSignIn() {
     setRememberMe(rememberMe);
@@ -99,6 +114,7 @@ export function LoginScreen() {
             </View>
 
             {signIn.isError && <Text style={styles.error}>{describeSignInError(signIn.error)}</Text>}
+            {!!socialError && <Text style={styles.error}>{socialError}</Text>}
 
             <Button
               label={signIn.isPending ? 'Signing in…' : 'Sign in'}
@@ -121,10 +137,7 @@ export function LoginScreen() {
               variant="secondary"
               size="lg"
               style={styles.socialButton}
-              onPress={() => {
-                setRememberMe(rememberMe);
-                signInWithGoogle();
-              }}
+              onPress={handleGoogleSignIn}
               disabled={isGooglePending}
             />
 
@@ -134,10 +147,7 @@ export function LoginScreen() {
               variant="secondary"
               size="lg"
               style={styles.socialButton}
-              onPress={() => {
-                setRememberMe(rememberMe);
-                signInWithApple();
-              }}
+              onPress={handleAppleSignIn}
               disabled={isApplePending}
             />
           </View>

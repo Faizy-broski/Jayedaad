@@ -349,41 +349,29 @@ function PreferencesFields() {
 
   if (isLoading || !preferences) return <Text style={styles.muted}>Loading…</Text>;
 
-  function pickAreaUnit() {
-    Alert.alert(
-      'Area Unit',
-      undefined,
-      AREA_UNIT_OPTIONS.map((unit) => ({
-        text: unit.label,
-        onPress: () =>
-          updatePreferences.mutate(
-            { preferredAreaUnit: unit.value },
-            {
-              onSuccess: () => showToast('Preferences updated.'),
-              onError: () => showToast('Something went wrong — please try again.', 'error'),
-            },
-          ),
-      })),
+  function saveAreaUnit(label: string) {
+    const unit = AREA_UNIT_OPTIONS.find((u) => u.label === label);
+    if (!unit) return;
+    updatePreferences.mutate(
+      { preferredAreaUnit: unit.value },
+      {
+        onSuccess: () => showToast('Preferences updated.'),
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
     );
   }
 
-  // Mirrors pickAreaUnit exactly — previously the only "picker" here was a
+  // Mirrors saveAreaUnit exactly — previously the only "picker" here was a
   // disabled, hardcoded "Pakistan (PKR)" field with no onPress at all.
-  function pickCurrency() {
-    Alert.alert(
-      'Currency',
-      undefined,
-      CURRENCY_OPTIONS.map((currency) => ({
-        text: currency.label,
-        onPress: () =>
-          updatePreferences.mutate(
-            { preferredCurrency: currency.code },
-            {
-              onSuccess: () => showToast('Preferences updated.'),
-              onError: () => showToast('Something went wrong — please try again.', 'error'),
-            },
-          ),
-      })),
+  function saveCurrency(label: string) {
+    const currency = CURRENCY_OPTIONS.find((c) => c.label === label);
+    if (!currency) return;
+    updatePreferences.mutate(
+      { preferredCurrency: currency.code },
+      {
+        onSuccess: () => showToast('Preferences updated.'),
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
     );
   }
 
@@ -394,12 +382,24 @@ function PreferencesFields() {
 
   return (
     <>
-      <Pressable onPress={pickCurrency}>
-        <Field label="Currency" value={currencyLabel} editable={false} />
-      </Pressable>
-      <Pressable onPress={pickAreaUnit}>
-        <Field label="Area Unit" value={areaUnitLabel} editable={false} />
-      </Pressable>
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Currency</Text>
+        <PickerField
+          value={currencyLabel}
+          options={CURRENCY_OPTIONS.map((c) => c.label)}
+          title="Currency"
+          onChange={saveCurrency}
+        />
+      </View>
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Area Unit</Text>
+        <PickerField
+          value={areaUnitLabel}
+          options={AREA_UNIT_OPTIONS.map((u) => u.label)}
+          title="Area Unit"
+          onChange={saveAreaUnit}
+        />
+      </View>
       <Field label="Language" value="English" disabled />
     </>
   );

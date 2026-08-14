@@ -168,11 +168,15 @@ export function SignupScreen() {
   // OTP step to chain through here — AuthGateProvider auto-closes the sheet
   // once its isEmailVerified check picks up the new session.
   async function handleGoogleSignUp() {
-    await signInWithGoogle();
+    setSubmitError('');
+    const result = await signInWithGoogle();
+    if (result.error) setSubmitError(result.error);
   }
 
   async function handleAppleSignUp() {
-    await signInWithApple();
+    setSubmitError('');
+    const result = await signInWithApple();
+    if (result.error) setSubmitError(result.error);
   }
 
   const isPending = isSubmitting || signUp.isPending || signIn.isPending || sendOtp.isPending || registerAgency.isPending;

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,7 +73,7 @@ const DESTRUCTIVE_COLOR = theme.colors.danger;
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
-  const { user, role, signOut } = useAuthViewModel();
+  const { user, role, signOut, isAuthenticated } = useAuthViewModel();
   // Only agent accounts have a real profile photo today (agent_profiles.photo_url,
   // same field web's Profolio layout reads) — enabled: !!agentId internally,
   // so this is a no-op for buyer/owner accounts.
@@ -97,6 +97,15 @@ export function ProfileScreen() {
       };
     }, []),
   );
+
+  // BottomTabNavigator only gates *entering* this tab (tabPress) — nothing
+  // watches auth dropping out while already here. Without this, tapping Log
+  // Out below left this exact screen mounted with a stale/guest header but
+  // every authenticated row (including Log Out itself) still visible, since
+  // signOut.mutate() just clears the session and re-renders in place.
+  useEffect(() => {
+    if (!isAuthenticated) navigation.navigate('Home');
+  }, [isAuthenticated, navigation]);
 
   const email = user?.email || '';
   const rawName = user?.user_metadata?.display_name as string | undefined;
