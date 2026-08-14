@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useAuthViewModel } from '@jayedaad/core';
+import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
 import { PreferencesMenu } from './PreferencesMenu';
 
 const LIST_A_HOME_CLASSES =
@@ -130,7 +130,7 @@ function HeaderInner() {
   const isLinkActive = useIsLinkActive();
   const hasHero = isHeroRoute(pathname);
 
-  const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Account';
+  const displayName = getDisplayName(user, 'Account');
   const initials = displayName.slice(0, 2).toUpperCase();
   // An unverified user's session is real, but every protected shell
   // (RequireEmailVerified in the (agent)/(super-admin) layouts) bounces

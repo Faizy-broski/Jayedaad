@@ -18,6 +18,8 @@ export function useAgenciesViewModel(filters: AgencySearchFilters = {}) {
     pageSize: query.data?.pageSize ?? 20,
     isLoading: query.isLoading,
     error: query.error,
+    refetch: query.refetch,
+    isRefetching: query.isRefetching,
   };
 }
 

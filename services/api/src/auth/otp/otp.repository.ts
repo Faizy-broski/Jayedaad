@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
 export type OtpPurpose = 'email_verification' | 'password_reset';
@@ -44,19 +44,30 @@ export class OtpRepository {
     if (error) throw error;
   }
 
+  // A valid Supabase JWT can outlive the `profiles` row it points to — the
+  // token stays cryptographically valid even after the user (or their row)
+  // is deleted, since deletion doesn't revoke already-issued access tokens.
+  // .single() would throw Postgrest's raw "no rows" error in that case,
+  // surfacing as an opaque 500 (this is exactly what happened investigating
+  // a stuck OTP screen for a manually-deleted test account). A missing
+  // profile for an otherwise-valid token means the session itself is stale,
+  // not a server error — treat it as an auth failure so the client's normal
+  // 401 handling (sign the user out) kicks in instead.
   async getEmailVerified(userId: string): Promise<boolean> {
     const { data, error } = await this.supabase.client
       .from('profiles')
       .select('email_verified')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw new UnauthorizedException('Your session is no longer valid — please sign in again.');
     return data.email_verified;
   }
 
   async getEmail(userId: string): Promise<string> {
-    const { data, error } = await this.supabase.client.from('profiles').select('email').eq('id', userId).single();
+    const { data, error } = await this.supabase.client.from('profiles').select('email').eq('id', userId).maybeSingle();
     if (error) throw error;
+    if (!data) throw new UnauthorizedException('Your session is no longer valid — please sign in again.');
     return data.email;
   }
 

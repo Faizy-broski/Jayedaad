@@ -96,6 +96,11 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
     pageSize: listingsQuery.data?.pageSize ?? filters.pageSize ?? 20,
     isLoading: listingsQuery.isLoading,
     isError: listingsQuery.isError,
+    // Named distinctly from `refresh` below — that's an unrelated paid
+    // mutation (spends a "Refresh credit" to bump sort position), not a
+    // cache refetch. Pull-to-refresh call sites want these two, not that.
+    refetchListings: listingsQuery.refetch,
+    isRefetchingListings: listingsQuery.isRefetching,
     statusCounts: statusCountsQuery.data ?? {},
     isStatusCountsLoading: statusCountsQuery.isLoading,
     update,

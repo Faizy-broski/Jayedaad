@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PAKISTAN_CITIES, Project, ProjectStatus, formatPrice, useInfiniteProjectsViewModel } from '@jayedaad/core';
-import { PickerField, theme } from '@jayedaad/ui-native';
+import { PAKISTAN_CITIES, Project, ProjectStatus, useFormattedPrice, useInfiniteProjectsViewModel } from '@jayedaad/core';
+import { PickerField, refreshControlProps, Spinner, theme } from '@jayedaad/ui-native';
 import { ProjectFilterSheet } from '../components/ProjectFilterSheet';
 import { RangeFilterField } from '../components/RangeFilterField';
 import { AREA_UNITS } from '../lib/searchFilters';
@@ -20,15 +20,21 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
   draft: 'Draft',
 };
 
-function priceRangeLabel(project: Project): string | null {
+// Was calling the plain, PKR-only formatPrice() export — every listing
+// price display goes through useFormattedPrice()'s currency-aware format()
+// (see ListingDetailScreen's SimilarCard for the same per-card pattern),
+// but project prices never got that same treatment, so they ignored the
+// user's preferredCurrency setting entirely.
+function priceRangeLabel(project: Project, format: (amount: number) => string): string | null {
   if (!project.priceRange) return null;
   const { min, max } = project.priceRange;
-  if (min === max) return formatPrice(min);
-  return `${formatPrice(min)} – ${formatPrice(max)}`;
+  if (min === max) return format(min);
+  return `${format(min)} – ${format(max)}`;
 }
 
 function ProjectCard({ project, onPress }: { project: Project; onPress: () => void }) {
-  const price = priceRangeLabel(project);
+  const { format } = useFormattedPrice();
+  const price = priceRangeLabel(project, format);
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -66,9 +72,15 @@ export function ProjectsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [filters, setFilters] = useState<ProjectFilterState>(DEFAULT_PROJECT_FILTERS);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
-  const { projects, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteProjectsViewModel(
-    toProjectSearchFilters(filters),
-  );
+  const {
+    projects,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isRefetching,
+  } = useInfiniteProjectsViewModel(toProjectSearchFilters(filters));
 
   function set<K extends keyof ProjectFilterState>(key: K, val: ProjectFilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: val }));
@@ -132,6 +144,7 @@ export function ProjectsScreen() {
         data={projects}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
         ListEmptyComponent={!isLoading ? <Text style={styles.empty}>No projects match your filters.</Text> : null}
         renderItem={({ item }) => (
           <ProjectCard project={item} onPress={() => navigation.navigate('ProjectDetail', { projectSlug: item.slug })} />
@@ -140,7 +153,7 @@ export function ProjectsScreen() {
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) fetchNextPage();
         }}
-        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={theme.colors.primary} /> : null}
+        ListFooterComponent={isFetchingNextPage ? <Spinner style={styles.footerLoader} /> : null}
       />
     </SafeAreaView>
   );

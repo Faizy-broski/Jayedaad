@@ -17,13 +17,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import {
   COUNTRIES,
-  formatPrice,
   getMaxPhoneDigits,
   contactRepository,
   Project,
   ProjectStatus,
   ProjectVerificationStatus,
   useAuthViewModel,
+  useFormattedPrice,
   usePublicProjectDetailViewModel,
   useProjectsViewModel,
 } from '@jayedaad/core';
@@ -58,11 +58,16 @@ function humanizeCategory(slug: string): string {
   return slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function priceRangeLabel(project: Project): string | null {
+// Was calling the plain, PKR-only formatPrice() export instead of
+// useFormattedPrice()'s currency-aware format() — every listing price on
+// this screen (and ListingDetailScreen's own SimilarCard) already goes
+// through the hook, but project prices never got the same treatment, so
+// they silently ignored the user's preferredCurrency setting.
+function priceRangeLabel(project: Project, format: (amount: number) => string): string | null {
   if (!project.priceRange) return null;
   const { min, max } = project.priceRange;
-  if (min === max) return formatPrice(min);
-  return `${formatPrice(min)} – ${formatPrice(max)}`;
+  if (min === max) return format(min);
+  return `${format(min)} – ${format(max)}`;
 }
 
 function formatPossessionDate(iso: string): string {
@@ -78,6 +83,7 @@ export function ProjectDetailScreen() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryIntent, setEnquiryIntent] = useState<'inquiry' | 'visit'>('inquiry');
+  const { format } = useFormattedPrice();
 
   if (isLoading || !project) {
     return (
@@ -87,7 +93,7 @@ export function ProjectDetailScreen() {
     );
   }
 
-  const price = priceRangeLabel(project);
+  const price = priceRangeLabel(project, format);
   const amenitiesByCategory = (project.amenities ?? []).reduce<Record<string, NonNullable<Project['amenities']>>>(
     (acc, a) => {
       (acc[a.category] ??= []).push(a);
@@ -167,8 +173,8 @@ export function ProjectDetailScreen() {
                       {(unit.priceMin || unit.priceMax) && (
                         <Text style={styles.unitPrice}>
                           {unit.priceMin && unit.priceMax && unit.priceMin !== unit.priceMax
-                            ? `${formatPrice(Number(unit.priceMin))} – ${formatPrice(Number(unit.priceMax))}`
-                            : formatPrice(Number(unit.priceMin ?? unit.priceMax))}
+                            ? `${format(Number(unit.priceMin))} – ${format(Number(unit.priceMax))}`
+                            : format(Number(unit.priceMin ?? unit.priceMax))}
                         </Text>
                       )}
                     </View>
@@ -475,7 +481,8 @@ function DeveloperContactIcons({
 }
 
 function SimilarCard({ project, onPress }: { project: Project; onPress: () => void }) {
-  const price = priceRangeLabel(project);
+  const { format } = useFormattedPrice();
+  const price = priceRangeLabel(project, format);
   return (
     <Pressable style={styles.similarCard} onPress={onPress}>
       <View style={styles.similarImageWrap}>

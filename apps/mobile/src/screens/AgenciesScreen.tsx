@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Image, Pressable, ScrollView, Text, TextInput as RNTextInput, View, StyleSheet } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, TextInput as RNTextInput, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import {
   useAgenciesViewModel,
   useAgencyCitiesViewModel,
 } from '@jayedaad/core';
-import { PickerField, theme } from '@jayedaad/ui-native';
+import { PickerField, refreshControlProps, theme } from '@jayedaad/ui-native';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 const PAGE_SIZE = 12;
@@ -30,12 +30,23 @@ export function AgenciesScreen() {
 
   const hasFilters = !!city || !!search;
 
-  const { agencies, total, isLoading } = useAgenciesViewModel(
+  const { agencies, total, isLoading, refetch, isRefetching } = useAgenciesViewModel(
     hasFilters ? { city: city || undefined, search: search || undefined, page, pageSize: PAGE_SIZE } : { page: 1, pageSize: 1 },
   );
-  const { agencies: titanium, isLoading: isTitaniumLoading } = useAgenciesViewModel({ tier: 'titanium', pageSize: 10 });
-  const { agencies: featured, isLoading: isFeaturedLoading } = useAgenciesViewModel({ tier: 'featured', pageSize: 8 });
+  const {
+    agencies: titanium,
+    isLoading: isTitaniumLoading,
+    refetch: refetchTitanium,
+    isRefetching: isRefetchingTitanium,
+  } = useAgenciesViewModel({ tier: 'titanium', pageSize: 10 });
+  const {
+    agencies: featured,
+    isLoading: isFeaturedLoading,
+    refetch: refetchFeatured,
+    isRefetching: isRefetchingFeatured,
+  } = useAgenciesViewModel({ tier: 'featured', pageSize: 8 });
   const { cities, isLoading: isCitiesLoading } = useAgencyCitiesViewModel();
+  const isRefetchingCurated = isRefetchingTitanium || isRefetchingFeatured;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -104,6 +115,7 @@ export function AgenciesScreen() {
               keyExtractor={(a) => a.id}
               renderItem={({ item }) => renderAgencyRow(item)}
               contentContainerStyle={styles.list}
+              refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
               ListEmptyComponent={<Text style={styles.empty}>No agencies match your filters.</Text>}
             />
           )}
@@ -120,7 +132,19 @@ export function AgenciesScreen() {
           )}
         </>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetchingCurated}
+              onRefresh={() => {
+                refetchTitanium();
+                refetchFeatured();
+              }}
+              {...refreshControlProps()}
+            />
+          }
+        >
           {!isTitaniumLoading && titanium.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Titanium Agencies</Text>

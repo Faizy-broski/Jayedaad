@@ -306,6 +306,12 @@ export default function UsersPage() {
                             <span className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
                             {roleLabel(user.role)}
                           </span>
+                          {user.suspendedAt && (
+                            <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                              <Ban className="h-2.5 w-2.5" />
+                              Suspended
+                            </span>
+                          )}
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1 truncate">
@@ -333,14 +339,17 @@ export default function UsersPage() {
                           </option>
                         ))}
                       </Select>
-                      <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, false)}>
-                        <Ban className="mr-1 h-3.5 w-3.5" />
-                        Suspend
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, true)}>
-                        <UserCheck className="mr-1 h-3.5 w-3.5" />
-                        Unsuspend
-                      </Button>
+                      {user.suspendedAt ? (
+                        <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, true)}>
+                          <UserCheck className="mr-1 h-3.5 w-3.5" />
+                          Unsuspend
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleSuspendToggle(user, false)}>
+                          <Ban className="mr-1 h-3.5 w-3.5" />
+                          Suspend
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleDelete(user.id, user.email)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

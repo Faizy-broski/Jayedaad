@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
+import { getDisplayName, useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import logoImage from '../../assets/images/jayedaad.webp';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -64,7 +64,7 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
     }).start();
   }, [visible, translateX]);
 
-  const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Guest';
+  const displayName = getDisplayName(user);
 
   function go(route: keyof (RootStackParamList & BottomTabParamList), params?: any) {
     onClose();

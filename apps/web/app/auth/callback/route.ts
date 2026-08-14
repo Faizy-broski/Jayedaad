@@ -58,6 +58,14 @@ export async function GET(request: NextRequest) {
       response.headers.set('location', `${origin}${target}`);
       return response;
     }
+    // "User is banned" (AuthApiError code user_banned — confirmed
+    // empirically against this project) is the same rejection
+    // signInWithPassword returns for a suspended account; distinguished
+    // here so login/page.tsx can show the real reason instead of a flat
+    // "sign-in failed".
+    if (/banned/i.test(error.message)) {
+      return NextResponse.redirect(`${origin}/login?error=banned`);
+    }
   }
 
   return NextResponse.redirect(`${origin}/login?error=oauth_failed`);

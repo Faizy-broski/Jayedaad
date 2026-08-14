@@ -10,3 +10,4 @@ export * from './Checkbox';
 export * from './Accordion';
 export * from './Dialog';
 export * from './Badge';
+export * from './Spinner';

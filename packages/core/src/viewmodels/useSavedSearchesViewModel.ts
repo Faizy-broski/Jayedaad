@@ -36,6 +36,8 @@ export function useSavedSearchesViewModel() {
   return {
     savedSearches: savedSearchesQuery.data ?? [],
     isLoading: savedSearchesQuery.isLoading,
+    refetch: savedSearchesQuery.refetch,
+    isRefetching: savedSearchesQuery.isRefetching,
     create,
     remove,
     updateAlertFrequency,

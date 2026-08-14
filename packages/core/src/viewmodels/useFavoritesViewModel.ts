@@ -27,6 +27,8 @@ export function useFavoritesViewModel() {
   return {
     favorites: favoritesQuery.data ?? [],
     isLoading: favoritesQuery.isLoading,
+    refetch: favoritesQuery.refetch,
+    isRefetching: favoritesQuery.isRefetching,
     add,
     remove,
   };

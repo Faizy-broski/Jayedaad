@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { Alert, Modal, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,7 @@ import {
   useMyListingsViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
-import { Button, PickerField, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { Button, PickerField, refreshControlProps, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
 const PURPOSE_OPTIONS: { id: ListingPurpose | ''; label: string }[] = [
@@ -59,19 +59,26 @@ export function MyPropertiesScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'MyProperties'>>();
   const [topTab, setTopTab] = useState<TopTab>(route.params?.initialTab ?? 'uploaded');
 
+  const addProperty = () => navigation.navigate('PostListing');
+
   return (
     <View style={styles.root}>
       {/* Clean Header Area */}
       <View style={styles.headerRow}>
         <Tabs tabs={TOP_TABS} activeId={topTab} onChange={(id) => setTopTab(id as TopTab)} />
-        <Text style={styles.selectLink}>Select</Text>
+        {/* Previously the only way to add a property was EmptyState's "Post
+            an Ad" button, which only renders once a tab/filter combo has
+            zero results — anyone with existing listings had no way to add
+            another one from this screen at all. That was a bare unlabeled
+            "+" circle next to a "Select" label that did nothing — replaced
+            with one real, legible button. */}
+        <Pressable style={styles.addButton} onPress={addProperty}>
+          <Ionicons name="add" size={16} color={theme.colors.bg} />
+          <Text style={styles.addButtonText}>Add Post</Text>
+        </Pressable>
       </View>
 
-      {topTab === 'uploaded' ? (
-        <UploadedTab onAddProperty={() => navigation.navigate('PostListing')} />
-      ) : (
-        <DraftsTab onAddProperty={() => navigation.navigate('PostListing')} />
-      )}
+      {topTab === 'uploaded' ? <UploadedTab onAddProperty={addProperty} /> : <DraftsTab onAddProperty={addProperty} />}
     </View>
   );
 }
@@ -110,7 +117,18 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
     purpose: applied.purpose || undefined,
   };
 
-  const { listings, isLoading, isError, remove, boost, renew, refresh, postStory } = useMyListingsViewModel(filters);
+  const {
+    listings,
+    isLoading,
+    isError,
+    remove,
+    boost,
+    renew,
+    refresh,
+    postStory,
+    refetchListings,
+    isRefetchingListings,
+  } = useMyListingsViewModel(filters);
   const { format: formatPrice } = useFormattedPrice();
   const { role } = useAuthViewModel();
   // Pre-flight balance so Hot/Super Hot/Refresh/Story buttons can show
@@ -208,8 +226,20 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   }
 
   return (
-    <View style={styles.flex}>
-      
+    // Filters + status pills used to sit outside this ScrollView, permanently
+    // pinned above the list — that ate a fixed chunk of screen height on
+    // every scroll and felt disjointed from the content they filter. They're
+    // now part of the same scrollable content as the list itself, so the
+    // whole screen scrolls as one smooth surface (and they still show up
+    // above the loading/error/empty states, not just the populated list).
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isRefetchingListings} onRefresh={() => refetchListings()} {...refreshControlProps()} />
+      }
+    >
       {/* Modern Seamless Filter Bar */}
       <View style={styles.filterBar}>
         <TextInput
@@ -293,10 +323,10 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
           onAddProperty={onAddProperty}
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        <View style={styles.list}>
           {listings.map((listing) => (
             <View key={listing.id} style={styles.card}>
-              
+
               <View style={styles.cardHeader}>
                 <Pressable style={styles.idBadge} onPress={() => handleCopyId(listing.listingNumber)}>
                   <Ionicons name="copy-outline" size={12} color={theme.colors.muted} />
@@ -332,8 +362,14 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
               )}
 
               <View style={styles.cardDivider} />
-              
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowActions}>
+
+              {/* Was a horizontal ScrollView with showsHorizontalScrollIndicator={false}
+                  — Delete (last in the row) needed an undiscoverable swipe to
+                  even find, with zero visual hint anything was off-screen.
+                  Wrapping instead of scrolling means every action is always
+                  visible without hunting for it, even if the card grows a
+                  line taller. */}
+              <View style={styles.rowActions}>
                 <Pressable style={styles.actionButton} onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}>
                   <Ionicons name="eye-outline" size={16} color={theme.colors.primary} />
                   <Text style={styles.actionTextPrimary} numberOfLines={1}>View</Text>
@@ -366,42 +402,22 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     Listing ID search clears the status filter server-side
                     (a match can be any status), so gating on the tab would
                     show Boost for a non-verified row whenever the default
-                    'verified' tab is active during a search. */}
+                    'verified' tab is active during a search.
+                    Was 4 separate buttons (Hot/Super Hot/Refresh/Story) —
+                    on a verified listing that made this row 7-8 buttons
+                    wide, and with showsHorizontalScrollIndicator={false}
+                    there was no visible hint that Delete (the last button)
+                    even existed off-screen to the right. One "Boost" menu
+                    now covers all 4 credit actions. */}
                 {listing.status === 'verified' && (
-                  <>
-                    <Pressable
-                      style={styles.actionButton}
-                      disabled={boost.isPending || creditsAvailable('hot') <= 0}
-                      onPress={() => handleBoost(listing.id, 'hot')}
-                    >
-                      <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Hot ({creditsAvailable('hot')})</Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.actionButton}
-                      disabled={boost.isPending || creditsAvailable('super_hot') <= 0}
-                      onPress={() => handleBoost(listing.id, 'super_hot')}
-                    >
-                      <Ionicons name="flame-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Super Hot ({creditsAvailable('super_hot')})</Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.actionButton}
-                      disabled={refresh.isPending || creditsAvailable('refresh') <= 0}
-                      onPress={() => handleRefresh(listing.id)}
-                    >
-                      <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Refresh ({creditsAvailable('refresh')})</Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.actionButton}
-                      disabled={postStory.isPending || creditsAvailable('story') <= 0}
-                      onPress={() => handlePostStory(listing.id)}
-                    >
-                      <Ionicons name="film-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionTextPrimary} numberOfLines={1}>Story ({creditsAvailable('story')})</Text>
-                    </Pressable>
-                  </>
+                  <BoostMenu
+                    creditsAvailable={creditsAvailable}
+                    isPending={boost.isPending || refresh.isPending || postStory.isPending}
+                    onHot={() => handleBoost(listing.id, 'hot')}
+                    onSuperHot={() => handleBoost(listing.id, 'super_hot')}
+                    onRefresh={() => handleRefresh(listing.id)}
+                    onStory={() => handlePostStory(listing.id)}
+                  />
                 )}
 
                 {listing.status === 'expired' && (
@@ -419,19 +435,27 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   <Ionicons name="trash-outline" size={16} color={DESTRUCTIVE_COLOR} />
                   <Text style={styles.actionTextDestructive} numberOfLines={1}>Delete</Text>
                 </Pressable>
-              </ScrollView>
+              </View>
 
             </View>
           ))}
-        </ScrollView>
+        </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { listings, isLoading, isError, remove, submitForVerification } = useMyListingsViewModel({
+  const {
+    listings,
+    isLoading,
+    isError,
+    remove,
+    submitForVerification,
+    refetchListings,
+    isRefetchingListings,
+  } = useMyListingsViewModel({
     status: 'draft',
     page: 1,
     pageSize: 20,
@@ -509,7 +533,13 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.list}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isRefetchingListings} onRefresh={() => refetchListings()} {...refreshControlProps()} />
+      }
+    >
       {listings.map((listing) => (
         <View key={listing.id} style={styles.card}>
           <View style={styles.cardHeader}>
@@ -527,7 +557,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
 
           <View style={styles.cardDivider} />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowActions}>
+          <View style={styles.rowActions}>
             <Pressable
               style={styles.actionButton}
               onPress={() => navigation.navigate('PostListing', { editListingId: listing.id })}
@@ -563,7 +593,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               <Ionicons name="trash-outline" size={16} color={DESTRUCTIVE_COLOR} />
               <Text style={styles.actionTextDestructive} numberOfLines={1}>Delete</Text>
             </Pressable>
-          </ScrollView>
+          </View>
         </View>
       ))}
     </ScrollView>
@@ -585,15 +615,91 @@ function EmptyState({ heading, message, onAddProperty }: { heading: string; mess
   );
 }
 
+// Consolidates the Hot/Super Hot/Refresh/Story credit-spend actions that
+// used to be 4 separate buttons in the row's horizontal ScrollView — see
+// the comment at this component's call site for why that hid Delete
+// off-screen. A plain RN Modal (unlike a position:absolute dropdown) is
+// unaffected by this row's own layout/scroll — it always renders above
+// everything, no special positioning needed.
+function BoostMenu({
+  creditsAvailable,
+  isPending,
+  onHot,
+  onSuperHot,
+  onRefresh,
+  onStory,
+}: {
+  creditsAvailable: (type: AgentCreditType) => number;
+  isPending: boolean;
+  onHot: () => void;
+  onSuperHot: () => void;
+  onRefresh: () => void;
+  onStory: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const items: { key: AgentCreditType; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void }[] = [
+    { key: 'hot', label: 'Hot', icon: 'sparkles-outline', onPress: onHot },
+    { key: 'super_hot', label: 'Super Hot', icon: 'flame-outline', onPress: onSuperHot },
+    { key: 'refresh', label: 'Refresh', icon: 'refresh-outline', onPress: onRefresh },
+    { key: 'story', label: 'Story', icon: 'film-outline', onPress: onStory },
+  ];
+
+  return (
+    <>
+      <Pressable style={styles.actionButton} onPress={() => setOpen(true)}>
+        <Ionicons name="flash-outline" size={16} color={theme.colors.primary} />
+        <Text style={styles.actionTextPrimary} numberOfLines={1}>Boost</Text>
+      </Pressable>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.boostBackdrop} onPress={() => setOpen(false)}>
+          <Pressable style={styles.boostSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.boostTitle}>Boost this listing</Text>
+            {items.map((item) => {
+              const available = creditsAvailable(item.key);
+              const disabled = isPending || available <= 0;
+              return (
+                <Pressable
+                  key={item.key}
+                  disabled={disabled}
+                  style={[styles.boostRow, disabled && styles.boostRowDisabled]}
+                  onPress={() => {
+                    item.onPress();
+                    setOpen(false);
+                  }}
+                >
+                  <Ionicons name={item.icon} size={18} color={theme.colors.primary} />
+                  <Text style={styles.boostRowLabel}>{item.label}</Text>
+                  <Text style={styles.boostRowCount}>{available} left</Text>
+                </Pressable>
+              );
+            })}
+            <Pressable style={styles.boostCancel} onPress={() => setOpen(false)}>
+              <Text style={styles.boostCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
     backgroundColor: theme.colors.bg // Clean edge-to-edge white
   },
-  flex: { 
-    flex: 1 
+  flex: {
+    flex: 1
   },
-  
+  // flexGrow (not just the ScrollView's own flex:1) so loadingContainer/
+  // empty's flex:1 centering below still works now that they're content
+  // inside the scroll view rather than a sibling occupying the remaining
+  // screen space directly.
+  scrollContent: {
+    flexGrow: 1,
+  },
+
   // Header
   headerRow: {
     flexDirection: 'row',
@@ -603,10 +709,19 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
-  selectLink: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: theme.colors.mutedLight 
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.primary,
+  },
+  addButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.bg,
   },
   
   // Modern Filter Bar
@@ -617,25 +732,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, 
     borderBottomColor: theme.colors.surfaceAlt 
   },
-  flatInput: { 
-    height: 52,
-    backgroundColor: theme.colors.surface, 
-    borderRadius: 12, 
-    borderWidth: 0, // Removes harsh borders
-    paddingHorizontal: 16,
-    marginBottom: 0,
-  },
-  filterRow2: { 
-    flexDirection: 'row', 
-    gap: 12 
-  },
-  pickerWrapper: { 
-    flex: 1,
+  flatInput: {
     height: 52,
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
-    justifyContent: 'center',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    paddingHorizontal: 16,
+    marginBottom: 0,
+  },
+  filterRow2: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  // Previously wrapped PickerField in its own 52px/surface-background/
+  // overflow:hidden box on top of PickerField's own bordered trigger
+  // (which doesn't stretch to fill a taller parent) — that produced a
+  // mismatched inner-box-inside-a-box look. PickerField already renders a
+  // complete bordered field on its own (same as every other picker in the
+  // app, e.g. PostListingScreen) — this wrapper now only controls layout.
+  pickerWrapper: {
+    flex: 1,
   },
   filterActionsRow: { 
     flexDirection: 'row', 
@@ -789,7 +906,9 @@ const styles = StyleSheet.create({
   },
   rowActions: {
     flexDirection: 'row',
-    gap: 18,
+    flexWrap: 'wrap',
+    rowGap: 10,
+    columnGap: 16,
   },
   actionButton: {
     flexDirection: 'row',
@@ -802,12 +921,64 @@ const styles = StyleSheet.create({
     fontWeight: '600', 
     color: theme.colors.primary 
   },
-  actionTextDestructive: { 
-    fontSize: 13, 
-    fontWeight: '600', 
-    color: DESTRUCTIVE_COLOR 
+  actionTextDestructive: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: DESTRUCTIVE_COLOR
   },
-  
+
+  // Boost menu (replaces the old 4-separate-buttons Hot/Super Hot/Refresh/Story row)
+  boostBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  boostSheet: {
+    backgroundColor: theme.colors.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+  },
+  boostTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 12,
+  },
+  boostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceAlt,
+  },
+  boostRowDisabled: {
+    opacity: 0.4,
+  },
+  boostRowLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  boostRowCount: {
+    fontSize: 13,
+    color: theme.colors.muted,
+  },
+  boostCancel: {
+    marginTop: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  boostCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.muted,
+  },
+
   // Empty State Hero
   empty: { 
     flex: 1, 

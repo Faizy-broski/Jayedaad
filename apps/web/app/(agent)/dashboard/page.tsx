@@ -147,7 +147,12 @@ export default function AgentDashboardPage() {
   // and their sales associates" (Document Verification Phase 3).
   const { analytics: agencyAnalytics } = useAgencyAnalyticsViewModel(profile?.isAgencyAdmin ? profile.agency?.id : undefined);
 
-  const displayName = profile?.displayName || (user?.user_metadata?.display_name as string | undefined) || 'there';
+  // Deliberately not getDisplayName() here — this greeting never wants a raw
+  // email as a last resort (falls to 'there' instead), only real names.
+  const oauthName =
+    (user?.user_metadata?.full_name as string | undefined) || (user?.user_metadata?.name as string | undefined);
+  const displayName =
+    profile?.displayName || (user?.user_metadata?.display_name as string | undefined) || oauthName || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

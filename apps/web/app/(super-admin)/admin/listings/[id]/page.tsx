@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ListingDocumentType, ListingStatus, formatPrice, listingsRepository, useAdminListingDetailViewModel } from '@jayedaad/core';
-import { Badge, cn, Select } from '@jayedaad/ui-web';
+import { Badge, Button, cn, Select } from '@jayedaad/ui-web';
 import {
   ArrowLeft,
   Bath,
@@ -21,6 +21,7 @@ import {
   Ruler,
   Sofa,
   Tag,
+  Trash2,
   User,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
@@ -101,6 +102,20 @@ export default function AdminListingDetailPage() {
     toast.success('Listing ID copied.');
   }
 
+  // Same soft-delete the list page's dedicated Delete button now uses
+  // (setStatus → 'deleted') — this detail page only ever had the "Override
+  // status…" dropdown, with 'deleted' buried as one of many options.
+  function handleDelete() {
+    if (!listing || !confirm(`Delete "${listing.title}"? It will move to the Deleted tab.`)) return;
+    setStatus.mutate(
+      { status: 'deleted' },
+      {
+        onSuccess: () => toast.success('Listing deleted.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -163,19 +178,33 @@ export default function AdminListingDetailPage() {
 
           <div className="flex flex-col items-end gap-2">
             <p className="text-2xl font-bold text-foreground">{formatPrice(Number(listing.price))}</p>
-            <Select
-              value=""
-              onChange={(e) => handleOverride(e.target.value as ListingStatus)}
-              disabled={setStatus.isPending}
-              className="h-9 w-auto rounded-full px-4 text-xs"
-            >
-              <option value="">Override status…</option>
-              {OVERRIDE_STATUSES.filter((s) => s !== listing.status).map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_BADGE[s].label}
-                </option>
-              ))}
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select
+                value=""
+                onChange={(e) => handleOverride(e.target.value as ListingStatus)}
+                disabled={setStatus.isPending}
+                className="h-9 w-auto rounded-full px-4 text-xs"
+              >
+                <option value="">Override status…</option>
+                {OVERRIDE_STATUSES.filter((s) => s !== listing.status).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_BADGE[s].label}
+                  </option>
+                ))}
+              </Select>
+              {listing.status !== 'deleted' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10"
+                  disabled={setStatus.isPending}
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Reveal>

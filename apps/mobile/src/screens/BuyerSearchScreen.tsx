@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View, StyleSheet } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteListingSearchViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
-import { PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { PickerField, refreshControlProps, Spinner, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
-import { PropertyListCard } from '../components/PropertyListCard';
+import { PropertyCard } from '../components/PropertyCard';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
 import { DEFAULT_SEARCH_FILTERS, SearchFilterState, SORT_OPTIONS, toListingSearchFilters } from '../lib/searchFilters';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
@@ -49,7 +49,16 @@ export function BuyerSearchScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [listingNumberInput, setListingNumberInput] = useState('');
   const [listingNumber, setListingNumber] = useState<number | undefined>(undefined);
-  const { listings, isLoading, error, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel({
+  const {
+    listings,
+    isLoading,
+    error,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isRefetching,
+  } = useInfiniteListingSearchViewModel({
     ...toListingSearchFilters(filters),
     listingNumber,
   });
@@ -131,9 +140,14 @@ export function BuyerSearchScreen() {
         data={listings}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
         ListEmptyComponent={!isLoading && !error ? <Text style={styles.empty}>No verified listings yet.</Text> : null}
         renderItem={({ item }) => (
-          <PropertyListCard
+          // Same large image-card treatment as HomeScreen's Featured/Recent
+          // properties (PropertyCard) — this used to be PropertyListCard's
+          // compact thumbnail row, a different, more cramped shape than the
+          // rest of the app uses for listing results.
+          <PropertyCard
             listing={item}
             onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
           />
@@ -142,7 +156,7 @@ export function BuyerSearchScreen() {
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) fetchNextPage();
         }}
-        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={theme.colors.primary} /> : null}
+        ListFooterComponent={isFetchingNextPage ? <Spinner style={styles.footerLoader} /> : null}
       />
     </SafeAreaView>
   );

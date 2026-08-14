@@ -146,9 +146,9 @@ export class ProjectsController {
 
   // Full-page-form edit — self-scoped to the agent's own project (or
   // super_admin, any), same shape as ListingsController.update. Editing a
-  // verified/rejected project resets it to 'pending' (see
-  // ProjectsRepository.update) — real-time changes always go back to Super
-  // Admin for re-review, matching how a listing edit works.
+  // rejected project resets it to 'pending' for re-review (see
+  // ProjectsRepository.update); a verified project keeps its status
+  // through edits instead.
   @UseGuards(ScopeGuard)
   @Roles('agent', 'super_admin')
   @Patch(':id')
@@ -157,10 +157,13 @@ export class ProjectsController {
     return this.projects.update(id, body);
   }
 
-  // Self-scoped like update() above, plus one extra rule: an agent can only
-  // delete their own project before it's been approved — once
-  // verification_status is 'verified' it's live/public, so removing it
-  // becomes a Super Admin call, not a unilateral agent one.
+  // Self-scoped like update() above — an agent may delete their own project
+  // at any verification status, same freedom ListingsController.remove()
+  // already gives listings (no equivalent "once verified" restriction
+  // there). Previously an agent couldn't delete their own project once it
+  // was verified/live at all, only a Super Admin could; that asymmetry
+  // with listings was the actual bug, not a deliberate safeguard worth
+  // keeping.
   @UseGuards(ScopeGuard)
   @Roles('agent', 'super_admin')
   @Delete(':id')
@@ -181,12 +184,9 @@ export class ProjectsController {
 
   private async assertCanDeleteProject(req: any, id: string) {
     if (req.user.role === 'super_admin') return;
-    const { createdBy, verificationStatus } = await this.projects.getOwnership(id);
+    const { createdBy } = await this.projects.getOwnership(id);
     if (createdBy !== req.user.id) {
       throw new ForbiddenException('Cannot delete a project you did not create');
-    }
-    if (verificationStatus === 'verified') {
-      throw new ForbiddenException('Cannot delete an approved project — contact a Super Admin');
     }
   }
 

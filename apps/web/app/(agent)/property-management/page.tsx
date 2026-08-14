@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -17,13 +18,14 @@ import {
   useFormattedPrice,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
-import { Button, Card, CardContent, DateRange, DateRangePicker, Input, Select } from '@jayedaad/ui-web';
+import { Button, Card, CardContent, DateRange, DateRangePicker, Input, Pagination, Select, Table, TableColumn } from '@jayedaad/ui-web';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Reveal } from '@/components/Reveal';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import {
   Building2,
+  ChevronDown,
   Copy,
   Eye,
   FileCheck2,
@@ -37,6 +39,7 @@ import {
   SlidersHorizontal,
   Trash2,
   X,
+  Zap,
 } from 'lucide-react';
 
 // Same set the server enforces (REQUIRED_LISTING_DOCUMENT_TYPES in
@@ -322,6 +325,148 @@ export default function PropertyManagementPage() {
 
   const activeTabLabel = STATUS_TABS.find((t) => t.id === activeTab)?.label ?? '';
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // A real table (same Table/TableColumn primitive ProjectsListView.tsx
+  // already uses for its own agent/admin listing management) instead of
+  // the previous card-per-listing layout — Property ID and Location get
+  // their own header once, not re-labeled inside every single row, and a
+  // column's width is shared/consistent down the whole list rather than
+  // each card negotiating space against its own action buttons.
+  const columns: TableColumn<(typeof listings)[number]>[] = [
+    {
+      key: 'property',
+      header: 'Property',
+      render: (listing) => {
+        const status = STATUS_BADGE[listing.status];
+        return (
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Building2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="max-w-[220px] truncate text-sm font-semibold text-foreground">{listing.title}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}>{status.label}</span>
+                {listing.boostTier !== 'basic' && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                    {listing.boostTier === 'super_hot' ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                    {listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
+                  </span>
+                )}
+                {listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
+                  <span className="flex items-center gap-1 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[11px] font-medium text-fuchsia-700">
+                    <Clapperboard className="h-3 w-3" />
+                    Story
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'propertyId',
+      header: 'Property ID',
+      render: (listing) => (
+        <button
+          type="button"
+          onClick={() => handleCopyId(listing.listingNumber)}
+          title="Copy Listing ID"
+          className="flex items-center gap-1 font-mono text-sm font-bold text-foreground hover:text-primary"
+        >
+          {formatListingCode(listing.listingNumber)}
+          <Copy className="h-3 w-3" />
+        </button>
+      ),
+    },
+    {
+      key: 'location',
+      header: 'Location',
+      render: (listing) => (
+        <span className="flex items-center gap-1 text-sm text-foreground">
+          <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+          {listing.area}, {listing.city}
+        </span>
+      ),
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      render: (listing) => <span className="text-sm font-semibold text-foreground">{formatPrice(Number(listing.price))}</span>,
+    },
+    {
+      key: 'expires',
+      header: 'Expires',
+      render: (listing) =>
+        listing.status === 'verified' && listing.expiresAt ? (
+          <span className="text-sm text-muted-foreground">
+            {new Date(listing.expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      className: 'text-right',
+      render: (listing) => (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link href={`/submit?edit=${listing.id}`}>
+            <Button variant="outline" size="sm">
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              View / Edit
+            </Button>
+          </Link>
+          {/* Re-entry point for ownership proof/utility bill — was promised
+              in submit/documents/page.tsx's own copy ("you can also do this
+              later from My Properties") but never actually existed here;
+              mobile's MyPropertiesScreen already has this. Owner and
+              independent-agent listings only — an agency-affiliated
+              agent's listing is exempt. */}
+          {!listing.agent?.agency && (
+            <Link href={`/submit/documents?listingId=${listing.id}`}>
+              <Button variant="outline" size="sm">
+                <FileCheck2 className="mr-1.5 h-3.5 w-3.5" />
+                Documents
+              </Button>
+            </Link>
+          )}
+          {activeTab === 'draft' && (
+            <Button size="sm" disabled={submitForVerification.isPending} onClick={() => handleSubmitForVerification(listing)}>
+              Submit
+            </Button>
+          )}
+          {listing.status === 'verified' && (
+            <CreditsMenu
+              creditsAvailable={creditsAvailable}
+              isPending={boost.isPending || refresh.isPending || postStory.isPending}
+              onHot={() => handleBoost(listing.id, 'hot')}
+              onSuperHot={() => handleBoost(listing.id, 'super_hot')}
+              onRefresh={() => handleRefresh(listing.id)}
+              onStory={() => handlePostStory(listing.id)}
+            />
+          )}
+          {listing.status === 'expired' && (
+            <Button size="sm" disabled={renew.isPending} onClick={() => handleRenew(listing.id)}>
+              Renew
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:bg-destructive/10"
+            disabled={remove.isPending}
+            onClick={() => handleDelete(listing.id, listing.title)}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -628,199 +773,148 @@ export default function PropertyManagementPage() {
 
       {!isLoading && listings.length > 0 && (
         <>
-          <ul className="space-y-3">
-            <AnimatePresence initial={false}>
-              {listings.map((listing, index) => {
-                const status = STATUS_BADGE[listing.status];
-                return (
-                  <motion.li
-                    key={listing.id}
-                    layout
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-                    transition={{ duration: 0.25, delay: Math.min(index, 6) * 0.04 }}
-                    whileHover={{ y: -2 }}
-                    className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
-                  >
-                    {/* items-start, not items-center — the button column
-                        (right) can now wrap onto 2-3 lines (see its own
-                        comment below), and center-aligning it against the
-                        info column (left) made the now-taller button block
-                        drift upward and visually overlap the title/price
-                        above it instead of sitting level with the card's top. */}
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                      <div className="flex min-w-0 flex-1 items-start gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <Building2 className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-semibold text-foreground">{listing.title}</p>
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}>
-                              {status.label}
-                            </span>
-                            {listing.boostTier !== 'basic' && (
-                              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                                {listing.boostTier === 'super_hot' ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-                                {listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
-                              </span>
-                            )}
-                            {listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
-                              <span className="flex items-center gap-1 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[11px] font-medium text-fuchsia-700">
-                                <Clapperboard className="h-3 w-3" />
-                                Story
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {listing.area}, {listing.city}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyId(listing.listingNumber)}
-                              title="Copy Listing ID"
-                              className="flex items-center gap-1 font-mono hover:text-foreground"
-                            >
-                              {formatListingCode(listing.listingNumber)}
-                              <Copy className="h-3 w-3" />
-                            </button>
-                            {listing.status === 'verified' && listing.expiresAt && (
-                              <span>
-                                Expires {new Date(listing.expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* No shrink-0 here (unlike the info column's icon,
-                          which does need it) — shrink-0 combined with
-                          flex-wrap lets the browser size this to its full
-                          unwrapped content width instead of constraining it
-                          to the card, so with 7 possible buttons (each
-                          lengthened further by the "(N)" credit counts)
-                          it overflowed the card and the viewport instead of
-                          actually wrapping onto a second line. */}
-                      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                        <span className="mr-1 text-sm font-semibold text-foreground">
-                          {formatPrice(Number(listing.price))}
-                        </span>
-                        <Link href={`/submit?edit=${listing.id}`}>
-                          <Button variant="outline" size="sm">
-                            <Eye className="mr-1.5 h-3.5 w-3.5" />
-                            View / Edit
-                          </Button>
-                        </Link>
-                        {/* Re-entry point for ownership proof/utility bill —
-                            was promised in submit/documents/page.tsx's own
-                            copy ("you can also do this later from My
-                            Properties") but never actually existed here;
-                            mobile's MyPropertiesScreen already has this.
-                            Owner and independent-agent listings only — an
-                            agency-affiliated agent's listing is exempt. */}
-                        {!listing.agent?.agency && (
-                          <Link href={`/submit/documents?listingId=${listing.id}`}>
-                            <Button variant="outline" size="sm">
-                              <FileCheck2 className="mr-1.5 h-3.5 w-3.5" />
-                              Documents
-                            </Button>
-                          </Link>
-                        )}
-                        {activeTab === 'draft' && (
-                          <Button
-                            size="sm"
-                            disabled={submitForVerification.isPending}
-                            onClick={() => handleSubmitForVerification(listing)}
-                          >
-                            Submit
-                          </Button>
-                        )}
-                        {listing.status === 'verified' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={boost.isPending || creditsAvailable('hot') <= 0}
-                              onClick={() => handleBoost(listing.id, 'hot')}
-                              title="Spend a Hot credit to feature this listing"
-                            >
-                              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                              Hot ({creditsAvailable('hot')})
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={boost.isPending || creditsAvailable('super_hot') <= 0}
-                              onClick={() => handleBoost(listing.id, 'super_hot')}
-                              title="Spend a Super Hot credit to feature this listing"
-                            >
-                              <Flame className="mr-1.5 h-3.5 w-3.5" />
-                              Super Hot ({creditsAvailable('super_hot')})
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={refresh.isPending || creditsAvailable('refresh') <= 0}
-                              onClick={() => handleRefresh(listing.id)}
-                              title="Spend a Refresh credit to bump this listing back to the top"
-                            >
-                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                              Refresh ({creditsAvailable('refresh')})
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={postStory.isPending || creditsAvailable('story') <= 0}
-                              onClick={() => handlePostStory(listing.id)}
-                              title="Spend a Story credit to feature this listing for 24 hours"
-                            >
-                              <Clapperboard className="mr-1.5 h-3.5 w-3.5" />
-                              Story ({creditsAvailable('story')})
-                            </Button>
-                          </>
-                        )}
-                        {listing.status === 'expired' && (
-                          <Button size="sm" disabled={renew.isPending} onClick={() => handleRenew(listing.id)}>
-                            Renew
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10"
-                          disabled={remove.isPending}
-                          onClick={() => handleDelete(listing.id, listing.title)}
-                        >
-                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </motion.li>
-                );
-              })}
-            </AnimatePresence>
-          </ul>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
-              </Button>
-            </div>
-          )}
+          <Table columns={columns} rows={listings} rowKey={(listing) => listing.id} />
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
     </div>
+  );
+}
+
+// Consolidates the Hot/Super Hot/Refresh/Story credit-spend actions that
+// used to be 4 separate buttons — with the "(N)" credit count appended to
+// each, they routinely wrapped the action row onto 2-3 lines and, on
+// narrower viewports, actually overflowed the card. One trigger + a
+// dropdown of the 4 options fixes that.
+//
+// Hand-rolled rather than reusing ui-web's <Select> — that's a value
+// picker (value/onChange over <option> children), not an action menu, and
+// these are 4 independent one-shot actions with their own icons/disabled
+// states, not a single selectable value. Still borrows Select's exact
+// fix for the same real bug: this list's rows are motion.li with a
+// whileHover transform, and a CSS transform on an ancestor creates a new
+// stacking context that traps a position:absolute dropdown inside that
+// row's own local z-order — see packages/ui-web/src/Select.tsx's comment
+// for the full explanation. Portaling to document.body with
+// position:fixed coordinates (from the trigger's own getBoundingClientRect)
+// sidesteps it the same way.
+function CreditsMenu({
+  creditsAvailable,
+  isPending,
+  onHot,
+  onSuperHot,
+  onRefresh,
+  onStory,
+}: {
+  creditsAvailable: (type: AgentCreditType) => number;
+  isPending: boolean;
+  onHot: () => void;
+  onSuperHot: () => void;
+  onRefresh: () => void;
+  onStory: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function updateRect() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.bottom + 6, left: r.right - 224, width: 224 });
+    }
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [open]);
+
+  const items: { key: AgentCreditType; label: string; icon: typeof Sparkles; onClick: () => void; title: string }[] = [
+    { key: 'hot', label: 'Hot', icon: Sparkles, onClick: onHot, title: 'Spend a Hot credit to feature this listing' },
+    {
+      key: 'super_hot',
+      label: 'Super Hot',
+      icon: Flame,
+      onClick: onSuperHot,
+      title: 'Spend a Super Hot credit to feature this listing',
+    },
+    {
+      key: 'refresh',
+      label: 'Refresh',
+      icon: RefreshCw,
+      onClick: onRefresh,
+      title: 'Spend a Refresh credit to bump this listing back to the top',
+    },
+    {
+      key: 'story',
+      label: 'Story',
+      icon: Clapperboard,
+      onClick: onStory,
+      title: 'Spend a Story credit to feature this listing for 24 hours',
+    },
+  ];
+
+  return (
+    <>
+      <Button ref={triggerRef} variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+        <Zap className="mr-1.5 h-3.5 w-3.5" />
+        Boost credits
+        <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </Button>
+      {rect &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', top: rect.top, left: rect.left, width: rect.width }}
+            className={`z-50 origin-top-right rounded-md border border-border bg-background p-1 shadow-lg transition-all duration-150 ease-out ${
+              open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0'
+            }`}
+          >
+            {items.map((item) => {
+              const available = creditsAvailable(item.key);
+              const disabled = isPending || available <= 0;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  title={item.title}
+                  disabled={disabled}
+                  onClick={() => {
+                    item.onClick();
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <item.icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{available} left</span>
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

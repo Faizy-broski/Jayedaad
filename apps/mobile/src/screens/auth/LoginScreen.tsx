@@ -22,10 +22,31 @@ function describeSignInError(error: unknown): string {
   if (/invalid login credentials/i.test(message)) {
     return 'Incorrect email or password.';
   }
+  // "User is banned" (AuthApiError, code user_banned — confirmed
+  // empirically against this project) is what a suspended account's
+  // sign-in attempt actually returns. Without this branch it fell through
+  // to the raw Supabase wording below, which isn't wrong but reads oddly
+  // next to this screen's other messages.
+  if (/user is banned/i.test(message)) {
+    return 'Your account has been suspended. Contact support if you think this is a mistake.';
+  }
   if (/supabase client not configured/i.test(message)) {
     return "The app isn't configured to reach our servers yet — this is a setup issue, not your credentials.";
   }
   return message || 'Something went wrong — check your connection and try again.';
+}
+
+// useGoogleSignIn/useAppleSignIn already pass through whatever raw
+// error/error_description Supabase puts on the redirect (better than
+// swallowing it), but a suspended account's ban rejection reads oddly
+// unrewritten next to this screen's other messages — same "banned" match as
+// describeSignInError above, just applied to the OAuth error string instead
+// of an Error object.
+function describeSocialError(message: string): string {
+  if (/banned/i.test(message)) {
+    return 'Your account has been suspended. Contact support if you think this is a mistake.';
+  }
+  return message;
 }
 
 // Full-bleed singup.webp behind a uniform white wash (rather than a
@@ -38,34 +59,77 @@ function describeSignInError(error: unknown): string {
 // requirement — Google and Apple ID sign-in on both platforms.
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
-  const { signIn } = useAuthViewModel();
+  const { signIn, sendOtp, refetchEmailVerified } = useAuthViewModel();
   const { signInWithGoogle, isPending: isGooglePending } = useGoogleSignIn();
   const { signInWithApple, isPending: isApplePending } = useAppleSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMeChecked] = useState(false);
+  const [rememberMe, setRememberMeChecked] = useState(true);
   const [socialError, setSocialError] = useState('');
+  // Covers the whole post-auth flow, not just signIn/isGooglePending/
+  // isApplePending — those flip back to false the instant their own
+  // mutation resolves, re-enabling the button while goToVerifyIfNeeded()
+  // (a real sendOtp network call) is still running underneath. A second
+  // tap in that window fired a genuine duplicate OTP send. Same fix web's
+  // login page already has via its own `redirecting` state.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // AuthGateProvider only auto-closes the sheet once isFullySatisfied
+  // (verified, no pending agency docs) — for a successful-but-unverified
+  // sign-in that effect does nothing, and nothing else navigates the
+  // sheet's internal AuthNavigator stack (initialRouteName only sets the
+  // *starting* screen). Without this, sign-in silently succeeded in the
+  // background but the sheet just sat frozen on Login forever with no OTP
+  // ever sent — same explicit-navigate pattern SignupScreen.tsx already
+  // uses after its own sign-up.
+  async function goToVerifyIfNeeded() {
+    const { data: emailVerified } = await refetchEmailVerified();
+    if (emailVerified) return;
+    let otpSendFailed = false;
+    try {
+      await sendOtp.mutateAsync();
+    } catch {
+      otpSendFailed = true;
+    }
+    navigation.navigate('VerifyEmail', otpSendFailed ? { otpSendFailed: true } : undefined);
+  }
 
   async function handleGoogleSignIn() {
     setSocialError('');
     setRememberMe(rememberMe);
-    const result = await signInWithGoogle();
-    if (result.error) setSocialError(result.error);
+    setIsSubmitting(true);
+    try {
+      const result = await signInWithGoogle();
+      if (result.error) setSocialError(result.error);
+      else await goToVerifyIfNeeded();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handleAppleSignIn() {
     setSocialError('');
     setRememberMe(rememberMe);
-    const result = await signInWithApple();
-    if (result.error) setSocialError(result.error);
+    setIsSubmitting(true);
+    try {
+      const result = await signInWithApple();
+      if (result.error) setSocialError(result.error);
+      else await goToVerifyIfNeeded();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handleSignIn() {
     setRememberMe(rememberMe);
-    await signIn.mutateAsync({ email, password });
-    // AuthGateProvider watches auth state and auto-closes the sheet (firing
-    // whatever action triggered it) once this resolves — nothing to do here.
+    setIsSubmitting(true);
+    try {
+      await signIn.mutateAsync({ email, password });
+      await goToVerifyIfNeeded();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -114,12 +178,12 @@ export function LoginScreen() {
             </View>
 
             {signIn.isError && <Text style={styles.error}>{describeSignInError(signIn.error)}</Text>}
-            {!!socialError && <Text style={styles.error}>{socialError}</Text>}
+            {!!socialError && <Text style={styles.error}>{describeSocialError(socialError)}</Text>}
 
             <Button
-              label={signIn.isPending ? 'Signing in…' : 'Sign in'}
+              label={isSubmitting ? 'Signing in…' : 'Sign in'}
               onPress={handleSignIn}
-              disabled={signIn.isPending}
+              disabled={isSubmitting}
               size="lg"
             />
           </View>
@@ -138,7 +202,7 @@ export function LoginScreen() {
               size="lg"
               style={styles.socialButton}
               onPress={handleGoogleSignIn}
-              disabled={isGooglePending}
+              disabled={isGooglePending || isSubmitting}
             />
 
             <Button
@@ -148,7 +212,7 @@ export function LoginScreen() {
               size="lg"
               style={styles.socialButton}
               onPress={handleAppleSignIn}
-              disabled={isApplePending}
+              disabled={isApplePending || isSubmitting}
             />
           </View>
 

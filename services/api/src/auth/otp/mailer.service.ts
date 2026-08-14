@@ -2,6 +2,13 @@ import { join } from 'path';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
 import { paragraph, renderCodeBox, renderEmailHtml } from './email-template';
+import { CODE_TTL_MS } from './otp-code.util';
+
+// Derived from the actual enforced TTL, not a second hardcoded "10 minutes"
+// string — otp-code.util.ts's CODE_TTL_MS is the one place that number is
+// allowed to live, so bumping it (as already happened once, 10 -> 20) can't
+// silently leave this copy telling users the wrong window again.
+const CODE_TTL_MINUTES = CODE_TTL_MS / 60_000;
 
 // Embedded as a CID inline attachment (not an external image URL) — works
 // regardless of whether/where apps/web ends up deployed, and won't break if
@@ -63,13 +70,13 @@ export class MailerService {
     const html = renderEmailHtml({
       preheader: `Your verification code is ${code}`,
       heading: 'Verify your email',
-      bodyHtml: paragraph('Enter this code to verify your email address and finish setting up your Jayedaad account.') + renderCodeBox(code) + paragraph('This code expires in 10 minutes.'),
+      bodyHtml: paragraph('Enter this code to verify your email address and finish setting up your Jayedaad account.') + renderCodeBox(code) + paragraph(`This code expires in ${CODE_TTL_MINUTES} minutes.`),
       bodyText: '',
     });
     await this.send({
       to,
       subject: 'Your Jayedaad verification code',
-      text: `Your verification code is ${code}. It expires in 10 minutes.`,
+      text: `Your verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`,
       html,
     });
   }
@@ -81,13 +88,13 @@ export class MailerService {
       bodyHtml:
         paragraph('Use this code to reset your Jayedaad password.') +
         renderCodeBox(code) +
-        paragraph("This code expires in 10 minutes. If you didn't request this, you can safely ignore this email — your password won't be changed."),
+        paragraph(`This code expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can safely ignore this email — your password won't be changed.`),
       bodyText: '',
     });
     await this.send({
       to,
       subject: 'Your Jayedaad password reset code',
-      text: `Your password reset code is ${code}. It expires in 10 minutes. If you didn't request this, you can ignore this email.`,
+      text: `Your password reset code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.`,
       html,
     });
   }

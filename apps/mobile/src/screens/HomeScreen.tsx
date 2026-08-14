@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react';
-import { FlatList, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +20,7 @@ import {
   useNotificationsViewModel,
   useProjectsViewModel,
 } from '@jayedaad/core';
-import { theme } from '@jayedaad/ui-native';
+import { refreshControlProps, theme } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
 import { PropertyCard } from '../components/PropertyCard';
 import { SideDrawer } from '../components/SideDrawer';
@@ -111,13 +111,21 @@ export const HomeScreen = memo(function HomeScreen() {
     listings: featuredListings,
     isLoading: featuredLoading,
     error: featuredError,
+    refetch: refetchFeatured,
+    isRefetching: isRefetchingFeatured,
   } = useListingSearchViewModel({
     sortBy: 'newest',
     pageSize: 4,
   });
   // Previously NEW_PROJECTS was hardcoded mock data — real verified
   // projects, newest first, tappable to the real ProjectDetailScreen.
-  const { projects: newProjects, error: projectsError } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
+  const {
+    projects: newProjects,
+    error: projectsError,
+    refetch: refetchProjects,
+    isRefetching: isRefetchingProjects,
+  } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
+  const isRefetchingHome = isRefetchingFeatured || isRefetchingProjects;
   // Previously BLOG_POSTS was hardcoded mock data — real published posts
   // from the Blog CMS, newest first.
   const { posts: blogPosts, isLoading: blogLoading } = useBlogViewModel({ limit: 3 });
@@ -164,7 +172,20 @@ export const HomeScreen = memo(function HomeScreen() {
           rest of the page — it used to be a sibling rendered before
           ScrollView, which pinned it fixed at the top while only the
           sections below it scrolled underneath. */}
-      <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetchingHome}
+            onRefresh={() => {
+              refetchFeatured();
+              refetchProjects();
+            }}
+            {...refreshControlProps()}
+          />
+        }
+      >
         <HomeHeader onMenuPress={() => setDrawerVisible(true)} />
 
         {/* Placed immediately below the Buy/Rent toggle in HomeHeader for
@@ -369,7 +390,13 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
   // dot.
   const { unreadCount } = useNotificationsViewModel();
 
-  const displayName = user?.user_metadata?.display_name as string | undefined;
+  // display_name is only ever set by our own email/password signUp() —
+  // Google/Apple sign-in populate full_name/name instead, so this fell
+  // through to no greeting name at all for every OAuth-signed-in user.
+  const displayName =
+    (user?.user_metadata?.display_name as string | undefined) ||
+    (user?.user_metadata?.full_name as string | undefined) ||
+    (user?.user_metadata?.name as string | undefined);
   const firstName = displayName?.split(' ')[0];
 
   function purposeToFilters(p: Purpose): Partial<SearchFilterState> {

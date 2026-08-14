@@ -108,7 +108,13 @@ export function ProfileScreen() {
   }, [isAuthenticated, navigation]);
 
   const email = user?.email || '';
-  const rawName = user?.user_metadata?.display_name as string | undefined;
+  // display_name is only ever set by our own email/password signUp() —
+  // Google/Apple sign-in populate full_name/name instead, so this fell
+  // through to the email's local-part for every OAuth-signed-in user.
+  const rawName =
+    (user?.user_metadata?.display_name as string | undefined) ||
+    (user?.user_metadata?.full_name as string | undefined) ||
+    (user?.user_metadata?.name as string | undefined);
   const displayName = rawName || (email ? email.split('@')[0] : 'Guest');
   // Web already distinguishes Agency vs Individual (agent-settings' "Agency"/
   // "Individual" pill, sourced off profile?.agency) — mobile's badge just

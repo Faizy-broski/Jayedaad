@@ -10,7 +10,16 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from './lib/cn';
+
+// Module-level (not React state/context) so any two <Select> instances
+// anywhere on the page coordinate without needing a shared provider —
+// opening one now always closes whichever other one was open, instead of
+// two dropdown panels being visibly open at once (see the position:fixed
+// portal below for why that used to render as an outright visual collision,
+// not just a confusing double-click state).
+let closeCurrentlyOpenSelect: (() => void) | null = null;
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   // Not a native <select> attribute — shown when no option is selected
@@ -66,9 +75,16 @@ function parseOptions(children: ReactNode): ParsedOption[] {
 export function Select({ value, onChange, children, className, required, disabled, id, placeholder, ...rest }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
+  // Screen coordinates for the portal below — null until this instance has
+  // opened once, so unopened Selects (there can be dozens in a list) don't
+  // carry a portaled DOM node at all.
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const hiddenSelectRef = useRef<HTMLSelectElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const setOpenRef = useRef(setOpen);
+  setOpenRef.current = setOpen;
 
   const options = useMemo(() => parseOptions(children), [children]);
   const selected = options.find((o) => o.value === value);
@@ -76,10 +92,56 @@ export function Select({ value, onChange, children, className, required, disable
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The dropdown itself now lives in a document.body portal, outside
+      // containerRef's subtree — without also checking listRef, every click
+      // on an option would register as "outside" and close the list before
+      // its own onClick could fire.
+      if (containerRef.current?.contains(target)) return;
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  // Module-level singleton so opening this Select always closes whichever
+  // other one was open — previously two dropdown panels could be open at
+  // once, which (combined with each row being its own CSS stacking context,
+  // see the portal below) rendered as two option lists visibly colliding.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpenRef.current(false);
+    closeCurrentlyOpenSelect?.();
+    closeCurrentlyOpenSelect = close;
+    return () => {
+      if (closeCurrentlyOpenSelect === close) closeCurrentlyOpenSelect = null;
+    };
+  }, [open]);
+
+  // Positions the portaled dropdown against the trigger button in viewport
+  // coordinates, kept in sync with scrolling/resizing while open. Rendering
+  // via position:fixed + a portal (below) instead of position:absolute
+  // inside this component's own div sidesteps a real bug: any ancestor with
+  // a CSS transform (e.g. Framer Motion's whileHover on a list row) creates
+  // a new stacking context, which traps an absolutely-positioned dropdown
+  // inside that row's own local z-order — it can't paint above a *later*
+  // sibling row no matter how high its z-index is.
+  useEffect(() => {
+    if (!open) return;
+    function updateRect() {
+      const el = buttonRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.bottom, left: r.left, width: r.width });
+    }
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -140,6 +202,7 @@ export function Select({ value, onChange, children, className, required, disable
       </select>
 
       <button
+        ref={buttonRef}
         type="button"
         id={id}
         disabled={disabled}
@@ -159,33 +222,43 @@ export function Select({ value, onChange, children, className, required, disable
         <ChevronIcon open={open} />
       </button>
 
-      <ul
-        ref={listRef}
-        role="listbox"
-        className={cn(
-          'absolute z-50 mt-1.5 max-h-60 w-full origin-top overflow-auto rounded-md border border-border bg-background p-1 shadow-lg transition-all duration-150 ease-out',
-          open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0',
-        )}
-      >
-        {options.map((option, index) => (
-          <li
-            key={`${option.value}-${index}`}
-            data-index={index}
-            role="option"
-            aria-selected={option.value === value}
-            onMouseEnter={() => setHighlighted(index)}
-            onClick={() => selectOption(option)}
+      {/* Portaled to document.body and positioned in viewport coordinates
+          (not relative to this div) — see the rect-tracking effect above
+          for why: a position:absolute list here would be confined to
+          whatever CSS stacking context this Select's row/card ancestor
+          creates, and couldn't reliably paint above sibling rows. */}
+      {rect &&
+        createPortal(
+          <ul
+            ref={listRef}
+            role="listbox"
+            style={{ top: rect.top + 6, left: rect.left, width: rect.width }}
             className={cn(
-              'flex cursor-pointer items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-sm transition-colors',
-              option.disabled && 'pointer-events-none opacity-50',
-              index === highlighted ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
+              'fixed z-50 max-h-60 origin-top overflow-auto rounded-md border border-border bg-background p-1 shadow-lg transition-all duration-150 ease-out',
+              open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0',
             )}
           >
-            <span className="truncate">{option.label}</span>
-            {option.value === value && <CheckIcon />}
-          </li>
-        ))}
-      </ul>
+            {options.map((option, index) => (
+              <li
+                key={`${option.value}-${index}`}
+                data-index={index}
+                role="option"
+                aria-selected={option.value === value}
+                onMouseEnter={() => setHighlighted(index)}
+                onClick={() => selectOption(option)}
+                className={cn(
+                  'flex cursor-pointer items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-sm transition-colors',
+                  option.disabled && 'pointer-events-none opacity-50',
+                  index === highlighted ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
+                )}
+              >
+                <span className="truncate">{option.label}</span>
+                {option.value === value && <CheckIcon />}
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }

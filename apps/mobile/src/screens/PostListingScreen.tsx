@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Image, ScrollView, Text, View, Pressable, StyleSheet, Switch } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -51,6 +52,7 @@ interface MediaItem {
 
 export function PostListingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const queryClient = useQueryClient();
   const route = useRoute<RouteProp<RootStackParamList, 'PostListing'>>();
   const editId = route.params?.editListingId;
   const { showToast } = useToast();
@@ -392,6 +394,11 @@ export function PostListingScreen() {
         await uploadPendingDocuments(created.id);
         showToast('Listing submitted for verification.');
       }
+      // submit/update already invalidate ['listings'] on success, but that
+      // fires before uploadPendingDocuments finishes — without this second
+      // invalidation, My Properties/Home/Search can refetch and briefly
+      // render the new listing with no photos yet.
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
       navigation.navigate('MyProperties');
     } catch {
       showToast('Something went wrong — please try again.', 'error');
@@ -403,6 +410,7 @@ export function PostListingScreen() {
     try {
       const created = await saveDraft.mutateAsync(input);
       await uploadPendingDocuments(created.id);
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
       showToast('Draft saved.');
       navigation.navigate('MyProperties', { initialTab: 'drafts' });
     } catch {

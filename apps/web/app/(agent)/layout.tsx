@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
+import { getDisplayName, useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
 import {
   LayoutGrid,
   PlusCircle,
@@ -56,8 +56,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { user, role, signOut } = useAuthViewModel();
   const { profile } = useAgentProfileViewModel();
-  const displayName =
-    profile?.displayName || (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Agent';
+  const displayName = profile?.displayName || getDisplayName(user, 'Agent');
   const photoUrl = profile?.photoUrl;
   const initials = displayName.slice(0, 2).toUpperCase();
 

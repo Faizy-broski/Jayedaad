@@ -505,10 +505,13 @@ export class ProjectsRepository {
 
   // Full-page-form edit — agent (self-scoped to their own project, enforced
   // by ProjectsController.assertOwnProject) or super_admin (any). Editing a
-  // 'verified'/'rejected' project always resets it to 'pending' regardless
-  // of who edited it — same re-review-on-edit rule as
-  // ListingsRepository.update, so a Super Admin's changes get the same
-  // fresh look a listing edit gets, not just an agent's.
+  // 'rejected' project always resets it to 'pending' regardless of who
+  // edited it — same re-review-on-edit rule as ListingsRepository.update.
+  // A 'verified' project now keeps its status through edits instead — no
+  // plan-driven expiry exists for projects today (unlike listings), so
+  // there's nothing else that would move it out of 'verified' on its own;
+  // forcing every routine edit back through review was the actual bug, not
+  // the fresh-look intent behind the rejected-item case.
   async update(id: string, input: UpdateProjectDto) {
     const { data: existing, error: existingError } = await this.supabase.client
       .from('projects')
@@ -518,15 +521,14 @@ export class ProjectsRepository {
     if (existingError) throw existingError;
 
     // A draft moving to a real status goes through review like any other
-    // edit — update() has no creatorRole (unlike create()), so this can't
-    // distinguish an agent finishing their own draft from a super_admin
-    // doing the same; 'pending' is the safe default either way.
+    // first-time submission — update() has no creatorRole (unlike
+    // create()), so this can't distinguish an agent finishing their own
+    // draft from a super_admin doing the same; 'pending' is the safe
+    // default either way.
     const nextVerificationStatus =
       input.status === 'draft'
         ? 'draft'
-        : existing.verification_status === 'draft' ||
-            existing.verification_status === 'verified' ||
-            existing.verification_status === 'rejected'
+        : existing.verification_status === 'draft' || existing.verification_status === 'rejected'
           ? 'pending'
           : existing.verification_status;
 

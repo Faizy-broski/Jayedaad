@@ -1,17 +1,19 @@
-import { Bed, Bath, Ruler } from 'lucide-react';
-import type { ProjectUnitType } from '@/lib/types';
+'use client';
 
-function formatPrice(value: number): string {
-  if (value >= 10_000_000) return `PKR ${(value / 10_000_000).toFixed(1)} Cr`;
-  if (value >= 100_000) return `PKR ${(value / 100_000).toFixed(1)} Lac`;
-  return `PKR ${value.toLocaleString()}`;
-}
+import { Bed, Bath, Ruler } from 'lucide-react';
+import { useFormattedPrice } from '@jayedaad/core';
+import type { ProjectUnitType } from '@/lib/types';
 
 interface ProjectUnitTypesProps {
   unitTypes: ProjectUnitType[];
 }
 
 export function ProjectUnitTypes({ unitTypes }: ProjectUnitTypesProps) {
+  // Was a local, PKR-only formatPrice() — listing prices everywhere else
+  // go through this currency-aware hook, project prices never got the same
+  // treatment and silently ignored the user's preferredCurrency setting.
+  const { format: formatPrice } = useFormattedPrice();
+
   if (unitTypes.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500">

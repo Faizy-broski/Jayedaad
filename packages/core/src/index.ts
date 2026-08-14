@@ -1,5 +1,6 @@
 export * from './models';
 export * from './utils/formatPrice';
+export * from './utils/getDisplayName';
 export * from './utils/slugify';
 export * from './utils/listingMediaCategories';
 export * from './utils/convertPrice';

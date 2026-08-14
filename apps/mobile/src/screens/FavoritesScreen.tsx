@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Text, View, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Text, View, Pressable, RefreshControl, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFavoritesViewModel, useFormattedPrice, useSavedSearchesViewModel } from '@jayedaad/core';
 // Removed Tabs from ui-native import to use the premium segmented control
-import { Button, theme, useToast } from '@jayedaad/ui-native';
+import { Button, refreshControlProps, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
 
@@ -68,7 +68,7 @@ export function FavoritesScreen() {
 }
 
 function FavoritesTab() {
-  const { favorites, isLoading, remove } = useFavoritesViewModel();
+  const { favorites, isLoading, remove, refetch, isRefetching } = useFavoritesViewModel();
   const { format: formatPrice } = useFormattedPrice();
   const { showToast } = useToast();
   const navigation = useNavigation<Nav>();
@@ -93,7 +93,11 @@ function FavoritesTab() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.list}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
+    >
       {favorites.map((favorite) => (
         <Pressable
           key={favorite.id}
@@ -137,7 +141,7 @@ function FavoritesTab() {
 }
 
 function SavedSearchesTab() {
-  const { savedSearches, isLoading, remove } = useSavedSearchesViewModel();
+  const { savedSearches, isLoading, remove, refetch, isRefetching } = useSavedSearchesViewModel();
   const { showToast } = useToast();
   const navigation = useNavigation<Nav>();
 
@@ -161,7 +165,11 @@ function SavedSearchesTab() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.list}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
+    >
       {savedSearches.map((search) => (
         <View key={search.id} style={styles.card}>
           <View style={styles.cardContent}>

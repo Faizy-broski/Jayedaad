@@ -1,4 +1,4 @@
-import { Linking, Text, View, Pressable, StyleSheet } from 'react-native';
+import { Linking, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ExpoLinking from 'expo-linking';
@@ -84,7 +84,12 @@ export function PlanScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right', 'bottom']}>
-      <View style={styles.content}>
+      {/* This screen's content (current plan + every tier card + credit
+          packs) was a plain View with no scroll container at all — it
+          overflowed the screen with no way to reach anything below the
+          fold, including the lower tiers' own "Select Plan"/"Upgrade with
+          Stripe" buttons. */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
           <CardContent style={styles.cardContent}>
             <View style={styles.currentHeader}>
@@ -259,7 +264,7 @@ export function PlanScreen() {
             </View>
           </>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

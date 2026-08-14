@@ -412,11 +412,15 @@ export class ListingsRepository {
   // The write path that never existed until now — an agent could create a
   // listing but never edit or self-delete it afterward. Ownership is
   // enforced at the controller (mirrors create()/documents' discipline);
-  // this trusts its caller. Business rule: editing a listing that was
-  // already reviewed (verified/rejected) resets it to pending_verification
-  // — content changes need re-review, same as any real moderation platform.
-  // A listing still pending stays pending. amenities/media/contactNumbers
-  // are replace-in-full when provided (delete-then-reinsert), same approach
+  // this trusts its caller. Business rule: editing a REJECTED listing
+  // resets it to pending_verification — content changes there genuinely
+  // need a fresh look. A VERIFIED listing keeps its status through edits
+  // instead (routine updates to something already live shouldn't force it
+  // back through review) — it only ever leaves 'verified' via its
+  // plan-driven expiry (PlanLifecycleService.expireListings()'s hourly
+  // sweep against expires_at), which this method never touches. A listing
+  // still pending stays pending. amenities/media/contactNumbers are
+  // replace-in-full when provided (delete-then-reinsert), same approach
   // create() uses for the initial insert.
   async update(listingId: string, input: UpdateListingDto) {
     const { data: existing, error: existingError } = await this.supabase.client
@@ -426,8 +430,7 @@ export class ListingsRepository {
       .single();
     if (existingError) throw existingError;
 
-    const nextStatus =
-      existing.status === 'verified' || existing.status === 'rejected' ? 'pending_verification' : existing.status;
+    const nextStatus = existing.status === 'rejected' ? 'pending_verification' : existing.status;
 
     const updatePayload: Record<string, unknown> = { status: nextStatus };
     const fieldMap: Record<string, unknown> = {

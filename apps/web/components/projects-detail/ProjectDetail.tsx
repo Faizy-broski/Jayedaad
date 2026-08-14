@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight } from 'lucide-react';
+import { useFormattedPrice } from '@jayedaad/core';
 import { Reveal } from '@/components/Reveal';
 import { ProjectGallery } from './ProjectGallery';
 import { DeveloperCard } from './DeveloperCard';
@@ -29,12 +30,6 @@ function hashToRange(id: string, min: number, max: number): number {
   return min + (hash % (max - min));
 }
 
-function formatPrice(value: number): string {
-  if (value >= 10_000_000) return `PKR ${(value / 10_000_000).toFixed(1)} Cr`;
-  if (value >= 100_000) return `PKR ${(value / 100_000).toFixed(1)} Lac`;
-  return `PKR ${value.toLocaleString()}`;
-}
-
 interface ProjectDetailProps {
   project: DisplayProject;
   similar: ProjectCardData[];
@@ -43,6 +38,10 @@ interface ProjectDetailProps {
 export function ProjectDetail({ project, similar }: ProjectDetailProps) {
   const [saved, setSaved] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  // Was a local, PKR-only formatPrice() — listing prices everywhere else
+  // go through this currency-aware hook, project prices never got the same
+  // treatment and silently ignored the user's preferredCurrency setting.
+  const { format: formatPrice } = useFormattedPrice();
 
   const views = hashToRange(project.id, 800, 3200);
   const referenceId = `JYD-PRJ-${hashToRange(project.id, 100, 999)}`;

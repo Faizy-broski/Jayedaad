@@ -11,6 +11,7 @@ function mapUserRow(row: any): AdminUser {
     email: row.email,
     displayName: row.display_name,
     createdAt: row.created_at,
+    suspendedAt: row.suspended_at,
   };
 }
 

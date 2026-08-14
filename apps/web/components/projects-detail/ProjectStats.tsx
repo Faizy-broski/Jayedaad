@@ -1,4 +1,7 @@
+'use client';
+
 import { Building2, MapPin, CalendarClock, Layers, BadgeCheck, Wallet } from 'lucide-react';
+import { useFormattedPrice } from '@jayedaad/core';
 import type { DisplayProject } from '@/lib/types';
 
 const STATUS_LABEL: Record<DisplayProject['status'], string> = {
@@ -15,12 +18,6 @@ const VERIFICATION_LABEL: Record<DisplayProject['verificationStatus'], string> =
   draft: 'Draft',
 };
 
-function formatPrice(value: number): string {
-  if (value >= 10_000_000) return `PKR ${(value / 10_000_000).toFixed(1)} Cr`;
-  if (value >= 100_000) return `PKR ${(value / 100_000).toFixed(1)} Lac`;
-  return `PKR ${value.toLocaleString()}`;
-}
-
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
@@ -30,6 +27,10 @@ interface ProjectStatsProps {
 }
 
 export function ProjectStats({ project }: ProjectStatsProps) {
+  // Was a local, PKR-only formatPrice() — listing prices everywhere else
+  // go through this currency-aware hook, project prices never got the same
+  // treatment and silently ignored the user's preferredCurrency setting.
+  const { format: formatPrice } = useFormattedPrice();
   const rows = [
     [
       { icon: Building2, label: 'Status', value: STATUS_LABEL[project.status] },

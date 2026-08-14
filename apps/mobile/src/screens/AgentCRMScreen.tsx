@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
-import { Button, TextInput, theme } from '@jayedaad/ui-native';
+import { Button, refreshControlProps, TextInput, theme } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
 type StatusFilter = 'all' | LeadStatus;
@@ -46,7 +46,7 @@ export function AgentCRMScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [agencyScope, setAgencyScope] = useState(false);
   const [search, setSearch] = useState('');
-  const { leads, isLoading, isError, refetch } = useLeadInboxViewModel({
+  const { leads, isLoading, isError, refetch, isRefetching } = useLeadInboxViewModel({
     status: statusFilter === 'all' ? undefined : statusFilter,
     scope: agencyScope ? 'agency' : 'own',
     pageSize: 50,
@@ -108,7 +108,7 @@ export function AgentCRMScreen() {
         <FlatList
           data={visibleLeads}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={() => refetch()} tintColor={theme.colors.primary} />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
           ListEmptyComponent={
             <Text style={styles.empty}>{search ? 'No leads match your search.' : 'No leads yet.'}</Text>
           }

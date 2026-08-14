@@ -8,8 +8,8 @@ const FURNISHING_STATUSES = ['unfurnished', 'semi_furnished', 'furnished'] as co
 // Same fields/validators as CreateListingDto, all optional — an agent
 // editing their own listing sends only what changed. status is still never
 // client-settable here; listings.repository.ts::update() decides it (resets
-// to pending_verification if the listing had already been verified/rejected,
-// same real-moderation-platform rule as everywhere else in this codebase).
+// to pending_verification only if the listing had been rejected — a
+// verified listing keeps its status through edits).
 export class UpdateListingDto {
   @IsOptional()
   @IsUUID()

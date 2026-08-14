@@ -8,10 +8,10 @@ import toast from 'react-hot-toast';
 import {
   canDeleteProject,
   canEditProject,
-  formatPrice,
   Project,
   ProjectStatus,
   useAuthViewModel,
+  useFormattedPrice,
   useManageProjectsViewModel,
 } from '@jayedaad/core';
 import { Badge, Button, cn, Input, Pagination, Table, TableColumn } from '@jayedaad/ui-web';
@@ -51,16 +51,16 @@ const STATUS_TABS: { id: 'all' | ProjectStatus; label: string }[] = [
 // 'super_admin'), so this view is parameterized by newHref/detailHrefBase
 // rather than duplicated per route group. Approve/Reject are super_admin-
 // only. Edit/Delete are self-scoped — an agent can edit or delete their own
-// project (see PATCH/DELETE /projects/:id's ownership checks), a Super
-// Admin can edit/delete any; deleting is further restricted to before
-// approval for an agent (once verified/live, only a Super Admin can remove
-// it). Editing a verified/rejected project resets it to 'pending' —
-// real-time changes always go back to Super Admin for re-review, same rule
-// listings already have — so an agent isn't locked out of their project
-// just because it was already approved. Table + real server-side
-// pagination (GET /projects/manage already supports page/pageSize/status/
-// keyword — see ProjectsRepository.findPublic) instead of an unbounded
-// card grid, same reasoning as admin/blog/page.tsx.
+// project at any verification status (see PATCH/DELETE /projects/:id's
+// ownership checks), a Super Admin can edit/delete any. Editing a
+// *rejected* project resets it to 'pending' for re-review, same rule
+// listings already have — a *verified* project now keeps its status
+// through edits instead (only its plan-driven expiry, where that exists,
+// moves it out of 'verified'), so an agent isn't forced through review
+// again just for a routine update to something already live. Table + real
+// server-side pagination (GET /projects/manage already supports page/
+// pageSize/status/keyword — see ProjectsRepository.findPublic) instead of
+// an unbounded card grid, same reasoning as admin/blog/page.tsx.
 export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string; detailHrefBase: string }) {
   const router = useRouter();
   const { role, user } = useAuthViewModel();
@@ -69,6 +69,11 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  // Was the plain, PKR-only formatPrice() export — listing prices
+  // everywhere else go through this currency-aware hook, project prices
+  // never got the same treatment and silently ignored the user's
+  // preferredCurrency setting.
+  const { format: formatPrice } = useFormattedPrice();
 
   const { projects, total, isLoading, setVerificationStatus, remove } = useManageProjectsViewModel({
     status: activeTab === 'all' ? undefined : activeTab,

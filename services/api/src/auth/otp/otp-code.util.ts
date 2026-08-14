@@ -1,7 +1,17 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { randomInt, createHash } from 'crypto';
 
-export const CODE_TTL_MS = 10 * 60 * 1000;
+// Was 10 minutes — bumped after confirming real-world SMTP delivery via
+// Hostinger sometimes takes close to that long (inconsistent/greylist-like
+// delay, not a hard failure — DKIM/SPF are correctly configured, see
+// mailer.service.ts). A code expiring at almost exactly the moment it
+// finally arrives is a bug users experience as "the code never works," so
+// this buys real margin against that specific failure mode. Doesn't fix
+// the underlying delivery latency itself — that's a Hostinger shared-SMTP
+// characteristic, not something this app's code controls; a dedicated
+// transactional provider (Resend/SendGrid/SES/Postmark) would be the real
+// fix if this keeps happening.
+export const CODE_TTL_MS = 20 * 60 * 1000;
 
 export function generateCode(): string {
   return String(randomInt(100000, 1000000));

@@ -51,6 +51,7 @@ export function useLeadInboxViewModel(filters: LeadListFilters) {
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,
+    isRefetching: query.isRefetching,
     updateStatus,
     addNote,
   };

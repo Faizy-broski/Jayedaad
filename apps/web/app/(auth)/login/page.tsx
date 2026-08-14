@@ -19,6 +19,29 @@ const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
   buyer: '/account/saved',
 };
 
+// Supabase's real ban rejection (confirmed empirically against this
+// project: AuthApiError, code "user_banned", message "User is banned") —
+// previously every signIn.isError rendered the same "Incorrect email or
+// password.", which is actively misleading for a suspended account. Mirrors
+// mobile's describeSignInError (LoginScreen.tsx) convention.
+function describeSignInError(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/user is banned/i.test(message)) {
+    return 'Your account has been suspended. Contact support if you think this is a mistake.';
+  }
+  return 'Incorrect email or password.';
+}
+
+// The oauth callback route (auth/callback/route.ts) sets ?error=banned or
+// ?error=oauth_failed on a failed exchange — previously nothing here ever
+// read this param at all, so a failed Google sign-in (e.g. a suspended
+// account) silently bounced back to this exact page with zero explanation.
+function describeOAuthError(code: string | null): string | null {
+  if (code === 'banned') return 'Your account has been suspended. Contact support if you think this is a mistake.';
+  if (code === 'oauth_failed') return 'Google sign-in failed — please try again.';
+  return null;
+}
+
 // Split-screen layout: full-bleed hero image + welcome copy on the left
 // (hidden below lg, since there's no room for it on mobile), clean
 // pill-styled sign-in form on the right. Replaces the previous
@@ -38,7 +61,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signInWithGoogle, signInWithApple, refetchEmailVerified } = useAuthViewModel();
+  const { signIn, signInWithGoogle, signInWithApple, sendOtp, refetchEmailVerified } = useAuthViewModel();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,6 +72,7 @@ function LoginForm() {
   // call resolves, then goes dead again for the refetchEmailVerified() +
   // router.push() beat that follows, reading as an unresponsive click.
   const [redirecting, setRedirecting] = useState(false);
+  const oauthError = describeOAuthError(searchParams.get('error'));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -58,6 +82,18 @@ function LoginForm() {
       makeSessionOnlyIfNotRemembered(rememberMe);
       const { data: emailVerified } = await refetchEmailVerified();
       if (!emailVerified) {
+        // /verify-email has no auto-send-on-mount of its own (only its
+        // "Resend" button sends) despite its copy claiming "we just sent a
+        // code" — without this, an existing-but-unverified account logging
+        // back in landed there with no code ever having been sent. Same
+        // non-fatal try/catch signup/page.tsx already uses: a failed send
+        // isn't fatal to the flow, verify-email's own Resend is the escape
+        // hatch.
+        try {
+          await sendOtp.mutateAsync();
+        } catch {
+          // non-fatal
+        }
         router.push('/verify-email');
         return;
       }
@@ -147,7 +183,8 @@ function LoginForm() {
               </div>
             </div>
 
-            {signIn.isError && <p className="text-sm text-destructive">Incorrect email or password.</p>}
+            {signIn.isError && <p className="text-sm text-destructive">{describeSignInError(signIn.error)}</p>}
+            {!signIn.isError && oauthError && <p className="text-sm text-destructive">{oauthError}</p>}
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-muted-foreground">

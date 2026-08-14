@@ -26,6 +26,8 @@ export function useProjectsViewModel(filters: ProjectSearchFilters = {}) {
     pageSize: query.data?.pageSize ?? 20,
     isLoading: query.isLoading,
     error: query.error,
+    refetch: query.refetch,
+    isRefetching: query.isRefetching,
   };
 }
 
@@ -48,6 +50,8 @@ export function useInfiniteProjectsViewModel(filters: ProjectSearchFilters = {})
     hasNextPage: !!query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
     error: query.error,
+    refetch: query.refetch,
+    isRefetching: query.isRefetching,
   };
 }
 

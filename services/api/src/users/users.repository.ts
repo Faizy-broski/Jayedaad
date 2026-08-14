@@ -131,14 +131,36 @@ export class UsersRepository {
 
   // ~100 years is Supabase's own documented convention for an effectively
   // permanent ban via ban_duration (there's no literal "forever" value).
+  // ban_duration blocks all FUTURE sign-ins and token refreshes — it does
+  // NOT revoke a session already in progress. JwtAuthGuard verifies JWTs
+  // entirely locally (signature + expiry only, no live Supabase check per
+  // request — that's deliberate, see its own comments), so an access token
+  // issued before this ban stays valid until it naturally expires; the
+  // suspended user loses access once their client attempts a refresh and
+  // Supabase rejects it, not instantly. Instant revocation would need
+  // either a per-request live check against Supabase (real latency/cost on
+  // every request) or deleting rows from auth.sessions directly — the admin
+  // SDK's own signOut() takes an access-token JWT to invalidate, not a user
+  // id, so it can't be used here to kill an arbitrary user's session on
+  // demand. suspended_at (profiles) is a queryable mirror of the ban state,
+  // kept in lockstep here — Suspend/Unsuspend previously had no way to know
+  // a user's current status without an extra Admin API round-trip per row,
+  // so the Users page always rendered both buttons regardless of reality.
   async suspend(id: string) {
     const { error } = await this.supabase.client.auth.admin.updateUserById(id, { ban_duration: '876000h' });
     if (error) throw error;
+    const { error: profileError } = await this.supabase.client
+      .from('profiles')
+      .update({ suspended_at: new Date().toISOString() })
+      .eq('id', id);
+    if (profileError) throw profileError;
   }
 
   async unsuspend(id: string) {
     const { error } = await this.supabase.client.auth.admin.updateUserById(id, { ban_duration: 'none' });
     if (error) throw error;
+    const { error: profileError } = await this.supabase.client.from('profiles').update({ suspended_at: null }).eq('id', id);
+    if (profileError) throw profileError;
   }
 
   // agent_profiles.user_id has ON DELETE CASCADE [0006 migration] — deleting

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PAKISTAN_CITIES, useInfiniteListingSearchViewModel } from '@jayedaad/core';
-import { PickerField, theme } from '@jayedaad/ui-native';
+import { PickerField, refreshControlProps, Spinner, theme } from '@jayedaad/ui-native';
 import { AllPropertiesFilterSheet } from '../components/AllPropertiesFilterSheet';
 import { PropertyListCard } from '../components/PropertyListCard';
 import { RangeFilterField } from '../components/RangeFilterField';
@@ -36,9 +36,16 @@ export function AllPropertiesScreen() {
       setFilters({ ...DEFAULT_ALL_PROPERTIES_FILTERS, ...route.params.initialFilters });
     }
   }, [route.params?.initialFilters]);
-  const { listings, isLoading, error, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteListingSearchViewModel(
-    toAllPropertiesSearchFilters(filters),
-  );
+  const {
+    listings,
+    isLoading,
+    error,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isRefetching,
+  } = useInfiniteListingSearchViewModel(toAllPropertiesSearchFilters(filters));
 
   function set<K extends keyof AllPropertiesFilterState>(key: K, val: AllPropertiesFilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: val }));
@@ -112,6 +119,7 @@ export function AllPropertiesScreen() {
         data={listings}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
         ListEmptyComponent={
           !isLoading && !error ? <Text style={styles.empty}>No properties match your filters.</Text> : null
         }
@@ -125,7 +133,7 @@ export function AllPropertiesScreen() {
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) fetchNextPage();
         }}
-        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={theme.colors.primary} /> : null}
+        ListFooterComponent={isFetchingNextPage ? <Spinner style={styles.footerLoader} /> : null}
       />
     </SafeAreaView>
   );

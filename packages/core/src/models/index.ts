@@ -447,6 +447,12 @@ export interface AdminUser {
   email: string;
   displayName: string | null;
   createdAt: string;
+  // Mirrors auth.users.banned_until (set via the Admin API's ban_duration —
+  // see users.repository.ts::suspend/unsuspend) — null when active, set to
+  // the suspension timestamp otherwise. Kept on profiles rather than
+  // queried from Supabase Auth per row so the Users list can reflect real
+  // status cheaply.
+  suspendedAt: string | null;
 }
 
 export interface CreateUserInput {
@@ -1347,12 +1353,13 @@ export function canEditProject(project: Project, role: Role | undefined, userId:
   return role === 'agent' && !!userId && project.createdBy === userId;
 }
 
-// An agent may delete their own project only before it's approved — once
-// verification_status is 'verified' it's live/public, so removing it
-// becomes a Super Admin call.
+// An agent may delete their own project at any verification status — same
+// freedom they already have with listings (no equivalent "once verified"
+// restriction exists for canDeleteListing, because no such predicate even
+// exists; listings.controller.ts's remove() never checks status either).
 export function canDeleteProject(project: Project, role: Role | undefined, userId: string | undefined): boolean {
   if (role === 'super_admin') return true;
-  return role === 'agent' && !!userId && project.createdBy === userId && project.verificationStatus !== 'verified';
+  return role === 'agent' && !!userId && project.createdBy === userId;
 }
 
 // --- Notifications (mirrors 0009_notifications.sql) ----------------------------

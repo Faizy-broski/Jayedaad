@@ -18,6 +18,7 @@ import {
   MapPin,
   ShieldCheck,
   ShieldX,
+  Trash2,
   User,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
@@ -90,7 +91,7 @@ export default function AdminListingsPage() {
   // scale, filtering client-side after pagination would make `total`/
   // totalPages wrong and could show a near-empty page for a tab whose
   // matches happened to land on a different page.
-  const { listings, total, isLoading, isError, statusCounts, setStatus: setListingStatus } = useAdminListingsViewModel({
+  const { listings, total, isLoading, isError, statusCounts, setStatus: setListingStatus, remove } = useAdminListingsViewModel({
     status,
     source: sourceTab,
     page,
@@ -122,6 +123,21 @@ export default function AdminListingsPage() {
         onError: () => toast.error('Something went wrong — please try again.'),
       },
     );
+  }
+
+  // Same DELETE /listings/:id the agent's own property-management page
+  // uses — super_admin is allowed to call it for any listing (see
+  // listings.controller.ts::remove's assertOwnListing early-return for
+  // super_admin), it just had no button wired to it here before, only the
+  // "Change status…" override dropdown (which technically included
+  // 'deleted' as one of many options, but that's not a discoverable delete
+  // action).
+  function handleDelete(listingId: string, title: string) {
+    if (!confirm(`Delete "${title}"? It will move to the Deleted tab.`)) return;
+    remove.mutate(listingId, {
+      onSuccess: () => toast.success('Listing deleted.'),
+      onError: () => toast.error('Something went wrong — please try again.'),
+    });
   }
 
   return (
@@ -318,6 +334,18 @@ export default function AdminListingsPage() {
                             </option>
                           ))}
                         </Select>
+                        {listing.status !== 'deleted' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10"
+                            disabled={remove.isPending}
+                            onClick={() => handleDelete(listing.id, listing.title)}
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </motion.li>

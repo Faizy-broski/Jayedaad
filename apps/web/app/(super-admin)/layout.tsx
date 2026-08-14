@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useAuthViewModel } from '@jayedaad/core';
+import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
 import {
   LayoutGrid,
   Building2,
@@ -60,7 +60,7 @@ const NAV_ITEMS = [
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, signOut } = useAuthViewModel();
-  const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Admin';
+  const displayName = getDisplayName(user, 'Admin');
   const initials = displayName.slice(0, 2).toUpperCase();
 
   const [collapsed, setCollapsed] = useState(false);

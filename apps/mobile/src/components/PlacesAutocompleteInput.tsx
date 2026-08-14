@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View, StyleSheet } from 'react-native';
-import { TextInput, theme } from '@jayedaad/ui-native';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { Spinner, TextInput, theme } from '@jayedaad/ui-native';
 
 interface PlacePrediction {
   place_id: string;
@@ -109,7 +109,7 @@ export function PlacesAutocompleteInput({
         <View style={styles.dropdown}>
           {loading ? (
             <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Spinner size="sm" />
             </View>
           ) : (
             predictions.map((p) => (

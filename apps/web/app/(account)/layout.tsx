@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useAuthViewModel } from '@jayedaad/core';
+import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
 import { Heart, Search, LogOut, Menu, X, ChevronsUpDown } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
@@ -23,7 +23,7 @@ const NAV_ITEMS = [{ href: '/account/saved', label: 'Favorites & Saved Searches'
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, signOut } = useAuthViewModel();
-  const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email || 'Account';
+  const displayName = getDisplayName(user, 'Account');
   const initials = displayName.slice(0, 2).toUpperCase();
 
   const [mobileOpen, setMobileOpen] = useState(false);

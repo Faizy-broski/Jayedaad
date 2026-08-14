@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { BadgeCheck, MapPin, Layers, ArrowRight } from 'lucide-react';
-import { projectsRepository } from '@jayedaad/core';
+import { projectsRepository, useFormattedPrice } from '@jayedaad/core';
 import type { ProjectCardData } from '@/lib/types';
 import { getViewerSessionId } from '@/lib/viewerSession';
 
@@ -14,13 +14,12 @@ const STATUS_LABEL: Record<ProjectCardData['status'], string> = {
   draft: 'Draft',
 };
 
-function formatPrice(value: number): string {
-  if (value >= 10_000_000) return `PKR ${(value / 10_000_000).toFixed(1)} Cr`;
-  if (value >= 100_000) return `PKR ${(value / 100_000).toFixed(1)} Lac`;
-  return `PKR ${value.toLocaleString()}`;
-}
-
 export function ProjectCard({ project }: { project: ProjectCardData }) {
+  // Was a local, PKR-only formatPrice() — listing prices everywhere else
+  // go through this currency-aware hook (see PropertyCard.tsx), project
+  // prices never got the same treatment and silently ignored the user's
+  // preferredCurrency setting.
+  const { format: formatPrice } = useFormattedPrice();
   return (
     <Link
       href={`/developments/${project.slug}`}
