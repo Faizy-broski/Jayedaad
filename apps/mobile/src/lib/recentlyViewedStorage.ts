@@ -26,3 +26,16 @@ export async function addRecentlyViewed(listing: Listing): Promise<void> {
   const next = [listing, ...deduped].slice(0, MAX_ENTRIES);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }
+
+// Stored snapshots never revalidate against the server on their own — a
+// listing that gets deleted/rejected after being viewed stays in this list
+// (with its stale badges/price) indefinitely until whoever renders it
+// notices the detail fetch 404ing and calls this. See
+// ListingDetailScreen.tsx's error branch, the actual call site.
+export async function removeRecentlyViewed(listingId: string): Promise<void> {
+  const existing = await getRecentlyViewed();
+  const next = existing.filter((l) => l.id !== listingId);
+  if (next.length !== existing.length) {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+}

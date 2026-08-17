@@ -1,5 +1,6 @@
 import { httpClient } from './httpClient';
 import {
+  BoostProjectInput,
   CreateProjectInput,
   PaginatedProjects,
   Project,
@@ -76,6 +77,23 @@ export const projectsRepository = {
 
   setVerificationStatus: async (id: string, input: SetProjectVerificationStatusInput): Promise<Project> => {
     const { data } = await httpClient.patch(`/projects/${id}/verification`, input);
+    return data;
+  },
+
+  // Spends from the SAME shared agent_credits pool listingsRepository's
+  // boost/refresh/postStory draw from — mirrors those methods exactly.
+  boost: async (id: string, input: BoostProjectInput): Promise<Project> => {
+    const { data } = await httpClient.post(`/projects/${id}/boost`, input);
+    return data;
+  },
+
+  refresh: async (id: string): Promise<Project> => {
+    const { data } = await httpClient.post(`/projects/${id}/refresh`);
+    return data;
+  },
+
+  postStory: async (id: string): Promise<Project> => {
+    const { data } = await httpClient.post(`/projects/${id}/story`);
     return data;
   },
 

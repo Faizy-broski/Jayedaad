@@ -1,11 +1,12 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSupabaseCookieOptions } from './lib/supabaseCookieOptions';
 
-// Route-group access control — role gates for the (admin)/(agent)/(owner)
-// route groups (see app/(admin)/verification, app/(agent)/crm,
+// Route-group access control — role gates for the (verification)/(agent)/
+// (owner) route groups (see app/(verification)/verification, app/(agent)/crm,
 // app/(owner)/submit). Route GROUPS don't appear in the actual URL (only
 // their child segment does), so these are real URL path prefixes, not the
-// `(admin)` folder name. Mirrors the same role set already enforced
+// `(verification)` folder name. Mirrors the same role set already enforced
 // server-side by services/api's @Roles() decorators — this is defense in
 // depth (a nicer redirect than a raw 403 from the API), not the source of
 // truth; the API still enforces this regardless of what the client does.
@@ -42,8 +43,11 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   // (role flips to 'agent' server-side, no longer matches this gate).
   { prefix: '/become-an-agent', roles: ['buyer', 'agent'] },
   // Staff review queue for self-service agent applications — same access
-  // pattern as /verification above (shared with verification_staff, no shell).
+  // pattern as /verification above (shared with verification_staff).
   { prefix: '/agent-verification', roles: ['super_admin', 'verification_staff'] },
+  // Staff review queue for owner identity verification — same pattern as
+  // /agent-verification above.
+  { prefix: '/owner-verification', roles: ['super_admin', 'verification_staff'] },
   // Agency self-management — role-gated here to 'agent'/'super_admin' same
   // as the rest of the (agent) portal; the isAgencyAdmin=true check happens
   // server-side per-request (agencies.controller.ts::assertCanManageStaff),
@@ -90,6 +94,7 @@ export async function middleware(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey) return response;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (cookiesToSet: { name: string; value: string; options: CookieOptions }[]) => {
@@ -105,9 +110,17 @@ export async function middleware(request: NextRequest) {
   // check auth in middleware.
   const {
     data: { user },
+    error: getUserError,
   } = await supabase.auth.getUser();
 
   if (!user) {
+    // A confirmed "no session" and a transient Supabase Auth failure both
+    // land here today with no way to tell them apart from logs — log the
+    // error (if any) so a repeat of a real production incident is
+    // diagnosable without re-deriving this from scratch.
+    if (getUserError) {
+      console.warn(`[middleware] supabase.auth.getUser() failed for ${request.nextUrl.pathname}: ${getUserError.message}`);
+    }
     const loginUrl = new URL('/login', SITE_URL);
     loginUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
@@ -134,6 +147,7 @@ export const config = {
     '/admin/:path*',
     '/become-an-agent/:path*',
     '/agent-verification/:path*',
+    '/owner-verification/:path*',
     '/agency-staff/:path*',
     '/account/:path*',
   ],

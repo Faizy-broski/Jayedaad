@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -320,8 +320,12 @@ export class ListingsRepository {
     // existed but was dead code before this pass (only GET
     // /subscriptions/usage ever called the read side of it). Only
     // agent-submitted listings are subscription-gated; an owner submitting
-    // their own property has no plan to check against.
-    if (input.agentId) {
+    // their own property has no plan to check against. Drafts are exempt
+    // entirely — the quota is a limit on live/submitted listings, not on
+    // how many unfinished drafts an agent can keep around (an agent should
+    // be able to draft freely and only hits the plan limit when actually
+    // submitting for verification via POST /listings/:id/submit).
+    if (input.agentId && input.status !== 'draft') {
       const allowed = await this.entitlements.canCreateListing(input.agentId);
       if (!allowed) {
         throw new ForbiddenException('Listing quota reached for your current plan — upgrade or free up a slot.');
@@ -589,13 +593,23 @@ export class ListingsRepository {
   // findPublic() [blueprint §4.2]: unverified listings must never be
   // reachable via the public API.
   async findById(listingId: string) {
+    // .maybeSingle() (not .single()) — a listing that's been deleted,
+    // rejected, or otherwise moved off 'verified' since a client last saw
+    // it (e.g. mobile's on-device "Recently Viewed" cache, which snapshots
+    // a listing at view time and never revalidates it) legitimately
+    // matches zero rows here. .single() treats that as a Postgrest error
+    // ("no rows returned"), which isn't an HttpException and previously
+    // fell through to a raw 500 via AllExceptionsFilter instead of a clean
+    // 404 — same "surface a real 4xx instead of an opaque 500" fix already
+    // applied to users.repository.ts::create's duplicate-email case.
     const { data, error } = await this.supabase.client
       .from('listings')
       .select(PUBLIC_LISTING_COLUMNS)
       .eq('id', listingId)
       .eq('status', 'verified')
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw new NotFoundException('This listing is no longer available.');
 
     const mapped = mapPublicListingRow(data);
     // Real agent email, resolved only here (single-listing detail), not in
@@ -616,12 +630,18 @@ export class ListingsRepository {
   // at query time (same city + property type, excluding the listing itself),
   // not a stored relation.
   async findSimilar(listingId: string, limit = 6) {
+    // .maybeSingle() — same reasoning as findById above. No status filter
+    // here deliberately (a listing that's since been deleted/rejected can
+    // still resolve its city/property_type_id for this query), but a
+    // wholly nonexistent id still needs a clean 404, not a raw Postgrest
+    // "no rows" error surfacing as a 500.
     const { data: current, error: currentError } = await this.supabase.client
       .from('listings')
       .select('city, property_type_id')
       .eq('id', listingId)
-      .single();
+      .maybeSingle();
     if (currentError) throw currentError;
+    if (!current) throw new NotFoundException('This listing is no longer available.');
 
     const { data, error } = await this.supabase.client
       .from('listings')
@@ -737,6 +757,18 @@ export class ListingsRepository {
       query = query.eq('owner_id', scope.userId);
     } else if (scope.role === 'agent') {
       query = query.eq('agent_id', scope.agentId);
+    } else if (scope.role === 'verification_staff') {
+      // verification_staff has no ownership concept here (they're not the
+      // agent/owner) — same "no ownership filter, staff can view any
+      // listing" bypass assertCanAccessDocuments already grants for the
+      // documents endpoints. Scoped hard to a single-id lookup rather than
+      // super_admin's full unscoped bypass below: with no listingId this
+      // would otherwise return every listing on the platform, which staff
+      // has no legitimate reason to browse via "my listings" — the
+      // unconditional `filters.listingId` eq-filter further down (mirrors
+      // findById's same pattern at line ~215) is what actually narrows
+      // this to the one listing the verification queue linked them to.
+      if (!filters.listingId) return { items: [], total: 0, page, pageSize };
     }
     // super_admin: no scoping filter — bypasses per [Spec §5]/[Dev Instr §2.1].
 
@@ -835,6 +867,20 @@ export class ListingsRepository {
   // RPC's verification_action enum only covers approve/reject/request_info
   // and writes to verification_audit_log, which is specifically for the
   // staff verification workflow, not general admin lifecycle changes.
+  // Draft → pending_verification is the actual point a listing starts
+  // consuming plan quota (see create()'s draft exemption above), so the
+  // quota gate that create() skips for drafts belongs here instead. Owner
+  // drafts have no agentId and are ungated, same as owner create().
+  async submitDraft(listingId: string, agentId?: string) {
+    if (agentId) {
+      const allowed = await this.entitlements.canCreateListing(agentId);
+      if (!allowed) {
+        throw new ForbiddenException('Listing quota reached for your current plan — upgrade or free up a slot.');
+      }
+    }
+    return this.setStatus(listingId, 'pending_verification');
+  }
+
   async setStatus(listingId: string, status: string) {
     const { data, error } = await this.supabase.client
       .from('listings')

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -19,7 +20,9 @@ import { AgentDocumentsSection } from '@/components/agents/AgentDocumentsSection
 import {
   Ban,
   Calendar,
+  Camera,
   Home,
+  Loader2,
   Mail,
   PlusCircle,
   Search,
@@ -92,6 +95,19 @@ export default function UsersPage() {
   // files picked while creating are held here and only actually uploaded
   // once `create` resolves and a real agentId exists.
   const [pendingDocs, setPendingDocs] = useState<Partial<Record<OnboardingDocumentType, File>>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Same "upload before the entity exists" deferred pattern as
+  // (agent)/agency-staff/page.tsx's New Staff modal — a brand-new user has
+  // no id yet to attach a photo to directly, so this hits the id-less
+  // POST /agents/photo/upload (already super_admin-permitted) immediately
+  // on pick, and the returned url just sits in form.photoUrl until Create
+  // is pressed and users.repository.ts::create() writes it to the new
+  // user's profiles.photo_url.
+  const uploadPhoto = useMutation({
+    mutationFn: (file: File) => agentsRepository.uploadStandaloneAvatar(file),
+    onSuccess: ({ url }) => setForm((prev) => ({ ...prev, photoUrl: url })),
+    onError: () => toast.error('Photo upload failed — please try again.'),
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const byRole = stats?.usersByRole ?? {};
@@ -120,6 +136,12 @@ export default function UsersPage() {
     setModalOpen(true);
   }
 
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) uploadPhoto.mutate(file);
+    e.target.value = '';
+  }
+
   async function handleCreate() {
     try {
       const created = await create.mutateAsync(form);
@@ -135,8 +157,11 @@ export default function UsersPage() {
       }
       toast.success('User created.');
       setModalOpen(false);
-    } catch {
-      toast.error('Something went wrong — please try again.');
+    } catch (err) {
+      // Was a flat generic message regardless of cause — a too-short
+      // password (backend requires 8+ chars) or a duplicate email both
+      // rendered as "Something went wrong", with no way to tell which.
+      toast.error((err as { userMessage?: string })?.userMessage ?? 'Something went wrong — please try again.');
     }
   }
 
@@ -366,13 +391,52 @@ export default function UsersPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New User">
         <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadPhoto.isPending}
+              className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted"
+              aria-label="Add a photo"
+            >
+              {form.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.photoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted-foreground">
+                  {(form.displayName || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                {uploadPhoto.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <Camera className="h-4 w-4 text-white" />
+                )}
+              </span>
+            </button>
+            <p className="text-xs text-muted-foreground">Optional photo.</p>
+          </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
             <Input value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
             <Label>Password</Label>
-            <Input type="password" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
+            <Input
+              type="password"
+              minLength={8}
+              value={form.password}
+              onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">At least 8 characters — the backend rejects anything shorter.</p>
           </div>
           <div className="space-y-1.5">
             <Label>Display Name</Label>

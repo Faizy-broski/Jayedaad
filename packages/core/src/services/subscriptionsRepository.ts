@@ -145,6 +145,17 @@ export const subscriptionsRepository = {
     return data;
   },
 
+  // Zameen-style multi-item cart — several different packs, each its own
+  // quantity, paid for in one combined Stripe Checkout Session. Same
+  // "webhook is the only writer" reasoning as checkoutCreditPack above.
+  checkoutCreditCart: async (
+    items: { packId: string; quantity: number }[],
+    returnUrl?: string,
+  ): Promise<{ url: string | null }> => {
+    const { data } = await httpClient.post('/subscriptions/me/credits/checkout-cart', { items, returnUrl });
+    return data;
+  },
+
   createCreditPack: async (input: CreateCreditPackInput): Promise<CreditPack> => {
     const { data } = await httpClient.post('/credit-packs', input);
     return mapCreditPackRow(data);

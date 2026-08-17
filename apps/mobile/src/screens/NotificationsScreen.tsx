@@ -26,6 +26,10 @@ function relativeTime(iso: string): string {
 export function NotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { notifications, unreadCount, isLoading, isError, markRead, markAllRead } = useNotificationsViewModel();
+  // Same "what's new" panel behavior as web's NotificationBell — once read,
+  // a notification drops out of this list instead of lingering with just
+  // its unread styling removed.
+  const visibleNotifications = notifications.filter((n) => !n.readAt);
 
   function handlePress(item: Notification) {
     if (!item.readAt) markRead.mutate(item.id);
@@ -42,8 +46,8 @@ export function NotificationsScreen() {
 
   function renderItem({ item }: { item: Notification }) {
     return (
-      <Pressable style={[styles.row, !item.readAt && styles.rowUnread]} onPress={() => handlePress(item)}>
-        {!item.readAt && <View style={styles.dot} />}
+      <Pressable style={[styles.row, styles.rowUnread]} onPress={() => handlePress(item)}>
+        <View style={styles.dot} />
         <View style={styles.rowContent}>
           <Text style={styles.title}>{item.title}</Text>
           {item.body ? <Text style={styles.body}>{item.body}</Text> : null}
@@ -68,13 +72,13 @@ export function NotificationsScreen() {
         <Text style={styles.loading}>Loading…</Text>
       ) : isError ? (
         <Text style={styles.error}>Couldn't load notifications — please try again.</Text>
-      ) : notifications.length === 0 ? (
+      ) : visibleNotifications.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="notifications-off-outline" size={32} color={theme.colors.mutedLight} />
-          <Text style={styles.emptyText}>Nothing yet.</Text>
+          <Text style={styles.emptyText}>{notifications.length === 0 ? 'Nothing yet.' : "You're all caught up."}</Text>
         </View>
       ) : (
-        <FlatList data={notifications} keyExtractor={(n) => n.id} renderItem={renderItem} contentContainerStyle={styles.list} />
+        <FlatList data={visibleNotifications} keyExtractor={(n) => n.id} renderItem={renderItem} contentContainerStyle={styles.list} />
       )}
     </SafeAreaView>
   );

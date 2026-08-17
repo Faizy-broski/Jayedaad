@@ -253,6 +253,10 @@ export interface ProjectCardData {
   verificationStatus: ProjectVerificationOption;
   unitTypeCount: number;
   priceRangeMin: number;
+  // Same shared-pool boost system listings have — see ProjectCard.tsx's
+  // badge treatment, mirroring PropertyCard's.
+  boostTier: 'basic' | 'premium' | 'hot' | 'super_hot';
+  storyExpiresAt: string | null;
 }
 
 export interface DisplayProject {

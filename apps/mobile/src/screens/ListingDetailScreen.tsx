@@ -29,7 +29,7 @@ import {
 import { Accordion, Badge, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
 import { ContactIconActions, FavoriteButton, getPrimaryCallNumber, trackAndOpen } from '../components/ListingContactActions';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { addRecentlyViewed } from '../lib/recentlyViewedStorage';
+import { addRecentlyViewed, removeRecentlyViewed } from '../lib/recentlyViewedStorage';
 
 const { width } = Dimensions.get('window');
 const GALLERY_HEIGHT = 360;
@@ -55,7 +55,7 @@ export function ListingDetailScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'ListingDetail'>>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { listingId } = route.params;
-  const { listing, isLoading, similar } = useListingDetailViewModel(listingId);
+  const { listing, isLoading, error, similar } = useListingDetailViewModel(listingId);
   const { format: formatPrice } = useFormattedPrice();
   const { format: formatArea } = useFormattedArea();
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -65,6 +65,28 @@ export function ListingDetailScreen() {
   useEffect(() => {
     if (listing) addRecentlyViewed(listing).catch(() => {});
   }, [listing]);
+
+  // A listing can 404 here (deleted/rejected since last seen) without ever
+  // having been "loading" from this screen's own perspective — most often
+  // reached via HomeScreen's on-device "Recently Viewed" cache, which
+  // snapshots a listing at view time and never revalidates it. Previously
+  // this had no error branch at all, so isLoading going false with no
+  // listing just fell through to the loading state forever. Pruning the
+  // stale cache entry here means the next Home screen visit stops showing
+  // it, instead of it lingering indefinitely.
+  useEffect(() => {
+    if (error) removeRecentlyViewed(listingId).catch(() => {});
+  }, [error, listingId]);
+
+  if (error) {
+    return (
+      <View style={styles.loadingRoot}>
+        <Ionicons name="alert-circle-outline" size={32} color={theme.colors.muted} />
+        <Text style={styles.muted}>This listing is no longer available.</Text>
+        <Button label="Go back" variant="secondary" size="sm" onPress={() => navigation.goBack()} style={{ marginTop: theme.spacing.md }} />
+      </View>
+    );
+  }
 
   if (isLoading || !listing) {
     return (

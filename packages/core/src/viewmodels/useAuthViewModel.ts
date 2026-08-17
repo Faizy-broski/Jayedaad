@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   AuthCredentials,
   SignUpInput,
@@ -6,10 +6,11 @@ import {
   confirmPasswordReset,
   exchangeCodeForSession,
   getAppleOAuthUrl,
-  getEmailVerified,
   getGoogleOAuthUrl,
   getUserAgentId,
+  getUserEmailVerified,
   getUserRole,
+  refreshSession,
   requestPasswordReset,
   sendOtpCode,
   signInWithApple,
@@ -59,31 +60,21 @@ export function useAuthViewModel() {
     mutationFn: (code: string) => exchangeCodeForSession(code),
   });
 
-  // email_verified is an app-table column (profiles), not part of the
-  // Supabase session/JWT — it lives in react-query's cache, not the Zustand
-  // auth store, so it participates in the same invalidate/refetch machinery
-  // as every other server-owned value in this codebase.
-  const emailVerifiedQuery = useQuery({
-    queryKey: ['auth', 'emailVerified', user?.id],
-    queryFn: getEmailVerified,
-    enabled: !!session,
-    staleTime: Infinity,
-    // More retries than the app's generic 1-retry default (queryClient.ts)
-    // — deliberately asymmetric risk: a wrong "true" here is harmless
-    // (nothing bad happens showing the dashboard to someone who really is
-    // verified), but a wrong "false" locks a real, already-verified user
-    // out of their own account via RequireEmailVerified/AuthGateProvider's
-    // redirect. A single transient failure (RLS blip, connection reset —
-    // see otp.repository.ts's getEmailVerified) shouldn't be enough to
-    // trigger that.
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10_000),
-  });
+  // email_verified is an app_metadata JWT claim now (see
+  // getUserEmailVerified's comment) — a synchronous read off the same
+  // `user` object role/agentId already come from, not a query. No
+  // loading/error state exists anymore because there's no fetch to wait on
+  // or fail.
+  const isEmailVerified = getUserEmailVerified(user);
 
   const sendOtp = useMutation({ mutationFn: () => sendOtpCode() });
   const verifyOtp = useMutation({
     mutationFn: (code: string) => verifyOtpCode(code),
-    onSuccess: () => emailVerifiedQuery.refetch(),
+    // Pulls a fresh JWT so the app_metadata.email_verified claim
+    // OtpRepository.markEmailVerified just stamped server-side is reflected
+    // here immediately — same refreshSession() pattern already used by
+    // useOwnerVerificationViewModel.ts after a role change.
+    onSuccess: () => refreshSession(),
   });
 
   const requestPasswordResetMutation = useMutation({
@@ -111,17 +102,17 @@ export function useAuthViewModel() {
     user,
     isAuthenticated: !!session,
     isInitializing,
-    isEmailVerified: emailVerifiedQuery.data ?? false,
-    isEmailVerifiedLoading: emailVerifiedQuery.isLoading,
-    // Lets callers distinguish "confirmed not verified" from "couldn't
-    // confirm right now" — RequireEmailVerified (web) and AuthGateProvider
-    // (mobile) both need this to avoid bouncing an already-verified user to
-    // the OTP screen just because this one check failed transiently.
-    isEmailVerifiedError: emailVerifiedQuery.isError,
-    // For callers that need an up-to-date answer synchronously right after
-    // signIn resolves (e.g. login/page.tsx deciding where to redirect),
-    // rather than waiting on the query's own enabled/staleTime lifecycle.
-    refetchEmailVerified: emailVerifiedQuery.refetch,
+    isEmailVerified,
+    // Always false/false now — kept in the returned shape (rather than
+    // removed) so every existing consumer (RequireEmailVerified,
+    // AuthGateProvider, BottomTabNavigator, etc.) keeps working unmodified
+    // against a value that's simply always synchronously available.
+    isEmailVerifiedLoading: false,
+    isEmailVerifiedError: false,
+    // No longer an actual refetch (there's nothing to fetch) — kept as a
+    // same-shaped async function so callers that `await` it (e.g.
+    // login/page.tsx) don't need to change.
+    refetchEmailVerified: async () => ({ data: isEmailVerified }),
     role: getUserRole(user),
     agentId: getUserAgentId(user),
     signIn,

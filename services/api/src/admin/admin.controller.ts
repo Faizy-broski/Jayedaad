@@ -50,7 +50,13 @@ export class AdminController {
   }
 
   // "Which role gets what dashboard access" reference for the team
-  // management screen — see role-access-descriptions.ts.
+  // management screen — see role-access-descriptions.ts. Method-level
+  // override (widening past the class-level super_admin-only guard, same
+  // mechanism verification.controller.ts's auditLog() already uses) so
+  // verification_staff's own shell can resolve its own role's label/
+  // description too, instead of a hardcoded string — purely descriptive
+  // static data, not sensitive, safe to open past super_admin.
+  @Roles('verification_staff', 'super_admin')
   @Get('roles')
   listRoles() {
     return Object.values(ROLE_ACCESS_DESCRIPTIONS);

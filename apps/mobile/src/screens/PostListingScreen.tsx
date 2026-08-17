@@ -714,7 +714,16 @@ export function PostListingScreen() {
       {usage && role === 'agent' && !editId && (
         <Text style={[styles.quotaText, quotaReached && styles.quotaTextReached]}>
           {usage.used} of {usage.quota} listings used on your plan
-          {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+          {quotaReached && (
+            <>
+              {' '}
+              — quota reached,{' '}
+              <Text style={styles.quotaLink} onPress={() => navigation.navigate('Plan')}>
+                upgrade your plan
+              </Text>{' '}
+              to publish more.
+            </>
+          )}
         </Text>
       )}
       <View style={styles.submitContainer}>
@@ -1116,6 +1125,7 @@ const styles = StyleSheet.create({
 
   quotaText: { marginTop: 16, fontSize: 12, fontWeight: '500', color: theme.colors.muted, textAlign: 'center' },
   quotaTextReached: { color: theme.colors.danger },
+  quotaLink: { fontWeight: '700', textDecorationLine: 'underline' },
 
   // Main Submit
   submitContainer: {

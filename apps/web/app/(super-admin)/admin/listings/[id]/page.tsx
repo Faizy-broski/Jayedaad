@@ -5,7 +5,16 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { ListingDocumentType, ListingStatus, formatPrice, listingsRepository, useAdminListingDetailViewModel } from '@jayedaad/core';
+import {
+  ListingDocumentType,
+  ListingStatus,
+  formatPrice,
+  listingsRepository,
+  useAdminListingDetailViewModel,
+  useAuthViewModel,
+  useUserManagementViewModel,
+  useVerificationAuditLogViewModel,
+} from '@jayedaad/core';
 import { Badge, Button, cn, Select } from '@jayedaad/ui-web';
 import {
   ArrowLeft,
@@ -19,6 +28,7 @@ import {
   MapPin,
   Phone,
   Ruler,
+  ShieldCheck,
   Sofa,
   Tag,
   Trash2,
@@ -68,15 +78,43 @@ function initials(name: string): string {
     .join('');
 }
 
-// Read-only listing detail for Super Admin, rendered inside the admin shell
-// (apps/web/app/(super-admin)/layout.tsx) — deliberately NOT a link into
-// /submit's edit form, which lives under the agent route group and renders
-// the agent Profolio shell instead.
+// Listing detail — primarily a Super Admin page rendered inside the admin
+// shell (apps/web/app/(super-admin)/layout.tsx), deliberately NOT a link
+// into /submit's edit form, which lives under the agent route group and
+// renders the agent Profolio shell instead. Also reachable (read-mostly)
+// by verification_staff via the one middleware.ts carve-out on this exact
+// URL — GET /listings/mine now permits them a single-id lookup here (see
+// listings.repository.ts's findMine) so they can view a pending listing
+// for context from the verification queue. The Override-status/Delete
+// controls below stay super_admin-only: verification_staff's real
+// approve/reject actions live in the verification queue, and
+// PATCH /listings/:id/status is backend-gated to super_admin regardless —
+// hiding the controls avoids showing a doomed-to-403 button.
 export default function AdminListingDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { role } = useAuthViewModel();
+  const isSuperAdmin = role === 'super_admin';
   const { listing, isLoading, setStatus } = useAdminListingDetailViewModel(params.id);
   const [activeImage, setActiveImage] = useState(0);
+
+  // "Verified by" — super_admin-only (GET /verification/audit-log stays
+  // super_admin-only server-side, unlike the rest of this page), resolved
+  // the same way admin/verification-log/page.tsx already resolves reviewer
+  // names: the audit log only stores reviewerId, cross-referenced against
+  // the full user list. pageSize: 1 + the endpoint's existing created_at
+  // DESC ordering reliably returns the most recent approval, if any.
+  const canShowVerifiedBy = isSuperAdmin && listing?.status === 'verified';
+  const { entries: approvalEntries } = useVerificationAuditLogViewModel(
+    { listingId: params.id, action: 'approve', pageSize: 1 },
+    { enabled: canShowVerifiedBy },
+  );
+  const { users } = useUserManagementViewModel({}, { enabled: canShowVerifiedBy });
+  const latestApproval = canShowVerifiedBy ? approvalEntries[0] : undefined;
+  const reviewer = latestApproval ? users.find((u) => u.id === latestApproval.reviewerId) : undefined;
+  const verifiedByLabel = latestApproval
+    ? `${reviewer?.displayName ?? reviewer?.email ?? latestApproval.reviewerId}${reviewer?.role === 'super_admin' ? ' (Super Admin)' : ''}`
+    : undefined;
 
   // GET /listings/:id/documents already allows verification_staff/super_admin
   // to bypass the ownership check (see assertCanAccessDocuments) — this was
@@ -159,6 +197,12 @@ export default function AdminListingDetailPage() {
               <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{listing.title}</h1>
               <span className={cn('rounded-full px-2.5 py-1 text-xs font-medium', badge.className)}>{badge.label}</span>
             </div>
+            {verifiedByLabel && (
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                Verified by <span className="font-medium text-foreground">{verifiedByLabel}</span>
+              </p>
+            )}
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
@@ -178,33 +222,35 @@ export default function AdminListingDetailPage() {
 
           <div className="flex flex-col items-end gap-2">
             <p className="text-2xl font-bold text-foreground">{formatPrice(Number(listing.price))}</p>
-            <div className="flex items-center gap-2">
-              <Select
-                value=""
-                onChange={(e) => handleOverride(e.target.value as ListingStatus)}
-                disabled={setStatus.isPending}
-                className="h-9 w-auto rounded-full px-4 text-xs"
-              >
-                <option value="">Override status…</option>
-                {OVERRIDE_STATUSES.filter((s) => s !== listing.status).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_BADGE[s].label}
-                  </option>
-                ))}
-              </Select>
-              {listing.status !== 'deleted' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10"
+            {isSuperAdmin && (
+              <div className="flex items-center gap-2">
+                <Select
+                  value=""
+                  onChange={(e) => handleOverride(e.target.value as ListingStatus)}
                   disabled={setStatus.isPending}
-                  onClick={handleDelete}
+                  className="h-9 w-auto rounded-full px-4 text-xs"
                 >
-                  <Trash2 className="mr-1 h-3.5 w-3.5" />
-                  Delete
-                </Button>
-              )}
-            </div>
+                  <option value="">Override status…</option>
+                  {OVERRIDE_STATUSES.filter((s) => s !== listing.status).map((s) => (
+                    <option key={s} value={s}>
+                      {STATUS_BADGE[s].label}
+                    </option>
+                  ))}
+                </Select>
+                {listing.status !== 'deleted' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                    disabled={setStatus.isPending}
+                    onClick={handleDelete}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Delete
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </Reveal>

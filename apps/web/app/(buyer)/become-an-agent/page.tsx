@@ -27,8 +27,8 @@ const REQUIRED_ONBOARDING_DOCUMENT_TYPES: OnboardingDocumentType[] = ['owner_id_
 
 // Self-service agent application — a logged-in buyer applies here, lands in
 // the same 'pending' review queue a super_admin-created agent would (see
-// apps/web/app/(admin)/agent-verification/page.tsx). Mirrors Zameen.com's
-// self-register-then-review model for individual agents.
+// apps/web/app/(verification)/agent-verification/page.tsx). Mirrors
+// Zameen.com's self-register-then-review model for individual agents.
 export default function BecomeAnAgentPage() {
   const { role, agentId } = useAuthViewModel();
   const { apply } = useAgentApplicationViewModel();

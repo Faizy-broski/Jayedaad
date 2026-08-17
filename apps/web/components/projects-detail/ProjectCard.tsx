@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BadgeCheck, MapPin, Layers, ArrowRight } from 'lucide-react';
+import { BadgeCheck, Clapperboard, Flame, MapPin, Layers, Sparkles, ArrowRight } from 'lucide-react';
 import { projectsRepository, useFormattedPrice } from '@jayedaad/core';
 import type { ProjectCardData } from '@/lib/types';
 import { getViewerSessionId } from '@/lib/viewerSession';
@@ -20,6 +20,11 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
   // prices never got the same treatment and silently ignored the user's
   // preferredCurrency setting.
   const { format: formatPrice } = useFormattedPrice();
+  // Same boost/story badge treatment as listings' own PropertyCard.tsx —
+  // a buyer should recognize "this is boosted" identically whether it's a
+  // listing or a project.
+  const isBoosted = project.boostTier === 'hot' || project.boostTier === 'super_hot';
+  const hasActiveStory = !!project.storyExpiresAt && new Date(project.storyExpiresAt) > new Date();
   return (
     <Link
       href={`/developments/${project.slug}`}
@@ -37,6 +42,22 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
             <BadgeCheck className="h-3 w-3 text-primary" />
             Verified
           </span>
+        )}
+        {(isBoosted || hasActiveStory) && (
+          <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1.5">
+            {isBoosted && (
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                {project.boostTier === 'super_hot' ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                {project.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
+              </span>
+            )}
+            {hasActiveStory && (
+              <span className="flex items-center gap-1 rounded-full bg-fuchsia-100 px-2.5 py-1 text-[10px] font-semibold text-fuchsia-700">
+                <Clapperboard className="h-3 w-3" />
+                Story
+              </span>
+            )}
+          </div>
         )}
         <div className="absolute left-2.5 bottom-2.5 flex gap-1.5">
           <span className="rounded-full bg-heading-gradient px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">

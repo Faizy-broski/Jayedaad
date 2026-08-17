@@ -112,6 +112,11 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
             <NavRow icon="home-outline" label="My Properties" onPress={() => go('MyProperties')} />
             <NavRow icon="document-text-outline" label="Drafts" onPress={() => go('MyProperties', { initialTab: 'drafts' })} />
             {isAgent && <NavRow icon="business-outline" label="My Projects" onPress={() => go('MyProjects')} />}
+            {/* This section was literally titled "Properties and Quota" with
+                no link to the one screen where quota/credits are actually
+                purchased — the only way in was via the Profile tab's own
+                "Plan" row or a small link buried on the Realtor Dashboard. */}
+            {isAgent && <NavRow icon="card-outline" label="Plan" onPress={() => go('Plan')} />}
             {isAgent && <NavRow icon="calendar-outline" label="Calendar" onPress={() => go('Calendar')} />}
             {canManageAgency && <NavRow icon="people-outline" label="Agency Staff" onPress={() => go('AgencyStaff')} />}
             {needsAgencyDocuments && (

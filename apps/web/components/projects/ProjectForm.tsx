@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -1226,7 +1227,16 @@ export function ProjectForm({
                         {usage && role === 'agent' && !projectId && (
                           <p className={`text-xs font-medium ${quotaReached ? 'text-destructive' : 'text-muted-foreground'}`}>
                             {usage.projectUsed} of {usage.projectQuota} projects used on your plan
-                            {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+                            {quotaReached && (
+                              <>
+                                {' '}
+                                — quota reached,{' '}
+                                <Link href="/plan" className="underline hover:no-underline">
+                                  upgrade your plan
+                                </Link>{' '}
+                                to publish more.
+                              </>
+                            )}
                           </p>
                         )}
                         <div className="flex flex-wrap justify-center gap-3">

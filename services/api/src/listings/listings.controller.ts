@@ -141,8 +141,13 @@ export class ListingsController {
   // owners see what they submitted, agents see what they're assigned to,
   // super_admin sees everything. Filters confirmed real on the live
   // Profolio "My Listings" filter panel.
+  // verification_staff is included too, but scoped hard in the repository
+  // to a single `listingId` lookup only (never the unfiltered "mine" list)
+  // — this is what backs the admin listing-detail page reachable from the
+  // verification queue (apps/web's (super-admin)/admin/listings/[id]),
+  // same one-listing-at-a-time boundary as assertCanAccessDocuments below.
   @UseGuards(ScopeGuard)
-  @Roles('agent', 'super_admin')
+  @Roles('agent', 'verification_staff', 'super_admin')
   @Get('mine')
   findMine(
     @Req() req: any,
@@ -258,7 +263,7 @@ export class ListingsController {
   async submitDraft(@Req() req: any, @Param('id') id: string) {
     await this.assertOwnListing(req, id);
     await this.listings.assertDocumentsComplete(id);
-    return this.listings.setStatus(id, 'pending_verification');
+    return this.listings.submitDraft(id, req.user.role === 'agent' ? req.user.agentId : undefined);
   }
 
   // The write path listing_boost_tier never had before this pass — spends

@@ -61,6 +61,14 @@ export default function VerifyEmailPage() {
 
   async function handleVerify(e: FormEvent) {
     e.preventDefault();
+    // A disabled submit button doesn't reliably stop the browser's own
+    // implicit "Enter submits the form" behavior from firing a second
+    // submission before React's disabled prop re-renders — two concurrent
+    // requests with the same code then race: the first consumes it
+    // server-side, the second hits "No active code" and looked, from the
+    // user's side, like a failed verify immediately followed by an
+    // unrelated redirect once the first request's refreshSession() resolved.
+    if (verifyOtp.isPending) return;
     try {
       // No explicit redirect here — verifyOtp's onSuccess refetches
       // isEmailVerified (see useAuthViewModel.ts), which flips the effect

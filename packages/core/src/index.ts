@@ -88,3 +88,4 @@ export * from './viewmodels/useSupportTicketsViewModel';
 export * from './viewmodels/useAdminSupportViewModel';
 export * from './viewmodels/useLeadRemindersViewModel';
 export * from './viewmodels/useTasksViewModel';
+export * from './viewmodels/useRoleAccessViewModel';

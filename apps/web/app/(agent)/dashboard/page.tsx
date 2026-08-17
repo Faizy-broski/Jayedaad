@@ -214,6 +214,7 @@ export default function AgentDashboardPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/submit"
+              prefetch={false}
               className="bg-heading-gradient flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               <PlusCircle className="h-4 w-4" />
@@ -221,6 +222,7 @@ export default function AgentDashboardPage() {
             </Link>
             <Link
               href="/property-management"
+              prefetch={false}
               className="flex items-center gap-1.5 rounded-full border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
               <Home className="h-4 w-4" />
@@ -228,6 +230,7 @@ export default function AgentDashboardPage() {
             </Link>
             <Link
               href="/crm"
+              prefetch={false}
               className="flex items-center gap-1.5 rounded-full border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
               <Inbox className="h-4 w-4" />
@@ -446,7 +449,7 @@ export default function AgentDashboardPage() {
           <Card className="rounded-[24px] p-4 sm:p-6">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-foreground">Recent Listings</h2>
-              <Link href="/property-management" className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline">
+              <Link href="/property-management" prefetch={false} className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline">
                 View all <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -463,7 +466,7 @@ export default function AgentDashboardPage() {
                 <ImageOff className="mb-3 h-10 w-10 text-muted-foreground/50" />
                 <h3 className="text-sm font-semibold text-foreground">No Active Listings</h3>
                 <p className="mt-1 text-xs text-muted-foreground">Your active listings will appear here</p>
-                <Link href="/submit" className="mt-4">
+                <Link href="/submit" prefetch={false} className="mt-4">
                   <Button size="sm">
                     <PlusCircle className="mr-1.5 h-4 w-4" />
                     Post Listing
@@ -660,6 +663,7 @@ export default function AgentDashboardPage() {
             </div>
             <Link
               href="/property-management"
+              prefetch={false}
               className="mt-6 block w-full rounded-full bg-white py-2.5 text-center text-sm font-semibold text-brand-dark hover:bg-white/90"
             >
               Boost a listing

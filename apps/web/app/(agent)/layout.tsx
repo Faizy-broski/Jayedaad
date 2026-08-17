@@ -48,6 +48,7 @@ const NAV_ITEMS = [
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
   { href: '/plan', label: 'Plan', icon: CreditCard, roles: ['agent', 'super_admin'] },
+  { href: '/agent-settings', label: 'Settings', icon: Settings, roles: ['agent', 'super_admin'] },
   { href: '/help', label: 'Help / Support', icon: HelpCircle, roles: ['agent', 'super_admin'] },
 ];
 
@@ -115,7 +116,6 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   const activeItem = visibleNavItems.find(
     ({ href }) => pathname === href || (href !== '/dashboard' && pathname.startsWith(href)),
   );
-  const settingsActive = pathname.startsWith('/agent-settings');
 
   const sidebarContent = (
     <>
@@ -164,6 +164,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             <Link
               key={href}
               href={href}
+              prefetch={false}
               title={collapsed ? label : undefined}
               onClick={() => setMobileOpen(false)}
               className={`relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -200,12 +201,13 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* User menu — Settings/Log Out live here now (a dropdown off the
-          profile trigger) instead of as standalone sidebar links, so this is
-          the one thing at the bottom of the sidebar regardless of Workspace
-          list length or collapsed state. Opens upward (bottom-full) since
-          it's pinned at the very bottom of the viewport — opening downward
-          would run off-screen. */}
+      {/* User menu — Log Out lives here (a dropdown off the profile trigger)
+          instead of as a standalone sidebar link, so this is the one thing
+          at the bottom of the sidebar regardless of Workspace list length or
+          collapsed state. Settings is a regular Workspace nav item above
+          (NAV_ITEMS) now, not duplicated here. Opens upward (bottom-full)
+          since it's pinned at the very bottom of the viewport — opening
+          downward would run off-screen. */}
       <div ref={userMenuRef} className="relative shrink-0 border-t border-border p-3">
         <AnimatePresence>
           {userMenuOpen && (
@@ -218,19 +220,6 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
                 collapsed ? 'left-3' : 'left-3 right-3 w-auto'
               }`}
             >
-              <Link
-                href="/agent-settings"
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  settingsActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-                }`}
-              >
-                <Settings className="h-4 w-4 shrink-0" />
-                Settings
-              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -350,6 +339,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             <NotificationBell />
             <Link
               href="/property-management"
+              prefetch={false}
               className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border border-input px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted sm:flex sm:text-sm"
             >
               <UserCircle2 className="h-4 w-4" />
@@ -357,6 +347,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             </Link>
             <Link
               href="/submit"
+              prefetch={false}
               className="bg-heading-gradient flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:px-4 sm:text-sm"
             >
               <PlusCircle className="h-4 w-4" />

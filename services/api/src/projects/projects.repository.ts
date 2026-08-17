@@ -1,10 +1,20 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
+import { BoostProjectDto } from './dto/boost-project.dto';
 import { resolvePagination, sanitizeKeyword } from '../common/pagination';
 import { EntitlementsService } from '../subscriptions/entitlements.service';
+
+// Same durations as ListingsRepository's BOOST_DURATION_DAYS/
+// STORY_DURATION_HOURS (services/api/src/listings/listings.repository.ts)
+// — kept as separate constants (not imported cross-module) matching this
+// codebase's per-module convention (see BoostProjectDto vs BoostListingDto),
+// but must stay numerically identical since both spend from the same
+// shared agent_credits pool.
+const BOOST_DURATION_DAYS = 30;
+const STORY_DURATION_HOURS = 24;
 
 // Confirmed real on the Zameen New Projects search page: City, Property
 // Type (via the "Browse Projects by Category" taxonomy), Budget Range,
@@ -38,6 +48,7 @@ export interface PaginatedProjects {
 const PROJECT_COLUMNS = `
   id, name, slug, description, city, area, status, possession_date, cover_image_url,
   gallery_image_urls, floor_plan_urls, video_url, brochure_url, verification_status, created_by, created_at,
+  boost_tier, boost_expires_at, refreshed_at, story_expires_at,
   developers!inner (id, name, slug, logo_url, phone, whatsapp),
   project_unit_types (count)
 `;
@@ -67,6 +78,13 @@ function mapProjectRow(row: any, priceRange: { min: number; max: number } | null
     brochureUrl: row.brochure_url,
     verificationStatus: row.verification_status,
     createdBy: row.created_by,
+    // Mirrors Listing's boostTier/boostExpiresAt/refreshedAt/storyExpiresAt
+    // (packages/core/src/models/index.ts) — same shared agent_credits pool,
+    // same PlanLifecycleService cron revert relationship.
+    boostTier: row.boost_tier,
+    boostExpiresAt: row.boost_expires_at,
+    refreshedAt: row.refreshed_at,
+    storyExpiresAt: row.story_expires_at,
     // Search/manage list rows don't embed the full unit-type array (that's
     // findBySlug/findById's mapProjectDetailRow below) — just a count, via
     // PROJECT_COLUMNS' `project_unit_types (count)` embed.
@@ -143,6 +161,10 @@ function mapProjectDetailRow(row: any) {
     brochureUrl: row.brochure_url,
     verificationStatus: row.verification_status,
     createdBy: row.created_by,
+    boostTier: row.boost_tier,
+    boostExpiresAt: row.boost_expires_at,
+    refreshedAt: row.refreshed_at,
+    storyExpiresAt: row.story_expires_at,
     unitTypeCount: unitTypes.length,
     unitTypes,
     paymentPlans: (row.project_payment_plans ?? []).map((plan: any) => ({
@@ -237,7 +259,14 @@ export class ProjectsRepository {
     // default) stays fully DB-paginated.
     const sortsByPrice = filters.sortBy === 'price_asc' || filters.sortBy === 'price_desc';
     if (!sortsByPrice) {
-      query = query.order('created_at', { ascending: false });
+      // Same 3-level ranking listings use (listings.repository.ts) — a
+      // boosted project outranks a non-boosted one, a refreshed project
+      // outranks an un-refreshed one at the same tier, newest breaks any
+      // remaining tie.
+      query = query
+        .order('boost_tier', { ascending: false })
+        .order('refreshed_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       query = query.range(from, to);
@@ -572,6 +601,159 @@ export class ProjectsRepository {
     const { error } = await this.supabase.client.from('projects').delete().eq('id', id);
     if (error) throw error;
     return { id };
+  }
+
+  // Spends one agent_credits row of the given type (hot/super_hot) to set
+  // boost_tier — mirrors ListingsRepository.boost() exactly, including the
+  // compare-and-swap spend guard, and draws from the SAME shared
+  // agent_credits pool listings already spend from (no project-specific
+  // credit type). boost_expires_at drives PlanLifecycleService's cron
+  // reverting it back once the window passes.
+  async boost(projectId: string, agentId: string, input: BoostProjectDto) {
+    const { data: project, error: projectError } = await this.supabase.client
+      .from('projects')
+      .select('verification_status')
+      .eq('id', projectId)
+      .maybeSingle();
+    if (projectError) throw projectError;
+    if (project?.verification_status !== 'verified') {
+      throw new BadRequestException('Only verified projects can be boosted.');
+    }
+
+    const { data: credit, error: creditError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total, used')
+      .eq('agent_id', agentId)
+      .eq('credit_type', input.boostTier)
+      .maybeSingle();
+    if (creditError) throw creditError;
+
+    const available = (credit?.total ?? 0) - (credit?.used ?? 0);
+    if (available <= 0) {
+      throw new BadRequestException(`No ${input.boostTier === 'hot' ? 'Hot' : 'Super Hot'} credits available — check your plan's allotment.`);
+    }
+
+    const { data: spent, error: spendError } = await this.supabase.client
+      .from('agent_credits')
+      .update({ used: (credit?.used ?? 0) + 1 })
+      .eq('agent_id', agentId)
+      .eq('credit_type', input.boostTier)
+      .eq('used', credit?.used ?? 0)
+      .select('used');
+    if (spendError) throw spendError;
+    if (!spent || spent.length === 0) {
+      throw new BadRequestException('That credit was just spent by another request — please try again.');
+    }
+
+    const boostExpiresAt = new Date(Date.now() + BOOST_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .update({ boost_tier: input.boostTier, boost_expires_at: boostExpiresAt })
+      .eq('id', projectId)
+      .select(PROJECT_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapProjectRow(data, null);
+  }
+
+  // Spends one 'refresh' agent_credits row to bump refreshed_at to now() —
+  // mirrors ListingsRepository.refresh() exactly. Doesn't touch boost_tier:
+  // a refresh is a one-time bump within whatever boost tier the project
+  // already has (findPublic's secondary order('refreshed_at', ...) is what
+  // makes it matter).
+  async refresh(projectId: string, agentId: string) {
+    const { data: project, error: projectError } = await this.supabase.client
+      .from('projects')
+      .select('verification_status')
+      .eq('id', projectId)
+      .maybeSingle();
+    if (projectError) throw projectError;
+    if (project?.verification_status !== 'verified') {
+      throw new BadRequestException('Only verified projects can be refreshed.');
+    }
+
+    const { data: credit, error: creditError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total, used')
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'refresh')
+      .maybeSingle();
+    if (creditError) throw creditError;
+
+    const available = (credit?.total ?? 0) - (credit?.used ?? 0);
+    if (available <= 0) {
+      throw new BadRequestException("No Refresh credits available — check your plan's allotment.");
+    }
+
+    const { data: spent, error: spendError } = await this.supabase.client
+      .from('agent_credits')
+      .update({ used: (credit?.used ?? 0) + 1 })
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'refresh')
+      .eq('used', credit?.used ?? 0)
+      .select('used');
+    if (spendError) throw spendError;
+    if (!spent || spent.length === 0) {
+      throw new BadRequestException('That credit was just spent by another request — please try again.');
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .update({ refreshed_at: new Date().toISOString() })
+      .eq('id', projectId)
+      .select(PROJECT_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapProjectRow(data, null);
+  }
+
+  // Spends one 'story' agent_credits row to feature this project for
+  // STORY_DURATION_HOURS — mirrors ListingsRepository.postStory() exactly.
+  async postStory(projectId: string, agentId: string) {
+    const { data: project, error: projectError } = await this.supabase.client
+      .from('projects')
+      .select('verification_status')
+      .eq('id', projectId)
+      .maybeSingle();
+    if (projectError) throw projectError;
+    if (project?.verification_status !== 'verified') {
+      throw new BadRequestException('Only verified projects can be posted as a story.');
+    }
+
+    const { data: credit, error: creditError } = await this.supabase.client
+      .from('agent_credits')
+      .select('total, used')
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'story')
+      .maybeSingle();
+    if (creditError) throw creditError;
+
+    const available = (credit?.total ?? 0) - (credit?.used ?? 0);
+    if (available <= 0) {
+      throw new BadRequestException("No Story credits available — check your plan's allotment.");
+    }
+
+    const { data: spent, error: spendError } = await this.supabase.client
+      .from('agent_credits')
+      .update({ used: (credit?.used ?? 0) + 1 })
+      .eq('agent_id', agentId)
+      .eq('credit_type', 'story')
+      .eq('used', credit?.used ?? 0)
+      .select('used');
+    if (spendError) throw spendError;
+    if (!spent || spent.length === 0) {
+      throw new BadRequestException('That credit was just spent by another request — please try again.');
+    }
+
+    const storyExpiresAt = new Date(Date.now() + STORY_DURATION_HOURS * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .update({ story_expires_at: storyExpiresAt })
+      .eq('id', projectId)
+      .select(PROJECT_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapProjectRow(data, null);
   }
 
   // Super Admin approve/reject action — mirrors

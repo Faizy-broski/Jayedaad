@@ -20,6 +20,7 @@ import {
 } from '@jayedaad/core';
 import { Button, PickerField, refreshControlProps, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { BoostMenu } from '../components/BoostMenu';
 
 const PURPOSE_OPTIONS: { id: ListingPurpose | ''; label: string }[] = [
   { id: '', label: 'Any Purpose' },
@@ -74,7 +75,7 @@ export function MyPropertiesScreen() {
             with one real, legible button. */}
         <Pressable style={styles.addButton} onPress={addProperty}>
           <Ionicons name="add" size={16} color={theme.colors.bg} />
-          <Text style={styles.addButtonText}>Add Post</Text>
+          <Text style={styles.addButtonText}>Add Property</Text>
         </Pressable>
       </View>
 
@@ -92,6 +93,12 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   const [categoryLabel, setCategoryLabel] = useState('');
   const [propertyTypeLabel, setPropertyTypeLabel] = useState('');
   const [purposeLabel, setPurposeLabel] = useState('');
+  // Category/Property Type/Purpose used to sit permanently visible as 3
+  // stacked dropdown boxes between the search bar and the results — same
+  // "search bar + filter icon opening a sheet" pattern BuyerSearchScreen/
+  // AllPropertiesScreen already use, instead of a bespoke layout just for
+  // this screen.
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [applied, setApplied] = useState({
     listingNumber: '',
     categorySlug: '',
@@ -153,7 +160,10 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
       propertyTypeSlug: propertyTypes.find((t) => t.label === propertyTypeLabel)?.slug ?? '',
       purpose: (PURPOSE_OPTIONS.find((p) => p.label === purposeLabel)?.id ?? '') as ListingPurpose | '',
     });
+    setFilterSheetVisible(false);
   }
+
+  const hasActiveFilters = !!(applied.categorySlug || applied.propertyTypeSlug || applied.purpose);
 
   function handleClearFilters() {
     setListingNumberInput('');
@@ -240,57 +250,88 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
         <RefreshControl refreshing={isRefetchingListings} onRefresh={() => refetchListings()} {...refreshControlProps()} />
       }
     >
-      {/* Modern Seamless Filter Bar */}
-      <View style={styles.filterBar}>
-        <TextInput
-          value={listingNumber}
-          onChangeText={setListingNumberInput}
-          placeholder="Enter Listing ID (e.g. JYD-00001)"
-          style={styles.flatInput}
-        />
-        <View style={styles.filterRow2}>
-          <View style={styles.pickerWrapper}>
-            <PickerField
-              value={categoryLabel}
-              options={categories.map((c) => c.label)}
-              placeholder="Category"
-              title="Category"
-              onChange={(label) => {
-                setCategoryLabel(label);
-                setPropertyTypeLabel('');
-              }}
-            />
-          </View>
-          <View style={styles.pickerWrapper}>
-            <PickerField
-              value={propertyTypeLabel}
-              options={typesInSelectedCategory.map((t) => t.label)}
-              placeholder="Property Type"
-              title="Property Type"
-              onChange={setPropertyTypeLabel}
-            />
-          </View>
+      {/* Search bar + filter icon side by side — same pattern
+          BuyerSearchScreen/AllPropertiesScreen already use, instead of
+          Category/Property Type/Purpose sitting permanently visible as 3
+          stacked dropdown boxes eating vertical space before any results
+          are even in view. */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchInputWrap}>
+          <Ionicons name="search-outline" size={17} color={theme.colors.mutedLight} style={styles.searchIcon} />
+          <TextInput
+            value={listingNumber}
+            onChangeText={setListingNumberInput}
+            placeholder="Enter Listing ID (e.g. JYD-00001)"
+            style={styles.searchInput}
+          />
         </View>
-        <View style={styles.filterRow2}>
-          <View style={styles.pickerWrapper}>
-            <PickerField
-              value={purposeLabel}
-              options={PURPOSE_OPTIONS.map((p) => p.label)}
-              placeholder="Purpose"
-              title="Purpose"
-              onChange={setPurposeLabel}
-            />
-          </View>
-        </View>
-        <View style={styles.filterActionsRow}>
-          <Pressable onPress={handleClearFilters} style={styles.clearFiltersButton}>
-            <Text style={styles.clearFiltersLink}>Clear filters</Text>
-          </Pressable>
-          <View style={styles.searchButtonWrapper}>
-            <Button label="Search" onPress={handleSearch} />
-          </View>
-        </View>
+        <Pressable style={styles.filterIconButton} onPress={() => setFilterSheetVisible(true)}>
+          <Ionicons name="options-outline" size={20} color={theme.colors.bg} />
+          {hasActiveFilters && <View style={styles.filterActiveDot} />}
+        </Pressable>
       </View>
+
+      <Modal
+        visible={filterSheetVisible}
+        animationType="slide"
+        onRequestClose={() => setFilterSheetVisible(false)}
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.sheetContainer}>
+          <View style={styles.sheetHeader}>
+            <Pressable onPress={() => setFilterSheetVisible(false)} hitSlop={8} style={styles.sheetHeaderIconButton}>
+              <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
+            </Pressable>
+            <Text style={styles.sheetHeaderTitle}>Filters</Text>
+            <View style={styles.sheetHeaderIconButton} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.sheetContent}>
+            <View style={styles.sheetField}>
+              <Text style={styles.sheetLabel}>Category</Text>
+              <PickerField
+                value={categoryLabel}
+                options={categories.map((c) => c.label)}
+                placeholder="Any Category"
+                title="Category"
+                onChange={(label) => {
+                  setCategoryLabel(label);
+                  setPropertyTypeLabel('');
+                }}
+              />
+            </View>
+            <View style={styles.sheetField}>
+              <Text style={styles.sheetLabel}>Property Type</Text>
+              <PickerField
+                value={propertyTypeLabel}
+                options={typesInSelectedCategory.map((t) => t.label)}
+                placeholder="Any Type"
+                title="Property Type"
+                onChange={setPropertyTypeLabel}
+              />
+            </View>
+            <View style={styles.sheetField}>
+              <Text style={styles.sheetLabel}>Purpose</Text>
+              <PickerField
+                value={purposeLabel}
+                options={PURPOSE_OPTIONS.map((p) => p.label)}
+                placeholder="Any Purpose"
+                title="Purpose"
+                onChange={setPurposeLabel}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.sheetFooter}>
+            <Pressable onPress={handleClearFilters} style={styles.sheetResetButton} hitSlop={8}>
+              <Text style={styles.sheetResetLink}>Clear filters</Text>
+            </Pressable>
+            <View style={styles.sheetApplyButton}>
+              <Button label="Search" onPress={handleSearch} />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Smooth Pill Navigation */}
       <View style={styles.pillContainer}>
@@ -371,7 +412,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   line taller. */}
               <View style={styles.rowActions}>
                 <Pressable style={styles.actionButton} onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}>
-                  <Ionicons name="eye-outline" size={16} color={theme.colors.primary} />
+                  <Ionicons name="eye-outline" size={14} color={theme.colors.primary} />
                   <Text style={styles.actionTextPrimary} numberOfLines={1}>View</Text>
                 </Pressable>
 
@@ -379,7 +420,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                   style={styles.actionButton}
                   onPress={() => navigation.navigate('PostListing', { editListingId: listing.id })}
                 >
-                  <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
+                  <Ionicons name="create-outline" size={14} color={theme.colors.primary} />
                   <Text style={styles.actionTextPrimary} numberOfLines={1}>Edit details</Text>
                 </Pressable>
 
@@ -393,7 +434,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     style={styles.actionButton}
                     onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
                   >
-                    <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
+                    <Ionicons name="document-text-outline" size={14} color={theme.colors.primary} />
                     <Text style={styles.actionTextPrimary} numberOfLines={1}>Documents</Text>
                   </Pressable>
                 )}
@@ -417,22 +458,23 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     onSuperHot={() => handleBoost(listing.id, 'super_hot')}
                     onRefresh={() => handleRefresh(listing.id)}
                     onStory={() => handlePostStory(listing.id)}
+                    onBuyMore={() => navigation.navigate('Plan')}
                   />
                 )}
 
                 {listing.status === 'expired' && (
                   <Pressable style={styles.actionButton} disabled={renew.isPending} onPress={() => handleRenew(listing.id)}>
-                    <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />
+                    <Ionicons name="refresh-outline" size={14} color={theme.colors.primary} />
                     <Text style={styles.actionTextPrimary} numberOfLines={1}>Renew</Text>
                   </Pressable>
                 )}
 
                 <Pressable
-                  style={styles.actionButton}
+                  style={[styles.actionButton, styles.actionButtonDestructive]}
                   disabled={remove.isPending}
                   onPress={() => handleDelete(listing.id, listing.title)}
                 >
-                  <Ionicons name="trash-outline" size={16} color={DESTRUCTIVE_COLOR} />
+                  <Ionicons name="trash-outline" size={14} color={DESTRUCTIVE_COLOR} />
                   <Text style={styles.actionTextDestructive} numberOfLines={1}>Delete</Text>
                 </Pressable>
               </View>
@@ -562,7 +604,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               style={styles.actionButton}
               onPress={() => navigation.navigate('PostListing', { editListingId: listing.id })}
             >
-              <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
+              <Ionicons name="create-outline" size={14} color={theme.colors.primary} />
               <Text style={styles.actionTextPrimary} numberOfLines={1}>Edit details</Text>
             </Pressable>
 
@@ -571,7 +613,7 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
               disabled={submitForVerification.isPending}
               onPress={() => handleSubmit(listing.id)}
             >
-              <Ionicons name="send-outline" size={16} color={theme.colors.primary} />
+              <Ionicons name="send-outline" size={14} color={theme.colors.primary} />
               <Text style={styles.actionTextPrimary} numberOfLines={1}>Submit</Text>
             </Pressable>
 
@@ -580,17 +622,17 @@ function DraftsTab({ onAddProperty }: { onAddProperty: () => void }) {
                 style={styles.actionButton}
                 onPress={() => navigation.navigate('ListingDocuments', { listingId: listing.id })}
               >
-                <Ionicons name="document-text-outline" size={16} color={theme.colors.primary} />
+                <Ionicons name="document-text-outline" size={14} color={theme.colors.primary} />
                 <Text style={styles.actionTextPrimary} numberOfLines={1}>Documents</Text>
               </Pressable>
             )}
 
             <Pressable
-              style={styles.actionButton}
+              style={[styles.actionButton, styles.actionButtonDestructive]}
               disabled={remove.isPending}
               onPress={() => handleDelete(listing.id, listing.title)}
             >
-              <Ionicons name="trash-outline" size={16} color={DESTRUCTIVE_COLOR} />
+              <Ionicons name="trash-outline" size={14} color={DESTRUCTIVE_COLOR} />
               <Text style={styles.actionTextDestructive} numberOfLines={1}>Delete</Text>
             </Pressable>
           </View>
@@ -615,74 +657,9 @@ function EmptyState({ heading, message, onAddProperty }: { heading: string; mess
   );
 }
 
-// Consolidates the Hot/Super Hot/Refresh/Story credit-spend actions that
-// used to be 4 separate buttons in the row's horizontal ScrollView — see
-// the comment at this component's call site for why that hid Delete
-// off-screen. A plain RN Modal (unlike a position:absolute dropdown) is
-// unaffected by this row's own layout/scroll — it always renders above
-// everything, no special positioning needed.
-function BoostMenu({
-  creditsAvailable,
-  isPending,
-  onHot,
-  onSuperHot,
-  onRefresh,
-  onStory,
-}: {
-  creditsAvailable: (type: AgentCreditType) => number;
-  isPending: boolean;
-  onHot: () => void;
-  onSuperHot: () => void;
-  onRefresh: () => void;
-  onStory: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const items: { key: AgentCreditType; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void }[] = [
-    { key: 'hot', label: 'Hot', icon: 'sparkles-outline', onPress: onHot },
-    { key: 'super_hot', label: 'Super Hot', icon: 'flame-outline', onPress: onSuperHot },
-    { key: 'refresh', label: 'Refresh', icon: 'refresh-outline', onPress: onRefresh },
-    { key: 'story', label: 'Story', icon: 'film-outline', onPress: onStory },
-  ];
-
-  return (
-    <>
-      <Pressable style={styles.actionButton} onPress={() => setOpen(true)}>
-        <Ionicons name="flash-outline" size={16} color={theme.colors.primary} />
-        <Text style={styles.actionTextPrimary} numberOfLines={1}>Boost</Text>
-      </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.boostBackdrop} onPress={() => setOpen(false)}>
-          <Pressable style={styles.boostSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.boostTitle}>Boost this listing</Text>
-            {items.map((item) => {
-              const available = creditsAvailable(item.key);
-              const disabled = isPending || available <= 0;
-              return (
-                <Pressable
-                  key={item.key}
-                  disabled={disabled}
-                  style={[styles.boostRow, disabled && styles.boostRowDisabled]}
-                  onPress={() => {
-                    item.onPress();
-                    setOpen(false);
-                  }}
-                >
-                  <Ionicons name={item.icon} size={18} color={theme.colors.primary} />
-                  <Text style={styles.boostRowLabel}>{item.label}</Text>
-                  <Text style={styles.boostRowCount}>{available} left</Text>
-                </Pressable>
-              );
-            })}
-            <Pressable style={styles.boostCancel} onPress={() => setOpen(false)}>
-              <Text style={styles.boostCancelText}>Cancel</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </>
-  );
-}
+// BoostMenu moved to ../components/BoostMenu.tsx — shared with
+// MyProjectsScreen.tsx, since both spend from the same agent_credits pool
+// and the component itself has zero listing-specific logic.
 
 const styles = StyleSheet.create({
   root: { 
@@ -724,54 +701,86 @@ const styles = StyleSheet.create({
     color: theme.colors.bg,
   },
   
-  // Modern Filter Bar
-  filterBar: { 
-    paddingHorizontal: 24, 
-    paddingVertical: 16, 
-    gap: 12, 
-    borderBottomWidth: 1, 
-    borderBottomColor: theme.colors.surfaceAlt 
+  // Search bar + filter icon, side by side — same pattern as
+  // BuyerSearchScreen.tsx's own searchRow/searchFilterIconButton.
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
-  flatInput: {
-    height: 52,
+  searchInputWrap: { flex: 1, justifyContent: 'center' },
+  searchIcon: { position: 'absolute', left: 14, zIndex: 1 },
+  searchInput: {
+    height: 48,
     backgroundColor: theme.colors.surface,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.inputBorder,
     paddingHorizontal: 16,
+    paddingLeft: 40,
     marginBottom: 0,
   },
-  filterRow2: {
+  filterIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Small dot on the filter button itself so an agent can tell a filter is
+  // applied without having to reopen the sheet to check.
+  filterActiveDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F59E0B',
+    borderWidth: 1.5,
+    borderColor: theme.colors.bg,
+  },
+
+  // Filter sheet — Category/Property Type/Purpose used to sit permanently
+  // visible as 3 stacked dropdown boxes; same header/content/footer chrome
+  // as AllPropertiesFilterSheet.tsx, scoped to just these 3 fields.
+  sheetContainer: { flex: 1, backgroundColor: theme.colors.bg },
+  sheetHeader: {
     flexDirection: 'row',
-    gap: 12
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  // Previously wrapped PickerField in its own 52px/surface-background/
-  // overflow:hidden box on top of PickerField's own bordered trigger
-  // (which doesn't stretch to fill a taller parent) — that produced a
-  // mismatched inner-box-inside-a-box look. PickerField already renders a
-  // complete bordered field on its own (same as every other picker in the
-  // app, e.g. PostListingScreen) — this wrapper now only controls layout.
-  pickerWrapper: {
-    flex: 1,
+  sheetHeaderIconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  sheetHeaderTitle: { fontSize: 17, fontWeight: '700', color: theme.colors.text },
+  sheetContent: { padding: theme.spacing.lg, gap: theme.spacing.lg },
+  sheetField: { gap: theme.spacing.sm },
+  sheetLabel: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
+  sheetFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
   },
-  filterActionsRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    marginTop: 4 
+  sheetResetButton: {
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
   },
-  clearFiltersButton: {
-    paddingVertical: 8,
-  },
-  clearFiltersLink: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: theme.colors.muted // Softer gray instead of harsh red
-  },
-  searchButtonWrapper: { 
-    width: 120 
-  },
-  
+  sheetResetLink: { fontSize: 14, fontWeight: '600', color: theme.colors.muted },
+  sheetApplyButton: { flex: 1 },
+
+
   // Smooth Pills
   pillContainer: {
     borderBottomWidth: 1,
@@ -907,76 +916,36 @@ const styles = StyleSheet.create({
   rowActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: 10,
-    columnGap: 16,
+    rowGap: 8,
+    columnGap: 8,
   },
+  // Were plain icon+text links with no button affordance at all (see
+  // screenshot: "View", "Edit details" etc. read as bare inline text) —
+  // real pill/chip buttons give each action a clear tappable boundary and
+  // stop the row from reading as a wall of green text once it wraps to a
+  // second line.
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  actionTextPrimary: { 
-    fontSize: 13, 
-    fontWeight: '600', 
-    color: theme.colors.primary 
+  actionButtonDestructive: {
+    backgroundColor: '#FEF2F2',
+  },
+  actionTextPrimary: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.colors.primary
   },
   actionTextDestructive: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: DESTRUCTIVE_COLOR
-  },
-
-  // Boost menu (replaces the old 4-separate-buttons Hot/Super Hot/Refresh/Story row)
-  boostBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  boostSheet: {
-    backgroundColor: theme.colors.bg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 36,
-  },
-  boostTitle: {
-    fontSize: 16,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: theme.colors.text,
-    marginBottom: 12,
-  },
-  boostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceAlt,
-  },
-  boostRowDisabled: {
-    opacity: 0.4,
-  },
-  boostRowLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  boostRowCount: {
-    fontSize: 13,
-    color: theme.colors.muted,
-  },
-  boostCancel: {
-    marginTop: 8,
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  boostCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.muted,
+    color: DESTRUCTIVE_COLOR
   },
 
   // Empty State Hero

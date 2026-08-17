@@ -11,18 +11,22 @@ import { SiteFooter } from './Footer';
 // that's already the source of truth for "this is an app-shell route," not
 // a public marketing page.
 const APP_SHELL_PREFIXES = [
+  '/account',
   '/dashboard',
   '/submit',
   '/property-management',
+  '/projects',
   '/crm',
   '/calendar',
   '/agent-settings',
   '/plan',
   '/agency-staff',
+  '/help',
   '/become-an-agent',
   '/admin',
   '/verification',
   '/agent-verification',
+  '/owner-verification',
 ];
 
 // Auth pages (login/signup) render their own full-bleed split-screen layout

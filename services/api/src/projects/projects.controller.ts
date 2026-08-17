@@ -24,6 +24,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { SetProjectVerificationStatusDto } from './dto/set-verification-status.dto';
 import { TrackEngagementDto } from './dto/track-engagement.dto';
+import { BoostProjectDto } from './dto/boost-project.dto';
 
 @Controller('projects')
 export class ProjectsController {
@@ -170,6 +171,40 @@ export class ProjectsController {
   async remove(@Req() req: any, @Param('id') id: string) {
     await this.assertCanDeleteProject(req, id);
     return this.projects.remove(id);
+  }
+
+  // Spends one of the agent's plan-granted Hot/Super Hot credits (the SAME
+  // shared agent_credits pool ListingsController.boost spends from — an
+  // agent's per-period allotment can be spent on either a listing or a
+  // project) to feature this project. Agent-only, not super_admin — a
+  // super_admin-authored project has no agent_credits row to spend from,
+  // same reasoning as ListingsController.boost.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/boost')
+  async boost(@Req() req: any, @Param('id') id: string, @Body() body: BoostProjectDto) {
+    await this.assertOwnProject(req, id);
+    return this.projects.boost(id, req.user.agentId, body);
+  }
+
+  // Spends one Refresh credit to bump this project's sort position without
+  // changing its boost tier — mirrors ListingsController.refreshListing.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/refresh')
+  async refreshProject(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnProject(req, id);
+    return this.projects.refresh(id, req.user.agentId);
+  }
+
+  // Spends one Story credit to feature this project for a fixed 24h window
+  // — mirrors ListingsController.postStory.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post(':id/story')
+  async postStory(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnProject(req, id);
+    return this.projects.postStory(id, req.user.agentId);
   }
 
   // Mirrors ListingsController.assertOwnListing — super_admin bypasses,

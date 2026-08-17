@@ -35,6 +35,11 @@ function priceRangeLabel(project: Project, format: (amount: number) => string): 
 function ProjectCard({ project, onPress }: { project: Project; onPress: () => void }) {
   const { format } = useFormattedPrice();
   const price = priceRangeLabel(project, format);
+  // Same boost/story badge treatment as listings' PropertyCard.tsx — a
+  // buyer should recognize "this is boosted" identically whether it's a
+  // listing or a project.
+  const isBoosted = project.boostTier === 'hot' || project.boostTier === 'super_hot';
+  const hasActiveStory = !!project.storyExpiresAt && new Date(project.storyExpiresAt) > new Date();
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -49,6 +54,24 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
       <View style={styles.statusPill}>
         <Text style={styles.statusText}>{STATUS_LABELS[project.status]}</Text>
       </View>
+
+      {/* Top-right, since statusPill already occupies top-left. */}
+      {(isBoosted || hasActiveStory) && (
+        <View style={styles.topRightBadgeStack}>
+          {isBoosted && (
+            <View style={styles.boostBadge}>
+              <Ionicons name={project.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
+              <Text style={styles.boostBadgeText}>{project.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
+            </View>
+          )}
+          {hasActiveStory && (
+            <View style={styles.storyBadge}>
+              <Ionicons name="film-outline" size={11} color="#A21CAF" />
+              <Text style={styles.storyBadgeText}>Story</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
@@ -212,6 +235,33 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statusText: { fontSize: 10, fontWeight: '700', color: theme.colors.bg, letterSpacing: 0.5 },
+  topRightBadgeStack: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    right: theme.spacing.sm,
+    gap: 4,
+    alignItems: 'flex-end',
+  },
+  boostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+  },
+  boostBadgeText: { fontSize: 10, fontWeight: '700', color: '#B45309' },
+  storyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAE8FF',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+  },
+  storyBadgeText: { fontSize: 10, fontWeight: '700', color: '#A21CAF' },
   body: { padding: theme.spacing.md, gap: 2 },
   name: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
   developer: { fontSize: 12, color: theme.colors.muted },

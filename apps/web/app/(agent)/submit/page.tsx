@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -1268,7 +1269,16 @@ export default function SubmitListingPage() {
                     {usage && role === 'agent' && !editId && (
                       <p className={`text-xs font-medium ${quotaReached ? 'text-destructive' : 'text-muted-foreground'}`}>
                         {usage.used} of {usage.quota} listings used on your plan
-                        {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+                        {quotaReached && (
+                          <>
+                            {' '}
+                            — quota reached,{' '}
+                            <Link href="/plan" className="underline hover:no-underline">
+                              upgrade your plan
+                            </Link>{' '}
+                            to publish more.
+                          </>
+                        )}
                       </p>
                     )}
                     <div className="flex flex-wrap justify-center gap-3">

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsRepository } from '../services/projectsRepository';
 import {
+  BoostProjectInput,
   CreateProjectInput,
   ProjectSearchFilters,
   ProjectStatus,
@@ -92,6 +93,34 @@ export function useManageProjectsViewModel(
     onSuccess: invalidate,
   });
 
+  // Spends from the SAME shared agent_credits pool useMyListingsViewModel's
+  // boost/refresh/postStory draw from — same ['agents', 'credits']
+  // invalidation so a balance shown next to either entity's Boost/Refresh/
+  // Story buttons never goes stale after a spend on the other one.
+  const boost = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: BoostProjectInput }) => projectsRepository.boost(id, input),
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['agents', 'credits'] });
+    },
+  });
+
+  const refresh = useMutation({
+    mutationFn: (id: string) => projectsRepository.refresh(id),
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['agents', 'credits'] });
+    },
+  });
+
+  const postStory = useMutation({
+    mutationFn: (id: string) => projectsRepository.postStory(id),
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['agents', 'credits'] });
+    },
+  });
+
   return {
     projects: query.data?.items ?? [],
     total: query.data?.total ?? 0,
@@ -103,6 +132,9 @@ export function useManageProjectsViewModel(
     update,
     remove,
     setVerificationStatus,
+    boost,
+    refresh,
+    postStory,
   };
 }
 

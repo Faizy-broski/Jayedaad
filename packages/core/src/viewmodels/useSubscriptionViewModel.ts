@@ -77,6 +77,13 @@ export function useSubscriptionViewModel() {
       subscriptionsRepository.checkoutCreditPack(packId, returnUrl),
   });
 
+  // Multi-item cart checkout — same "no local cache change until the
+  // webhook fires" reasoning as checkoutCreditPack.
+  const checkoutCreditCart = useMutation({
+    mutationFn: ({ items, returnUrl }: { items: { packId: string; quantity: number }[]; returnUrl?: string }) =>
+      subscriptionsRepository.checkoutCreditCart(items, returnUrl),
+  });
+
   return {
     current: currentQuery.data,
     isCurrentLoading: currentQuery.isLoading,
@@ -91,5 +98,6 @@ export function useSubscriptionViewModel() {
     cancelSubscription,
     openBillingPortal,
     checkoutCreditPack,
+    checkoutCreditCart,
   };
 }

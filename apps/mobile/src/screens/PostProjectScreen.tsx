@@ -647,7 +647,16 @@ export function PostProjectScreen() {
       {usage && role === 'agent' && !editProjectId && (
         <Text style={[styles.quotaText, quotaReached && styles.quotaTextReached]}>
           {usage.projectUsed} of {usage.projectQuota} projects used on your plan
-          {quotaReached && ' — quota reached, upgrade your plan to publish more.'}
+          {quotaReached && (
+            <>
+              {' '}
+              — quota reached,{' '}
+              <Text style={styles.quotaLink} onPress={() => navigation.navigate('Plan')}>
+                upgrade your plan
+              </Text>{' '}
+              to publish more.
+            </>
+          )}
         </Text>
       )}
       {!viewOnly && (
@@ -728,6 +737,7 @@ const styles = StyleSheet.create({
   gateSubtitle: { fontSize: 14, color: theme.colors.muted, marginBottom: 8 },
   quotaText: { marginTop: 16, fontSize: 12, fontWeight: '500', color: theme.colors.muted, textAlign: 'center' },
   quotaTextReached: { color: theme.colors.danger },
+  quotaLink: { fontWeight: '700', textDecorationLine: 'underline' },
   content: { paddingHorizontal: theme.spacing.lg, paddingTop: 24, paddingBottom: 60 },
   section: { gap: 16 },
   divider: { height: 1, backgroundColor: theme.colors.surfaceAlt, marginVertical: 28 },

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-role.dto';
@@ -71,7 +71,16 @@ export class UsersRepository {
       email_confirm: true,
       app_metadata: { role: input.role, display_name: input.displayName },
     });
-    if (createError) throw createError;
+    if (createError) {
+      // A raw thrown error here (createError isn't an HttpException) hits
+      // AllExceptionsFilter's catch-all and collapses to an opaque 500 —
+      // fine for a genuine unexpected bug, but this is almost always an
+      // expected, user-facing condition (most commonly: email already
+      // registered). Re-throwing as BadRequestException surfaces Supabase's
+      // real message ("A user with this email address has already been
+      // registered", etc.) as a proper 400 instead of hiding it.
+      throw new BadRequestException(createError.message);
+    }
     const userId = created.user.id;
 
     if (input.role === 'agent') {
@@ -103,6 +112,19 @@ export class UsersRepository {
         .update({ agent_id: agentProfile.id })
         .eq('id', userId);
       if (profileBackfillError) throw profileBackfillError;
+    }
+
+    // Any role, not just agent — same profiles.photo_url column
+    // account.repository.ts::updatePhoto/getProfile already read/write, so
+    // this shows up immediately in both the topbar avatar and Users table
+    // once the row exists. Uploaded beforehand via the standalone-avatar
+    // endpoint (the user has no id to upload against until this point).
+    if (input.photoUrl) {
+      const { error: photoError } = await this.supabase.client
+        .from('profiles')
+        .update({ photo_url: input.photoUrl })
+        .eq('id', userId);
+      if (photoError) throw photoError;
     }
 
     return this.findById(userId);

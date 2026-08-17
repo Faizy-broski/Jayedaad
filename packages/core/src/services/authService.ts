@@ -153,11 +153,6 @@ export async function verifyOtpCode(code: string): Promise<{ verified: true }> {
   return data;
 }
 
-export async function getEmailVerified(): Promise<boolean> {
-  const { data } = await httpClient.get<{ emailVerified: boolean }>('/auth/otp/status');
-  return data.emailVerified;
-}
-
 // Custom password reset (services/api/src/auth/password-reset) — NOT
 // Supabase's built-in reset-link email. Both hit our backend directly since
 // the user has no session at this point (that's the whole reason to reset).
@@ -185,6 +180,15 @@ export function getUserRole(user: User | null): Role | undefined {
 
 export function getUserAgentId(user: User | null): string | undefined {
   return user?.app_metadata?.agent_id as string | undefined;
+}
+
+// Stamped into app_metadata by OtpRepository.markEmailVerified (password
+// signups, post-OTP) and by handle_new_user()'s trigger (Google signups,
+// pre-verified) — see supabase/migrations/0059_email_verified_app_metadata.sql.
+// Same zero-round-trip JWT-claim read as role/agentId above; replaces the
+// old GET /auth/otp/status query this file used to expose as getEmailVerified().
+export function getUserEmailVerified(user: User | null): boolean {
+  return user?.app_metadata?.email_verified === true;
 }
 
 // Pulls a fresh JWT after a server-side app_metadata change (e.g.

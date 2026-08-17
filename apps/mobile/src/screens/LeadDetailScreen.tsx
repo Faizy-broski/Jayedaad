@@ -3,8 +3,8 @@ import { Linking, Pressable, ScrollView, SafeAreaView, Text, TextInput as RNText
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LeadStatus, ReminderChannel, useLeadDetailViewModel, useLeadRemindersViewModel } from '@jayedaad/core';
-import { Button, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { LEAD_STATUS_TRANSITIONS, LeadStatus, ReminderChannel, useLeadDetailViewModel, useLeadRemindersViewModel } from '@jayedaad/core';
+import { Button, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
 const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
@@ -170,21 +170,36 @@ export function LeadDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Status</Text>
-          <View style={styles.statusRow}>
+          {/* closed/lost are terminal and contacted/negotiating can't go
+              back to "new" — the API enforces this (leads.repository.ts's
+              ALLOWED_STATUS_TRANSITIONS) and previously every chip stayed
+              tappable regardless, so an invalid tap silently round-tripped
+              into a 400 error toast. Graying out invalid targets up front
+              stops that instead of reacting to the rejection after the fact. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusRow}>
             {STATUS_OPTIONS.map((opt) => {
               const active = opt.value === lead.status;
+              const disabled = updateStatus.isPending || (!active && !LEAD_STATUS_TRANSITIONS[lead.status].includes(opt.value));
               return (
                 <Pressable
                   key={opt.value}
-                  disabled={updateStatus.isPending}
-                  style={[styles.statusChip, active && styles.statusChipActive]}
+                  disabled={disabled}
+                  style={[styles.statusChip, active && styles.statusChipActive, disabled && !active && styles.statusChipDisabled]}
                   onPress={() => changeStatus(opt.value)}
                 >
-                  <Text style={[styles.statusChipText, active && styles.statusChipTextActive]}>{opt.label}</Text>
+                  <Text
+                    style={[
+                      styles.statusChipText,
+                      active && styles.statusChipTextActive,
+                      disabled && !active && styles.statusChipTextDisabled,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
 
         <View style={styles.section}>
@@ -193,15 +208,34 @@ export function LeadDetailScreen() {
             <View style={styles.notesList}>
               {lead.notes.map((note) => (
                 <View key={note.id} style={styles.noteCard}>
-                  <Text style={styles.noteBody}>{note.body}</Text>
-                  <Text style={styles.noteDate}>{formatDate(note.createdAt)}</Text>
+                  <View style={styles.noteIconWrap}>
+                    <Ionicons name="document-text-outline" size={13} color={theme.colors.primary} />
+                  </View>
+                  <View style={styles.noteCardBody}>
+                    <Text style={styles.noteBody}>{note.body}</Text>
+                    <Text style={styles.noteDate}>{formatDate(note.createdAt)}</Text>
+                  </View>
                 </View>
               ))}
             </View>
           )}
           <View style={styles.noteComposer}>
-            <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder="Add a note…" style={styles.noteInput} />
-            <Button label="Add" size="sm" disabled={!noteDraft.trim() || addNote.isPending} onPress={submitNote} />
+            <RNTextInput
+              style={styles.noteComposerInput}
+              value={noteDraft}
+              onChangeText={setNoteDraft}
+              placeholder="Add a note…"
+              placeholderTextColor={theme.colors.mutedLight}
+              multiline
+            />
+            <Pressable
+              style={[styles.noteSendBtn, (!noteDraft.trim() || addNote.isPending) && styles.noteSendBtnDisabled]}
+              disabled={!noteDraft.trim() || addNote.isPending}
+              onPress={submitNote}
+              hitSlop={6}
+            >
+              <Ionicons name="send" size={15} color={theme.colors.bg} />
+            </Pressable>
           </View>
         </View>
 
@@ -287,7 +321,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   propertyLinkText: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
-  statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
+  statusRow: { flexDirection: 'row', gap: theme.spacing.sm, paddingRight: theme.spacing.lg },
   statusChip: {
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -296,14 +330,65 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statusChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  statusChipDisabled: { opacity: 0.4 },
   statusChipText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   statusChipTextActive: { color: theme.colors.bg },
-  notesList: { gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
-  noteCard: { backgroundColor: theme.colors.surfaceAlt, borderRadius: 12, padding: theme.spacing.sm },
-  noteBody: { fontSize: 13, color: theme.colors.text },
-  noteDate: { fontSize: 10, color: theme.colors.muted, marginTop: 2 },
-  noteComposer: { flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm },
-  noteInput: { flex: 1 },
+  statusChipTextDisabled: { color: theme.colors.mutedLight },
+  notesList: { gap: theme.spacing.sm, marginBottom: theme.spacing.md },
+  noteCard: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.sm,
+  },
+  noteIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  noteCardBody: { flex: 1, gap: 2 },
+  noteBody: { fontSize: 13, color: theme.colors.text, lineHeight: 18 },
+  noteDate: { fontSize: 10.5, color: theme.colors.muted },
+  noteComposer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.bg,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    borderRadius: theme.radius.md + 6,
+    paddingLeft: theme.spacing.md,
+    paddingRight: 6,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  noteComposerInput: {
+    flex: 1,
+    fontSize: 13.5,
+    color: theme.colors.text,
+    maxHeight: 90,
+    minHeight: 36,
+    paddingVertical: 8,
+  },
+  noteSendBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 1,
+  },
+  noteSendBtnDisabled: { backgroundColor: theme.colors.mutedLight },
   reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',

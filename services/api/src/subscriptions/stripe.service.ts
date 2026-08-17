@@ -75,6 +75,29 @@ export class StripeService {
     });
   }
 
+  // Multi-item cart checkout — several credit packs, each its own quantity,
+  // in one combined Checkout Session (mode: 'payment', same as
+  // createOneTimeCheckoutSession above, just with real line_items instead
+  // of a hardcoded single item).
+  async createCartCheckoutSession(params: {
+    lineItems: { priceId: string; quantity: number }[];
+    customerEmail: string;
+    clientReferenceId: string;
+    metadata: Record<string, string>;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<Stripe.Checkout.Session> {
+    return this.require().checkout.sessions.create({
+      mode: 'payment',
+      line_items: params.lineItems.map((li) => ({ price: li.priceId, quantity: li.quantity })),
+      customer_email: params.customerEmail,
+      client_reference_id: params.clientReferenceId,
+      metadata: params.metadata,
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+    });
+  }
+
   // Raw body (Buffer) required — Stripe's signature check hashes the exact
   // bytes received, which is why main.ts carves out a raw-body exception
   // for this one route instead of using the global JSON body parser.

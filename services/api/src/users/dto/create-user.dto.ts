@@ -38,4 +38,12 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   city?: string;
+
+  // Deferred-upload, any role — the Add User modal uploads via
+  // POST /agents/photo/upload first (already super_admin-permitted) and
+  // passes the resulting URL here, same "upload before the entity exists"
+  // convention as CreateAgencyStaffInput.photoUrl.
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
 }

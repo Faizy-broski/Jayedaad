@@ -25,6 +25,11 @@ export function NotificationBell() {
   const router = useRouter();
   const { role } = useAuthViewModel();
   const { notifications, unreadCount, isLoading, markRead, markAllRead } = useNotificationsViewModel();
+  // The dropdown is a "what's new" panel, not a permanent history — once a
+  // notification is read (individually or via "Mark all read"), it should
+  // drop out of view instead of sitting there indefinitely with just its
+  // unread styling removed.
+  const visibleNotifications = notifications.filter((n) => !n.readAt);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -105,24 +110,24 @@ export function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {isLoading ? (
               <p className="px-4 py-6 text-center text-xs text-muted-foreground">Loading…</p>
-            ) : notifications.length === 0 ? (
+            ) : visibleNotifications.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
                 <Inbox className="h-6 w-6 text-muted-foreground/50" />
-                <p className="text-xs text-muted-foreground">Nothing yet.</p>
+                <p className="text-xs text-muted-foreground">
+                  {notifications.length === 0 ? 'Nothing yet.' : "You're all caught up."}
+                </p>
               </div>
             ) : (
               <ul>
-                {notifications.map((n) => (
+                {visibleNotifications.map((n) => (
                   <li key={n.id}>
                     <button
                       type="button"
                       onClick={() => handleNotificationClick(n.id, n.type, n.readAt, n.relatedListingId)}
-                      className={`w-full border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/50 ${
-                        n.readAt ? '' : 'bg-primary/5'
-                      }`}
+                      className="w-full border-b border-border bg-primary/5 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/50"
                     >
                       <div className="flex items-start gap-2">
-                        {!n.readAt && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-foreground">{n.title}</p>
                           {n.body && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>}

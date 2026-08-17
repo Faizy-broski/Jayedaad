@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { useAuthViewModel } from '@jayedaad/core';
+import { getUserEmailVerified, useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, Input, Label } from '@jayedaad/ui-web';
 import { makeSessionOnlyIfNotRemembered } from '@/lib/rememberMe';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -61,7 +61,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signInWithGoogle, signInWithApple, sendOtp, refetchEmailVerified } = useAuthViewModel();
+  const { signIn, signInWithGoogle, signInWithApple, sendOtp } = useAuthViewModel();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -69,8 +69,8 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = useState(true);
   // Covers the whole submit flow, not just signIn.isPending — without this,
   // the button flips back to its idle "Sign in" label the instant the auth
-  // call resolves, then goes dead again for the refetchEmailVerified() +
-  // router.push() beat that follows, reading as an unresponsive click.
+  // call resolves, then goes dead again for the router.push() beat that
+  // follows, reading as an unresponsive click.
   const [redirecting, setRedirecting] = useState(false);
   const oauthError = describeOAuthError(searchParams.get('error'));
 
@@ -80,8 +80,10 @@ function LoginForm() {
     try {
       const { user } = await signIn.mutateAsync({ email, password });
       makeSessionOnlyIfNotRemembered(rememberMe);
-      const { data: emailVerified } = await refetchEmailVerified();
-      if (!emailVerified) {
+      // Synchronous JWT-claim read (see getUserEmailVerified) — no round
+      // trip, unlike the old GET /auth/otp/status query this used to await
+      // here, which was the main source of a slow post-login redirect.
+      if (!getUserEmailVerified(user)) {
         // /verify-email has no auto-send-on-mount of its own (only its
         // "Resend" button sends) despite its copy claiming "we just sent a
         // code" — without this, an existing-but-unverified account logging

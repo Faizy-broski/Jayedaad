@@ -15,6 +15,8 @@ export function projectToCardData(project: Project): ProjectCardData {
     verificationStatus: project.verificationStatus,
     unitTypeCount: project.unitTypeCount,
     priceRangeMin: project.priceRange?.min ?? 0,
+    boostTier: project.boostTier,
+    storyExpiresAt: project.storyExpiresAt,
   };
 }
 

@@ -3,9 +3,19 @@ import { Alert, ScrollView, Text, View, Pressable, StyleSheet } from 'react-nati
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { Project, ProjectStatus, canDeleteProject, canEditProject, useAuthViewModel, useManageProjectsViewModel } from '@jayedaad/core';
+import {
+  AgentCreditType,
+  Project,
+  ProjectStatus,
+  canDeleteProject,
+  canEditProject,
+  useAgentCreditsViewModel,
+  useAuthViewModel,
+  useManageProjectsViewModel,
+} from '@jayedaad/core';
 import { Button, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { BoostMenu } from '../components/BoostMenu';
 
 const STATUS_TABS: { id: 'all' | ProjectStatus; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -32,7 +42,12 @@ export function MyProjectsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { role, user } = useAuthViewModel();
   const isSuperAdmin = role === 'super_admin';
-  const { projects, isLoading, error, setVerificationStatus, remove } = useManageProjectsViewModel();
+  const { projects, isLoading, error, setVerificationStatus, remove, boost, refresh, postStory } = useManageProjectsViewModel();
+  // Same shared agent_credits pool MyPropertiesScreen's own BoostMenu
+  // spends from — pre-fetched here so it can show "N left" and disable at
+  // 0 instead of only finding out via a server error after tapping.
+  const { credits } = useAgentCreditsViewModel();
+  const creditsAvailable = (type: AgentCreditType) => credits.find((c) => c.creditType === type)?.available ?? 0;
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'all' | ProjectStatus>('all');
 
@@ -124,15 +139,15 @@ export function MyProjectsScreen() {
                       disabled={setVerificationStatus.isPending}
                       onPress={() => handleVerify(project.id, 'verified')}
                     >
-                      <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.primary} />
+                      <Ionicons name="checkmark-circle-outline" size={14} color={theme.colors.primary} />
                       <Text style={styles.actionTextPrimary}>Approve</Text>
                     </Pressable>
                     <Pressable
-                      style={styles.actionButton}
+                      style={[styles.actionButton, styles.actionButtonDestructive]}
                       disabled={setVerificationStatus.isPending}
                       onPress={() => handleVerify(project.id, 'rejected')}
                     >
-                      <Ionicons name="close-circle-outline" size={16} color={theme.colors.danger} />
+                      <Ionicons name="close-circle-outline" size={14} color={theme.colors.danger} />
                       <Text style={styles.actionTextDestructive}>Reject</Text>
                     </Pressable>
                   </View>
@@ -143,12 +158,31 @@ export function MyProjectsScreen() {
                     style={styles.actionButton}
                     onPress={() => navigation.navigate('PostProject', { editProjectId: project.id, viewOnly: !editable })}
                   >
-                    <Ionicons name={editable ? 'create-outline' : 'eye-outline'} size={16} color={theme.colors.primary} />
+                    <Ionicons name={editable ? 'create-outline' : 'eye-outline'} size={14} color={theme.colors.primary} />
                     <Text style={styles.actionTextPrimary}>{editable ? 'Edit' : 'View'}</Text>
                   </Pressable>
+                  {/* Same shared-pool boost system listings already have —
+                      agent-only (a super_admin has no agent_credits row to
+                      spend from) and only meaningful once a project is
+                      actually live. */}
+                  {!isSuperAdmin && project.verificationStatus === 'verified' && (
+                    <BoostMenu
+                      creditsAvailable={creditsAvailable}
+                      isPending={boost.isPending || refresh.isPending || postStory.isPending}
+                      onHot={() => boost.mutate({ id: project.id, input: { boostTier: 'hot' } })}
+                      onSuperHot={() => boost.mutate({ id: project.id, input: { boostTier: 'super_hot' } })}
+                      onRefresh={() => refresh.mutate(project.id)}
+                      onStory={() => postStory.mutate(project.id)}
+                      onBuyMore={() => navigation.navigate('Plan')}
+                    />
+                  )}
                   {deletable && (
-                    <Pressable style={styles.actionButton} disabled={remove.isPending} onPress={() => handleDelete(project.id, project.name)}>
-                      <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+                    <Pressable
+                      style={[styles.actionButton, styles.actionButtonDestructive]}
+                      disabled={remove.isPending}
+                      onPress={() => handleDelete(project.id, project.name)}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={theme.colors.danger} />
                       <Text style={styles.actionTextDestructive}>Delete</Text>
                     </Pressable>
                   )}
@@ -219,10 +253,24 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, color: theme.colors.mutedLight, fontWeight: '600', marginTop: 2, textTransform: 'capitalize' },
   cardDivider: { height: 1, backgroundColor: theme.colors.surfaceAlt, marginVertical: 16 },
   verifyRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  rowActions: { flexDirection: 'row', justifyContent: 'space-between' },
-  actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 6 },
-  actionTextPrimary: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
-  actionTextDestructive: { fontSize: 13, fontWeight: '600', color: theme.colors.danger },
+  // Same pill/chip treatment as MyPropertiesScreen's rowActions — plain
+  // icon+text links read as bare text with no button affordance, and this
+  // row shares the exact same BoostMenu component, so it needs the same
+  // visual language for consistency.
+  rowActions: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8, columnGap: 8 },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  actionButtonDestructive: { backgroundColor: '#FEF2F2' },
+  actionTextPrimary: { fontSize: 12.5, fontWeight: '700', color: theme.colors.primary },
+  actionTextDestructive: { fontSize: 12.5, fontWeight: '700', color: theme.colors.danger },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyIconCircle: {
     width: 96,

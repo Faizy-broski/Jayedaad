@@ -216,7 +216,7 @@ export function Select({ value, onChange, children, className, required, disable
           className,
         )}
       >
-        <span className={cn('truncate', !selected?.value && 'text-muted-foreground')}>
+        <span className={cn('whitespace-nowrap', !selected?.value && 'text-muted-foreground')}>
           {selected?.label ?? placeholder ?? ''}
         </span>
         <ChevronIcon open={open} />
@@ -232,7 +232,22 @@ export function Select({ value, onChange, children, className, required, disable
           <ul
             ref={listRef}
             role="listbox"
-            style={{ top: rect.top + 6, left: rect.left, width: rect.width }}
+            style={{
+              top: rect.top + 6,
+              left: rect.left,
+              // min-width (not a fixed width) so the panel matches the
+              // trigger when options are short, but grows to fit whichever
+              // option's label is longest instead of clamping every option
+              // to the trigger's own width — that clamp is what forced long
+              // labels (e.g. "Change status…", "verification_pending") into
+              // the truncate/ellipsis treatment this replaces. Capped by
+              // maxWidth so it still can't run off the right edge of a
+              // narrow/mobile viewport; the panel's own overflow-auto turns
+              // into horizontal scroll in that rare case rather than clipping.
+              minWidth: rect.width,
+              width: 'max-content',
+              maxWidth: `calc(100vw - ${rect.left + 16}px)`,
+            }}
             className={cn(
               'fixed z-50 max-h-60 origin-top overflow-auto rounded-md border border-border bg-background p-1 shadow-lg transition-all duration-150 ease-out',
               open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0',
@@ -252,7 +267,7 @@ export function Select({ value, onChange, children, className, required, disable
                   index === highlighted ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
                 )}
               >
-                <span className="truncate">{option.label}</span>
+                <span className="whitespace-nowrap">{option.label}</span>
                 {option.value === value && <CheckIcon />}
               </li>
             ))}

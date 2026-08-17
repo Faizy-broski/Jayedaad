@@ -64,6 +64,14 @@ export interface BoostListingInput {
   boostTier: Extract<ListingBoostTier, 'hot' | 'super_hot'>;
 }
 
+// Spends from the SAME shared agent_credits pool BoostListingInput does —
+// no separate project-specific credit type, reuses ListingBoostTier rather
+// than a parallel ProjectBoostTier (see services/api/src/projects/
+// projects.repository.ts's boost() for the write path).
+export interface BoostProjectInput {
+  boostTier: Extract<ListingBoostTier, 'hot' | 'super_hot'>;
+}
+
 // Super Admin-managed taxonomy [Reqs §9] — not hardcoded, fetched from
 // GET /taxonomy/property-types and /taxonomy/amenities. Includes `id`
 // because submitting a listing needs the FK (CreateListingDto.propertyTypeId).
@@ -306,6 +314,20 @@ export interface ListingAgentSummary {
 }
 
 export type LeadStatus = 'new' | 'contacted' | 'negotiating' | 'closed' | 'lost';
+
+// Mirrors services/api/src/leads/leads.repository.ts's ALLOWED_STATUS_TRANSITIONS
+// exactly — closed/lost are terminal, contacted/negotiating can't go back to
+// "new". The API is the source of truth and rejects anything outside this
+// table with a 400; sharing it here lets both apps/web and apps/mobile gray
+// out invalid targets client-side instead of letting a tap round-trip into
+// an error toast.
+export const LEAD_STATUS_TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
+  new: ['contacted', 'negotiating', 'closed', 'lost'],
+  contacted: ['negotiating', 'closed', 'lost'],
+  negotiating: ['contacted', 'closed', 'lost'],
+  closed: [],
+  lost: [],
+};
 export type LeadSource = 'chatbot' | 'contact_form' | 'call_request';
 // Verified against a real Zameen.com "Contact Agent" form's "I am a:"
 // dropdown — who the inquirer is, distinct from LeadSource (how they reached us).
@@ -468,6 +490,11 @@ export interface CreateUserInput {
   // collects (ApplyAsAgentInput below).
   phone?: string;
   city?: string;
+  // Deferred-upload, any role — same convention as CreateAgencyStaffInput's
+  // photoUrl: the entity doesn't exist yet when a file is picked, so the
+  // Add User modal uploads via agentsRepository.uploadStandaloneAvatar()
+  // first and passes the resulting URL here at creation time.
+  photoUrl?: string;
 }
 
 // Backs the Super Admin "team members" screen — pulls just internal staff
@@ -1214,6 +1241,14 @@ export interface Project {
   // agent viewing /projects/[id] gets an editable form or a read-only one
   // (see apps/web/app/(agent)/projects/[id]/page.tsx).
   createdBy: string | null;
+  // Same shared-pool boost system as Listing (boostTier/boostExpiresAt/
+  // refreshedAt/storyExpiresAt below) — PlanLifecycleService's cron
+  // reverts boostTier to 'basic'/clears storyExpiresAt once their window
+  // passes, same "credits per period, not forever" model.
+  boostTier: ListingBoostTier;
+  boostExpiresAt: string | null;
+  refreshedAt: string | null;
+  storyExpiresAt: string | null;
   // Always present — a real count from the DB (see
   // ProjectsRepository.mapProjectRow's `project_unit_types (count)` embed),
   // unlike unitTypes below.

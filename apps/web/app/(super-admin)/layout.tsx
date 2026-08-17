@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
+import { getDisplayName, useAccountProfileViewModel, useAuthViewModel, useRoleAccessViewModel } from '@jayedaad/core';
 import {
   LayoutGrid,
   Building2,
@@ -38,9 +38,20 @@ import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
 // their own) have nothing in common with the agent portal's nav. Restyled
 // to match that same shell's visual language (collapsible sidebar, active
 // nav pill, user menu dropdown, topbar breadcrumb) instead of the plain
-// static sidebar this used to be. The existing app/(admin)/verification
-// page intentionally stays outside this shell — it's still shared with
-// verification_staff, who never reaches anything under /admin.
+// static sidebar this used to be.
+//
+// verification_staff's own pages (/verification, /agent-verification,
+// /owner-verification) live in their own (verification) route group/shell
+// and never render this layout. But middleware.ts's PROTECTED_ROUTES
+// deliberately carves out one exception — /admin/listings/:id — so staff
+// can open a pending listing for context from the verification queue. That
+// means this shell IS reachable by verification_staff, just for exactly
+// one page. Everything below is therefore role-branched: super_admin gets
+// the full NAV_ITEMS/"Super Admin" branding, everyone else gets a single
+// "back to queue" link and their real role label — previously this
+// component had no idea who was logged in and always rendered the full
+// god-mode shell, which is what made verification_staff look like they'd
+// gained super_admin access.
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { href: '/admin/agencies', label: 'Agencies', icon: Building2 },
@@ -59,9 +70,20 @@ const NAV_ITEMS = [
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, signOut } = useAuthViewModel();
+  const { user, role, signOut } = useAuthViewModel();
   const displayName = getDisplayName(user, 'Admin');
   const initials = displayName.slice(0, 2).toUpperCase();
+  // The full nav below and every "Super Admin" label only ever made sense
+  // for super_admin — but middleware.ts legitimately lets verification_staff
+  // into this exact shell via the one /admin/listings/:id carve-out (so
+  // they can view a pending listing for context from the verification
+  // queue). This layout previously had no idea who was actually logged in
+  // and rendered the same full god-mode shell regardless — that's what
+  // read as "verification_staff got super admin access."
+  const isSuperAdmin = role === 'super_admin';
+  const { current: roleAccess } = useRoleAccessViewModel(role);
+  const roleLabel = roleAccess?.label ?? (isSuperAdmin ? 'Super Admin' : 'Verification Staff');
+  const { profile } = useAccountProfileViewModel();
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -86,15 +108,15 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/login') });
   }
 
-  const activeItem = NAV_ITEMS.find(
-    ({ href }) => pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href)),
-  );
+  const activeItem = isSuperAdmin
+    ? NAV_ITEMS.find(({ href }) => pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href)))
+    : undefined;
 
   const sidebarContent = (
     <>
       <div className={`flex h-16 shrink-0 items-center gap-2 border-b border-border px-5 ${collapsed ? 'justify-center px-0' : 'justify-between'}`}>
         {!collapsed && (
-          <Link href="/admin/dashboard" className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <Link href={isSuperAdmin ? '/admin/dashboard' : '/verification'} className="flex min-w-0 items-center gap-2 overflow-hidden">
             <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={120} height={34} priority className="h-9 w-auto object-contain" />
             <span className="truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               Admin
@@ -102,7 +124,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           </Link>
         )}
         {collapsed && (
-          <Link href="/admin/dashboard" className="relative h-12 w-12 shrink-0 overflow-hidden rounded" aria-label="Jayedaad">
+          <Link href={isSuperAdmin ? '/admin/dashboard' : '/verification'} className="relative h-12 w-12 shrink-0 overflow-hidden rounded" aria-label="Jayedaad">
             <Image src="/favicon.ico" alt="" fill sizes="32px" className="object-cover object-left" />
           </Link>
         )}
@@ -125,43 +147,68 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       </div>
 
       {/* Platform nav — the only scrollable region, so the profile trigger
-          below always stays pinned at the bottom regardless of list length. */}
+          below always stays pinned at the bottom regardless of list length.
+          verification_staff never gets the full NAV_ITEMS list — they only
+          ever reach this shell via the single /admin/listings/:id
+          middleware carve-out, so there's nowhere else in here for them to
+          go; showing the full 13-item super_admin nav (which every other
+          link in it would just bounce them out of via middleware) is
+          exactly the "looks like super admin access" bug this fixes. */}
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
-        {!collapsed && (
-          <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Platform</p>
+        {isSuperAdmin ? (
+          <>
+            {!collapsed && (
+              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Platform</p>
+            )}
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href));
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  title={collapsed ? label : undefined}
+                  onClick={() => setMobileOpen(false)}
+                  className={`relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    collapsed ? 'justify-center' : ''
+                  } ${active ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="adminActiveNavItem"
+                      className="absolute inset-0 rounded-md bg-primary/10"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <Icon className="relative h-4 w-4 shrink-0" />
+                  {!collapsed && <span className="relative truncate">{label}</span>}
+                </Link>
+              );
+            })}
+          </>
+        ) : (
+          <Link
+            href="/verification"
+            title={collapsed ? 'Back to Verification Queue' : undefined}
+            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
+              collapsed ? 'justify-center' : ''
+            }`}
+          >
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="truncate">Back to Verification Queue</span>}
+          </Link>
         )}
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href));
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={collapsed ? label : undefined}
-              onClick={() => setMobileOpen(false)}
-              className={`relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                collapsed ? 'justify-center' : ''
-              } ${active ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-            >
-              {active && (
-                <motion.span
-                  layoutId="adminActiveNavItem"
-                  className="absolute inset-0 rounded-md bg-primary/10"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                />
-              )}
-              <Icon className="relative h-4 w-4 shrink-0" />
-              {!collapsed && <span className="relative truncate">{label}</span>}
-            </Link>
-          );
-        })}
       </nav>
 
       {!collapsed && (
         <div className="shrink-0 border-t border-border p-3">
           <div className="relative overflow-hidden rounded-xl bg-heading-gradient p-4 text-primary-foreground">
             <ShieldCheck className="absolute -right-2 -top-2 h-16 w-16 text-white/10" />
-            <p className="relative text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/70">Super Admin</p>
-            <p className="relative mt-1 text-sm font-medium leading-snug">Full platform access — every agency, agent, and listing.</p>
+            <p className="relative text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/70">{roleLabel}</p>
+            <p className="relative mt-1 text-sm font-medium leading-snug">
+              {isSuperAdmin
+                ? 'Full platform access — every agency, agent, and listing.'
+                : (roleAccess?.description ?? "Reviewing a listing from the verification queue.")}
+            </p>
           </div>
         </div>
       )}
@@ -207,14 +254,19 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           aria-expanded={userMenuOpen}
           className={`flex w-full items-center gap-3 rounded-md p-1 text-left transition-colors hover:bg-muted ${collapsed ? 'justify-center' : ''}`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-            {initials}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            {profile?.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.photoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </span>
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
-                <p className="truncate text-xs text-muted-foreground">Super Admin</p>
+                <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
               </div>
               <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </>
@@ -261,8 +313,17 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           </button>
 
           <div className="min-w-0 shrink-0 text-sm text-muted-foreground">
-            <span className="hidden sm:inline">Admin / </span>
-            <span className="font-medium text-foreground">{activeItem?.label ?? 'Overview'}</span>
+            {isSuperAdmin ? (
+              <>
+                <span className="hidden sm:inline">Admin / </span>
+                <span className="font-medium text-foreground">{activeItem?.label ?? 'Overview'}</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Verification / </span>
+                <span className="font-medium text-foreground">Listing</span>
+              </>
+            )}
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">

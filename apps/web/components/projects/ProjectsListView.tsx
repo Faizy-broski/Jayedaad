@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
+  AgentCreditType,
   canDeleteProject,
   canEditProject,
   Project,
   ProjectStatus,
+  useAgentCreditsViewModel,
   useAuthViewModel,
   useFormattedPrice,
   useManageProjectsViewModel,
@@ -27,6 +29,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+import { CreditsMenu } from '@/components/shared/CreditsMenu';
 
 const PAGE_SIZE = 20;
 
@@ -75,12 +78,18 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
   // preferredCurrency setting.
   const { format: formatPrice } = useFormattedPrice();
 
-  const { projects, total, isLoading, setVerificationStatus, remove } = useManageProjectsViewModel({
+  const { projects, total, isLoading, setVerificationStatus, remove, boost, refresh, postStory } = useManageProjectsViewModel({
     status: activeTab === 'all' ? undefined : activeTab,
     keyword: search.trim() || undefined,
     page,
     pageSize: PAGE_SIZE,
   });
+  // Same shared agent_credits pool listings' own boost/refresh/story
+  // actions spend from — pre-fetched here purely so the CreditsMenu can
+  // show "N left" and disable at 0 instead of only finding out via a
+  // server error after clicking.
+  const { credits } = useAgentCreditsViewModel();
+  const creditsAvailable = (type: AgentCreditType) => credits.find((c) => c.creditType === type)?.available ?? 0;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -209,6 +218,20 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
                 Reject
               </Button>
             </>
+          )}
+          {/* Same shared-pool boost system listings already have — agent-only
+              (a super_admin has no agent_credits row to spend from, same
+              reasoning as the backend's @Roles('agent') on these endpoints)
+              and only meaningful once a project is actually live. */}
+          {!isSuperAdmin && project.verificationStatus === 'verified' && (
+            <CreditsMenu
+              creditsAvailable={creditsAvailable}
+              isPending={boost.isPending || refresh.isPending || postStory.isPending}
+              onHot={() => boost.mutate({ id: project.id, input: { boostTier: 'hot' } })}
+              onSuperHot={() => boost.mutate({ id: project.id, input: { boostTier: 'super_hot' } })}
+              onRefresh={() => refresh.mutate(project.id)}
+              onStory={() => postStory.mutate(project.id)}
+            />
           )}
           <Button size="sm" variant="outline" onClick={() => router.push(`${detailHrefBase}/${project.id}`)}>
             <Pencil className="mr-1 h-3.5 w-3.5" />

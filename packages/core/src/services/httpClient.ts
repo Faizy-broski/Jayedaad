@@ -38,12 +38,19 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
+    // NestJS's ValidationPipe returns `message` as a string[] of every
+    // failed constraint (e.g. ["password must be longer than or equal to 8
+    // characters"]), not a single string — left un-joined, this ends up
+    // rendered as "password must be...,other error" or a raw array where
+    // callers expect readable text.
+    const rawMessage = error?.response?.data?.message;
+    const backendMessage = Array.isArray(rawMessage) ? rawMessage.join(' ') : rawMessage;
     error.isRateLimited = status === 429;
     error.userMessage = error.isRateLimited
       ? 'Too many requests — please wait a moment and try again.'
       : status >= 500
         ? 'Something went wrong on our end — please try again.'
-        : (error?.response?.data?.message ?? error?.message ?? 'Something went wrong — please try again.');
+        : (backendMessage ?? error?.message ?? 'Something went wrong — please try again.');
     return Promise.reject(error);
   },
 );

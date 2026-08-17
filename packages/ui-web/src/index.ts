@@ -16,4 +16,5 @@ export * from './ConfirmDialog';
 export * from './Modal';
 export * from './Badge';
 export * from './Accordion';
+export * from './CreditQuotaCard';
 export * from './lib/cn';

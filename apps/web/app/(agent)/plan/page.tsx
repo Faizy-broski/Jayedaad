@@ -1,11 +1,23 @@
 'use client';
 
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { useFormattedPrice, useSubscriptionViewModel } from '@jayedaad/core';
-import { Button, Card } from '@jayedaad/ui-web';
-import { Check, CreditCard, Gauge, Sparkles } from 'lucide-react';
+import { AgentCreditType, useAgentCreditsViewModel, useFormattedPrice, useSubscriptionViewModel } from '@jayedaad/core';
+import { Button, Card, CreditCardAccent, CreditQuotaCard } from '@jayedaad/ui-web';
+import { Check, Clapperboard, CreditCard, Flame, Home, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
+
+// Drives the new "My Quota & Credits" card grid — same 4 purchasable types
+// the "Buy more credits" section below lists, plus listing_quota (not
+// purchasable, so it's the only entry without a matching credit_packs row).
+const QUOTA_CARD_META: { type: AgentCreditType; label: string; accent: CreditCardAccent; icon: LucideIcon }[] = [
+  { type: 'listing_quota', label: 'Listing Quota', accent: 'green', icon: Home },
+  { type: 'hot', label: 'Hot', accent: 'orange', icon: Flame },
+  { type: 'super_hot', label: 'Super Hot', accent: 'red', icon: Flame },
+  { type: 'refresh', label: 'Refresh', accent: 'blue', icon: RefreshCw },
+  { type: 'story', label: 'Story', accent: 'purple', icon: Clapperboard },
+];
 
 // Replaces the "Prop Shop" nav item. Free tiers (price 0) still change
 // instantly with no payment (services/api's subscriptions.repository.ts's
@@ -28,6 +40,11 @@ export default function PlanPage() {
     checkoutCreditPack,
   } = useSubscriptionViewModel();
   const { format: formatPrice } = useFormattedPrice();
+  // Previously this page only showed listing quota — an agent had to go to
+  // Dashboard to see their actual Hot/Super Hot/Refresh/Story balances,
+  // the same numbers the "Buy more credits" section right below this is
+  // meant to help them top up.
+  const { credits } = useAgentCreditsViewModel();
 
   // Standalone top-up — a real Stripe Checkout Session (mode: 'payment'),
   // same "server is the source of truth, this just navigates to the
@@ -45,6 +62,13 @@ export default function PlanPage() {
 
   const CREDIT_TYPE_LABEL: Record<string, string> = { hot: 'Hot', super_hot: 'Super Hot', refresh: 'Refresh', story: 'Story' };
 
+  // Jumps to that credit type's pack card in "Buy more credits" — the pack
+  // list is already on this same page, so scrolling there beats navigating
+  // away and back.
+  function handleBuyMore(type: AgentCreditType) {
+    document.getElementById(`buy-credits-${type}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   function handleCancel() {
     if (!confirm('Cancel your subscription? You’ll keep access until the end of the current billing period.')) return;
     cancelSubscription.mutate(undefined, {
@@ -61,8 +85,6 @@ export default function PlanPage() {
       onError: () => toast.error('No billing account yet — subscribe to a paid plan first.'),
     });
   }
-
-  const usagePct = usage && usage.quota > 0 ? Math.min(100, (usage.used / usage.quota) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -135,34 +157,55 @@ export default function PlanPage() {
               )}
             </div>
 
-            {usage && (
-              <div className="mt-6">
-                <div className="flex justify-between text-xs text-primary-foreground/80">
-                  <span className="flex items-center gap-1.5">
-                    <Gauge className="h-3.5 w-3.5" />
-                    Listings used
-                  </span>
-                  <span className="font-medium">
-                    {usage.used} / {usage.quota}
-                  </span>
-                </div>
-                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/15">
-                  <motion.div
-                    className="h-full rounded-full bg-white"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${usagePct}%` }}
-                    transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         )}
       </Reveal>
 
+      {/* One card per credit type — replaces the old progress bar + uniform
+          tile grid that buried these numbers inside the hero band with no
+          per-type identity and no obvious next step when a balance hit
+          zero. Sits on the page's light background (not inside the dark
+          gradient hero) so the colored badges and amber empty-state banner
+          read correctly. */}
+      <div>
+        <h2 className="mb-4 text-lg font-semibold text-foreground">My Quota &amp; Credits</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {QUOTA_CARD_META.map((meta, index) => {
+            const isQuota = meta.type === 'listing_quota';
+            const available = isQuota
+              ? Math.max(0, (usage?.quota ?? 0) - (usage?.used ?? 0))
+              : (credits.find((c) => c.creditType === meta.type)?.available ?? 0);
+            const used = isQuota ? (usage?.used ?? 0) : (credits.find((c) => c.creditType === meta.type)?.used ?? 0);
+            return (
+              <motion.div
+                key={meta.type}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.35, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <CreditQuotaCard
+                  label={meta.label}
+                  accent={meta.accent}
+                  icon={meta.icon}
+                  available={available}
+                  used={used}
+                  onBuyMore={isQuota ? undefined : () => handleBuyMore(meta.type)}
+                />
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
       <div>
         <Reveal>
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Available Plans</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Available Plans</h2>
+            <Link href="/help" className="text-sm font-medium text-primary hover:underline">
+              Learn More
+            </Link>
+          </div>
         </Reveal>
 
         {isTiersLoading && (
@@ -201,6 +244,12 @@ export default function PlanPage() {
               const isCurrent = current?.tierId === tier.id;
               const features = [
                 `${tier.listingQuota.toLocaleString()} listing quota`,
+                // Previously absent from this comparison entirely — an
+                // agent had no way to see how many projects a tier
+                // includes despite it being a real, separately-priced,
+                // server-enforced entitlement (EntitlementsService.
+                // canCreateProject).
+                tier.projectQuota > 0 && `${tier.projectQuota.toLocaleString()} project quota`,
                 tier.hotCreditsPerPeriod > 0 && `${tier.hotCreditsPerPeriod} Hot boost${tier.hotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
                 tier.superHotCreditsPerPeriod > 0 &&
                   `${tier.superHotCreditsPerPeriod} Super Hot boost${tier.superHotCreditsPerPeriod === 1 ? '' : 's'}/mo`,
@@ -296,14 +345,14 @@ export default function PlanPage() {
 
       {!isCreditPacksLoading && creditPacks.length > 0 && (
         <Reveal>
-          <div>
+          <div id="buy-credits">
             <h2 className="text-lg font-semibold text-foreground">Buy more credits</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Run out mid-period? Top up Hot, Super Hot, or Refresh credits without waiting for renewal.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {creditPacks.map((pack) => (
-                <Card key={pack.id} className="flex flex-col gap-3 p-5">
+                <Card key={pack.id} id={`buy-credits-${pack.creditType}`} className="flex flex-col gap-3 p-5">
                   <p className="text-sm font-semibold text-foreground">{pack.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {pack.quantity} × {CREDIT_TYPE_LABEL[pack.creditType] ?? pack.creditType} credit

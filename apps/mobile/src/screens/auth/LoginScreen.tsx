@@ -3,7 +3,7 @@ import { SafeAreaView, ScrollView, Text, View, Pressable, StyleSheet } from 'rea
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuthViewModel } from '@jayedaad/core';
+import { getUserEmailVerified, useAuthStore, useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, TextInput, theme } from '@jayedaad/ui-native';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { useAppleSignIn } from '../../hooks/useAppleSignIn';
@@ -59,7 +59,7 @@ function describeSocialError(message: string): string {
 // requirement — Google and Apple ID sign-in on both platforms.
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
-  const { signIn, sendOtp, refetchEmailVerified } = useAuthViewModel();
+  const { signIn, sendOtp } = useAuthViewModel();
   const { signInWithGoogle, isPending: isGooglePending } = useGoogleSignIn();
   const { signInWithApple, isPending: isApplePending } = useAppleSignIn();
 
@@ -84,8 +84,11 @@ export function LoginScreen() {
   // ever sent — same explicit-navigate pattern SignupScreen.tsx already
   // uses after its own sign-up.
   async function goToVerifyIfNeeded() {
-    const { data: emailVerified } = await refetchEmailVerified();
-    if (emailVerified) return;
+    // useAuthStore.getState() (not the hook's `user`, a stale closure from
+    // this render) reads the session onAuthStateChange just updated after
+    // sign-in resolved — a synchronous JWT-claim read, no round trip,
+    // unlike the old GET /auth/otp/status query this used to await here.
+    if (getUserEmailVerified(useAuthStore.getState().user)) return;
     let otpSendFailed = false;
     try {
       await sendOtp.mutateAsync();

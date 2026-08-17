@@ -71,7 +71,24 @@ export class OtpRepository {
     return data.email;
   }
 
+  // app_metadata is baked into the user's JWT, so this claim is readable
+  // client-side with zero network round trips (same pattern already used
+  // for role/agent_id — see AgentsRepository.promote's updateUserById
+  // call). Stamped FIRST and allowed to throw: it becomes the source of
+  // truth clients read from, so a silent failure here (while profiles
+  // still got updated below) would leave a user verified in the DB
+  // forever but invisible to the JWT-based check, with nothing surfacing
+  // the drift. Failing loudly instead just means "try again", a normal,
+  // recoverable OTP-retry — not a silent permanent gap.
   async markEmailVerified(userId: string) {
+    const { data: existing, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
+    if (getError) throw getError;
+
+    const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
+      app_metadata: { ...existing.user.app_metadata, email_verified: true },
+    });
+    if (metadataError) throw metadataError;
+
     const { error } = await this.supabase.client.from('profiles').update({ email_verified: true }).eq('id', userId);
     if (error) throw error;
   }

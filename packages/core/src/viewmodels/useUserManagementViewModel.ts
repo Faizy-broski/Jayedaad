@@ -14,13 +14,19 @@ function normalizeUsersResult(data: AdminUser[] | ListUsersResult | undefined, f
 // Users admin table), it paginates. Either way this hook always returns the
 // same { users, total, page, pageSize } shape so callers don't need to
 // branch.
-export function useUserManagementViewModel(filters: ListUsersFilters = {}) {
+// `enabled` (default true) lets a caller that only sometimes has a
+// legitimate reason to query this — e.g. admin/listings/[id]/page.tsx's
+// "Verified by" reviewer-name lookup, which should only fire for a
+// super_admin viewer — skip the request rather than round-trip into an
+// expected 403 (GET /users stays super_admin-only server-side).
+export function useUserManagementViewModel(filters: ListUsersFilters = {}, options: { enabled?: boolean } = {}) {
   const queryClient = useQueryClient();
   const queryKey = ['admin', 'users', filters];
 
   const query = useQuery({
     queryKey,
     queryFn: () => usersRepository.list(filters),
+    enabled: options.enabled ?? true,
   });
 
   const result = normalizeUsersResult(query.data, filters);

@@ -23,6 +23,8 @@ export class PlanLifecycleService {
     await this.expireLapsedSubscriptions();
     await this.revertExpiredBoosts();
     await this.revertExpiredStories();
+    await this.revertExpiredProjectBoosts();
+    await this.revertExpiredProjectStories();
     await this.expireListings();
   }
 
@@ -78,6 +80,37 @@ export class PlanLifecycleService {
       return;
     }
     if (data?.length) this.logger.log(`Reverted ${data.length} expired listing stor${data.length === 1 ? 'y' : 'ies'}.`);
+  }
+
+  // Same as revertExpiredBoosts, targeting `projects` instead — a spent
+  // Hot/Super Hot credit (ProjectsRepository.boost(), spent from the SAME
+  // shared agent_credits pool listings' boost draws from) sets
+  // boost_expires_at ~30 days out.
+  private async revertExpiredProjectBoosts(): Promise<void> {
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .update({ boost_tier: 'basic', boost_expires_at: null })
+      .lt('boost_expires_at', new Date().toISOString())
+      .select('id');
+    if (error) {
+      this.logger.error('Failed to revert expired project boosts', error as Error);
+      return;
+    }
+    if (data?.length) this.logger.log(`Reverted ${data.length} expired project boost(s) to basic.`);
+  }
+
+  // Same as revertExpiredStories, targeting `projects` instead.
+  private async revertExpiredProjectStories(): Promise<void> {
+    const { data, error } = await this.supabase.client
+      .from('projects')
+      .update({ story_expires_at: null })
+      .lt('story_expires_at', new Date().toISOString())
+      .select('id');
+    if (error) {
+      this.logger.error('Failed to revert expired project stories', error as Error);
+      return;
+    }
+    if (data?.length) this.logger.log(`Reverted ${data.length} expired project stor${data.length === 1 ? 'y' : 'ies'}.`);
   }
 
   // expires_at is set on approval/renewal (record_verification_action() in

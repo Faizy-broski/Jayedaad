@@ -9,13 +9,13 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 
 type StatusFilter = 'all' | LeadStatus;
 
-const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'new', label: 'New' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'negotiating', label: 'Negotiating' },
-  { value: 'closed', label: 'Closed' },
-  { value: 'lost', label: 'Lost' },
+const STATUS_FILTERS: { value: StatusFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'all', label: 'All', icon: 'apps-outline' },
+  { value: 'new', label: 'New', icon: 'sparkles-outline' },
+  { value: 'contacted', label: 'Contacted', icon: 'call-outline' },
+  { value: 'negotiating', label: 'Negotiating', icon: 'chatbubbles-outline' },
+  { value: 'closed', label: 'Closed', icon: 'checkmark-circle-outline' },
+  { value: 'lost', label: 'Lost', icon: 'close-circle-outline' },
 ];
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -23,6 +23,36 @@ const SOURCE_LABEL: Record<string, string> = {
   contact_form: 'Contact form',
   call_request: 'Call request',
 };
+
+const SOURCE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  chatbot: 'chatbubble-ellipses-outline',
+  contact_form: 'document-text-outline',
+  call_request: 'call-outline',
+};
+
+// Distinct accent per status so the inbox reads at a glance without opening
+// each lead — mirrors the color language the web CRM already uses per-status.
+const STATUS_COLORS: Record<LeadStatus, { bg: string; text: string }> = {
+  new: { bg: '#EFF6FF', text: '#2563EB' },
+  contacted: { bg: '#FFFBEB', text: '#B45309' },
+  negotiating: { bg: '#F5F3FF', text: '#7C3AED' },
+  closed: { bg: '#ECFDF5', text: theme.colors.primary },
+  lost: { bg: theme.colors.dangerBg, text: theme.colors.danger },
+};
+
+const AVATAR_PALETTE = ['#0D634B', '#2563EB', '#B45309', '#7C3AED', '#DB2777', '#0EA5E9'];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+}
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -46,11 +76,26 @@ export function AgentCRMScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [agencyScope, setAgencyScope] = useState(false);
   const [search, setSearch] = useState('');
-  const { leads, isLoading, isError, refetch, isRefetching } = useLeadInboxViewModel({
+  // isRefetching from the viewmodel goes true both for a manual pull *and*
+  // the 30s background refetchInterval (useLeadInboxViewModel) — wiring it
+  // straight into RefreshControl made the native spinner pop up on its own
+  // every 30s even with the list already populated underneath. Tracking the
+  // pull gesture separately keeps the spinner tied to the user's own pull.
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const { leads, isLoading, isError, refetch } = useLeadInboxViewModel({
     status: statusFilter === 'all' ? undefined : statusFilter,
     scope: agencyScope ? 'agency' : 'own',
     pageSize: 50,
   });
+
+  async function onPullRefresh() {
+    setPullRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setPullRefreshing(false);
+    }
+  }
 
   const visibleLeads = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -66,20 +111,22 @@ export function AgentCRMScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TextInput
-        icon="search-outline"
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Search name, phone, email…"
-        style={styles.search}
-      />
+      <View style={styles.searchWrap}>
+        <TextInput
+          icon="search-outline"
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search name, phone, email…"
+          variant="pill"
+        />
+      </View>
 
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filterRowScroll}
         contentContainerStyle={styles.filterRow}
-        data={profile?.isAgencyAdmin ? [...STATUS_FILTERS, { value: 'agency' as const, label: 'Agency' }] : STATUS_FILTERS}
+        data={profile?.isAgencyAdmin ? [...STATUS_FILTERS, { value: 'agency' as const, label: 'Agency', icon: 'business-outline' as const }] : STATUS_FILTERS}
         keyExtractor={(f) => f.value}
         renderItem={({ item: f }) => {
           const active = f.value === 'agency' ? agencyScope : statusFilter === f.value;
@@ -88,18 +135,26 @@ export function AgentCRMScreen() {
               style={[styles.filterChip, active && styles.filterChipActive]}
               onPress={() => (f.value === 'agency' ? setAgencyScope((v) => !v) : setStatusFilter(f.value as StatusFilter))}
             >
+              <Ionicons name={f.icon} size={14} color={active ? theme.colors.bg : theme.colors.muted} />
               <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
             </Pressable>
           );
         }}
       />
 
-      {isLoading && <Text style={styles.loading}>Loading…</Text>}
+      {isLoading && (
+        <View style={styles.loadingState}>
+          <Text style={styles.loading}>Loading your inbox…</Text>
+        </View>
+      )}
 
       {!isLoading && isError && (
         <View style={styles.errorState}>
-          <Ionicons name="alert-circle-outline" size={32} color={theme.colors.muted} />
-          <Text style={styles.errorText}>Couldn&apos;t load your inbox.</Text>
+          <View style={styles.errorIconWrap}>
+            <Ionicons name="alert-circle-outline" size={32} color={theme.colors.danger} />
+          </View>
+          <Text style={styles.errorTitle}>Couldn&apos;t load your inbox</Text>
+          <Text style={styles.errorText}>Check your connection and try again.</Text>
           <Button label="Retry" variant="secondary" size="sm" onPress={() => refetch()} />
         </View>
       )}
@@ -108,35 +163,59 @@ export function AgentCRMScreen() {
         <FlatList
           data={visibleLeads}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
+          refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} {...refreshControlProps()} />}
+          contentContainerStyle={styles.listContent}
           ListEmptyComponent={
-            <Text style={styles.empty}>{search ? 'No leads match your search.' : 'No leads yet.'}</Text>
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="mail-open-outline" size={30} color={theme.colors.muted} />
+              </View>
+              <Text style={styles.emptyTitle}>{search ? 'No matches' : 'No leads yet'}</Text>
+              <Text style={styles.emptyText}>
+                {search ? 'Try a different name, phone, or email.' : 'New inquiries from your listings will show up here.'}
+              </Text>
+            </View>
           }
-          renderItem={({ item }: { item: Lead }) => (
-            <Pressable style={styles.row} onPress={() => navigation.navigate('LeadDetail', { leadId: item.id })}>
-              <View style={styles.rowMain}>
-                <View style={styles.rowHeader}>
-                  <Text style={styles.name}>{item.name}</Text>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>{item.status}</Text>
+          renderItem={({ item }: { item: Lead }) => {
+            const statusColor = STATUS_COLORS[item.status] ?? STATUS_COLORS.new;
+            return (
+              <Pressable
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                onPress={() => navigation.navigate('LeadDetail', { leadId: item.id })}
+              >
+                <View style={[styles.avatar, { backgroundColor: avatarColor(item.name) }]}>
+                  <Text style={styles.avatarText}>{initials(item.name)}</Text>
+                </View>
+
+                <View style={styles.rowMain}>
+                  <View style={styles.rowHeader}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.time}>{relativeTime(item.createdAt)}</Text>
+                  </View>
+
+                  {item.message ? (
+                    <Text style={styles.message} numberOfLines={1}>
+                      {item.message}
+                    </Text>
+                  ) : null}
+
+                  <View style={styles.metaRow}>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: statusColor.text }]}>{item.status}</Text>
+                    </View>
+                    <View style={styles.sourceTag}>
+                      <Ionicons name={SOURCE_ICON[item.source] ?? 'ellipse-outline'} size={11} color={theme.colors.muted} />
+                      <Text style={styles.meta}>{SOURCE_LABEL[item.source] ?? item.source}</Text>
+                    </View>
                   </View>
                 </View>
-                {item.message ? (
-                  <Text style={styles.message} numberOfLines={1}>
-                    {item.message}
-                  </Text>
-                ) : null}
-                <View style={styles.metaRow}>
-                  <Text style={styles.meta}>{item.phone}</Text>
-                  <Text style={styles.metaDot}>·</Text>
-                  <Text style={styles.meta}>{relativeTime(item.createdAt)}</Text>
-                  <Text style={styles.metaDot}>·</Text>
-                  <Text style={styles.meta}>{SOURCE_LABEL[item.source] ?? item.source}</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-            </Pressable>
-          )}
+
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
+              </Pressable>
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -144,40 +223,78 @@ export function AgentCRMScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: theme.spacing.lg, backgroundColor: theme.colors.bg },
-  search: { marginBottom: theme.spacing.sm },
-  filterRowScroll: { flexGrow: 0, marginBottom: theme.spacing.md },
-  filterRow: { flexDirection: 'row', gap: theme.spacing.sm },
+  container: { flex: 1, backgroundColor: theme.colors.surface },
+  searchWrap: { paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.md, backgroundColor: theme.colors.surface },
+  filterRowScroll: { flexGrow: 0, marginTop: theme.spacing.md, marginBottom: theme.spacing.sm },
+  filterRow: { flexDirection: 'row', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.lg },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.bg,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 999,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   filterChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
   filterChipText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   filterChipTextActive: { color: theme.colors.bg },
-  loading: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
-  errorState: { alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xl },
-  errorText: { color: theme.colors.muted, fontSize: 13 },
-  empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
+  loadingState: { alignItems: 'center', marginTop: theme.spacing.xl },
+  loading: { color: theme.colors.muted, fontSize: 13 },
+  errorState: { alignItems: 'center', gap: 6, marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl },
+  errorIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.dangerBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  errorTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
+  errorText: { color: theme.colors.muted, fontSize: 13, textAlign: 'center', marginBottom: theme.spacing.sm },
+  listContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl, gap: theme.spacing.sm },
+  emptyState: { alignItems: 'center', gap: 6, marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  emptyTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
+  emptyText: { color: theme.colors.muted, fontSize: 13, textAlign: 'center' },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderBottomWidth: 1,
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.bg,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  rowMain: { flex: 1, gap: 3 },
-  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  name: { fontWeight: '600', fontSize: 14, color: theme.colors.text },
-  statusBadge: { backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  statusBadgeText: { color: theme.colors.muted, fontSize: 11, textTransform: 'capitalize', fontWeight: '600' },
-  message: { color: theme.colors.text, fontSize: 12 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rowPressed: { backgroundColor: theme.colors.surfaceAlt },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  rowMain: { flex: 1, gap: 4 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+  name: { flexShrink: 1, fontWeight: '700', fontSize: 14.5, color: theme.colors.text },
+  time: { color: theme.colors.mutedLight, fontSize: 11 },
+  message: { color: theme.colors.muted, fontSize: 12.5 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginTop: 2 },
+  statusBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  statusBadgeText: { fontSize: 10.5, textTransform: 'capitalize', fontWeight: '700' },
+  sourceTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   meta: { color: theme.colors.muted, fontSize: 11 },
-  metaDot: { color: theme.colors.muted, fontSize: 11 },
 });

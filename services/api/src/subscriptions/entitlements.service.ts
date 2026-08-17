@@ -89,13 +89,17 @@ export class EntitlementsService {
       // (PlanLifecycleService's cron, now that listings actually expire —
       // see 0042_listing_expiration.sql) would count against quota forever,
       // contradicting the enforcement error's own "upgrade or free up a
-      // slot" promise.
+      // slot" promise. .neq('status', 'draft') for the same reason — an
+      // agent can keep as many drafts as they like (ListingsRepository.create's
+      // draft exemption) and only starts spending a quota slot at
+      // POST /listings/:id/submit, so drafts must never count here either.
       this.supabase.client
         .from('listings')
         .select('id', { count: 'exact', head: true })
         .eq('agent_id', agentId)
         .neq('status', 'deleted')
-        .neq('status', 'expired'),
+        .neq('status', 'expired')
+        .neq('status', 'draft'),
     ]);
     if (error) throw error;
     return { used: count ?? 0, quota: entitlements.listingQuota };

@@ -6,6 +6,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { Toaster } from 'react-hot-toast';
 import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken } from '@jayedaad/core';
 import { getClientEnv } from '@/lib/env';
+import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 import { TopProgressBar } from '@/components/TopProgressBar';
 import { FavoritesProvider } from '@/lib/favoritesContext';
 
@@ -25,7 +26,11 @@ if (typeof window !== 'undefined') {
   // middleware sees no session at all (localStorage isn't readable
   // server-side). See ConfigureSupabaseClientOptions in
   // packages/core/src/services/supabaseClient.ts for the full explanation.
-  configureSupabaseClient({ url: env.supabaseUrl, anonKey: env.supabaseAnonKey, createClient: createBrowserClient });
+  configureSupabaseClient({
+    url: env.supabaseUrl,
+    anonKey: env.supabaseAnonKey,
+    createClient: (url, anonKey) => createBrowserClient(url, anonKey, { cookieOptions: getSupabaseCookieOptions() }),
+  });
 
   configureHttpClient({
     baseURL: env.apiBaseUrl,

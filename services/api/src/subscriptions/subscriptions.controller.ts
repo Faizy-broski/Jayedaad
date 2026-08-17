@@ -12,6 +12,7 @@ import { CreditPacksRepository } from './credit-packs.repository';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CheckoutCreditPackDto } from './dto/checkout-credit-pack.dto';
+import { CheckoutCreditCartDto } from './dto/checkout-credit-cart.dto';
 
 @Controller('subscriptions')
 export class SubscriptionsController {
@@ -141,6 +142,46 @@ export class SubscriptionsController {
     return { url: session.url };
   }
 
+  // Zameen-style multi-item cart — several different credit packs, each
+  // with its own quantity, paid for in ONE combined Stripe Checkout
+  // Session. Additive alongside creditsCheckout() above (which stays as-is
+  // for web's single-pack flow); the credits to grant per pack are
+  // computed here (pack.quantity * requested quantity) and carried through
+  // to the webhook as a single JSON metadata field, so fulfillment doesn't
+  // need an extra Stripe API call to list line items back out.
+  @UseGuards(ScopeGuard)
+  @Roles('agent')
+  @Post('me/credits/checkout-cart')
+  async creditsCheckoutCart(@Req() req: any, @Body() body: CheckoutCreditCartDto) {
+    const lineItems: { priceId: string; quantity: number }[] = [];
+    const cart: { creditType: string; amount: number }[] = [];
+
+    for (const item of body.items) {
+      const pack = await this.creditPacks.findById(item.packId);
+      if (!pack || !pack.active) throw new BadRequestException(`Unknown or inactive credit pack: ${item.packId}`);
+      if (!pack.stripe_price_id) {
+        throw new BadRequestException(`Credit pack "${pack.name}" has no Stripe price configured yet — contact support.`);
+      }
+      lineItems.push({ priceId: pack.stripe_price_id, quantity: item.quantity });
+      cart.push({ creditType: pack.credit_type, amount: pack.quantity * item.quantity });
+    }
+
+    const email = (await this.subscriptions.findEmailForUser(req.user.id)) ?? undefined;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    const base = body.returnUrl ?? `${siteUrl}/dashboard/plan`;
+
+    const session = await this.stripe.createCartCheckoutSession({
+      lineItems,
+      customerEmail: email ?? '',
+      clientReferenceId: req.user.agentId,
+      metadata: { agentId: req.user.agentId, cart: JSON.stringify(cart) },
+      successUrl: `${base}?credits=success`,
+      cancelUrl: `${base}?credits=cancelled`,
+    });
+
+    return { url: session.url };
+  }
+
   // cancel_at_period_end via Stripe, not an immediate cutoff — the local
   // row's cancel_at_period_end/status get updated by the webhook's
   // customer.subscription.updated event once Stripe processes this, not
@@ -204,6 +245,34 @@ export class SubscriptionsController {
         // shape evolves.
         if (session.mode === 'payment') {
           const agentId = session.client_reference_id;
+
+          // Multi-item cart checkout (creditsCheckoutCart) carries its
+          // fulfillment data as a JSON array in metadata.cart, precomputed
+          // at session-creation time — checked first so a cart session
+          // never falls through to the single-item fields below (which it
+          // doesn't have). Single-pack checkout (creditsCheckout) has no
+          // metadata.cart, so it takes the flat creditType/quantity path
+          // unchanged.
+          if (session.metadata?.cart) {
+            let cart: { creditType: string; amount: number }[] = [];
+            try {
+              cart = JSON.parse(session.metadata.cart);
+            } catch {
+              this.logger.warn(`checkout.session.completed (payment, cart) invalid metadata.cart JSON — session ${session.id}`);
+              break;
+            }
+            if (agentId && Array.isArray(cart) && cart.length > 0) {
+              for (const item of cart) {
+                if (item.creditType && Number.isFinite(item.amount) && item.amount > 0) {
+                  await this.subscriptions.topUpCredits(agentId, item.creditType, item.amount);
+                }
+              }
+            } else {
+              this.logger.warn(`checkout.session.completed (payment, cart) missing agentId or empty cart — session ${session.id}`);
+            }
+            break;
+          }
+
           const creditType = session.metadata?.creditType;
           const quantity = Number(session.metadata?.quantity);
           if (agentId && creditType && Number.isFinite(quantity) && quantity > 0) {

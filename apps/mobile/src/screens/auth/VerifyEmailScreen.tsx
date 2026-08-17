@@ -52,6 +52,13 @@ export function VerifyEmailScreen() {
   }, [isEmailVerified, isProfileLoading, role, agentId, profile, navigation]);
 
   async function handleVerify() {
+    // Same re-entry guard as web's verify-email page — closes the narrow
+    // race where a duplicate submission (double-tap before `disabled`
+    // re-renders) races the first request, consuming the code twice and
+    // surfacing a confusing "No active code" error right before an
+    // unrelated-seeming redirect once the first request's refreshSession()
+    // resolves.
+    if (verifyOtp.isPending) return;
     await verifyOtp.mutateAsync(code);
     // AuthGateProvider watches auth state and auto-closes the sheet (firing
     // whatever action triggered it) once isEmailVerified flips true — unless
