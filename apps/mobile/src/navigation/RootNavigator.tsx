@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthViewModel } from '@jayedaad/core';
 import { BottomTabNavigator } from './BottomTabNavigator';
@@ -35,10 +35,6 @@ import { BlogListScreen } from '../screens/BlogListScreen';
 import { BlogDetailScreen } from '../screens/BlogDetailScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { AnimatedSplashScreen } from '../components/AnimatedSplashScreen';
-
-// Enforced floor so the splash's entrance animation is actually seen even on
-// a warm/instant auth check, rather than flashing for a few ms.
-const MINIMUM_SPLASH_MS = 900;
 
 export type RootStackParamList = {
   Main: undefined;
@@ -148,17 +144,23 @@ function MainStack() {
 // login/signup is only surfaced per-action via the AuthGateProvider sheet
 // (see ../auth/AuthGateProvider.tsx), triggered from spots like the Profile
 // tab and favoriting a listing.
+//
+// splashDismissed replaces the old fixed 900ms timer — that floor was
+// meant to guarantee the splash's entrance animation was visible, but on a
+// fast/warm auth check it also cut the 3-slide carousel off almost
+// immediately, well before a user could read even the first slide. Now the
+// splash decides its own exit: AnimatedSplashScreen calls onContinue
+// either when the user taps Continue, or automatically once every slide
+// has had its turn (see its AUTO_CONTINUE_MS). isInitializing is still
+// ANDed in as a floor — the app can't render before the session check
+// resolves, same as before, it just no longer double-gates on an arbitrary
+// timer too.
 export function RootNavigator() {
   const { isInitializing } = useAuthViewModel();
-  const [minimumElapsed, setMinimumElapsed] = useState(false);
+  const [splashDismissed, setSplashDismissed] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setMinimumElapsed(true), MINIMUM_SPLASH_MS);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isInitializing || !minimumElapsed) {
-    return <AnimatedSplashScreen />;
+  if (isInitializing || !splashDismissed) {
+    return <AnimatedSplashScreen onContinue={() => setSplashDismissed(true)} />;
   }
 
   return <MainStack />;

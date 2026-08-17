@@ -1,38 +1,56 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View, Text, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import { Animated, Easing, StyleSheet, View, Text, SafeAreaView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '@jayedaad/ui-native';
-import houseBg from '../../assets/images/splash-bg.webp';
+import { Button } from '@jayedaad/ui-native';
+import slide1Bg from '../../assets/images/splash-bg.webp';
+import slide2Bg from '../../assets/images/Skyline Penthouse.webp';
+import slide3Bg from '../../assets/images/Ocean Residence.webp';
 // Updated import to use the WebP format
 import logoBg from '../../assets/images/logo-bg.png';
 
 const { width, height } = Dimensions.get('window');
 
 // Same 3 dots that were already in the static markup — each now maps to one
-// of these slides instead of just sitting there as decoration.
+// of these slides instead of just sitting there as decoration. Each slide
+// gets its own background image (previously all 3 shared splash-bg.webp,
+// so the "slider" only ever looked like changing text over a static photo).
 const SLIDES = [
   {
     tag: 'VERIFIED FIRST',
     title: 'Every listing\nchecked, twice.',
     subtitle: 'Our team verifies ownership papers and photos before a property ever reaches your feed.',
+    image: slide1Bg,
   },
   {
     tag: 'NATIONWIDE REACH',
     title: 'From Karachi\nto Islamabad.',
     subtitle: 'Search verified plots, homes, and commercial space across every major city in Pakistan.',
+    image: slide2Bg,
   },
   {
     tag: 'DIRECT TO AGENTS',
     title: "No middlemen,\njust results.",
     subtitle: 'Message verified agents and owners directly — no commission games, no runaround.',
+    image: slide3Bg,
   },
 ] as const;
 
 const SLIDE_INTERVAL_MS = 3000;
 const CROSSFADE_MS = 350;
+// Auto-continue into the app once every slide has had its full
+// SLIDE_INTERVAL_MS on screen at least once — previously nothing dismissed
+// this screen on its own terms at all (RootNavigator swapped it out purely
+// on auth-init timing, often well under one slide's duration), and the
+// Continue button had no onPress, so a user who wanted to skip ahead
+// manually had no way to.
+const AUTO_CONTINUE_MS = SLIDES.length * SLIDE_INTERVAL_MS;
 
-export function AnimatedSplashScreen() {
+export interface AnimatedSplashScreenProps {
+  onContinue: () => void;
+}
+
+export function AnimatedSplashScreen({ onContinue }: AnimatedSplashScreenProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const textOpacity = useRef(new Animated.Value(1)).current;
@@ -64,12 +82,24 @@ export function AnimatedSplashScreen() {
     return () => clearInterval(timer);
   }, [textOpacity]);
 
+  // Fires once, after the last slide has had its turn — lets a user who
+  // doesn't tap Continue still land in the app instead of the carousel
+  // looping forever. Tapping Continue fires the same callback early.
+  useEffect(() => {
+    const timer = setTimeout(onContinue, AUTO_CONTINUE_MS);
+    return () => clearTimeout(timer);
+  }, [onContinue]);
+
   const slide = SLIDES[slideIndex];
 
   return (
     <View style={styles.root}>
-      {/* 1. Full-bleed Background Image */}
-      <Image source={houseBg} style={StyleSheet.absoluteFill} contentFit="cover" />
+      {/* 1. Full-bleed Background Image — crossfades with the text on the
+          same textOpacity value so the photo swap lands in the trough of
+          the transition instead of hard-cutting. */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: textOpacity }]}>
+        <Image source={slide.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+      </Animated.View>
 
       {/* 2. Giant Watermark Logo Overlay */}
       <View style={styles.watermarkContainer} pointerEvents="none">
@@ -113,14 +143,9 @@ export function AnimatedSplashScreen() {
             ))}
           </View>
 
-          {/* Continue Button */}
-          <TouchableOpacity 
-            style={styles.button} 
-            activeOpacity={0.8}
-            // Add your navigation logic here when ready
-          >
-            <Text style={styles.buttonText}>Continue →</Text>
-          </TouchableOpacity>
+          {/* Continue Button — skips straight to the app instead of
+              waiting for the remaining slides/AUTO_CONTINUE_MS timer. */}
+          <Button label="Continue →" size="lg" onPress={onContinue} style={styles.button} />
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -203,18 +228,9 @@ const styles = StyleSheet.create({
     width: 24,
     backgroundColor: '#ffffff',
   },
+  // width only — Button (@jayedaad/ui-native) supplies its own pill shape,
+  // gradient fill, and label styling for size="lg".
   button: {
-    backgroundColor: theme.colors.primary || '#13634B',
     width: '100%',
-    height: 56,
-    borderRadius: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

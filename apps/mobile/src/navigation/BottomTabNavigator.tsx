@@ -87,12 +87,13 @@ export function BottomTabNavigator() {
   );
 }
 
-// Floating white pill bar. Every tab is icon-above-label, evenly spaced
-// (flex: 1 each); the active tab just switches to the solid icon + green
-// color + bold label — no background highlight box, no pill morph. The
-// color/weight swap fades in via RN's Animated API (native-driven, same
-// hand-rolled approach as AnimatedSplashScreen/SideDrawer/AuthSheet
-// elsewhere in this app) instead of snapping instantly.
+// Floating white pill bar, Zameen-reference look: the active tab becomes
+// its own solid rounded-rect badge (icon + label stacked together, both
+// white, on theme.colors.primary) sitting inline in the bar; every inactive
+// tab is just a plain outline icon + muted label column, no background.
+// Previously the active tab "popped" above the bar line as a small raised
+// circle badge with its label left outside/below in the bar's own plain
+// gray — replaced with this single unified badge per the reference design.
 function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
@@ -126,13 +127,10 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   );
 }
 
-// Active tab "pops" outward: its icon badge lifts up and overscales past
-// 1.0 via a bouncy spring (not a linear timing), landing on a solid green
-// circle raised above the bar line — like a raised pin rather than a flat
-// color swap. Icon itself still cross-fades outline-muted → solid-white
-// (two stacked layers, opacity-only) since Animated can't interpolate
-// Ionicons' color prop directly without wrapping it in
-// Animated.createAnimatedComponent.
+// Active tab lands as a solid rounded-rect badge (icon + label together,
+// both white) via a quick bouncy scale-in spring — inactive tabs are static
+// (no animation needed, there's nothing to morph: they're a bare
+// icon-outline + label column, not a badge that grows/shrinks).
 function TabButton({
   focused,
   icon,
@@ -144,39 +142,34 @@ function TabButton({
   label: string;
   onPress: () => void;
 }) {
-  const progress = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(focused ? 1 : 0.85)).current;
 
   useEffect(() => {
-    Animated.spring(progress, {
-      toValue: focused ? 1 : 0,
-      useNativeDriver: true,
-      friction: 7,
-      tension: 120,
-    }).start();
-  }, [focused, progress]);
-
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -7] });
-  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+    if (!focused) return;
+    scale.setValue(0.85);
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7, tension: 120 }).start();
+  }, [focused, scale]);
 
   return (
     <Pressable onPress={onPress} style={styles.tabTouchable} hitSlop={6}>
-      {/* shadowOpacity isn't in the native-driver-supported style whitelist
-          (opacity/transform only) — since `progress` also drives the
-          spring's translateY/scale with useNativeDriver:true, a static
-          shadow (rather than animating it off `progress`) avoids a native
-          animated module runtime error. */}
-      <Animated.View style={[styles.iconBadge, { transform: [{ translateY }, { scale }] }]}>
-        <Animated.View style={[styles.iconBadgeFill, { opacity: progress }]} />
-        <View style={styles.iconLayer}>
-          <Ionicons name={`${icon}-outline` as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.muted} />
-        </View>
-        <Animated.View style={[styles.iconLayer, StyleSheet.absoluteFill, { opacity: progress }]}>
+      {focused ? (
+        // w67/h53 per the reference design — a wide rounded-rect (not a
+        // circle), roomy enough to stack the icon above its label inside
+        // one solid badge instead of the label sitting outside/below it.
+        <Animated.View style={[styles.activeBadge, { transform: [{ scale }] }]}>
           <Ionicons name={icon} size={20} color="#ffffff" />
+          <Text style={styles.activeLabel} numberOfLines={1}>
+            {label}
+          </Text>
         </Animated.View>
-      </Animated.View>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
-        {label}
-      </Text>
+      ) : (
+        <View style={styles.inactiveItem}>
+          <Ionicons name={`${icon}-outline` as keyof typeof Ionicons.glyphMap} size={22} color={theme.colors.muted} />
+          <Text style={styles.inactiveLabel} numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -192,27 +185,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.bg,
     borderRadius: 999,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
-  tabTouchable: { flex: 1, alignItems: 'center', gap: 4 },
-  iconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  tabTouchable: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // w67/h53 — a rounded rect (not a full stadium/circle), matching the
+  // reference's "roundness" without going fully oval given the width is
+  // only modestly larger than the height.
+  activeBadge: {
+    width: 67,
+    height: 53,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
   },
-  iconBadgeFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 19,
-  },
-  iconLayer: { alignItems: 'center', justifyContent: 'center' },
-  tabLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: '600' },
-  tabLabelActive: { color: theme.colors.primary, fontWeight: '700' },
+  activeLabel: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
+  inactiveItem: { alignItems: 'center', justifyContent: 'center', gap: 4, height: 53 },
+  inactiveLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: '600' },
 });

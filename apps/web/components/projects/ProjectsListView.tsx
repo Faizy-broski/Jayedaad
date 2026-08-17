@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { CreditsMenu } from '@/components/shared/CreditsMenu';
+import { PremiumPromoCard } from '@/components/shared/PremiumPromoCard';
 
 const PAGE_SIZE = 20;
 
@@ -271,6 +272,14 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
           </button>
         </div>
       </Reveal>
+
+      {/* Agent-only upsell — a super_admin has no plan of their own to
+          upgrade (see PremiumPromoCard's own comment). */}
+      {!isSuperAdmin && (
+        <Reveal>
+          <PremiumPromoCard className="h-56 sm:h-64" />
+        </Reveal>
+      )}
 
       <Reveal>
         <div className="flex flex-wrap items-center justify-between gap-3">

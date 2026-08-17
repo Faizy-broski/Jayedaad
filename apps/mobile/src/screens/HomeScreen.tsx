@@ -22,6 +22,7 @@ import {
 } from '@jayedaad/core';
 import { refreshControlProps, theme } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
+import { PremiumPromoCard } from '../components/PremiumPromoCard';
 import { PropertyCard } from '../components/PropertyCard';
 import { SideDrawer } from '../components/SideDrawer';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
@@ -40,28 +41,14 @@ import dhaImage from '../../assets/images/DHA.webp';
 import bahriaImage from '../../assets/images/bahria.webp';
 import gulbergImage from '../../assets/images/gulberg.webp';
 
-// Purpose is a real ListingPurpose ('sale'|'rent') — "Commercial" was never
-// a valid purpose (see purposeToFilters below), it's a Property Type
-// category, so it's not offered here as a third tab anymore.
 type Purpose = 'Buy' | 'Rent';
 const PURPOSE_TABS: { value: Purpose; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'Buy', icon: 'home' },
   { value: 'Rent', icon: 'key' },
 ];
 
-// isArea: lahore/karachi/islamabad are real `city` column values; DHA/
-// Bahria/Gulberg are real neighborhoods that span multiple cities, so they
-// filter on the `area` column instead — both are genuine ListingSearchFilters
-// fields, just scoped to whichever one actually matches how the value is
-// stored on a listing.
 type Category = { id: string; title: string; image: number; isArea?: boolean };
 
-// Icons here map to real property-type slugs from the taxonomy (Homes/Plots/
-// Commercial categories, supabase/migrations/0005_taxonomy_seed.sql) — House,
-// Flat/Apartment, Farm House under "residential"; Office, Shop under
-// "commercial"; the Plots tile represents the "plot" category as a whole
-// (residential_plot, agricultural_land, etc.), same category-level
-// representation already used for HomeHeader's Commercial purpose tab.
 type PropertyCategory = {
   id: string;
   title: string;
@@ -98,15 +85,10 @@ function projectPriceLabel(project: Project): string | null {
   return `From ${formatPrice(project.priceRange.min)}`;
 }
 
-// Hero-photo header (see HomeHeader below) followed by featured properties,
-// browse-by-category, cities, about, and stats sections.
 export const HomeScreen = memo(function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
-  // Previously FEATURED_PROPERTIES was hardcoded mock data (same as web's
-  // homepage, which also pulls from a static array) — real verified
-  // listings, newest first, so the cards are actually tappable to a real
-  // ListingDetailScreen instead of dead-ending on fake ids.
+
   const {
     listings: featuredListings,
     isLoading: featuredLoading,
@@ -117,8 +99,7 @@ export const HomeScreen = memo(function HomeScreen() {
     sortBy: 'newest',
     pageSize: 4,
   });
-  // Previously NEW_PROJECTS was hardcoded mock data — real verified
-  // projects, newest first, tappable to the real ProjectDetailScreen.
+
   const {
     projects: newProjects,
     error: projectsError,
@@ -126,14 +107,9 @@ export const HomeScreen = memo(function HomeScreen() {
     isRefetching: isRefetchingProjects,
   } = useProjectsViewModel({ sortBy: 'newest', pageSize: 4 });
   const isRefetchingHome = isRefetchingFeatured || isRefetchingProjects;
-  // Previously BLOG_POSTS was hardcoded mock data — real published posts
-  // from the Blog CMS, newest first.
+
   const { posts: blogPosts, isLoading: blogLoading } = useBlogViewModel({ limit: 3 });
 
-  // No buyer-side view-history backend exists — tracked on-device instead
-  // (ListingDetailScreen writes to it on view). Re-read on every focus, not
-  // just mount, so coming back from viewing a listing shows it here right
-  // away instead of needing an app restart.
   const [recentListings, setRecentListings] = useState<Listing[]>([]);
   useFocusEffect(
     useCallback(() => {
@@ -147,16 +123,13 @@ export const HomeScreen = memo(function HomeScreen() {
     }, []),
   );
 
-  // Real per-category/per-location listing counts — previously hardcoded
-  // strings ("12,480", "1,240 listings"). One lightweight count-only query
-  // per tile (pageSize: 1, only `total` is read) rather than a bare array
-  // map, since these are a fixed, known set of tiles, not dynamic data.
   const categoryCountQueries = useQueries({
     queries: PROPERTY_CATEGORIES.map((category) => ({
       queryKey: ['listings', 'public', 'count', 'propertyType', category.id],
       queryFn: () => listingsRepository.searchPublic({ propertyTypeSlug: category.id, pageSize: 1 }),
     })),
   });
+  
   const cityCountQueries = useQueries({
     queries: CITIES.map((city) => ({
       queryKey: ['listings', 'public', 'count', city.isArea ? 'area' : 'city', city.title],
@@ -168,10 +141,6 @@ export const HomeScreen = memo(function HomeScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right']}>
       <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
-      {/* HomeHeader (photo, search bar, Buy/Rent) now scrolls away with the
-          rest of the page — it used to be a sibling rendered before
-          ScrollView, which pinned it fixed at the top while only the
-          sections below it scrolled underneath. */}
       <ScrollView
         style={styles.scrollBody}
         contentContainerStyle={styles.scrollContent}
@@ -188,9 +157,6 @@ export const HomeScreen = memo(function HomeScreen() {
       >
         <HomeHeader onMenuPress={() => setDrawerVisible(true)} />
 
-        {/* Placed immediately below the Buy/Rent toggle in HomeHeader for
-            quick access — client requirement: Browse by Categories is the
-            first section on both platforms. */}
         <View style={styles.sectionCard}>
           <Text style={styles.browseCategoryTitle}>Browse by category</Text>
 
@@ -239,9 +205,6 @@ export const HomeScreen = memo(function HomeScreen() {
           </View>
         </View>
 
-        {/* On-device view history (see recentlyViewedStorage.ts) — hidden
-            entirely rather than shown empty, since a fresh install/new
-            buyer has nothing to "continue" yet. */}
         {recentListings.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
@@ -320,6 +283,16 @@ export const HomeScreen = memo(function HomeScreen() {
           )}
         </View>
 
+        {/* Not wrapped in styles.sectionCard (unlike the sections above/
+            below) — that adds its own white rounded-card chrome + padding,
+            which would nest this full-bleed green card inside a second
+            white card instead of sitting flush. The ScrollView's own
+            padding already provides the same horizontal gutter every
+            sectionCard aligns to. */}
+        <View style={styles.premiumCardWrap}>
+          <PremiumPromoCard onPress={() => navigation.navigate('Plan')} />
+        </View>
+
         {(blogLoading || blogPosts.length > 0) && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
@@ -349,19 +322,6 @@ export const HomeScreen = memo(function HomeScreen() {
   );
 });
 
-// Hero photo (home-banner.webp) + dark gradient replaces the old flat-color
-// header — logo top-left, hamburger+bell grouped top-right (the reference
-// this was redesigned from has no hamburger at all, but it's the only way to
-// reach SideDrawer's Favorites/My Properties/Post Listing/logout, none of
-// which live on the bottom tabs, so it stays, restyled to sit on the photo
-// instead of the old solid bar), a greeting + "{name}, find your address"
-// headline, and a location row — all clipped inside the rounded-bottom photo
-// block. The search bar + Buy/Rent/Commercial tabs are a separate sibling
-// with a negative top margin so they float, straddling the seam between the
-// photo and the white content below (previously they were rendered INSIDE
-// the photo's overflow:hidden clip, which is why they never reached the
-// white background at all) — z-order comes for free from paint order (this
-// block is the later sibling), no explicit zIndex needed.
 function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
@@ -384,15 +344,8 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
     setHomeCity(next);
   }
 
-  // useNotificationsViewModel is gated on `enabled: !!user`, so this is
-  // effectively 0 (not an authenticated request at all) for a signed-out
-  // guest — real unread count, was previously a permanently-on hardcoded
-  // dot.
   const { unreadCount } = useNotificationsViewModel();
 
-  // display_name is only ever set by our own email/password signUp() —
-  // Google/Apple sign-in populate full_name/name instead, so this fell
-  // through to no greeting name at all for every OAuth-signed-in user.
   const displayName =
     (user?.user_metadata?.display_name as string | undefined) ||
     (user?.user_metadata?.full_name as string | undefined) ||
@@ -441,13 +394,6 @@ function HomeHeader({ onMenuPress }: { onMenuPress: () => void }) {
         </View>
       </View>
 
-      {/* Transparent wrap (no background of its own) so the negative
-          marginTop pulls the opaque white Buy/Rent band up over the
-          still-visible photo behind it — this block previously had its own
-          opaque white background, which masked the photo in the overlap
-          zone and made the band look like it was sitting flush below the
-          banner instead of floating over it. Buy/Rent now comes before the
-          search bar so the search intent (Buy vs Rent) is picked first. */}
       <View style={styles.searchBarFloatWrap}>
         <View style={styles.purposeRow}>
           {PURPOSE_TABS.map(({ value, icon }) => {
@@ -524,11 +470,6 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
   );
 }
 
-// Soft organic "blob" behind the icon circle — no blob-path/SVG library in
-// this app, so it's approximated with two overlapping low-opacity tinted
-// circles (a bigger pale one, a smaller mid-tone one offset toward a
-// corner), clipped by the card's own overflow:hidden bounds, which reads
-// as the same soft-gradient-blob look without hand-rolled SVG paths.
 function PropertyCategoryCard({
   category,
   count,
@@ -540,13 +481,18 @@ function PropertyCategoryCard({
 }) {
   return (
     <Pressable style={styles.propertyCategoryCard} onPress={onPress}>
-      <View style={styles.propertyCategoryIconWrap}>
-        <View style={styles.propertyCategoryBlobBack} />
-        <View style={styles.propertyCategoryBlobFront} />
+      <View style={styles.propertyCategoryBlobContainer}>
+        <View style={styles.propertyCategoryBlob1} />
+        <View style={styles.propertyCategoryBlob2} />
+        <View style={styles.propertyCategoryBlob3} />
+      </View>
+
+      <View style={styles.propertyCategoryIconStack}>
         <View style={styles.propertyCategoryIconCircle}>
-          <Ionicons name={category.icon} size={26} color={theme.colors.primary} />
+          <Ionicons name={category.icon} size={22} color={theme.colors.primary} />
         </View>
       </View>
+
       <Text style={styles.propertyCategoryTitle}>{category.title}</Text>
       <Text style={styles.propertyCategoryCount}>{count.toLocaleString('en-PK')}</Text>
     </Pressable>
@@ -563,24 +509,29 @@ function CategoryCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={styles.categoryCard} onPress={onPress}>
-      <Image source={category.image} style={styles.categoryImage} contentFit="cover" transition={150} />
-      <LinearGradient
-        colors={['transparent', 'rgba(15,23,42,0.85)']}
-        style={styles.categoryGradient}
-      />
-      <View style={styles.categoryTextRow}>
-        <Text style={styles.categoryTitle}>{category.title}</Text>
-        <Text style={styles.categoryListings}>{listingsCount.toLocaleString('en-PK')} listings</Text>
+    // Two-layer split: the outer Pressable carries the shadow (and matches
+    // its shape via borderRadius, with no overflow:hidden of its own — a
+    // shadow gets clipped away on iOS by any ancestor that has
+    // overflow:hidden), the inner View does the actual rounded image
+    // clipping. Combining both on one view is a classic RN bug: the shadow
+    // silently vanishes on iOS (Android's `elevation` masks it, so it's
+    // easy to miss testing on Android only).
+    <Pressable style={styles.categoryCardShadow} onPress={onPress}>
+      <View style={styles.categoryCard}>
+        <Image source={category.image} style={styles.categoryImage} contentFit="cover" transition={150} />
+        <LinearGradient
+          colors={['transparent', 'rgba(15,23,42,0.85)']}
+          style={styles.categoryGradient}
+        />
+        <View style={styles.categoryTextRow}>
+          <Text style={styles.categoryTitle}>{category.title}</Text>
+          <Text style={styles.categoryListings}>{listingsCount.toLocaleString('en-PK')} listings</Text>
+        </View>
       </View>
     </Pressable>
   );
 }
 
-// Same soft-blob decoration technique as PropertyCategoryCard (two
-// overlapping low-opacity tinted circles, clipped by the card's own
-// overflow:hidden) — here sitting behind the text column instead of behind
-// an icon.
 function BlogCard({ post, onPress }: { post: BlogPost; onPress: () => void }) {
   return (
     <Pressable style={styles.blogCard} onPress={onPress}>
@@ -623,10 +574,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
+  premiumCardWrap: {
+    marginBottom: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
   statsCard: { overflow: 'hidden', padding: 0 },
-  // Cancels out scrollContent's own padding so the header stays full-bleed
-  // edge-to-edge now that it's the ScrollView's first child rather than a
-  // sibling rendered outside the padded content area.
   headerOuter: {
     backgroundColor: theme.colors.bg,
     marginTop: -theme.spacing.md,
@@ -677,12 +633,6 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   headerLocationText: { color: theme.colors.bg, fontSize: 13, fontWeight: '600' },
-  // Deliberately transparent — only the searchBar pill itself is opaque, so
-  // the photo still shows through the rest of this wrap. Negative marginTop
-  // pulls it up so roughly half the pill sits over headerPhotoClip's photo
-  // and half over the white area below; it's a later sibling of
-  // headerPhotoClip so it paints on top (zIndex set anyway for Android's
-  // stacking-context quirks with negative-margin siblings).
   searchBarFloatWrap: {
     marginTop: -30,
     paddingHorizontal: theme.spacing.lg,
@@ -712,10 +662,6 @@ const styles = StyleSheet.create({
   },
   searchBarTextArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
   searchPlaceholder: { flex: 1, color: theme.colors.muted, fontSize: 13 },
-  // Soft green halo behind the gradient button, echoing the glowing
-  // search-FAB reference — a semi-transparent tinted circle sized larger
-  // than the button itself, plus a colored iOS shadow (Android falls back
-  // to the halo circle alone, since elevation shadows are always neutral).
   searchFilterGlow: {
     width: 48,
     height: 48,
@@ -794,9 +740,13 @@ const styles = StyleSheet.create({
   mutedText: { fontSize: 13, color: theme.colors.mutedLight, textAlign: 'center', paddingVertical: theme.spacing.lg },
   errorText: { fontSize: 13, color: theme.colors.danger, textAlign: 'center', paddingVertical: theme.spacing.lg },
   projectList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
+  // Was 250 wide — on a typical ~390px screen that left only a sliver of
+  // the next card peeking past the edge, reading as cut-off rather than a
+  // deliberate horizontal-scroll preview. Narrower card shows more of the
+  // next one.
   projectCard: {
-    width: 250,
-    height: 220,
+    width: 200,
+    height: 190,
     borderRadius: 20,
     overflow: 'hidden',
   },
@@ -826,15 +776,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   propertyCategoryCard: {
-    // Explicit % width + space-between (no `gap`) — `gap` was stacking on
-    // top of the space-between-derived spacing and pushing the 3rd column
-    // of every row past 100%, wrapping it down to a new row instead
-    // (2 cols x 3 rows instead of 3 cols x 2 rows).
     width: '31%',
     alignItems: 'center',
     backgroundColor: theme.colors.bg,
     borderRadius: 20,
-    padding: theme.spacing.sm,
+    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
     marginBottom: theme.spacing.md,
     shadowColor: '#000',
@@ -843,46 +789,52 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  propertyCategoryIconWrap: {
-    width: '100%',
-    height: 76,
-    borderRadius: 16,
+  propertyCategoryBlobContainer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
     overflow: 'hidden',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EBF3EE',
+  },
+  propertyCategoryBlob1: {
+    position: 'absolute',
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    top: -55,
+    backgroundColor: 'rgba(13,99,75,0.025)',
+  },
+  propertyCategoryBlob2: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    top: -30,
+    backgroundColor: 'rgba(13,99,75,0.035)',
+  },
+  propertyCategoryBlob3: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    top: -10,
+    backgroundColor: 'rgba(13,99,75,0.05)',
+  },
+  propertyCategoryIconStack: {
     marginBottom: theme.spacing.sm,
-  },
-  propertyCategoryBlobBack: {
-    position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    top: -20,
-    left: -10,
-    backgroundColor: 'rgba(13,99,75,0.10)',
-  },
-  propertyCategoryBlobFront: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    bottom: -24,
-    right: -8,
-    backgroundColor: 'rgba(13,99,75,0.14)',
+    marginTop: 2,
   },
   propertyCategoryIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowColor: 'rgba(13,99,75,0.3)',
+    shadowOpacity: 0.12,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    elevation: 3,
   },
   propertyCategoryTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
   propertyCategoryCount: { fontSize: 11, color: theme.colors.muted, marginTop: 2 },
@@ -936,10 +888,24 @@ const styles = StyleSheet.create({
   blogTagText: { fontSize: 11, fontWeight: '600', color: theme.colors.text },
   blogPostTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.text, lineHeight: 19 },
   blogReadTime: { fontSize: 12, color: theme.colors.muted },
+  // Landscape, not portrait — was aspectRatio: 0.82 (taller than wide,
+  // ~168x205). Figma's frame (W137.67 H110.14) is wider than tall
+  // (ratio ~1.25), corner radius ~14 (theme.radius.md's 8 was too tight).
+  // Shadow lives on the outer (non-clipping) wrapper below — see
+  // categoryCardShadow's comment.
+  categoryCardShadow: {
+    width: 180,
+    aspectRatio: 1.25,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
   categoryCard: {
-    width: 168,
-    aspectRatio: 0.82,
-    borderRadius: theme.radius.md,
+    flex: 1,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   categoryImage: { ...StyleSheet.absoluteFillObject },

@@ -79,8 +79,10 @@ export function PropertyCard({ listing, onPress, footer }: PropertyCardProps) {
 }
 
 const styles = StyleSheet.create({
+  // Figma frame: corner radius 21.73, fill #FFFFFF @ 100%, drop shadow —
+  // was 20 (close but not exact); theme.colors.bg is already #ffffff.
   propertyCard: {
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: theme.colors.bg,
     shadowColor: '#000',

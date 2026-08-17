@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,15 +42,21 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
   const isBoosted = project.boostTier === 'hot' || project.boostTier === 'super_hot';
   const hasActiveStory = !!project.storyExpiresAt && new Date(project.storyExpiresAt) > new Date();
 
+  // Same full-bleed photo + bottom gradient + white overlay text treatment
+  // as HomeScreen's "New projects" card (and PropertyCard.tsx's listing
+  // cards) — this screen previously broke from that language with a fixed-
+  // height image sitting above a separate plain white text body, reading
+  // as a different, older card style from the rest of the app.
   return (
     <Pressable style={styles.card} onPress={onPress}>
       {project.coverImageUrl ? (
-        <Image source={{ uri: project.coverImageUrl }} style={styles.image} contentFit="cover" transition={150} />
+        <Image source={{ uri: project.coverImageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
       ) : (
-        <View style={[styles.image, styles.imageFallback]}>
-          <Ionicons name="business-outline" size={28} color={theme.colors.muted} />
+        <View style={[StyleSheet.absoluteFill, styles.imageFallback]}>
+          <Ionicons name="business-outline" size={28} color={theme.colors.mutedLight} />
         </View>
       )}
+      <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={StyleSheet.absoluteFill} />
 
       <View style={styles.statusPill}>
         <Text style={styles.statusText}>{STATUS_LABELS[project.status]}</Text>
@@ -80,7 +87,7 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
         <Text style={styles.developer} numberOfLines={1}>
           {project.developer.name}
         </Text>
-        <Text style={styles.location}>
+        <Text style={styles.location} numberOfLines={1}>
           {project.area}, {project.city}
         </Text>
         {price && <Text style={styles.price}>{price}</Text>}
@@ -213,8 +220,8 @@ const styles = StyleSheet.create({
   empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
   footerLoader: { marginVertical: theme.spacing.lg },
   card: {
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.bg,
+    height: 260,
+    borderRadius: 20,
     overflow: 'hidden',
     marginBottom: theme.spacing.md,
     shadowColor: '#000',
@@ -223,7 +230,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  image: { width: '100%', height: 160 },
   imageFallback: { backgroundColor: theme.colors.secondaryBg, alignItems: 'center', justifyContent: 'center' },
   statusPill: {
     position: 'absolute',
@@ -262,9 +268,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   storyBadgeText: { fontSize: 10, fontWeight: '700', color: '#A21CAF' },
-  body: { padding: theme.spacing.md, gap: 2 },
-  name: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-  developer: { fontSize: 12, color: theme.colors.muted },
-  location: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
-  price: { fontSize: 14, fontWeight: '700', color: theme.colors.primary, marginTop: theme.spacing.xs },
+  // Overlaid on the photo (bottom, over the gradient) rather than a
+  // separate white section below it — matches HomeScreen's project card.
+  body: {
+    position: 'absolute',
+    bottom: theme.spacing.md,
+    left: theme.spacing.md,
+    right: theme.spacing.md,
+    gap: 2,
+  },
+  name: { fontSize: 18, fontWeight: '700', color: theme.colors.bg },
+  developer: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
+  location: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  price: { fontSize: 15, fontWeight: '700', color: theme.colors.bg, marginTop: theme.spacing.xs },
 });
