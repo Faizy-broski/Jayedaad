@@ -9,15 +9,24 @@ $ next build
    Creating an optimized production build ...
 [@sentry/nextjs] It seems like you don't have a global error handler set up. It is recommended that you add a 'global-error.js' file with Sentry instrumentation so that React rendering errors are reported to Sentry. Read more: https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#react-render-errors-in-app-router (you can suppress this warning by setting SENTRY_SUPPRESS_GLOBAL_ERROR_HANDLER_FILE_WARNING=1 as environment variable)
 [@sentry/nextjs] DEPRECATION WARNING: It is recommended renaming your `sentry.client.config.ts` file, or moving its content to `instrumentation-client.ts`. When using Turbopack `sentry.client.config.ts` will no longer work. Read more about the `instrumentation-client.ts` file: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
-<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (132kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (106kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (132kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (253kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
  ✓ Compiled successfully
    Linting and checking validity of types ...
 Failed to compile.
 
-Type error: Invalid value for '--ignoreDeprecations'.
+./app/(account)/account/saved/page.tsx:126:29
+Type error: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
 
+[0m [90m 124 |[39m             aria[33m-[39mlabel[33m=[39m[32m"Remove from favorites"[39m[0m
+[0m [90m 125 |[39m             onClick[33m=[39m{() [33m=>[39m[0m
+[0m[31m[1m>[22m[39m[90m 126 |[39m               remove[33m.[39mmutate(favorite[33m.[39mlistingId[33m,[39m {[0m
+[0m [90m     |[39m                             [31m[1m^[22m[39m[0m
+[0m [90m 127 |[39m                 onSuccess[33m:[39m () [33m=>[39m toast[33m.[39msuccess([32m'Removed from favorites.'[39m)[33m,[39m[0m
+[0m [90m 128 |[39m                 onError[33m:[39m () [33m=>[39m toast[33m.[39merror([32m'Something went wrong — please try again.'[39m)[33m,[39m[0m
+[0m [90m 129 |[39m               })[0m
 Next.js build worker exited with code: 1 and signal: null
 [ELIFECYCLE] Command failed with exit code 1.
