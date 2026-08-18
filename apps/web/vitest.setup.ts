@@ -20,3 +20,18 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
   useParams: () => ({}),
 }));
+
+// jsdom has no IntersectionObserver — framer-motion's `whileInView`/viewport
+// features (this app's Reveal.tsx wrapper, used all over the landing page)
+// call it on mount and crash without this stub. A no-op is fine here: tests
+// render synchronously and don't assert on scroll-triggered animation state.
+class MockIntersectionObserver implements IntersectionObserver {
+  readonly root: Element | Document | null = null;
+  readonly rootMargin: string = '';
+  readonly thresholds: ReadonlyArray<number> = [];
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+  takeRecords = () => [];
+}
+vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
