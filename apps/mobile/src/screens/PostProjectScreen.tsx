@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, TextInput as RNTextInput, View, Pressable, StyleSheet, Dimensions, Platform, Modal } from 'react-native';
+import { Image, ScrollView, Text, TextInput as RNTextInput, View, Pressable, StyleSheet, Platform, Modal } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
@@ -32,11 +32,8 @@ const FIGMA_BG = '#FFFFFF';
 const FIGMA_CARD_BG = '#FFFFFF'; 
 const FIGMA_PRIMARY = '#0F5A3E';
 const FIGMA_BORDER = '#E2E8F0';
-const FIGMA_LABEL = '#0F172A';
 const FIGMA_MUTED = '#64748B';
 const FIGMA_TEXT = '#0F172A';
-
-const { width } = Dimensions.get('window');
 
 const PROJECT_STEPS = [
   { key: 'basics', label: 'Property' },
