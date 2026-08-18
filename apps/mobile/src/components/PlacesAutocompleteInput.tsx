@@ -23,6 +23,8 @@ export function PlacesAutocompleteInput({
   placeholder,
   editable = true,
   style,
+  inputStyle,
+  hideLabel,
 }: {
   label?: string;
   value: string;
@@ -33,6 +35,15 @@ export function PlacesAutocompleteInput({
   // shared TextInput default — matches PickerField's `style` prop, used by
   // the filter sheets' rounder inputs.
   style?: ViewStyle;
+  // Separate style for the inner TextInput itself — every current caller
+  // passes the same value to both `style` and `inputStyle` (the pillOverride
+  // {borderRadius, height} pattern), but kept distinct so a future caller
+  // can style the outer container and the field differently.
+  inputStyle?: ViewStyle;
+  // Suppresses the TextInput's own label — for callers (e.g.
+  // PostProjectScreen's Area/Locality field) that render their own label
+  // Text above this component and don't pass `label` at all.
+  hideLabel?: boolean;
 }) {
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -99,11 +110,11 @@ export function PlacesAutocompleteInput({
   return (
     <View style={styles.container}>
       <TextInput
-        label={label}
+        label={hideLabel ? undefined : label}
         value={value}
         onChangeText={handleChangeText}
         editable={editable}
-        style={style}
+        style={[style, inputStyle]}
         placeholder={apiKey ? placeholder : `${placeholder ?? ''} (type freely — suggestions unavailable)`.trim()}
         onFocus={() => setFocused(true)}
         // Delayed so a suggestion's onPress still registers before the
