@@ -88,52 +88,70 @@ function EmptyState({ icon: Icon, heading, message }: { icon: typeof Heart; head
 }
 
 function FavoritesTab() {
-  const { favorites, isLoading, remove } = useFavoritesViewModel();
+  const { favorites, isLoading, remove, removeProject } = useFavoritesViewModel();
   const { format: formatPrice } = useFormattedPrice();
 
   if (isLoading) return <p className="py-12 text-center text-sm text-muted-foreground">Fetching favorites…</p>;
 
   if (favorites.length === 0) {
     return (
-      <EmptyState icon={Heart} heading="No Favorites Yet" message="Press the heart icon on any property to add it to your favorites." />
+      <EmptyState
+        icon={Heart}
+        heading="No Favorites Yet"
+        message="Press the heart icon on any property or project to add it to your favorites."
+      />
     );
   }
 
   return (
     <ul className="space-y-3">
-      {favorites.map((favorite) => (
-        <li
-          key={favorite.id}
-          className="flex items-start justify-between gap-3 rounded-xl border border-border bg-background p-4 shadow-sm"
-        >
-          {favorite.listing ? (
-            <Link href={`/listings/${favorite.listingId}`} className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">{favorite.listing.title}</p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {favorite.listing.area}, {favorite.listing.city}
-              </p>
-              <p className="mt-1 text-sm font-bold text-primary">
-                {formatPrice(Number(favorite.listing.price))}
-              </p>
-            </Link>
-          ) : (
-            <p className="min-w-0 flex-1 text-sm text-muted-foreground">Listing unavailable</p>
-          )}
-          <button
-            type="button"
-            aria-label="Remove from favorites"
-            onClick={() =>
-              remove.mutate(favorite.listingId, {
-                onSuccess: () => toast.success('Removed from favorites.'),
-                onError: () => toast.error('Something went wrong — please try again.'),
-              })
-            }
-            className="shrink-0 rounded-full bg-destructive/10 p-2 text-destructive transition-colors hover:bg-destructive/20"
+      {favorites.map((favorite) => {
+        const isProject = !!favorite.project;
+        const item = favorite.listing ?? favorite.project;
+        return (
+          <li
+            key={favorite.id}
+            className="flex items-start justify-between gap-3 rounded-xl border border-border bg-background p-4 shadow-sm"
           >
-            <Heart className="h-4 w-4" fill="currentColor" />
-          </button>
-        </li>
-      ))}
+            {item ? (
+              <Link
+                href={isProject ? `/developments/${favorite.project!.slug}` : `/listings/${favorite.listingId}`}
+                className="min-w-0 flex-1"
+              >
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {isProject ? favorite.project!.name : favorite.listing!.title}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {item.area}, {item.city}
+                </p>
+                {!isProject && (
+                  <p className="mt-1 text-sm font-bold text-primary">{formatPrice(Number(favorite.listing!.price))}</p>
+                )}
+              </Link>
+            ) : (
+              <p className="min-w-0 flex-1 text-sm text-muted-foreground">No longer available</p>
+            )}
+            <button
+              type="button"
+              aria-label="Remove from favorites"
+              onClick={() =>
+                isProject
+                  ? removeProject.mutate(favorite.projectId!, {
+                      onSuccess: () => toast.success('Removed from favorites.'),
+                      onError: () => toast.error('Something went wrong — please try again.'),
+                    })
+                  : remove.mutate(favorite.listingId!, {
+                      onSuccess: () => toast.success('Removed from favorites.'),
+                      onError: () => toast.error('Something went wrong — please try again.'),
+                    })
+              }
+              className="shrink-0 rounded-full bg-destructive/10 p-2 text-destructive transition-colors hover:bg-destructive/20"
+            >
+              <Heart className="h-4 w-4" fill="currentColor" />
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }
