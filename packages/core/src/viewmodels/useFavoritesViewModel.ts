@@ -24,6 +24,16 @@ export function useFavoritesViewModel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['favorites', user?.id] }),
   });
 
+  const removeProject = useMutation({
+    mutationFn: (projectId: string) => favoritesRepository.removeProject(projectId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['favorites', user?.id] }),
+  });
+
+  const addProject = useMutation({
+    mutationFn: (projectId: string) => favoritesRepository.addProject(projectId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['favorites', user?.id] }),
+  });
+
   return {
     favorites: favoritesQuery.data ?? [],
     isLoading: favoritesQuery.isLoading,
@@ -31,5 +41,7 @@ export function useFavoritesViewModel() {
     isRefetching: favoritesQuery.isRefetching,
     add,
     remove,
+    addProject,
+    removeProject,
   };
 }

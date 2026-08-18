@@ -4,8 +4,13 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '@jayedaad/ui-native';
 import slide1Bg from '../../assets/images/splash-bg.webp';
-import slide2Bg from '../../assets/images/Skyline Penthouse.webp';
-import slide3Bg from '../../assets/images/Ocean Residence.webp';
+// Renamed from "Skyline Penthouse.webp"/"Ocean Residence.webp" — spaces in
+// the filename meant Metro's dev-server asset URL for these two specific
+// images wasn't resolving on-device (splash-bg.webp, no space, always
+// rendered fine), which is why slides 2/3 fell back to the root View's
+// plain black background with only the watermark logo visible on top.
+import slide2Bg from '../../assets/images/skyline-penthouse.webp';
+import slide3Bg from '../../assets/images/ocean-residence.webp';
 // Updated import to use the WebP format
 import logoBg from '../../assets/images/logo-bg.png';
 
@@ -157,19 +162,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  // Was full-screen (absoluteFillObject, centered) — the watermark's lower
+  // strokes landed directly under the title/subtitle text block, so the
+  // logo's building-outline lines visibly cut through the copy every time
+  // the slide changed. Constrained to the top ~48% of the screen (above
+  // where contentContainer's text starts) so it stays a pure background
+  // flourish behind the tag/hero area and never overlaps a word.
   watermarkContainer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.48,
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.4, 
-    zIndex: 1, 
+    opacity: 0.35,
+    zIndex: 1,
   },
   watermark: {
-    width: width * 1.5, 
-    height: height * 0.7,
-    transform: [
-      { translateY: -40 } 
-    ], 
+    width: width * 1.3,
+    height: height * 0.42,
   },
   safeArea: {
     flex: 1,

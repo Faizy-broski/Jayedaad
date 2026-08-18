@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { Pressable, Text, View, StyleSheet, ViewStyle } from 'react-native';
 import { Spinner, TextInput, theme } from '@jayedaad/ui-native';
 
 interface PlacePrediction {
@@ -22,12 +22,17 @@ export function PlacesAutocompleteInput({
   onChange,
   placeholder,
   editable = true,
+  style,
 }: {
   label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   editable?: boolean;
+  // Escape hatch for callers that want a different corner radius than the
+  // shared TextInput default — matches PickerField's `style` prop, used by
+  // the filter sheets' rounder inputs.
+  style?: ViewStyle;
 }) {
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -98,6 +103,7 @@ export function PlacesAutocompleteInput({
         value={value}
         onChangeText={handleChangeText}
         editable={editable}
+        style={style}
         placeholder={apiKey ? placeholder : `${placeholder ?? ''} (type freely — suggestions unavailable)`.trim()}
         onFocus={() => setFocused(true)}
         // Delayed so a suggestion's onPress still registers before the

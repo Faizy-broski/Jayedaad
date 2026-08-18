@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthViewModel } from '@jayedaad/core';
+import { BackButton } from '@jayedaad/ui-native';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { AboutUsScreen } from '../screens/AboutUsScreen';
 import { ContactScreen } from '../screens/ContactScreen';
@@ -98,7 +99,19 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // SideDrawer's "About Us"/"Contact Us" rows.
 function MainStack() {
   return (
-    <Stack.Navigator initialRouteName="Main">
+    <Stack.Navigator
+      initialRouteName="Main"
+      // headerLeft here applies to every screen below that uses the
+      // default native header (i.e. every one of them except "Main",
+      // which hides its header entirely) — one shared BackButton
+      // (theme.colors.surfaceAlt circle) instead of the OS-default plain
+      // chevron, without having to set this per-screen ~30 times over.
+      // canGoBack is false only for a stack's very first/root screen,
+      // where React Navigation wouldn't have shown a back button either.
+      screenOptions={({ navigation }) => ({
+        headerLeft: ({ canGoBack }) => (canGoBack ? <BackButton onPress={() => navigation.goBack()} /> : null),
+      })}
+    >
       <Stack.Screen name="Main" component={BottomTabNavigator} options={{ headerShown: false }} />
       <Stack.Screen name="AboutUs" component={AboutUsScreen} options={{ title: 'About Us' }} />
       <Stack.Screen name="Contact" component={ContactScreen} options={{ title: 'Contact' }} />
@@ -127,9 +140,12 @@ function MainStack() {
       />
       <Stack.Screen name="ListingDocuments" component={ListingDocumentsScreen} options={{ title: 'Ownership Documents' }} />
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
-      <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ title: 'Property Details' }} />
+      {/* headerShown: false — the screen already renders its own back button
+          overlaid on the gallery image; the native header's back chevron was
+          just a duplicate stacked above it. */}
+      <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ title: 'Property Details', headerShown: false }} />
       <Stack.Screen name="AllProperties" component={AllPropertiesScreen} options={{ title: 'All Properties' }} />
-      <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} options={{ title: 'Project Details' }} />
+      <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} options={{ title: 'Project Details', headerShown: false }} />
       <Stack.Screen name="PostProject" component={PostProjectScreen} options={{ title: 'Post Project' }} />
       <Stack.Screen name="ProjectAmenities" component={ProjectAmenitiesScreen} options={{ title: 'Add Amenities' }} />
       <Stack.Screen name="BlogList" component={BlogListScreen} options={{ title: 'Property Tips' }} />

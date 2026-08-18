@@ -10,7 +10,7 @@ import { useAuthGate } from '../auth/AuthGateContext';
 import { PropertyListRow } from '../components/PropertyListRow';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
 import { addRecentSearch, getRecentSearches, removeRecentSearch } from '../lib/recentSearchesStorage';
-import { DEFAULT_SEARCH_FILTERS, SearchFilterState, SORT_OPTIONS, SORT_TO_API, toListingSearchFilters } from '../lib/searchFilters';
+import { DEFAULT_SEARCH_FILTERS, SearchFilterState, SORT_OPTIONS, toListingSearchFilters } from '../lib/searchFilters';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 

@@ -1,13 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
+import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
 import { createClient } from '@supabase/supabase-js';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken } from '@jayedaad/core';
-import { ToastProvider, Toast } from '@jayedaad/ui-native';
+import { ToastProvider, Toast, applyGlobalFontFamily } from '@jayedaad/ui-native';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthGateProvider } from './src/auth/AuthGateProvider';
 import { rememberMeStorage } from './src/lib/rememberMeStorage';
@@ -15,6 +24,12 @@ import { rememberMeStorage } from './src/lib/rememberMeStorage';
 // Must run at module scope, as early as possible, so it's registered before
 // any OAuth browser session completes (Google sign-in via WebBrowser.openAuthSessionAsync).
 WebBrowser.maybeCompleteAuthSession();
+
+// Keeps the native launch screen up while the Plus Jakarta Sans font files
+// load below — without this, Expo auto-hides the native splash as soon as
+// the JS bundle is ready, which could beat the font load and flash default-
+// system-font text for a frame before swapping to Plus Jakarta Sans.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Inert unless EXPO_PUBLIC_SENTRY_DSN is actually set — no Sentry account
 // exists yet as of this pass, same "absent env var -> feature inert"
@@ -59,6 +74,27 @@ configureHttpClient({
 
 function App() {
   const [queryClient] = useState(() => createQueryClient());
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  const fontsReady = fontsLoaded || !!fontError;
+
+  // Applied synchronously here (not inside the useEffect below) — Text's
+  // defaultProps must be set before the first Text/TextInput in the tree
+  // mounts, not after, or already-mounted instances keep the old default.
+  // fontError falls back to the OS default font rather than blocking the
+  // app from ever rendering.
+  if (fontsLoaded) applyGlobalFontFamily('PlusJakartaSans_400Regular');
+
+  useEffect(() => {
+    if (fontsReady) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsReady]);
+
+  if (!fontsReady) return null;
 
   return (
     <SafeAreaProvider>

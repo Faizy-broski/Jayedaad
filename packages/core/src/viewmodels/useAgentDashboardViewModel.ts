@@ -34,9 +34,14 @@ export function useAgentDashboardViewModel(analyticsFilters: AgentAnalyticsFilte
     enabled: !!agentId,
   });
 
+  // status: 'verified' — this backs the dashboard's "My Listings"/"N
+  // active" widget, so it must only ever show live listings. Without a
+  // status filter, findMine returns every status including 'deleted'
+  // (soft-delete, not a real row removal) and 'draft'/'rejected'/'expired',
+  // so a long-deleted listing kept showing here and 404'd on open.
   const recentListingsQuery = useQuery({
     queryKey: ['listings', 'mine', 'recent'],
-    queryFn: () => listingsRepository.findMine({ page: 1, pageSize: 5 }),
+    queryFn: () => listingsRepository.findMine({ page: 1, pageSize: 5, status: 'verified' }),
     enabled: !!agentId,
   });
 

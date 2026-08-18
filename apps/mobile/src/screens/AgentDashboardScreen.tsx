@@ -17,7 +17,7 @@ import { Button, Card, CardContent, theme, useToast } from '@jayedaad/ui-native'
 import { BarChart } from '../components/BarChart';
 import { DonutChart } from '../components/DonutChart';
 import { LineChart } from '../components/LineChart';
-import { PropertyCard } from '../components/PropertyCard';
+import { ListingSummaryCard } from '../components/ListingSummaryCard';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
 
@@ -27,7 +27,6 @@ const PURPOSE_FILTERS: { id: 'sale' | 'rent' | undefined; label: string }[] = [
   { id: 'rent', label: 'For Rent' },
 ];
 
-// Same 5 tabs as apps/web's (agent)/dashboard/page.tsx's CREDIT_TABS.
 const CREDIT_TABS: { id: AgentCreditType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'listing_quota', label: 'Quota', icon: 'home-outline' },
   { id: 'refresh', label: 'Refresh', icon: 'trending-up-outline' },
@@ -48,23 +47,10 @@ function shortWeekday(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
 }
 
-// Same viewmodel as apps/web's (agent)/dashboard/page.tsx — mobile agents
-// see the exact same stat tiles web shows (Total Listings/For Sale/For
-// Rent/Leads/Views) and the same two real charts web has (Listing
-// engagement — Clicks/Leads/Calls/WhatsApp/SMS/Emails from the same
-// `analytics` object; Listings Mix — For Sale vs For Rent from `stats`),
-// plus a real per-day "Listing performance" line chart (dailyAnalytics, new
-// this pass — web has no daily breakdown UI, this is a genuine mobile-only
-// addition on top of web's real numbers, not a replacement for any of
-// them). Recent Leads reuses the same useLeadInboxViewModel AgentCRMScreen's
-// Inquiry Inbox already relies on. Quota & Credits / My Plan / Grow faster
-// now mirror web's three cards exactly (a stale comment here previously
-// claimed web's own version was commented out — it wasn't; this closes
-// that real gap found in a parity audit), reusing the same
-// useAgentDashboardViewModel().credits and useSubscriptionViewModel().current
-// data web's cards already read, no new endpoints. Earnings/Payouts/
-// Appointments/Reviews/per-listing distance are intentionally absent — no
-// backing field exists anywhere for any of them.
+function isToday(dateStr: string): boolean {
+  return dateStr === new Date().toISOString().slice(0, 10);
+}
+
 export function AgentDashboardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
   const [purposeFilter, setPurposeFilter] = useState<'sale' | 'rent' | undefined>(undefined);
@@ -93,9 +79,7 @@ export function AgentDashboardScreen() {
   } = useTasksViewModel();
   const { showToast } = useToast();
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  // Agency Admin's "full visibility to their overall performance, analytics,
-  // and their sales associates" (Document Verification Phase 3) — no-op
-  // query for a non-admin (agencyId undefined disables it).
+
   const { profile } = useAgentProfileViewModel();
   const { analytics: agencyAnalytics } = useAgencyAnalyticsViewModel(
     profile?.isAgencyAdmin ? profile.agency?.id : undefined,
@@ -106,6 +90,11 @@ export function AgentDashboardScreen() {
   const activeCreditPct = activeCredit && activeCredit.total > 0 ? Math.min(100, (activeCredit.available / activeCredit.total) * 100) : 0;
   const listingQuotaCredit = credits.find((c) => c.creditType === 'listing_quota');
   const viewsData = dailyAnalytics.map((d) => ({ label: shortWeekday(d.date), value: d.views }));
+  const leadsData = dailyAnalytics.map((d) => ({
+    label: shortWeekday(d.date),
+    value: d.leads,
+    highlighted: isToday(d.date),
+  }));
   const engagementData = [
     { label: 'Clicks', value: analytics?.clicks ?? 0 },
     { label: 'Leads', value: analytics?.leads ?? 0 },
@@ -129,40 +118,47 @@ export function AgentDashboardScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* HEADLINE STATS — same 5 tiles as apps/web's dashboard */}
+      {/* HEADLINE STATS — 2x2 grid aesthetic */}
       <View style={styles.headlineGrid}>
-        <View style={[styles.headlineCard, styles.headlineCardWide, styles.headlineCardPrimary]}>
-          <Text style={styles.headlineLabelLight}>Total Listings</Text>
-          <Text style={styles.headlineValueLight}>{activeListings}</Text>
-          <Text style={styles.headlineSubLight}>For sale & rent</Text>
+        {/* Primary Card with Fluid Nested Concentric Overlays */}
+        <View style={[styles.headlineCard, styles.headlineCardPrimary]}>
+          <View style={styles.blobPrimary} />
+          <View style={styles.blobSecondary} />
+          <View style={styles.blobTertiary} />
+          <View style={styles.cardForeground}>
+            <Text style={styles.headlineLabelLight}>For Sale</Text>
+            <Text style={styles.headlineValueLight}>{stats?.forSaleCount ?? 0}</Text>
+            <Text style={styles.headlineSubLightAccent}>Active</Text>
+          </View>
+        </View>
+
+        {/* Standard Metric Cards */}
+        <View style={styles.headlineCard}>
+          <View style={styles.cardForeground}>
+            <Text style={styles.headlineLabel}>For Rent</Text>
+            <Text style={styles.headlineValue}>{stats?.forRentCount ?? 0}</Text>
+            <Text style={styles.headlineSubAccent}>Active</Text>
+          </View>
         </View>
         <View style={styles.headlineCard}>
-          <Text style={styles.headlineLabel}>For Sale</Text>
-          <Text style={styles.headlineValue}>{stats?.forSaleCount ?? 0}</Text>
-          <Text style={styles.headlineSub}>Active</Text>
+          <View style={styles.cardForeground}>
+            <Text style={styles.headlineLabel}>Leads</Text>
+            <Text style={styles.headlineValue}>{analytics?.leads ?? 0}</Text>
+            <Text style={styles.headlineSubAccent}>Last 30 days</Text>
+          </View>
         </View>
         <View style={styles.headlineCard}>
-          <Text style={styles.headlineLabel}>For Rent</Text>
-          <Text style={styles.headlineValue}>{stats?.forRentCount ?? 0}</Text>
-          <Text style={styles.headlineSub}>Active</Text>
-        </View>
-        <View style={styles.headlineCard}>
-          <Text style={styles.headlineLabel}>Leads</Text>
-          <Text style={styles.headlineValue}>{analytics?.leads ?? 0}</Text>
-          <Text style={styles.headlineSub}>Last 30 days</Text>
-        </View>
-        <View style={styles.headlineCard}>
-          <Text style={styles.headlineLabel}>Views</Text>
-          <Text style={styles.headlineValue}>{analytics?.views ?? 0}</Text>
-          <Text style={styles.headlineSub}>Last 30 days</Text>
+          <View style={styles.cardForeground}>
+            <Text style={styles.headlineLabel}>Views</Text>
+            <Text style={styles.headlineValue}>{analytics?.views ?? 0}</Text>
+            <Text style={styles.headlineSubAccent}>Last 30 days</Text>
+          </View>
         </View>
       </View>
 
-      {/* QUOTA & CREDITS — same tabbed gauge as web's dashboard card, over a
-          horizontal bar instead of a radial chart (no charting lib in use
-          here for this shape). */}
-      <Card style={styles.sectionSpacing}>
-        <CardContent>
+      {/* QUOTA & CREDITS */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+        <CardContent style={styles.cardContentSpacious}>
           <Text style={styles.sectionTitleLg}>Quota & Credits</Text>
           <Text style={styles.muted}>Plan: {currentPlan?.tier.name ?? '—'}</Text>
 
@@ -195,11 +191,9 @@ export function AgentDashboardScreen() {
         </CardContent>
       </Card>
 
-      {/* MY PLAN — tier/status/renewal/listing-slots, same figures as
-          PlanScreen's Current Plan card, surfaced here for at-a-glance
-          visibility without navigating away. */}
-      <Card style={styles.sectionSpacing}>
-        <CardContent>
+      {/* MY PLAN */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+        <CardContent style={styles.cardContentSpacious}>
           <View style={styles.planHeaderRow}>
             <Ionicons name="card-outline" size={14} color={theme.colors.muted} />
             <Text style={styles.mutedUpper}>My Plan</Text>
@@ -223,9 +217,9 @@ export function AgentDashboardScreen() {
         </CardContent>
       </Card>
 
-      {/* GROW FASTER — same boost promo as web's dark dashboard card. */}
-      <Card style={[styles.sectionSpacing, styles.growCard]}>
-        <CardContent>
+      {/* GROW FASTER */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious, styles.growCard]}>
+        <CardContent style={styles.cardContentSpacious}>
           <Text style={styles.growEyebrow}>Grow faster</Text>
           <Text style={styles.growHeading}>
             Boost a listing to <Text style={styles.growHeadingAccent}>Hot</Text> or{' '}
@@ -237,28 +231,36 @@ export function AgentDashboardScreen() {
         </CardContent>
       </Card>
 
-      {/* AGENCY PERFORMANCE — Admin-only rollup across every sales associate */}
+      {/* AGENCY PERFORMANCE */}
       {profile?.isAgencyAdmin && agencyAnalytics && (
-        <Card style={styles.sectionSpacing}>
-          <CardContent>
+        <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+          <CardContent style={styles.cardContentSpacious}>
             <Text style={styles.sectionTitleLg}>Agency Performance</Text>
             <Text style={styles.muted}>Every sales associate in your agency</Text>
             <View style={styles.headlineGrid}>
               <View style={styles.headlineCard}>
-                <Text style={styles.headlineLabel}>Listings</Text>
-                <Text style={styles.headlineValue}>{agencyAnalytics.totals.forSaleCount + agencyAnalytics.totals.forRentCount}</Text>
+                <View style={styles.cardForeground}>
+                  <Text style={styles.headlineLabel}>Listings</Text>
+                  <Text style={styles.headlineValue}>{agencyAnalytics.totals.forSaleCount + agencyAnalytics.totals.forRentCount}</Text>
+                </View>
               </View>
               <View style={styles.headlineCard}>
-                <Text style={styles.headlineLabel}>Leads</Text>
-                <Text style={styles.headlineValue}>{agencyAnalytics.totals.leads}</Text>
+                <View style={styles.cardForeground}>
+                  <Text style={styles.headlineLabel}>Leads</Text>
+                  <Text style={styles.headlineValue}>{agencyAnalytics.totals.leads}</Text>
+                </View>
               </View>
               <View style={styles.headlineCard}>
-                <Text style={styles.headlineLabel}>Closings</Text>
-                <Text style={styles.headlineValue}>{agencyAnalytics.totals.closingsCount}</Text>
+                <View style={styles.cardForeground}>
+                  <Text style={styles.headlineLabel}>Closings</Text>
+                  <Text style={styles.headlineValue}>{agencyAnalytics.totals.closingsCount}</Text>
+                </View>
               </View>
               <View style={styles.headlineCard}>
-                <Text style={styles.headlineLabel}>Views</Text>
-                <Text style={styles.headlineValue}>{agencyAnalytics.totals.views}</Text>
+                <View style={styles.cardForeground}>
+                  <Text style={styles.headlineLabel}>Views</Text>
+                  <Text style={styles.headlineValue}>{agencyAnalytics.totals.views}</Text>
+                </View>
               </View>
             </View>
             <View style={styles.associateList}>
@@ -278,9 +280,9 @@ export function AgentDashboardScreen() {
         </Card>
       )}
 
-      {/* LISTING ENGAGEMENT — same real 6-metric snapshot as web's bar chart */}
-      <Card style={styles.sectionSpacing}>
-        <CardContent>
+      {/* LISTING ENGAGEMENT */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+        <CardContent style={styles.cardContentSpacious}>
           <Text style={styles.sectionTitleLg}>Listing engagement</Text>
           <Text style={styles.muted}>How buyers are reaching out to you</Text>
           <View style={styles.chartWrap}>
@@ -289,9 +291,9 @@ export function AgentDashboardScreen() {
         </CardContent>
       </Card>
 
-      {/* LISTINGS MIX — same real For Sale vs For Rent split as web's donut */}
-      <Card style={styles.sectionSpacing}>
-        <CardContent>
+      {/* LISTINGS MIX */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+        <CardContent style={styles.cardContentSpacious}>
           <Text style={styles.sectionTitleLg}>Listings Mix</Text>
           <Text style={styles.muted}>Sale vs. rent split</Text>
           <View style={styles.chartWrap}>
@@ -307,13 +309,24 @@ export function AgentDashboardScreen() {
         </CardContent>
       </Card>
 
-      {/* LISTING PERFORMANCE — real per-day views, additive beyond web's own dashboard */}
-      <Card style={styles.sectionSpacing}>
-        <CardContent>
+      {/* LISTING PERFORMANCE */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+        <CardContent style={styles.cardContentSpacious}>
           <Text style={styles.sectionTitleLg}>Listing performance</Text>
           <Text style={styles.muted}>Views this week</Text>
           <View style={styles.chartWrap}>
             <LineChart data={viewsData} />
+          </View>
+        </CardContent>
+      </Card>
+
+      {/* LEADS CAPTURED */}
+      <Card style={[styles.sectionSpacing, styles.cardSpacious]}>
+        <CardContent style={styles.cardContentSpacious}>
+          <Text style={styles.sectionTitleLg}>Leads captured</Text>
+          <Text style={styles.muted}>By day</Text>
+          <View style={styles.chartWrap}>
+            <BarChart data={leadsData} />
           </View>
         </CardContent>
       </Card>
@@ -327,12 +340,16 @@ export function AgentDashboardScreen() {
               <Text style={styles.linkMuted}>View Inbox</Text>
             </Pressable>
           </View>
-          <Card>
+          <Card style={styles.cardSpacious}>
             <CardContent style={styles.recentLeadsContent}>
               {recentLeads.slice(0, 4).map((lead, i) => {
                 const statusStyle = LEAD_STATUS_STYLE[lead.status];
                 return (
-                  <View key={lead.id} style={[styles.leadRow, i > 0 && styles.leadRowBorder]}>
+                  <Pressable
+                    key={lead.id}
+                    style={[styles.leadRow, i > 0 && styles.leadRowBorder]}
+                    onPress={() => navigation.navigate('LeadDetail', { leadId: lead.id })}
+                  >
                     <View style={styles.leadAvatar}>
                       <Text style={styles.leadAvatarText}>{lead.name.charAt(0).toUpperCase()}</Text>
                     </View>
@@ -343,7 +360,7 @@ export function AgentDashboardScreen() {
                     <View style={[styles.leadStatusPill, { backgroundColor: statusStyle.bg }]}>
                       <Text style={[styles.leadStatusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
                     </View>
-                  </View>
+                  </Pressable>
                 );
               })}
             </CardContent>
@@ -351,15 +368,12 @@ export function AgentDashboardScreen() {
         </View>
       )}
 
-      {/* FOLLOW-UPS — services/api's tasks table previously had zero
-          backend/UI behind it; a personal to-do list, optionally linked to
-          a lead, complements the CRM's per-lead reminders (LeadDetailScreen's
-          Reminders section). */}
+      {/* FOLLOW-UPS */}
       <View style={styles.sectionSpacing}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.sectionTitleLg}>Follow-ups</Text>
         </View>
-        <Card>
+        <Card style={styles.cardSpacious}>
           <CardContent style={styles.followUpsContent}>
             <View style={styles.followUpComposer}>
               <RNTextInput
@@ -403,9 +417,13 @@ export function AgentDashboardScreen() {
       {/* MY LISTINGS */}
       <View style={styles.sectionSpacing}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.sectionTitleLg}>My Listings</Text>
-          <Pressable onPress={() => navigation.navigate('BuyerSearch')}>
-            <Text style={styles.linkMuted}>View All Listings</Text>
+          <View>
+            <Text style={styles.sectionTitleLg}>My Listings</Text>
+            <Text style={styles.listingsCountText}>{activeListings} active</Text>
+          </View>
+          <Pressable style={styles.seeAllLink} onPress={() => navigation.navigate('BuyerSearch')} hitSlop={6}>
+            <Text style={styles.seeAllText}>See all</Text>
+            <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
           </Pressable>
         </View>
 
@@ -426,7 +444,7 @@ export function AgentDashboardScreen() {
         ) : isRecentListingsError ? (
           <Text style={styles.errorText}>Couldn't load your listings.</Text>
         ) : recentListings.length === 0 ? (
-          <Card>
+          <Card style={styles.cardSpacious}>
             <CardContent style={styles.recentListingsContent}>
               <View style={styles.emptyState}>
                 <Ionicons name="image-outline" size={40} color={theme.colors.mutedLight} />
@@ -443,7 +461,7 @@ export function AgentDashboardScreen() {
         ) : (
           <View style={styles.listingsList}>
             {recentListings.map((listing) => (
-              <PropertyCard
+              <ListingSummaryCard
                 key={listing.id}
                 listing={listing}
                 onPress={() => navigation.navigate('ListingDetail', { listingId: listing.id })}
@@ -463,24 +481,74 @@ const styles = StyleSheet.create({
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.spacing.md },
   sectionTitleLg: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
   linkMuted: { fontSize: 13, fontWeight: '600', color: theme.colors.muted },
+  listingsCountText: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
+  seeAllLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAllText: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
   muted: { fontSize: 12, color: theme.colors.muted },
 
-  headlineGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
-  headlineCard: {
-    width: '47%',
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    gap: 4,
+  cardSpacious: { borderRadius: 20 },
+  cardContentSpacious: { padding: theme.spacing.xl },
+
+  // Updated 2x2 Grid aesthetic with Fluid Shapes
+  headlineGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm 
   },
-  headlineCardWide: { width: '100%' },
-  headlineCardPrimary: { backgroundColor: theme.colors.primary },
-  headlineLabel: { fontSize: 12, color: theme.colors.muted, fontWeight: '600' },
-  headlineLabelLight: { fontSize: 12, color: '#ffffffcc', fontWeight: '600' },
-  headlineValue: { fontSize: 22, fontWeight: '800', color: theme.colors.text },
-  headlineValueLight: { fontSize: 22, fontWeight: '800', color: '#ffffff' },
-  headlineSub: { fontSize: 11, color: theme.colors.mutedLight },
-  headlineSubLight: { fontSize: 11, color: '#ffffffaa' },
+  headlineCard: {
+    width: '48%', 
+    backgroundColor: theme.colors.surfaceAlt || '#F3F4F6',
+    borderRadius: 20, 
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: 110,
+  },
+  headlineCardPrimary: { 
+    backgroundColor: '#115E3E', 
+  },
+  
+  // Fluid Background Blobs - Deeply Nested Far Right
+  blobPrimary: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    top: -60,
+    right: -100,
+  },
+  blobSecondary: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    top: -10,
+    right: -50,
+  },
+  blobTertiary: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    top: 30,
+    right: -10,
+  },
+  
+  cardForeground: {
+    padding: theme.spacing.lg,
+    zIndex: 1, 
+  },
+
+  // Custom Typography for KPI Cards
+  headlineLabel: { fontSize: 14, color: theme.colors.muted, fontWeight: '500' },
+  headlineLabelLight: { fontSize: 14, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
+  headlineValue: { fontSize: 32, fontWeight: '800', color: theme.colors.text, marginTop: 4, marginBottom: 2 },
+  headlineValueLight: { fontSize: 32, fontWeight: '800', color: '#ffffff', marginTop: 4, marginBottom: 2 },
+  headlineSubAccent: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
+  headlineSubLightAccent: { fontSize: 13, fontWeight: '600', color: '#ffffff' },
 
   chartWrap: { marginTop: theme.spacing.md },
 
@@ -540,13 +608,13 @@ const styles = StyleSheet.create({
   associateStat: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
 
   recentLeadsContent: { paddingVertical: theme.spacing.sm },
-  leadRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingVertical: theme.spacing.sm },
+  leadRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: theme.spacing.md },
   leadRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
   leadAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.surfaceAlt,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },

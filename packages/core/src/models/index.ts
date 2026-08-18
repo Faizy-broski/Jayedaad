@@ -1001,12 +1001,15 @@ export interface AgentReview {
 
 // --- Favorites & Saved Searches (mirrors 0007_favorites_and_saved_searches.sql) ---
 
-// listing is the joined summary FavoritesRepository.list() actually selects
-// (id/title/price/city/area/status) — nullable since a favorited listing
-// could theoretically be deleted out from under the favorite row.
+// listing/project are the joined summaries FavoritesRepository.list() actually
+// selects — exactly one of listingId/projectId (and listing/project) is set
+// per row, mirroring the favorites_target_check constraint added in
+// 0060_project_favorites.sql. Both are nullable since a favorited row could
+// theoretically be deleted out from under the favorite.
 export interface Favorite {
   id: string;
-  listingId: string;
+  listingId: string | null;
+  projectId: string | null;
   createdAt: string;
   listing: {
     id: string;
@@ -1015,6 +1018,15 @@ export interface Favorite {
     city: string;
     area: string;
     status: ListingStatus;
+  } | null;
+  project: {
+    id: string;
+    name: string;
+    slug: string;
+    city: string;
+    area: string;
+    status: ProjectStatus;
+    coverImageUrl: string | null;
   } | null;
 }
 

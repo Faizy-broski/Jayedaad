@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from './theme';
 
@@ -14,6 +14,10 @@ export interface PickerFieldProps {
   // else.
   variant?: 'default' | 'pill';
   disabled?: boolean;
+  // Escape hatch for a caller that wants a different corner radius/border
+  // than the shared default without a new variant — e.g. the filter
+  // sheets' rounder inputs.
+  style?: ViewStyle;
 }
 
 // RN has no native <select> — this is the searchable full-screen-modal
@@ -27,6 +31,7 @@ export function PickerField({
   onChange,
   variant = 'default',
   disabled = false,
+  style,
 }: PickerFieldProps) {
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
@@ -41,7 +46,7 @@ export function PickerField({
   return (
     <>
       <Pressable
-        style={[styles.trigger, variant === 'pill' && styles.triggerPill, disabled && styles.triggerDisabled]}
+        style={[styles.trigger, variant === 'pill' && styles.triggerPill, disabled && styles.triggerDisabled, style]}
         onPress={() => !disabled && setVisible(true)}
       >
         <Text style={[styles.triggerText, !value && styles.placeholder]}>{value || placeholder}</Text>

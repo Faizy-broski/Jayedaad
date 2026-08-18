@@ -6,7 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFavoritesViewModel, useFormattedPrice, useSavedSearchesViewModel } from '@jayedaad/core';
 // Removed Tabs from ui-native import to use the premium segmented control
-import { Button, refreshControlProps, theme, useToast } from '@jayedaad/ui-native';
+import { BackButton, Button, refreshControlProps, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
 
@@ -26,6 +26,7 @@ const DESTRUCTIVE_COLOR = theme.colors.danger;
 
 export function FavoritesScreen() {
   const route = useRoute<RouteProp<BottomTabParamList, 'Favorites'>>();
+  const navigation = useNavigation<Nav>();
   const [tab, setTab] = useState<TabId>(route.params?.initialTab ?? 'favorites');
 
   // This screen lives in the bottom tab bar, so it's mounted once and kept
@@ -40,7 +41,10 @@ export function FavoritesScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-      <Text style={styles.title}>Favorites</Text>
+      <View style={styles.titleRow}>
+        <BackButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))} />
+        <Text style={styles.title}>Favorites</Text>
+      </View>
 
       {/* Premium Segmented Control Header */}
       <View style={styles.header}>
@@ -68,7 +72,7 @@ export function FavoritesScreen() {
 }
 
 function FavoritesTab() {
-  const { favorites, isLoading, remove, refetch, isRefetching } = useFavoritesViewModel();
+  const { favorites, isLoading, remove, removeProject, refetch, isRefetching } = useFavoritesViewModel();
   const { format: formatPrice } = useFormattedPrice();
   const { showToast } = useToast();
   const navigation = useNavigation<Nav>();
@@ -86,7 +90,7 @@ function FavoritesTab() {
       <EmptyState
         icon="heart"
         heading="No Favorites Yet"
-        message="Press the ♥ icon on any property to add it to your favorites."
+        message="Press the ♥ icon on any property or project to add it to your favorites."
         onSearchPress={() => navigation.navigate('BuyerSearch')}
       />
     );
@@ -98,44 +102,57 @@ function FavoritesTab() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} {...refreshControlProps()} />}
     >
-      {favorites.map((favorite) => (
-        <Pressable
-          key={favorite.id}
-          style={styles.card}
-          disabled={!favorite.listing}
-          onPress={() => navigation.navigate('ListingDetail', { listingId: favorite.listingId })}
-        >
-          <View style={styles.cardContent}>
-            <View style={styles.cardTextWrap}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {favorite.listing?.title ?? 'Listing unavailable'}
-              </Text>
-              {favorite.listing && (
-                <>
-                  <Text style={styles.cardSubtitle} numberOfLines={1}>
-                    {favorite.listing.area}, {favorite.listing.city}
-                  </Text>
-                  <Text style={styles.cardPrice}>
-                    {formatPrice(Number(favorite.listing.price))}
-                  </Text>
-                </>
-              )}
+      {favorites.map((favorite) => {
+        const item = favorite.listing ?? favorite.project;
+        const isProject = !!favorite.project;
+        return (
+          <Pressable
+            key={favorite.id}
+            style={styles.card}
+            disabled={!item}
+            onPress={() =>
+              isProject
+                ? navigation.navigate('ProjectDetail', { projectSlug: favorite.project!.slug })
+                : navigation.navigate('ListingDetail', { listingId: favorite.listingId! })
+            }
+          >
+            <View style={styles.cardContent}>
+              <View style={styles.cardTextWrap}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {item ? (isProject ? favorite.project!.name : favorite.listing!.title) : 'No longer available'}
+                </Text>
+                {item && (
+                  <>
+                    <Text style={styles.cardSubtitle} numberOfLines={1}>
+                      {item.area}, {item.city}
+                    </Text>
+                    {!isProject && (
+                      <Text style={styles.cardPrice}>{formatPrice(Number(favorite.listing!.price))}</Text>
+                    )}
+                  </>
+                )}
+              </View>
+              <Pressable
+                style={styles.actionIconWrapper}
+                onPress={() =>
+                  isProject
+                    ? removeProject.mutate(favorite.projectId!, {
+                        onSuccess: () => showToast('Removed from favorites.'),
+                        onError: () => showToast('Something went wrong — please try again.', 'error'),
+                      })
+                    : remove.mutate(favorite.listingId!, {
+                        onSuccess: () => showToast('Removed from favorites.'),
+                        onError: () => showToast('Something went wrong — please try again.', 'error'),
+                      })
+                }
+                hitSlop={8}
+              >
+                <Ionicons name="heart" size={24} color={DESTRUCTIVE_COLOR} />
+              </Pressable>
             </View>
-            <Pressable
-              style={styles.actionIconWrapper}
-              onPress={() =>
-                remove.mutate(favorite.listingId, {
-                  onSuccess: () => showToast('Removed from favorites.'),
-                  onError: () => showToast('Something went wrong — please try again.', 'error'),
-                })
-              }
-              hitSlop={8}
-            >
-              <Ionicons name="heart" size={24} color={DESTRUCTIVE_COLOR} />
-            </Pressable>
-          </View>
-        </Pressable>
-      ))}
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -238,12 +255,17 @@ const styles = StyleSheet.create({
   // screen shows some page heading by default (Home's hero header, Projects'
   // title, Profile's profile card); this screen previously jumped straight
   // into the segmented control with no heading above it.
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: theme.colors.text,
-    paddingHorizontal: 24,
-    paddingTop: 16,
   },
 
   // Premium Segmented Control

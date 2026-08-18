@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { formatPrice, PAKISTAN_CITIES, useListingSearchViewModel, useTaxonomyViewModel } from '@jayedaad/core';
-import { Button, PickerField, TextInput, theme } from '@jayedaad/ui-native';
+import { BackButton, Button, PickerField, TextInput, theme } from '@jayedaad/ui-native';
 import { AREA_UNITS, BATH_OPTIONS, BED_OPTIONS } from '../lib/searchFilters';
 import { AllPropertiesFilterState, DEFAULT_ALL_PROPERTIES_FILTERS, toAllPropertiesSearchFilters } from '../lib/allPropertiesFilters';
 import { PlacesAutocompleteInput } from './PlacesAutocompleteInput';
@@ -23,10 +22,27 @@ export interface AllPropertiesFilterSheetProps {
 export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: AllPropertiesFilterSheetProps) {
   const { propertyTypes } = useTaxonomyViewModel();
   const [draft, setDraft] = useState<AllPropertiesFilterState>(value);
+  const [activeCategorySlug, setActiveCategorySlug] = useState<string>('');
 
   useEffect(() => {
     if (visible) setDraft(value);
   }, [visible, value]);
+
+  // Category first (Homes/Plots/Commercial), then the types within it —
+  // same two-step pattern as SearchFilterSheet.tsx, not one flat grid of
+  // every seeded type at once.
+  const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, t) => {
+    if (t.category && !acc.some((c) => c.slug === t.category.slug)) acc.push(t.category);
+    return acc;
+  }, []);
+
+  useEffect(() => {
+    if (!visible || categories.length === 0) return;
+    const selectedCategory = propertyTypes.find((t) => t.slug === draft.propertyTypeSlug)?.category.slug;
+    setActiveCategorySlug(selectedCategory ?? categories[0].slug);
+  }, [visible]);
+
+  const typesInActiveCategory = propertyTypes.filter((t) => t.category.slug === activeCategorySlug);
 
   const { total } = useListingSearchViewModel(toAllPropertiesSearchFilters(draft));
 
@@ -56,9 +72,7 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={8} style={styles.headerIconButton}>
-            <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={onClose} />
           <Text style={styles.headerTitle}>Filters</Text>
           <View style={styles.headerIconButton} />
         </View>
@@ -66,6 +80,16 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.field}>
             <Text style={styles.label}>Property Type</Text>
+            <View style={styles.categoryTabRow}>
+              {categories.map((c) => {
+                const active = c.slug === activeCategorySlug;
+                return (
+                  <Pressable key={c.slug} onPress={() => setActiveCategorySlug(c.slug)} style={[styles.categoryTab, active && styles.categoryTabActive]}>
+                    <Text style={[styles.categoryTabText, active && styles.categoryTabTextActive]}>{c.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <View style={styles.pillRow}>
               <Pressable
                 onPress={() => set('propertyTypeSlug', '')}
@@ -73,7 +97,7 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
               >
                 <Text style={[styles.pillText, !draft.propertyTypeSlug && styles.pillTextActive]}>Any Type</Text>
               </Pressable>
-              {propertyTypes.map((pt) => (
+              {typesInActiveCategory.map((pt) => (
                 <Pressable
                   key={pt.slug}
                   onPress={() => set('propertyTypeSlug', pt.slug)}
@@ -95,6 +119,7 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
               placeholder="Any City"
               title="Select City"
               onChange={(v) => set('city', v)}
+              style={styles.roundedField}
             />
           </View>
 
@@ -103,6 +128,7 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
             placeholder="Search location"
             value={draft.area}
             onChange={(v) => set('area', v)}
+            style={styles.roundedField}
           />
 
           <View style={styles.field}>
@@ -158,6 +184,7 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
                   options={AREA_UNITS}
                   title="Area Unit"
                   onChange={(v) => set('areaUnit', v as AllPropertiesFilterState['areaUnit'])}
+                  style={styles.roundedField}
                 />
               </View>
             </View>
@@ -211,6 +238,7 @@ export function AllPropertiesFilterSheet({ visible, onClose, value, onApply }: A
             placeholder="e.g. corner plot"
             value={draft.keyword}
             onChangeText={(v) => set('keyword', v)}
+            style={styles.roundedField}
           />
         </ScrollView>
 
@@ -244,6 +272,12 @@ const styles = StyleSheet.create({
   field: { gap: theme.spacing.sm },
   label: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
 
+  categoryTabRow: { flexDirection: 'row', gap: theme.spacing.lg },
+  categoryTab: { paddingBottom: theme.spacing.sm, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  categoryTabActive: { borderBottomColor: theme.colors.primary },
+  categoryTabText: { fontSize: 14, fontWeight: '600', color: theme.colors.muted },
+  categoryTabTextActive: { color: theme.colors.primary },
+
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
   pill: {
     borderWidth: 1,
@@ -267,7 +301,8 @@ const styles = StyleSheet.create({
   budgetBarFill: { position: 'absolute', top: 0, bottom: 0, backgroundColor: theme.colors.primary, borderRadius: 2 },
 
   rangeRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  rangeInput: { flex: 1 },
+  rangeInput: { flex: 1, borderRadius: 14 },
+  roundedField: { borderRadius: 14 },
   rangeTo: { fontSize: 13, color: theme.colors.muted },
   unitPicker: { width: 90 },
   footer: {

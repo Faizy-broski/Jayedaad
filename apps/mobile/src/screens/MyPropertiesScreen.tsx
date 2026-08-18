@@ -18,7 +18,7 @@ import {
   useMyListingsViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
-import { Button, PickerField, refreshControlProps, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { BackButton, Button, PickerField, refreshControlProps, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BoostMenu } from '../components/BoostMenu';
 
@@ -279,9 +279,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
       >
         <View style={styles.sheetContainer}>
           <View style={styles.sheetHeader}>
-            <Pressable onPress={() => setFilterSheetVisible(false)} hitSlop={8} style={styles.sheetHeaderIconButton}>
-              <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
-            </Pressable>
+            <BackButton onPress={() => setFilterSheetVisible(false)} />
             <Text style={styles.sheetHeaderTitle}>Filters</Text>
             <View style={styles.sheetHeaderIconButton} />
           </View>

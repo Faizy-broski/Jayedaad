@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDevelopersViewModel } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
@@ -8,13 +8,16 @@ export interface DeveloperPickerProps {
   value: string; // selected developer slug, '' for "Any Developer"
   variant?: 'default' | 'pill';
   onChange: (slug: string) => void;
+  // Escape hatch matching PickerField's `style` prop — used by the filter
+  // sheets' rounder inputs.
+  style?: ViewStyle;
 }
 
 // Flat (no category drill-down, unlike PropertyTypePicker) full-screen
 // search+list Modal — real developers via the public GET /developers
 // endpoint (useDevelopersViewModel, previously only used by agent-side
 // project-creation forms, but the underlying endpoint is @Public()).
-export function DeveloperPicker({ value, variant = 'default', onChange }: DeveloperPickerProps) {
+export function DeveloperPicker({ value, variant = 'default', onChange, style }: DeveloperPickerProps) {
   const { developers } = useDevelopersViewModel();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
@@ -34,7 +37,7 @@ export function DeveloperPicker({ value, variant = 'default', onChange }: Develo
 
   return (
     <>
-      <Pressable style={[styles.trigger, variant === 'pill' && styles.triggerPill]} onPress={() => setVisible(true)}>
+      <Pressable style={[styles.trigger, variant === 'pill' && styles.triggerPill, style]} onPress={() => setVisible(true)}>
         <Text style={[styles.triggerText, !selected && styles.placeholder]}>{selected?.name ?? 'Any Developer'}</Text>
         <Ionicons name="chevron-down" size={16} color={theme.colors.muted} />
       </Pressable>

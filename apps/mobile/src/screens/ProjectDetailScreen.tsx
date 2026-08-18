@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   FlatList,
   Image,
+  ImageBackground,
   Linking,
   ScrollView,
   Share,
@@ -27,15 +28,16 @@ import {
   usePublicProjectDetailViewModel,
   useProjectsViewModel,
 } from '@jayedaad/core';
-import { Accordion, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
+import { BackButton, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
+import { ProjectFavoriteButton } from '../components/ListingContactActions';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 const { width } = Dimensions.get('window');
 const GALLERY_HEIGHT = 360;
 const THUMB_SIZE = 48;
 
-// FIGMA COLORS (Overrides for specific design elements)
-const FIGMA_PRIMARY = '#0F5A3E'; // Deep green from the mockup
+// FIGMA COLORS
+const FIGMA_PRIMARY = '#0F5A3E';
 const FIGMA_SURFACE = '#FFFFFF';
 const FIGMA_MUTED_BG = '#F5F7F7';
 const FIGMA_BORDER = '#E5E7EB';
@@ -58,11 +60,6 @@ function humanizeCategory(slug: string): string {
   return slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Was calling the plain, PKR-only formatPrice() export instead of
-// useFormattedPrice()'s currency-aware format() — every listing price on
-// this screen (and ListingDetailScreen's own SimilarCard) already goes
-// through the hook, but project prices never got the same treatment, so
-// they silently ignored the user's preferredCurrency setting.
 function priceRangeLabel(project: Project, format: (amount: number) => string): string | null {
   if (!project.priceRange) return null;
   const { min, max } = project.priceRange;
@@ -94,13 +91,6 @@ export function ProjectDetailScreen() {
   }
 
   const price = priceRangeLabel(project, format);
-  const amenitiesByCategory = (project.amenities ?? []).reduce<Record<string, NonNullable<Project['amenities']>>>(
-    (acc, a) => {
-      (acc[a.category] ??= []).push(a);
-      return acc;
-    },
-    {},
-  );
   const moreInCity = cityProjects.filter((p) => p.id !== project.id);
 
   function openEnquiry(intent: 'inquiry' | 'visit') {
@@ -113,41 +103,51 @@ export function ProjectDetailScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <Gallery project={project} onBack={() => navigation.goBack()} />
 
-        <View style={styles.content}>
-          {/* HEADER */}
-          <View style={styles.badgeRow}>
-            {project.verificationStatus === 'verified' && (
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedBadgeText}>VERIFIED</Text>
-              </View>
-            )}
-            <View style={styles.pillBadge}>
-              <Text style={styles.pillBadgeText}>{STATUS_LABELS[project.status].toUpperCase()}</Text>
-            </View>
-            {project.verificationStatus !== 'verified' && (
+        {/* TOP SECTION WITH BACKGROUND IMAGE */}
+        <ImageBackground
+          source={require('../../assets/images/feature-bg.webp')}
+          style={styles.headerBackground}
+          imageStyle={styles.headerBackgroundImage}
+        >
+          <View style={styles.headerContent}>
+            {/* HEADER BADGES */}
+            <View style={styles.badgeRow}>
+              {project.verificationStatus === 'verified' && (
+                <View style={styles.verifiedBadge}>
+                  <Text style={styles.verifiedBadgeText}>VERIFIED</Text>
+                </View>
+              )}
               <View style={styles.pillBadge}>
-                <Text style={styles.pillBadgeText}>{VERIFICATION_LABELS[project.verificationStatus].toUpperCase()}</Text>
+                <Text style={styles.pillBadgeText}>{STATUS_LABELS[project.status].toUpperCase()}</Text>
+              </View>
+              {project.verificationStatus !== 'verified' && (
+                <View style={styles.pillBadge}>
+                  <Text style={styles.pillBadgeText}>{VERIFICATION_LABELS[project.verificationStatus].toUpperCase()}</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.title}>{project.name}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={14} color={theme.colors.muted} />
+              <Text style={styles.location}>
+                {project.area}, {project.city}
+              </Text>
+            </View>
+
+            {price && <Text style={styles.price}>{price}</Text>}
+            
+            {project.possessionDate && (
+              <View style={styles.possessionRow}>
+                <Ionicons name="flag-outline" size={14} color={theme.colors.muted} />
+                <Text style={styles.possessionText}>Possession: {formatPossessionDate(project.possessionDate)}</Text>
               </View>
             )}
           </View>
+        </ImageBackground>
 
-          <Text style={styles.title}>{project.name}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color={theme.colors.muted} />
-            <Text style={styles.location}>
-              {project.area}, {project.city}
-            </Text>
-          </View>
-
-          {price && <Text style={styles.price}>{price}</Text>}
-          
-          {project.possessionDate && (
-            <View style={styles.possessionRow}>
-              <Ionicons name="flag-outline" size={14} color={theme.colors.muted} />
-              <Text style={styles.possessionText}>Possession: {formatPossessionDate(project.possessionDate)}</Text>
-            </View>
-          )}
-
+        {/* REST OF CONTENT */}
+        <View style={styles.contentBody}>
           {/* ABOUT THIS PROJECT */}
           {project.description && (
             <View style={styles.section}>
@@ -161,7 +161,7 @@ export function ProjectDetailScreen() {
             </View>
           )}
 
-          {/* UNIT TYPES (Vertical Stack without Carousel) */}
+          {/* UNIT TYPES - Updated to Figma soft-shadow aesthetic */}
           {!!project.unitTypes?.length && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Unit Types</Text>
@@ -210,7 +210,7 @@ export function ProjectDetailScreen() {
             </View>
           )}
 
-          {/* PAYMENT PLANS (Colorful & Creative Aesthetic) */}
+          {/* PAYMENT PLANS */}
           {!!project.paymentPlans?.length && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Payment Plans</Text>
@@ -254,22 +254,18 @@ export function ProjectDetailScreen() {
             </View>
           )}
 
-          {/* AMENITIES */}
-          {Object.keys(amenitiesByCategory).length > 0 && (
+          {/* AMENITIES - Updated to Figma soft-shadow aesthetic */}
+          {!!project.amenities?.length && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Amenities</Text>
-              {Object.entries(amenitiesByCategory).map(([category, items]) => (
-                <Accordion key={category} label={humanizeCategory(category)} defaultOpen={category === 'main_features'}>
-                  <View style={styles.amenityChecklist}>
-                    {items.map((a) => (
-                      <View key={a.slug} style={styles.amenityPill}>
-                        <Ionicons name="checkmark" size={16} color={FIGMA_PRIMARY} />
-                        <Text style={styles.amenityText}>{a.label}</Text>
-                      </View>
-                    ))}
+              <View style={styles.amenityChecklist}>
+                {project.amenities.map((a) => (
+                  <View key={a.slug} style={styles.amenityRow}>
+                    <Ionicons name="checkmark" size={16} color={FIGMA_PRIMARY} />
+                    <Text style={styles.amenityText}>{a.label}</Text>
                   </View>
-                </Accordion>
-              ))}
+                ))}
+              </View>
             </View>
           )}
 
@@ -386,7 +382,7 @@ function Gallery({ project, onBack }: { project: Project; onBack: () => void }) 
         <Ionicons name="business-outline" size={40} color={theme.colors.mutedLight} />
         {/* Top actions fallback */}
         <View style={styles.galleryTopNav}>
-          <Pressable style={styles.topActionButton} onPress={onBack}><Ionicons name="chevron-back" size={20} color="#000" /></Pressable>
+          <BackButton onPress={onBack} size={40} />
         </View>
       </View>
     );
@@ -412,16 +408,12 @@ function Gallery({ project, onBack }: { project: Project; onBack: () => void }) 
 
       {/* TOP ACTIONS */}
       <View style={styles.galleryTopNav}>
-        <Pressable style={styles.topActionButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
-        </Pressable>
+        <BackButton onPress={onBack} size={40} />
         <View style={styles.galleryTopRight}>
           <Pressable style={styles.topActionButton} onPress={handleShare}>
             <Ionicons name="share-social-outline" size={20} color={theme.colors.text} />
           </Pressable>
-          <Pressable style={styles.topActionButton}>
-            <Ionicons name="heart-outline" size={20} color={theme.colors.text} />
-          </Pressable>
+          <ProjectFavoriteButton project={project} size={20} style={styles.topActionButton} />
         </View>
       </View>
 
@@ -604,7 +596,26 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 }, 
   loadingRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: FIGMA_SURFACE },
   muted: { fontSize: 14, color: theme.colors.mutedLight },
-  content: { paddingHorizontal: 20, paddingTop: 20, gap: 8 },
+
+  // Updated Header Setup for Background Image
+  headerBackground: {
+    width: '100%',
+    backgroundColor: FIGMA_SURFACE, 
+  },
+  headerBackgroundImage: {
+    opacity: 0.05, // Subtle watermark for maximum readability
+    resizeMode: 'cover',
+  },
+  headerContent: { 
+    paddingHorizontal: 20, 
+    paddingTop: 24, 
+    paddingBottom: 20,
+    gap: 8,
+  },
+  contentBody: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
 
   galleryEmpty: { backgroundColor: FIGMA_MUTED_BG, alignItems: 'center', justifyContent: 'center' },
   galleryHero: { width: '100%', resizeMode: 'cover' },
@@ -617,7 +628,7 @@ const styles = StyleSheet.create({
   
   galleryTopNav: {
     position: 'absolute',
-    top: 50, // Accounts for status bar approx
+    top: 50, 
     left: 16,
     right: 16,
     flexDirection: 'row',
@@ -669,15 +680,17 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, color: theme.colors.muted, lineHeight: 22 },
   link: { fontSize: 13, fontWeight: '700', color: FIGMA_PRIMARY },
 
-  // Updated Vertical Unit Cards (No Carousel)
+  // Updated Vertical Unit Cards
   cardListVertical: { gap: 12 },
   unitCardVertical: {
     backgroundColor: FIGMA_SURFACE,
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: FIGMA_BORDER,
-    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1,
+    shadowColor: '#000', 
+    shadowOpacity: 0.06, 
+    shadowRadius: 10, 
+    shadowOffset: { width: 0, height: 4 }, 
+    elevation: 2,
   },
   unitCardHeader: { 
     flexDirection: 'row', 
@@ -698,9 +711,6 @@ const styles = StyleSheet.create({
   unitPrice: { fontSize: 15, fontWeight: '900', color: FIGMA_PRIMARY },
 
   cardList: { gap: 12 },
-  // Payment Plan rendered as a real table: a primary-colored "thead" bar
-  // (the plan's own label, e.g. "Cash / On Possession") with alternating
-  // light-primary-tinted row stripes below, rather than a plain label+grid.
   planTableWrap: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -732,19 +742,23 @@ const styles = StyleSheet.create({
   financingLabel: { fontSize: 13, color: '#475569' },
   financingValue: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
 
-  // Figma Pill Amenities
-  amenityChecklist: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 },
-  amenityPill: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8, 
-    width: '48%', 
-    backgroundColor: FIGMA_MUTED_BG, 
-    borderRadius: 999, 
-    paddingHorizontal: 16, 
-    paddingVertical: 12 
+  amenityChecklist: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 12 },
+  amenityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '48%',
+    borderRadius: 16,
+    backgroundColor: FIGMA_SURFACE,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    shadowColor: '#000', 
+    shadowOpacity: 0.06, 
+    shadowRadius: 10, 
+    shadowOffset: { width: 0, height: 4 }, 
+    elevation: 2,
   },
-  amenityText: { fontSize: 13, fontWeight: '600', color: theme.colors.text, flexShrink: 1 },
+  amenityText: { fontSize: 12, fontWeight: '700', color: FIGMA_PRIMARY, flexShrink: 1 },
 
   docRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   docButtonSolid: {
@@ -753,13 +767,11 @@ const styles = StyleSheet.create({
   },
   docButtonText: { fontSize: 13, fontWeight: '700', color: theme.colors.text },
   
-  // Custom Plan Doc Button matching the plan card styling
   docButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
     backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D1E6DD', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8,
   },
 
-  // Developer Card
   developerCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -787,7 +799,6 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1, borderColor: FIGMA_BORDER, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.colors.text,
   },
 
-  // Similar Projects Cards
   similarList: { gap: 16 },
   similarCard: { width: width * 0.65 },
   similarImageWrap: { position: 'relative', borderRadius: 16, overflow: 'hidden' },
@@ -801,7 +812,6 @@ const styles = StyleSheet.create({
   similarTitle: { fontSize: 15, fontWeight: '800', color: theme.colors.text },
   similarSubtitle: { fontSize: 13, color: theme.colors.muted },
 
-  // Fixed Bottom Footer
   footer: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
@@ -811,7 +821,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 32, // Accommodates safe area
+    paddingBottom: 32, 
     backgroundColor: FIGMA_SURFACE,
     borderTopWidth: 1,
     borderTopColor: FIGMA_BORDER,

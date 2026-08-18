@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAgentProfileViewModel, useAuthViewModel, useFavoritesViewModel, useSavedSearchesViewModel } from '@jayedaad/core';
-import { Card, CardContent, theme } from '@jayedaad/ui-native';
+import { CardContent, theme } from '@jayedaad/ui-native';
 import { getRecentlyViewed } from '../lib/recentlyViewedStorage';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BottomTabParamList } from '../navigation/BottomTabNavigator';
 import settingsBannerImage from '../../assets/images/settings-banner.webp';
+import promoBgImage from '../../assets/images/explore-bg.png';
 
 type CombinedParamList = RootStackParamList & BottomTabParamList;
 
@@ -143,8 +145,17 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* HEADER */}
-        <Image source={settingsBannerImage} style={styles.headerBanner} resizeMode="cover" />
+        {/* HEADER — expo-image (not plain RN Image) so contentPosition can
+            bias the crop toward the house instead of RN's fixed
+            dead-center crop, which left the source photo's palm-tree
+            padding on the left eating into the house and made it read as
+            off-center once stretched full-bleed. */}
+        <ExpoImage
+          source={settingsBannerImage}
+          style={styles.headerBanner}
+          contentFit="cover"
+          contentPosition={{ right: 0 }}
+        />
         <View style={styles.headerBody}>
           <View style={styles.avatar}>
             {agentProfile?.photoUrl ? (
@@ -193,13 +204,27 @@ export function ProfileScreen() {
         <Section title="Selling" items={visibleItems(SELLING_ITEMS)} navigation={navigation} />
         <Section title="Support" items={visibleItems(SUPPORT_ITEMS)} navigation={navigation} />
 
-        {/* PROMO CTA — shown right before Log Out */}
-        <LinearGradient
-          colors={[theme.colors.primary, theme.gradients.gold.colors[0]]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.promoGradientCard}
-        >
+        {/* PROMO CTA — shown right before Log Out. Same treatment as
+            HomeScreen's PremiumPromoCard: explore-bg.png is a
+            TRANSPARENT-background villa cutout, not a rectangular photo —
+            stretched full-bleed with resizeMode="cover" (an earlier version
+            of this card) just showed its transparent regions as flat solid
+            color, which is why the photo never appeared no matter the
+            overlay opacity. Opaque gradient base fills the card, cutout
+            sits in the bottom-right corner at its own aspect ratio
+            (resizeMode="contain", positioned+sized, not stretched) — same
+            full-strength prominence as the Home card now (a prior version
+            here faded it to 0.55 opacity "to stay out of the text's way,"
+            which just made it barely visible again). Clipping lives on a
+            separate bgLayer behind the text, not on the outer card, so a
+            longer translation/localized copy someday can't silently clip
+            the button the way a fixed-height + overflow:hidden card would. */}
+        <View style={styles.promoGradientCard}>
+          <View style={styles.promoBgLayer}>
+            <LinearGradient colors={['#034B37', '#011B14']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            <Image source={promoBgImage} style={styles.promoCutoutImage} resizeMode="contain" />
+          </View>
+
           <CardContent style={styles.promoContent}>
             <Ionicons name="business" size={36} color={theme.colors.bg} style={styles.promoIcon} />
             <Text style={styles.promoTextWhite}>Looking to sell or rent out your property?</Text>
@@ -210,26 +235,29 @@ export function ProfileScreen() {
               <Text style={styles.promoButtonTextPrimary}>Post an Ad</Text>
             </Pressable>
           </CardContent>
-        </LinearGradient>
+        </View>
 
-        {/* ACCOUNT ACTIONS */}
-        <Card style={[styles.listCard, styles.lastListCard]}>
-          <CardContent style={styles.listContent}>
-            <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={handleLogOut}>
-              <Ionicons name="log-out-outline" size={22} color={DESTRUCTIVE_COLOR} />
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowLabel, styles.logOutLabel]}>Log Out</Text>
-              </View>
-            </Pressable>
-            <View style={[styles.row, styles.rowLast]}>
-              <Ionicons name="information-circle-outline" size={22} color={theme.colors.muted} />
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.versionLabel}>App Version</Text>
-                <Text style={styles.versionValue}>{APP_VERSION}</Text>
-              </View>
+        {/* ACCOUNT ACTIONS — same flat, borderless row treatment as Section
+            below, not a boxed card. */}
+        <View style={styles.lastSection}>
+          <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={handleLogOut}>
+            <View style={[styles.iconCircle, styles.iconCircleDanger]}>
+              <Ionicons name="log-out-outline" size={18} color={DESTRUCTIVE_COLOR} />
             </View>
-          </CardContent>
-        </Card>
+            <View style={styles.rowTextWrap}>
+              <Text style={[styles.rowLabel, styles.logOutLabel]}>Log Out</Text>
+            </View>
+          </Pressable>
+          <View style={styles.row}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="information-circle-outline" size={18} color={theme.colors.muted} />
+            </View>
+            <View style={styles.rowTextWrap}>
+              <Text style={styles.versionLabel}>App Version</Text>
+            </View>
+            <Text style={styles.versionValue}>{APP_VERSION}</Text>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -250,50 +278,51 @@ function Section({
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <Card style={styles.listCard}>
-        <CardContent style={styles.listContent}>
-          {items.map((action, i) => (
-            <ListRow
-              key={action.label}
-              icon={action.icon}
-              label={action.label}
-              onPress={() => navigation.navigate(action.route as any, action.params as any)}
-              isLast={i === items.length - 1}
-            />
-          ))}
-        </CardContent>
-      </Card>
+      <View>
+        {items.map((action) => (
+          <ListRow
+            key={action.label}
+            icon={action.icon}
+            label={action.label}
+            onPress={() => navigation.navigate(action.route as any, action.params as any)}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
+// Figma reference: no bordered/shadowed card wrapping the rows, no divider
+// lines between them — just flat rows with a soft #F3F4F6 icon circle
+// (theme.colors.surfaceAlt, already that exact hex) carrying all the visual
+// weight instead.
 function ListRow({
   icon,
   label,
   value,
   onPress,
   disabled,
-  isLast = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
   onPress?: () => void;
   disabled?: boolean;
-  isLast?: boolean;
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.row, isLast && styles.rowLast, pressed && !disabled && styles.rowPressed]}
+      style={({ pressed }) => [styles.row, pressed && !disabled && styles.rowPressed]}
       onPress={onPress}
       disabled={disabled || !onPress}
     >
-      <Ionicons name={icon} size={22} color={theme.colors.muted} />
+      <View style={styles.iconCircle}>
+        <Ionicons name={icon} size={18} color={theme.colors.text} />
+      </View>
       <View style={styles.rowTextWrap}>
         <Text style={styles.rowLabel}>{label}</Text>
-        {value && <Text style={styles.rowValue}>{value}</Text>}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
+      {value && <Text style={styles.rowValue}>{value}</Text>}
+      <Ionicons name="chevron-forward" size={16} color={theme.colors.mutedLight} />
     </Pressable>
   );
 }
@@ -372,9 +401,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
+  promoBgLayer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#011B14',
+  },
   promoContent: { alignItems: 'center', padding: 20 },
   promoIcon: { marginBottom: 12 },
-  promoTextWhite: { fontSize: 16, fontWeight: '800', color: theme.colors.bg, textAlign: 'center', marginBottom: 16 },
+  // Sized up — at 190x165 the villa read as a faint corner accent on this
+  // card's larger footprint (full content width, icon+2-line-title+button
+  // stacked tall) compared to how prominent it looks on the narrower Home
+  // screen card. Bigger box, same "contain" fit, so it actually reads as
+  // the dominant background element instead of a barely-there sliver.
+  promoCutoutImage: {
+    position: 'absolute',
+    right: -20,
+    bottom: -16,
+    width: 280,
+    height: 244,
+  },
+  // Text shadow (not a heavier photo tint) is what keeps this readable now
+  // that the wash is light enough for the photo to actually show through.
+  promoTextWhite: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.bg,
+    textAlign: 'center',
+    marginBottom: 16,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   promoButtonWhite: {
     backgroundColor: theme.colors.bg,
     borderRadius: 999,
@@ -391,43 +449,40 @@ const styles = StyleSheet.create({
   promoButtonTextPrimary: { color: theme.colors.primary, fontWeight: '800', fontSize: 15 },
 
   section: { marginTop: theme.spacing.xl },
+  lastSection: { marginTop: theme.spacing.xl },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: theme.colors.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
 
-  listCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceAlt,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  lastListCard: { marginTop: theme.spacing.xl },
-  listContent: { padding: 0 },
+  // Flat rows, no card border/shadow, no divider lines — just a rounded
+  // #F3F4F6 icon circle per row for visual structure (matches the Figma
+  // reference, which has no lined/boxed sections at all).
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.surfaceAlt,
-    backgroundColor: theme.colors.bg,
+    paddingVertical: 12,
+    gap: theme.spacing.md,
   },
-  rowPressed: { backgroundColor: theme.colors.surface },
-  rowLast: { borderBottomWidth: 0 },
-  rowTextWrap: { flex: 1, marginLeft: 16 },
+  rowPressed: { opacity: 0.6 },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconCircleDanger: { backgroundColor: theme.colors.dangerBg },
+  rowTextWrap: { flex: 1 },
   rowLabel: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
-  rowValue: { fontSize: 12, color: theme.colors.primary, fontWeight: '600', marginTop: 2 },
+  rowValue: { fontSize: 13, color: theme.colors.muted, fontWeight: '600', marginRight: 4 },
 
   logOutLabel: { color: DESTRUCTIVE_COLOR },
   versionLabel: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
-  versionValue: { fontSize: 13, color: theme.colors.muted, marginTop: 2 },
+  versionValue: { fontSize: 13, color: theme.colors.muted, marginRight: 4 },
 });

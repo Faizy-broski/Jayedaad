@@ -277,7 +277,7 @@ export function ProjectsListView({ newHref, detailHrefBase }: { newHref: string;
           upgrade (see PremiumPromoCard's own comment). */}
       {!isSuperAdmin && (
         <Reveal>
-          <PremiumPromoCard className="h-56 sm:h-64" />
+          <PremiumPromoCard className="min-h-56 sm:min-h-64" />
         </Reveal>
       )}
 

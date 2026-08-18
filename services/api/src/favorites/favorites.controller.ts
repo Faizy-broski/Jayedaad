@@ -25,4 +25,14 @@ export class FavoritesController {
   remove(@Req() req: any, @Param('listingId') listingId: string) {
     return this.favorites.remove(req.user.id, listingId);
   }
+
+  @Post('projects/:projectId')
+  addProject(@Req() req: any, @Param('projectId') projectId: string) {
+    return this.favorites.addProject(req.user.id, projectId);
+  }
+
+  @Delete('projects/:projectId')
+  removeProject(@Req() req: any, @Param('projectId') projectId: string) {
+    return this.favorites.removeProject(req.user.id, projectId);
+  }
 }

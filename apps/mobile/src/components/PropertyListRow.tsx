@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
+import { FavoriteButton } from './ListingContactActions';
 
 export interface PropertyListRowProps {
   listing: Listing;
@@ -40,9 +41,12 @@ export function PropertyListRow({ listing, onPress }: PropertyListRowProps) {
       </View>
 
       <View style={styles.details}>
-        <Text style={styles.title} numberOfLines={1}>
-          {listing.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={1}>
+            {listing.title}
+          </Text>
+          <FavoriteButton listing={listing} size={17} style={styles.favoriteButton} />
+        </View>
         <View style={styles.locationRow}>
           <Ionicons name="location-outline" size={12} color={theme.colors.muted} />
           <Text style={styles.location} numberOfLines={1}>
@@ -94,7 +98,12 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.bg,
   },
   details: { flex: 1, justifyContent: 'center', gap: 2 },
-  title: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+  title: { flex: 1, fontSize: 14, fontWeight: '700', color: theme.colors.text },
+  // Overrides FavoriteButton's own 36x36 circular-chip default (built for
+  // floating over a photo) down to a plain small icon that fits inline next
+  // to the title in this compact row.
+  favoriteButton: { width: 22, height: 22, borderRadius: 0, backgroundColor: 'transparent' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   location: { fontSize: 11, color: theme.colors.muted, flexShrink: 1 },
   price: { fontSize: 14, fontWeight: '800', color: theme.colors.primary, marginTop: 2 },

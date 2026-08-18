@@ -194,13 +194,16 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   tabTouchable: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  // w67/h53 — a rounded rect (not a full stadium/circle), matching the
-  // reference's "roundness" without going fully oval given the width is
-  // only modestly larger than the height.
+  // Figma frame: W 67 / H 53 / corner radius 111.64 — a true stadium/pill
+  // (radius well past half the height), not the rounded-rect this
+  // previously used. RN clamps borderRadius to min(width,height)/2 anyway,
+  // so 999 renders pixel-identical to the literal 111.64 value while
+  // matching this app's existing "always full pill" convention (Button,
+  // filter chips, etc. all use 999 rather than a computed half-height).
   activeBadge: {
     width: 67,
     height: 53,
-    borderRadius: 20,
+    borderRadius: 999,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

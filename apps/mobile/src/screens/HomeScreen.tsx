@@ -22,6 +22,7 @@ import {
 } from '@jayedaad/core';
 import { refreshControlProps, theme } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
+import { ProjectFavoriteButton } from '../components/ListingContactActions';
 import { PremiumPromoCard } from '../components/PremiumPromoCard';
 import { PropertyCard } from '../components/PropertyCard';
 import { SideDrawer } from '../components/SideDrawer';
@@ -283,12 +284,7 @@ export const HomeScreen = memo(function HomeScreen() {
           )}
         </View>
 
-        {/* Not wrapped in styles.sectionCard (unlike the sections above/
-            below) — that adds its own white rounded-card chrome + padding,
-            which would nest this full-bleed green card inside a second
-            white card instead of sitting flush. The ScrollView's own
-            padding already provides the same horizontal gutter every
-            sectionCard aligns to. */}
+        {/* This wrapper now centrally aligns the explicitly sized PremiumPromoCard */}
         <View style={styles.premiumCardWrap}>
           <PremiumPromoCard onPress={() => navigation.navigate('Plan')} />
         </View>
@@ -461,6 +457,8 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
         <Text style={styles.projectStatusText}>{PROJECT_STATUS_LABELS[project.status]}</Text>
       </View>
 
+      <ProjectFavoriteButton project={project} size={15} style={styles.projectFavoriteButton} />
+
       <View style={styles.projectTextBlock}>
         <Text style={styles.projectName}>{project.name}</Text>
         <Text style={styles.projectDeveloper}>{project.developer.name}</Text>
@@ -509,13 +507,6 @@ function CategoryCard({
   onPress: () => void;
 }) {
   return (
-    // Two-layer split: the outer Pressable carries the shadow (and matches
-    // its shape via borderRadius, with no overflow:hidden of its own — a
-    // shadow gets clipped away on iOS by any ancestor that has
-    // overflow:hidden), the inner View does the actual rounded image
-    // clipping. Combining both on one view is a classic RN bug: the shadow
-    // silently vanishes on iOS (Android's `elevation` masks it, so it's
-    // easy to miss testing on Android only).
     <Pressable style={styles.categoryCardShadow} onPress={onPress}>
       <View style={styles.categoryCard}>
         <Image source={category.image} style={styles.categoryImage} contentFit="cover" transition={150} />
@@ -574,7 +565,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
+  // alignItems:'center' here would shrink PremiumPromoCard to its content's
+  // intrinsic width instead of stretching full-width (RN's flex default is
+  // 'stretch') — breaks both the full-bleed look every other section card
+  // has and the card's own aspectRatio-based height, which needs a real
+  // stretched width to compute against.
+  // Figma frame is 331.58pt wide — on a ~375-390pt phone that implies real
+  // side margins around the card (roughly 20-30pt each), not edge-to-edge
+  // full-bleed. Stretched to the same width as the "New projects" section
+  // above it, the card's text/button read as undersized and sparse
+  // relative to all that green — same content, wrong proportions. This
+  // margin brings the card back down near Figma's actual width so its
+  // existing type scale fills it the way the design intends.
   premiumCardWrap: {
+    marginHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
     shadowColor: '#000',
     shadowOpacity: 0.1,
@@ -740,10 +744,6 @@ const styles = StyleSheet.create({
   mutedText: { fontSize: 13, color: theme.colors.mutedLight, textAlign: 'center', paddingVertical: theme.spacing.lg },
   errorText: { fontSize: 13, color: theme.colors.danger, textAlign: 'center', paddingVertical: theme.spacing.lg },
   projectList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
-  // Was 250 wide — on a typical ~390px screen that left only a sliver of
-  // the next card peeking past the edge, reading as cut-off rather than a
-  // deliberate horizontal-scroll preview. Narrower card shows more of the
-  // next one.
   projectCard: {
     width: 200,
     height: 190,
@@ -760,6 +760,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   projectStatusText: { fontSize: 10, fontWeight: '700', color: theme.colors.bg, letterSpacing: 0.5 },
+  projectFavoriteButton: {
+    position: 'absolute',
+    top: theme.spacing.md,
+    right: theme.spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 999,
+    width: 26,
+    height: 26,
+  },
   projectTextBlock: {
     position: 'absolute',
     bottom: theme.spacing.md,
@@ -888,11 +897,6 @@ const styles = StyleSheet.create({
   blogTagText: { fontSize: 11, fontWeight: '600', color: theme.colors.text },
   blogPostTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.text, lineHeight: 19 },
   blogReadTime: { fontSize: 12, color: theme.colors.muted },
-  // Landscape, not portrait — was aspectRatio: 0.82 (taller than wide,
-  // ~168x205). Figma's frame (W137.67 H110.14) is wider than tall
-  // (ratio ~1.25), corner radius ~14 (theme.radius.md's 8 was too tight).
-  // Shadow lives on the outer (non-clipping) wrapper below — see
-  // categoryCardShadow's comment.
   categoryCardShadow: {
     width: 180,
     aspectRatio: 1.25,

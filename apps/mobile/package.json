@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^8.0.0",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/vector-icons": "14.1.0",
     "@jayedaad/core": "workspace:*",
     "@jayedaad/ui-native": "workspace:*",

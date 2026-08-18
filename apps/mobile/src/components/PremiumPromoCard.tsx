@@ -6,33 +6,33 @@ import { theme } from '@jayedaad/ui-native';
 import bgImage from '../../assets/images/explore-bg.png';
 
 // Web counterpart: apps/web/components/shared/PremiumPromoCard.tsx — same
-// copy/CTA, same explore-bg.png. The Figma layer panel's literal numbers
-// (Image 11% on top of an opaque Linear 100% base) render as a solid green
-// card with no visible photo at all on-device — 11% blended over a fully
-// opaque base is imperceptible, confirmed. Flipped instead: the photo is
-// the full-opacity base layer, and the #034B37 -> #011B14 gradient sits on
-// top as a translucent wash (not opaque stops) — same two colors, same
-// dominant-green result, but the photo stays genuinely visible underneath
-// rather than only in theory.
+// copy/CTA, same explore-bg.png. Root cause of the earlier "photo isn't
+// showing" issue: explore-bg.png is a TRANSPARENT-background cutout PNG (a
+// villa render with the surrounding area punched out to alpha), not a
+// rectangular photo — confirmed by opening the file. Fixed: the
+// #034B37 -> #011B14 gradient is the actual opaque base fill, and the
+// villa cutout sits on top in a corner at its own aspect ratio
+// (contentFit="contain", not "cover").
+//
+// Sizing: `card` uses aspectRatio (331.58 / 208.73, the exact Figma frame
+// ratio) instead of a fixed/min height, so this stays proportioned exactly
+// like the design at any screen width. Clipping (overflow:hidden +
+// borderRadius) lives on a separate absolute-fill `bgLayer` behind the
+// text, not on `card` itself — an earlier version put overflow:hidden
+// directly on `card` with a fixed height, which silently clipped the
+// "Try free" button clean off the bottom whenever the title/subtitle
+// wrapped to more lines than that fixed height budgeted for. Now, in the
+// normal case content fits within the aspect-ratio height and the card
+// looks exactly like the Figma frame; in a rare narrow-device edge case
+// where text needs more room, `card` grows a little past the exact ratio
+// instead of ever clipping text.
 export function PremiumPromoCard({ onPress }: { onPress: () => void }) {
   return (
     <View style={styles.card}>
-      <Image source={bgImage} style={StyleSheet.absoluteFill} contentFit="cover" />
-      <LinearGradient
-        colors={['rgba(3,75,55,0.45)', 'rgba(1,27,20,0.55)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Lighter color wash above means the photo underneath can be bright
-          in spots — this keeps the text column readable regardless,
-          independent of however dim/visible the green tint ends up. */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0)']}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 0.75, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <View style={styles.bgLayer}>
+        <LinearGradient colors={['#034B37', '#011B14']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <Image source={bgImage} style={styles.cutoutImage} contentFit="contain" />
+      </View>
 
       <View style={styles.content}>
         <View style={styles.badge}>
@@ -52,14 +52,28 @@ export function PremiumPromoCard({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  // Figma frame: W 331.58 / H 208.73 (~1.59:1) — height set to keep this
-  // app's full-width-responsive card at roughly that same ratio instead of
-  // the frame's fixed px dimensions.
+  // Figma frame: W 331.58 / H 208.73 — expressed as a ratio (not a fixed
+  // height) so it holds exactly at any device width instead of only
+  // matching on whatever width the frame happened to be designed at.
   card: {
-    height: 220,
+    aspectRatio: 331.58 / 208.73,
+    borderRadius: 25,
+  },
+  bgLayer: {
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 25,
     overflow: 'hidden',
     backgroundColor: '#011B14',
+  },
+  // Cutout sits bottom-right, sized generously so the villa itself reads
+  // clearly rather than shrinking to fit — content column stays left/top
+  // so the two don't overlap.
+  cutoutImage: {
+    position: 'absolute',
+    right: -20,
+    bottom: -16,
+    width: 220,
+    height: 190,
   },
   content: {
     flex: 1,
@@ -77,15 +91,21 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   badgeText: { color: theme.colors.bg, fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
-  title: { color: theme.colors.bg, fontSize: 21, fontWeight: '800', lineHeight: 26, maxWidth: '85%' },
-  subtitle: { color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 18, maxWidth: '90%' },
+  // Sized to fill the card properly now that HomeScreen's premiumCardWrap
+  // margin brings the card down close to Figma's actual 331.58pt width —
+  // at the old edge-to-edge full-device width these same numbers read as
+  // undersized/sparse; on this narrower card they fill it the way the
+  // design shows (title wraps "Get listings 48 hours / before everyone
+  // else." on 2 lines, same break the reference has).
+  title: { color: theme.colors.bg, fontSize: 23, fontWeight: '800', lineHeight: 27, maxWidth: '92%' },
+  subtitle: { color: 'rgba(255,255,255,0.75)', fontSize: 13.5, lineHeight: 18, maxWidth: '88%' },
   button: {
-    marginTop: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
     alignSelf: 'flex-start',
     backgroundColor: theme.colors.bg,
     borderRadius: 999,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
-  buttonText: { color: '#03140F', fontSize: 13, fontWeight: '700' },
+  buttonText: { color: '#03140F', fontSize: 14, fontWeight: '700' },
 });

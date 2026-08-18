@@ -7,7 +7,8 @@ import { Favorite } from '../models';
 function mapRow(row: any): Favorite {
   return {
     id: row.id,
-    listingId: row.listings?.id ?? row.listing_id,
+    listingId: row.listings?.id ?? row.listing_id ?? null,
+    projectId: row.projects?.id ?? row.project_id ?? null,
     createdAt: row.created_at,
     listing: row.listings
       ? {
@@ -17,6 +18,17 @@ function mapRow(row: any): Favorite {
           city: row.listings.city,
           area: row.listings.area,
           status: row.listings.status,
+        }
+      : null,
+    project: row.projects
+      ? {
+          id: row.projects.id,
+          name: row.projects.name,
+          slug: row.projects.slug,
+          city: row.projects.city,
+          area: row.projects.area,
+          status: row.projects.status,
+          coverImageUrl: row.projects.cover_image_url,
         }
       : null,
   };
@@ -37,5 +49,14 @@ export const favoritesRepository = {
 
   remove: async (listingId: string): Promise<void> => {
     await httpClient.delete(`/favorites/${listingId}`);
+  },
+
+  addProject: async (projectId: string): Promise<Favorite> => {
+    const { data } = await httpClient.post(`/favorites/projects/${projectId}`);
+    return mapRow(data);
+  },
+
+  removeProject: async (projectId: string): Promise<void> => {
+    await httpClient.delete(`/favorites/projects/${projectId}`);
   },
 };

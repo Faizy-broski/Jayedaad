@@ -1,7 +1,7 @@
 import { Linking, Pressable, Text, View, StyleSheet } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import { Ionicons } from '@expo/vector-icons';
-import { Listing, listingsRepository, useFavoritesViewModel } from '@jayedaad/core';
+import { Listing, Project, listingsRepository, useFavoritesViewModel } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import { useAuthGate } from '../auth/AuthGateContext';
 
@@ -32,6 +32,36 @@ export function FavoriteButton({ listing, size = 20, style }: { listing: Listing
         remove.mutate(listing.id);
       } else {
         add.mutate(listing.id);
+      }
+    });
+  }
+
+  return (
+    <Pressable style={[styles.favoriteButton, style]} onPress={handlePress} hitSlop={8}>
+      <Ionicons
+        name={isFavorited ? 'heart' : 'heart-outline'}
+        size={size}
+        color={isFavorited ? theme.colors.danger : theme.colors.muted}
+      />
+    </Pressable>
+  );
+}
+
+// Same as FavoriteButton above but for projects — favorites rows are one of
+// listingId/projectId (0060_project_favorites.sql), so this hits the
+// /favorites/projects/:projectId endpoints via addProject/removeProject
+// instead of add/remove.
+export function ProjectFavoriteButton({ project, size = 20, style }: { project: Project; size?: number; style?: object }) {
+  const { favorites, addProject, removeProject } = useFavoritesViewModel();
+  const { requireAuth } = useAuthGate();
+  const isFavorited = favorites.some((f) => f.projectId === project.id);
+
+  function handlePress() {
+    requireAuth(() => {
+      if (isFavorited) {
+        removeProject.mutate(project.id);
+      } else {
+        addProject.mutate(project.id);
       }
     });
   }

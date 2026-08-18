@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PAKISTAN_CITIES, Project, ProjectStatus, useFormattedPrice, useInfiniteProjectsViewModel } from '@jayedaad/core';
 import { PickerField, refreshControlProps, Spinner, theme } from '@jayedaad/ui-native';
+import { ProjectFavoriteButton } from '../components/ListingContactActions';
 import { ProjectFilterSheet } from '../components/ProjectFilterSheet';
 import { RangeFilterField } from '../components/RangeFilterField';
 import { AREA_UNITS } from '../lib/searchFilters';
@@ -62,23 +63,23 @@ function ProjectCard({ project, onPress }: { project: Project; onPress: () => vo
         <Text style={styles.statusText}>{STATUS_LABELS[project.status]}</Text>
       </View>
 
-      {/* Top-right, since statusPill already occupies top-left. */}
-      {(isBoosted || hasActiveStory) && (
-        <View style={styles.topRightBadgeStack}>
-          {isBoosted && (
-            <View style={styles.boostBadge}>
-              <Ionicons name={project.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
-              <Text style={styles.boostBadgeText}>{project.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
-            </View>
-          )}
-          {hasActiveStory && (
-            <View style={styles.storyBadge}>
-              <Ionicons name="film-outline" size={11} color="#A21CAF" />
-              <Text style={styles.storyBadgeText}>Story</Text>
-            </View>
-          )}
-        </View>
-      )}
+      {/* Top-right, since statusPill already occupies top-left. Favorite
+          button always renders here; boost/story badges stack below it. */}
+      <View style={styles.topRightBadgeStack}>
+        <ProjectFavoriteButton project={project} size={16} style={styles.favoriteButton} />
+        {isBoosted && (
+          <View style={styles.boostBadge}>
+            <Ionicons name={project.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
+            <Text style={styles.boostBadgeText}>{project.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
+          </View>
+        )}
+        {hasActiveStory && (
+          <View style={styles.storyBadge}>
+            <Ionicons name="film-outline" size={11} color="#A21CAF" />
+            <Text style={styles.storyBadgeText}>Story</Text>
+          </View>
+        )}
+      </View>
 
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
@@ -268,6 +269,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   storyBadgeText: { fontSize: 10, fontWeight: '700', color: '#A21CAF' },
+  favoriteButton: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 999,
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // Overlaid on the photo (bottom, over the gradient) rather than a
   // separate white section below it — matches HomeScreen's project card.
   body: {

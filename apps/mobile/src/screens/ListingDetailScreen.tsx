@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   FlatList,
   Image,
+  ImageBackground,
   Linking,
   ScrollView,
   Share,
@@ -26,7 +27,7 @@ import {
   useListingDetailViewModel,
   Listing,
 } from '@jayedaad/core';
-import { Accordion, Badge, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
+import { BackButton, Badge, Button, CountryCodeField, Dialog, TextInput as UiTextInput, theme, useToast } from '@jayedaad/ui-native';
 import { ContactIconActions, FavoriteButton, getPrimaryCallNumber, trackAndOpen } from '../components/ListingContactActions';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { addRecentlyViewed, removeRecentlyViewed } from '../lib/recentlyViewedStorage';
@@ -36,8 +37,8 @@ const GALLERY_HEIGHT = 360;
 const THUMB_SIZE = 48;
 const MAP_HEIGHT = 180;
 
-// FIGMA COLORS (Overrides for specific design elements)
-const FIGMA_PRIMARY = '#0F5A3E'; // Deep green from the mockup
+// FIGMA COLORS
+const FIGMA_PRIMARY = '#0F5A3E';
 const FIGMA_SURFACE = '#FFFFFF';
 const FIGMA_MUTED_BG = '#F5F7F7';
 const FIGMA_BORDER = '#E5E7EB';
@@ -66,14 +67,6 @@ export function ListingDetailScreen() {
     if (listing) addRecentlyViewed(listing).catch(() => {});
   }, [listing]);
 
-  // A listing can 404 here (deleted/rejected since last seen) without ever
-  // having been "loading" from this screen's own perspective — most often
-  // reached via HomeScreen's on-device "Recently Viewed" cache, which
-  // snapshots a listing at view time and never revalidates it. Previously
-  // this had no error branch at all, so isLoading going false with no
-  // listing just fell through to the loading state forever. Pruning the
-  // stale cache entry here means the next Home screen visit stops showing
-  // it, instead of it lingering indefinitely.
   useEffect(() => {
     if (error) removeRecentlyViewed(listingId).catch(() => {});
   }, [error, listingId]);
@@ -97,10 +90,6 @@ export function ListingDetailScreen() {
   }
 
   const price = formatPrice(Number(listing.price));
-  const amenitiesByCategory = listing.amenities.reduce<Record<string, typeof listing.amenities>>((acc, a) => {
-    (acc[a.category] ??= []).push(a);
-    return acc;
-  }, {});
   const primaryCallNumber = getPrimaryCallNumber(listing);
 
   function openEnquiry(intent: 'inquiry' | 'visit') {
@@ -113,54 +102,64 @@ export function ListingDetailScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <Gallery listing={listing} onBack={() => navigation.goBack()} />
 
-        <View style={styles.content}>
-          {/* HEADER */}
-          <View style={styles.badgeRow}>
-            {listing.status === 'verified' && (
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedBadgeText}>VERIFIED</Text>
-              </View>
-            )}
-            <View style={styles.pillBadge}>
-              <Text style={styles.pillBadgeText}>{listing.purpose === 'sale' ? 'FOR SALE' : 'FOR RENT'}</Text>
-            </View>
-            {listing.propertyType?.label && (
+        {/* TOP SECTION WITH BACKGROUND IMAGE */}
+        <ImageBackground
+          source={require('../../assets/images/feature-bg.webp')}
+          style={styles.headerBackground}
+          imageStyle={styles.headerBackgroundImage}
+        >
+          <View style={styles.headerContent}>
+            {/* HEADER BADGES */}
+            <View style={styles.badgeRow}>
+              {listing.status === 'verified' && (
+                <View style={styles.verifiedBadge}>
+                  <Text style={styles.verifiedBadgeText}>VERIFIED</Text>
+                </View>
+              )}
               <View style={styles.pillBadge}>
-                <Text style={styles.pillBadgeText}>{listing.propertyType.label.toUpperCase()}</Text>
+                <Text style={styles.pillBadgeText}>{listing.purpose === 'sale' ? 'FOR SALE' : 'FOR RENT'}</Text>
               </View>
-            )}
-            {(listing.boostTier === 'hot' || listing.boostTier === 'super_hot') && (
-              <View style={styles.boostBadge}>
-                <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
-                <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'SUPER HOT' : 'HOT'}</Text>
-              </View>
-            )}
-            {!!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
-              <View style={styles.storyBadge}>
-                <Ionicons name="film" size={11} color="#A21CAF" />
-                <Text style={styles.storyBadgeText}>STORY</Text>
-              </View>
-            )}
+              {listing.propertyType?.label && (
+                <View style={styles.pillBadge}>
+                  <Text style={styles.pillBadgeText}>{listing.propertyType.label.toUpperCase()}</Text>
+                </View>
+              )}
+              {(listing.boostTier === 'hot' || listing.boostTier === 'super_hot') && (
+                <View style={styles.boostBadge}>
+                  <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={11} color="#B45309" />
+                  <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'SUPER HOT' : 'HOT'}</Text>
+                </View>
+              )}
+              {!!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date() && (
+                <View style={styles.storyBadge}>
+                  <Ionicons name="film" size={11} color="#A21CAF" />
+                  <Text style={styles.storyBadgeText}>STORY</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.title}>{listing.title}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={14} color={theme.colors.muted} />
+              <Text style={styles.location}>
+                {[listing.society, listing.subArea, listing.area, listing.city].filter(Boolean).join(', ')}
+              </Text>
+            </View>
+            <Text style={styles.listingNumber}>JYD-{String(listing.listingNumber).padStart(5, '0')}</Text>
+
+            <Text style={styles.price}>{price}</Text>
+
+            {/* PRIMARY STATS - 103.27w x 60.94h Aesthetic */}
+            <View style={styles.statsGrid}>
+              {listing.bedrooms != null && <Stat icon="bed-outline" label="Beds" value={String(listing.bedrooms)} />}
+              {listing.bathrooms != null && <Stat icon="water-outline" label="Baths" value={String(listing.bathrooms)} />}
+              <Stat icon="scan-outline" label="Area" value={formatArea(Number(listing.areaValue), listing.areaUnit)} />
+            </View>
           </View>
+        </ImageBackground>
 
-          <Text style={styles.title}>{listing.title}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color={theme.colors.muted} />
-            <Text style={styles.location}>
-              {[listing.society, listing.subArea, listing.area, listing.city].filter(Boolean).join(', ')}
-            </Text>
-          </View>
-          <Text style={styles.listingNumber}>JYD-{String(listing.listingNumber).padStart(5, '0')}</Text>
-
-          <Text style={styles.price}>{price}</Text>
-
-          {/* PRIMARY STATS */}
-          <View style={styles.statsGrid}>
-            {listing.bedrooms != null && <Stat icon="bed-outline" label="Beds" value={String(listing.bedrooms)} />}
-            {listing.bathrooms != null && <Stat icon="water-outline" label="Baths" value={String(listing.bathrooms)} />}
-            <Stat icon="resize-outline" label="Area" value={formatArea(Number(listing.areaValue), listing.areaUnit)} />
-          </View>
-
+        {/* REST OF CONTENT */}
+        <View style={styles.contentBody}>
           {/* MORE DETAILS */}
           <View style={styles.moreDetailsGrid}>
             {listing.kitchens != null && <DetailRow label="Kitchens" value={String(listing.kitchens)} />}
@@ -185,32 +184,25 @@ export function ListingDetailScreen() {
           )}
 
           {/* AMENITIES */}
-          {Object.keys(amenitiesByCategory).length > 0 && (
+          {listing.amenities.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Amenities</Text>
-              {Object.entries(amenitiesByCategory).map(([category, items]) => (
-                <Accordion key={category} label={humanizeCategory(category)} defaultOpen={category === 'main_features'}>
-                  <View style={styles.amenityChecklist}>
-                    {items.map((a) => (
-                      <View key={a.slug} style={styles.amenityPill}>
-                        <Ionicons name="checkmark" size={16} color={FIGMA_PRIMARY} />
-                        <Text style={styles.amenityText}>
-                          {a.label}
-                          {a.value != null ? ` — ${a.value}${a.valueUnit ? ` ${a.valueUnit}` : ''}` : ''}
-                          {a.textValue ? ` — ${a.textValue}` : ''}
-                        </Text>
-                      </View>
-                    ))}
+              <View style={styles.amenityChecklist}>
+                {listing.amenities.map((a) => (
+                  <View key={a.slug} style={styles.amenityRow}>
+                    <Ionicons name="checkmark" size={16} color={FIGMA_PRIMARY} />
+                    <Text style={styles.amenityText}>
+                      {a.label}
+                      {a.value != null ? ` — ${a.value}${a.valueUnit ? ` ${a.valueUnit}` : ''}` : ''}
+                      {a.textValue ? ` — ${a.textValue}` : ''}
+                    </Text>
                   </View>
-                </Accordion>
-              ))}
+                ))}
+              </View>
             </View>
           )}
 
-          {/* FINANCING & INSTALLMENT PLAN — rendered as a real table: a
-              primary-colored "thead" bar with alternating light-primary-
-              tinted row stripes below, matching the Payment Plans table on
-              the project detail page. */}
+          {/* FINANCING & INSTALLMENT PLAN */}
           {listing.installmentAvailable && (() => {
             const financingRows: { label: string; value: string }[] = [];
             if (listing.advanceAmount != null) {
@@ -381,7 +373,7 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
       <View style={[styles.galleryEmpty, { height: GALLERY_HEIGHT }]}>
         <Ionicons name="image-outline" size={40} color={theme.colors.mutedLight} />
         <View style={styles.galleryTopNav}>
-          <Pressable style={styles.topActionButton} onPress={onBack}><Ionicons name="chevron-back" size={20} color="#000" /></Pressable>
+          <BackButton onPress={onBack} size={40} />
         </View>
       </View>
     );
@@ -407,9 +399,7 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
 
       {/* TOP ACTIONS */}
       <View style={styles.galleryTopNav}>
-        <Pressable style={styles.topActionButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
-        </Pressable>
+        <BackButton onPress={onBack} size={40} />
         <View style={styles.galleryTopRight}>
           <Pressable style={styles.topActionButton} onPress={handleShare}>
             <Ionicons name="share-social-outline" size={20} color={theme.colors.text} />
@@ -443,12 +433,13 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
   );
 }
 
+// 103.27w x 60.94h Exact Dimensions per Figma Aesthetic
 function Stat({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const displayText = label.toLowerCase() === 'area' ? value : `${value} ${label}`;
   return (
     <View style={styles.statCard}>
       <Ionicons name={icon} size={22} color={FIGMA_PRIMARY} />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statText} numberOfLines={2}>{displayText}</Text>
     </View>
   );
 }
@@ -599,7 +590,26 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 }, 
   loadingRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: FIGMA_SURFACE },
   muted: { fontSize: 14, color: theme.colors.mutedLight },
-  content: { paddingHorizontal: 20, paddingTop: 20, gap: 8 },
+
+  // Updated Header Setup for Background Image
+  headerBackground: {
+    width: '100%',
+    backgroundColor: FIGMA_SURFACE, 
+  },
+  headerBackgroundImage: {
+    opacity: 0.05, // Further reduced to mimic a very subtle watermark for maximum readability
+    resizeMode: 'cover',
+  },
+  headerContent: { 
+    paddingHorizontal: 20, 
+    paddingTop: 24, 
+    paddingBottom: 20,
+    gap: 8,
+  },
+  contentBody: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
 
   galleryEmpty: { backgroundColor: FIGMA_MUTED_BG, alignItems: 'center', justifyContent: 'center' },
   galleryHero: { width: '100%', resizeMode: 'cover' },
@@ -612,7 +622,7 @@ const styles = StyleSheet.create({
   
   galleryTopNav: {
     position: 'absolute',
-    top: 50, // Accounts for status bar approx
+    top: 50, 
     left: 16,
     right: 16,
     flexDirection: 'row',
@@ -677,23 +687,26 @@ const styles = StyleSheet.create({
   listingNumber: { fontSize: 11, color: theme.colors.mutedLight, fontWeight: '700', marginTop: 2 },
   price: { fontSize: 28, fontWeight: '900', color: FIGMA_PRIMARY, marginTop: 12 },
 
-  statsGrid: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  // Fixed Dimension Figma Stat Cards
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   statCard: {
-    flex: 1,
+    width: 103.27,
+    height: 60.94,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
     backgroundColor: FIGMA_SURFACE,
-    borderRadius: 16,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: FIGMA_BORDER,
-    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1,
+    borderRadius: 14,
+    shadowColor: '#000', 
+    shadowOpacity: 0.06, 
+    shadowRadius: 10, 
+    shadowOffset: { width: 0, height: 4 }, 
+    elevation: 2,
+    paddingHorizontal: 4,
   },
-  statValue: { fontSize: 15, fontWeight: '800', color: theme.colors.text },
-  statLabel: { fontSize: 12, color: theme.colors.muted, fontWeight: '600' },
+  statText: { fontSize: 12, fontWeight: '800', color: FIGMA_PRIMARY, textAlign: 'center' },
 
-  moreDetailsGrid: { gap: 6, marginTop: 8 },
+  moreDetailsGrid: { gap: 6, marginTop: 12 },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -709,22 +722,25 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, color: theme.colors.muted, lineHeight: 22 },
   link: { fontSize: 13, fontWeight: '700', color: FIGMA_PRIMARY },
 
-  amenityChecklist: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 },
-  amenityPill: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8, 
-    width: '48%', 
-    backgroundColor: FIGMA_MUTED_BG, 
-    borderRadius: 999, 
-    paddingHorizontal: 16, 
-    paddingVertical: 12 
+  amenityChecklist: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 12 },
+  amenityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '48%',
+    borderRadius: 16,
+    backgroundColor: FIGMA_SURFACE,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    shadowColor: '#000', 
+    shadowOpacity: 0.06, 
+    shadowRadius: 10, 
+    shadowOffset: { width: 0, height: 4 }, 
+    elevation: 2,
   },
-  amenityText: { fontSize: 13, fontWeight: '600', color: theme.colors.text, flexShrink: 1 },
+  amenityText: { fontSize: 12, fontWeight: '700', color: FIGMA_PRIMARY, flexShrink: 1 },
 
-  // Financing table: a primary-colored "thead" bar with alternating
-  // light-primary-tinted row stripes below, matching the project detail
-  // page's Payment Plans table.
+  // Financing table
   planTableWrap: {
     borderRadius: 16,
     overflow: 'hidden',

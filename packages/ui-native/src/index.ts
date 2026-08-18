@@ -12,3 +12,5 @@ export * from './Dialog';
 export * from './Badge';
 export * from './Spinner';
 export * from './CreditQuotaCard';
+export * from './globalFont';
+export * from './BackButton';

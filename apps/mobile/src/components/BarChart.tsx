@@ -4,8 +4,16 @@ import Svg, { Rect } from 'react-native-svg';
 import { theme } from '@jayedaad/ui-native';
 import type { ChartPoint } from './LineChart';
 
+// Optional — every existing caller (e.g. Listing engagement's 6-metric
+// snapshot) omits it and renders exactly as before. AgentDashboardScreen's
+// new Leads captured chart sets it for "today"'s bar (a real date
+// comparison, not decorative fake styling).
+export interface BarChartPoint extends ChartPoint {
+  highlighted?: boolean;
+}
+
 export interface BarChartProps {
-  data: ChartPoint[];
+  data: BarChartPoint[];
   height?: number;
 }
 
@@ -44,7 +52,7 @@ export function BarChart({ data, height = 140 }: BarChartProps) {
                 width={barWidth}
                 height={barHeight}
                 rx={barWidth / 3}
-                fill={theme.colors.primary}
+                fill={d.highlighted ? theme.colors.text : theme.colors.primary}
               />
             );
           })}
