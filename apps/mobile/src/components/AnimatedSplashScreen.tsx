@@ -61,16 +61,6 @@ export function AnimatedSplashScreen({ onContinue }: AnimatedSplashScreenProps) 
   const textOpacity = useRef(new Animated.Value(1)).current;
   const [slideIndex, setSlideIndex] = useState(0);
 
-  // Warms expo-image's cache for slides 2/3 as soon as this screen mounts,
-  // instead of only starting to fetch/decode each image the moment its
-  // slide becomes active. Without this, the first switch to a not-yet-
-  // decoded slide showed the watermark layer (already on screen, zIndex 1)
-  // over a still-blank photo layer for a beat before the image popped in —
-  // "logo, then image" instead of one clean crossfade.
-  useEffect(() => {
-    Image.prefetch(SLIDES.map((s) => s.image));
-  }, []);
-
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
