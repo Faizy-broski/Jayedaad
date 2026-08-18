@@ -121,7 +121,10 @@ function MainStack() {
       <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms and Conditions' }} />
       <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} options={{ title: 'Profile Settings' }} />
       <Stack.Screen name="MyProperties" component={MyPropertiesScreen} options={{ title: 'My Properties' }} />
-      <Stack.Screen name="PostListing" component={PostListingScreen} options={{ title: 'Post Listing' }} />
+      {/* headerShown: false — the screen already renders its own header
+          (BackButton + centered title + step progress bar); the native
+          header stacked a second title/back-button pair above it. */}
+      <Stack.Screen name="PostListing" component={PostListingScreen} options={{ title: 'Post Listing', headerShown: false }} />
       <Stack.Screen name="Plan" component={PlanScreen} options={{ title: 'Plan' }} />
       <Stack.Screen name="AddFeatures" component={AddFeaturesScreen} options={{ title: 'Add Features' }} />
       <Stack.Screen name="MyProjects" component={MyProjectsScreen} options={{ title: 'My Projects' }} />

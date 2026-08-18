@@ -6,6 +6,11 @@ import { theme } from './theme';
 export interface TextInputProps extends RNTextInputProps {
   label?: string;
   error?: string;
+  // Small helper line below the field (e.g. "A short, descriptive headline
+  // for your listing.") — distinct from `error`, always rendered in muted
+  // gray regardless of validation state. Hidden whenever `error` is set, so
+  // the two never stack.
+  caption?: string;
   // Renders an eye/eye-off toggle inside the field and manages
   // secureTextEntry itself — for password fields, matches the pattern used
   // on both login and signup.
@@ -21,7 +26,7 @@ export interface TextInputProps extends RNTextInputProps {
 
 // RN counterpart to @jayedaad/ui-web's Input+Label, same pairing so
 // auth/form screens feel consistent with the web design system.
-export function TextInput({ label, error, style, secureToggle, secureTextEntry, icon, variant = 'default', ...props }: TextInputProps) {
+export function TextInput({ label, error, caption, style, secureToggle, secureTextEntry, icon, variant = 'default', ...props }: TextInputProps) {
   const [visible, setVisible] = useState(false);
   const isPill = variant === 'pill';
 
@@ -53,7 +58,7 @@ export function TextInput({ label, error, style, secureToggle, secureTextEntry, 
           </Pressable>
         )}
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error ? <Text style={styles.error}>{error}</Text> : caption ? <Text style={styles.caption}>{caption}</Text> : null}
     </View>
   );
 }
@@ -84,6 +89,7 @@ const styles = StyleSheet.create({
   inputWithLeadingIcon: { paddingLeft: theme.spacing.xl + theme.spacing.lg },
   inputError: { borderColor: '#dc2626' },
   error: { fontSize: 12, color: '#dc2626' },
+  caption: { fontSize: 12, color: '#6B7280' },
   icon: { position: 'absolute', right: theme.spacing.md },
   leadingIcon: { position: 'absolute', left: theme.spacing.md, zIndex: 1 },
 });

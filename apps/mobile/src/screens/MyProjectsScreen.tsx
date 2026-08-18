@@ -82,7 +82,17 @@ export function MyProjectsScreen() {
     <View style={styles.root}>
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>My Projects</Text>
-        <Button label="Post Project" size="md" onPress={() => navigation.navigate('PostProject')} />
+        {/* The shared Button is a fixed 249x35 pill that doesn't shrink, so
+            it can't sit beside the heading in one row without overlapping
+            it — a compact pill sized to the row instead, same pattern as
+            MyPropertiesScreen's "Add Property". Real label, not just the
+            icon, so it reads as a button rather than a decoration. */}
+        <Pressable style={styles.addIconBtn} onPress={() => navigation.navigate('PostProject')}>
+          <Ionicons name="add" size={16} color={theme.colors.bg} />
+          <Text style={styles.addIconBtnText} numberOfLines={1}>
+            Add Project
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.pillContainer}>
@@ -128,7 +138,6 @@ export function MyProjectsScreen() {
                 <Text style={styles.rowSubtitle} numberOfLines={1}>
                   {project.developer.name} · {project.area}, {project.city}
                 </Text>
-                <Text style={styles.statusText}>{project.status.replace('_', ' ')}</Text>
 
                 <View style={styles.cardDivider} />
 
@@ -153,39 +162,42 @@ export function MyProjectsScreen() {
                   </View>
                 )}
 
-                <View style={styles.rowActions}>
-                  <Pressable
-                    style={styles.actionButton}
-                    onPress={() => navigation.navigate('PostProject', { editProjectId: project.id, viewOnly: !editable })}
-                  >
-                    <Ionicons name={editable ? 'create-outline' : 'eye-outline'} size={14} color={theme.colors.primary} />
-                    <Text style={styles.actionTextPrimary}>{editable ? 'Edit' : 'View'}</Text>
-                  </Pressable>
-                  {/* Same shared-pool boost system listings already have —
-                      agent-only (a super_admin has no agent_credits row to
-                      spend from) and only meaningful once a project is
-                      actually live. */}
-                  {!isSuperAdmin && project.verificationStatus === 'verified' && (
-                    <BoostMenu
-                      creditsAvailable={creditsAvailable}
-                      isPending={boost.isPending || refresh.isPending || postStory.isPending}
-                      onHot={() => boost.mutate({ id: project.id, input: { boostTier: 'hot' } })}
-                      onSuperHot={() => boost.mutate({ id: project.id, input: { boostTier: 'super_hot' } })}
-                      onRefresh={() => refresh.mutate(project.id)}
-                      onStory={() => postStory.mutate(project.id)}
-                      onBuyMore={() => navigation.navigate('Plan')}
-                    />
-                  )}
-                  {deletable && (
+                <View style={styles.actionsRow}>
+                  <Text style={styles.statusText}>{project.status.replace('_', ' ')}</Text>
+                  <View style={styles.rowActions}>
                     <Pressable
-                      style={[styles.actionButton, styles.actionButtonDestructive]}
-                      disabled={remove.isPending}
-                      onPress={() => handleDelete(project.id, project.name)}
+                      style={styles.actionButton}
+                      onPress={() => navigation.navigate('PostProject', { editProjectId: project.id, viewOnly: !editable })}
                     >
-                      <Ionicons name="trash-outline" size={14} color={theme.colors.danger} />
-                      <Text style={styles.actionTextDestructive}>Delete</Text>
+                      <Ionicons name={editable ? 'create-outline' : 'eye-outline'} size={14} color={theme.colors.primary} />
+                      <Text style={styles.actionTextPrimary}>{editable ? 'Edit' : 'View'}</Text>
                     </Pressable>
-                  )}
+                    {/* Same shared-pool boost system listings already have —
+                        agent-only (a super_admin has no agent_credits row to
+                        spend from) and only meaningful once a project is
+                        actually live. */}
+                    {!isSuperAdmin && project.verificationStatus === 'verified' && (
+                      <BoostMenu
+                        creditsAvailable={creditsAvailable}
+                        isPending={boost.isPending || refresh.isPending || postStory.isPending}
+                        onHot={() => boost.mutate({ id: project.id, input: { boostTier: 'hot' } })}
+                        onSuperHot={() => boost.mutate({ id: project.id, input: { boostTier: 'super_hot' } })}
+                        onRefresh={() => refresh.mutate(project.id)}
+                        onStory={() => postStory.mutate(project.id)}
+                        onBuyMore={() => navigation.navigate('Plan')}
+                      />
+                    )}
+                    {deletable && (
+                      <Pressable
+                        style={[styles.actionButton, styles.actionButtonDestructive]}
+                        disabled={remove.isPending}
+                        onPress={() => handleDelete(project.id, project.name)}
+                      >
+                        <Ionicons name="trash-outline" size={14} color={theme.colors.danger} />
+                        <Text style={styles.actionTextDestructive}>Delete</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -222,6 +234,21 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text },
+  addIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  addIconBtnText: { color: theme.colors.bg, fontWeight: '700', fontSize: 13 },
   pillContainer: { borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceAlt },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingVertical: 16 },
   pill: { backgroundColor: theme.colors.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
@@ -250,9 +277,12 @@ const styles = StyleSheet.create({
   unitTypesText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   rowTitle: { fontSize: 15, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   rowSubtitle: { fontSize: 13, color: theme.colors.muted, fontWeight: '500' },
-  statusText: { fontSize: 12, color: theme.colors.mutedLight, fontWeight: '600', marginTop: 2, textTransform: 'capitalize' },
+  statusText: { fontSize: 12, color: theme.colors.mutedLight, fontWeight: '600', textTransform: 'capitalize' },
   cardDivider: { height: 1, backgroundColor: theme.colors.surfaceAlt, marginVertical: 16 },
   verifyRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  // Status label shares the row with the action buttons instead of sitting
+  // on its own line above the divider — keeps each card a row shorter.
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', rowGap: 8, columnGap: 12 },
   // Same pill/chip treatment as MyPropertiesScreen's rowActions — plain
   // icon+text links read as bare text with no button affordance, and this
   // row shares the exact same BoostMenu component, so it needs the same

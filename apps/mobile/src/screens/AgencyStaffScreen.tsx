@@ -124,7 +124,7 @@ export function AgencyStaffScreen() {
     <View style={styles.root}>
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Agency Staff</Text>
-        <Button label="Add Agent" size="md" onPress={() => setDialogOpen(true)} />
+        <Button label="Add Agent" size="md" onPress={() => setDialogOpen(true)} style={styles.headerButton} />
       </View>
 
       {isLoading ? (
@@ -230,15 +230,18 @@ export function AgencyStaffScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.bg },
   loadingRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.bg, padding: 32 },
+  // Column, not row: Button is now a fixed 249x35 pill (see ui-native
+  // Button.tsx) that no longer shrinks to fit, so a row layout with
+  // justifyContent:'space-between' let it overlap the title instead of
+  // sitting beside it.
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 16,
+    gap: 12,
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text },
+  headerButton: { alignSelf: 'flex-start' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { fontSize: 14, color: theme.colors.mutedLight, fontWeight: '500', textAlign: 'center' },
   error: { fontSize: 14, color: theme.colors.danger, fontWeight: '500', textAlign: 'center' },

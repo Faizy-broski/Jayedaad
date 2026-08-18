@@ -3,8 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Image, ScrollView, Text, View, Pressable, StyleSheet, Switch } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import {
   AreaUnit,
   COUNTRIES,
@@ -24,21 +25,42 @@ import {
   useSubscriptionViewModel,
   useTaxonomyViewModel,
 } from '@jayedaad/core';
-import { Accordion, Button, CountryCodeField, PickerField, TextInput, theme, useToast } from '@jayedaad/ui-native';
+import { Accordion, BackButton, Button, CountryCodeField, PickerField, Stepper, TextInput, WizardFooter, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { AmenitySelectionMap } from './AddFeaturesScreen';
 import { PlacesAutocompleteInput } from '../components/PlacesAutocompleteInput';
 
-// Selected-state border for the property type chips — RN has no CSS
-// border-image, so the gradient is faked by wrapping the chip in a
-// LinearGradient "ring" (padding = border width) with a solid-bg inner View.
-const SELECTION_BORDER_GRADIENT = ['rgba(13, 99, 75, 0.6)', 'rgba(3, 75, 55, 0.6)'] as [string, string];
+// Property-type category icon cards (Property step) — same category slugs
+// (residential/plot/commercial) and icon choices HomeScreen.tsx already
+// established for its Homes/Plots/Commercial browse cards (home/flag/
+// business), just the outline variant to match the Figma reference's line
+// icons.
+const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  residential: 'home-outline',
+  plot: 'flag-outline',
+  commercial: 'business-outline',
+};
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
 const FURNISHING_STATUSES: FurnishingStatus[] = ['unfurnished', 'semi_furnished', 'furnished'];
 const BEDROOM_OPTIONS = ['Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const BATHROOM_OPTIONS = ['1', '2', '3', '4', '5', '6+'];
 const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownership_proof', 'utility_bill'];
+
+// Step wizard — same state-machine shape as apps/web's submit page
+// (step/maxStepReached/canContinue), just a different step count/grouping
+// to match this screen's Figma reference (which shows 6 tabs; Documents
+// gets a 7th here since it's a real required step, not shown in that
+// particular mock but not something that can be dropped).
+const STEPS = [
+  { key: 'property', label: 'Property' },
+  { key: 'location', label: 'Location' },
+  { key: 'details', label: 'Details' },
+  { key: 'features', label: 'Features' },
+  { key: 'media', label: 'Media' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'contact', label: 'Contact' },
+];
 
 interface MediaItem {
   id: string;
@@ -52,6 +74,7 @@ interface MediaItem {
 
 export function PostListingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const route = useRoute<RouteProp<RootStackParamList, 'PostListing'>>();
   const editId = route.params?.editListingId;
@@ -157,6 +180,13 @@ export function PostListingScreen() {
   const [uploadedDocTypes, setUploadedDocTypes] = useState<Set<ListingDocumentType>>(new Set());
   const [uploadingDocType, setUploadingDocType] = useState<ListingDocumentType | null>(null);
 
+  // Wizard step state — mirrors apps/web's submit page's step/
+  // maxStepReached/canContinue pattern. Nothing else about form state
+  // changes; this only gates which STEPS block renders and which step
+  // pills are tappable.
+  const [step, setStep] = useState(0);
+  const [maxStepReached, setMaxStepReached] = useState(0);
+
   useEffect(() => {
     if (!editId) return;
     listingsRepository
@@ -172,6 +202,39 @@ export function PostListingScreen() {
   const documentsComplete =
     !documentsRequired ||
     REQUIRED_LISTING_DOCUMENT_TYPES.every((type) => uploadedDocTypes.has(type) || !!documentFiles[type]);
+
+  // Same fields/shape as apps/web's submit page's canContinue — Details
+  // folds this screen's old "Price and Area" + "Installments" sections into
+  // one step, so it gates on both areaValue and price together rather than
+  // web's two separate steps for those.
+  function canContinue(index: number): boolean {
+    if (index === 0) return form.title.trim() !== '' && form.description.trim() !== '' && form.propertyTypeId.trim() !== '';
+    if (index === 1) return form.city.trim() !== '' && form.area.trim() !== '';
+    if (index === 2) return form.areaValue.trim() !== '' && form.price.trim() !== '';
+    if (index === 5) return documentsComplete;
+    return true;
+  }
+
+  function goNext() {
+    if (!canContinue(step)) {
+      showToast('Please fill in the required fields to continue.', 'error');
+      return;
+    }
+    setStep((s) => {
+      const next = Math.min(STEPS.length - 1, s + 1);
+      setMaxStepReached((m) => Math.max(m, next));
+      return next;
+    });
+  }
+
+  function goBack() {
+    setStep((s) => Math.max(0, s - 1));
+  }
+
+  function goToStep(index: number) {
+    if (index > maxStepReached) return;
+    setStep(index);
+  }
 
   const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, type) => {
     if (type.category && !acc.some((c) => c.slug === type.category.slug)) acc.push(type.category);
@@ -245,6 +308,11 @@ export function PostListingScreen() {
     setMediaItems(prefillMedia.map(({ id, uri, type, status, url, category }) => ({ id, uri, type, status, url, category })));
     setCoverId(prefillMedia.find((m) => m.isCover)?.id);
     setPrefilled(true);
+    // Editing an existing listing unlocks every step immediately — no
+    // reason to force a re-walk through Property->Location->... in order
+    // when every field is already filled in. Mirrors web's identical
+    // setMaxStepReached(STEPS.length - 1) on edit.
+    setMaxStepReached(STEPS.length - 1);
   }, [editListing, prefilled, propertyTypes, propertyTypesLoading]);
 
   async function pickMedia(category?: string) {
@@ -448,302 +516,341 @@ export function PostListingScreen() {
     );
   }
 
+  const isLastStep = step === STEPS.length - 1;
+
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      
-      {/* BASIC INFORMATION */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Basic Information</Text>
-        <TextInput label="Title" value={form.title} onChangeText={(v) => update_('title', v)} />
-        <TextInput label="Description" value={form.description} onChangeText={(v) => update_('description', v)} multiline />
+    <View style={styles.wizardRoot}>
+      {/* HEADER — the native stack header is hidden (see RootNavigator) since
+          this row already is the screen's header; insets.top replaces the
+          top safe-area padding the native header used to provide. */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <BackButton onPress={() => navigation.goBack()} />
+        <Text style={styles.headerTitle}>{editId ? 'Edit Listing' : 'Post A Listing'}</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      <View style={styles.headerDivider} />
 
-        {/* CUSTOM SEGMENTED CONTROL: PURPOSE */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Purpose</Text>
-          <View style={styles.segmentedControl}>
-            {[
-              { id: 'sale', label: 'For Sale' },
-              { id: 'rent', label: 'For Rent' },
-            ].map((p) => {
-              const isActive = form.purpose === p.id;
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => update_('purpose', p.id as ListingPurpose)}
-                  style={[styles.segmentTab, isActive && styles.segmentTabActive]}
-                >
-                  <Text style={[styles.segmentTabText, isActive && styles.segmentTabTextActive]}>{p.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+      <View style={styles.stepperWrap}>
+        <Stepper steps={STEPS} activeIndex={step} maxReachedIndex={maxStepReached} onStepPress={goToStep} />
+      </View>
 
-        {/* CUSTOM SEGMENTED CONTROL: PROPERTY CATEGORY */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Property Type</Text>
-          {categories.length > 0 && (
-            <View style={styles.segmentedControl}>
-              {categories.map((c) => {
-                const isActive = activeCategoryTab === c.slug;
-                return (
-                  <Pressable
-                    key={c.slug}
-                    onPress={() => setSelectedCategoryTab(c.slug)}
-                    style={[styles.segmentTab, isActive && styles.segmentTabActive]}
-                  >
-                    <Text style={[styles.segmentTabText, isActive && styles.segmentTabTextActive]}>{c.label}</Text>
-                  </Pressable>
-                );
-              })}
+      <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* PROPERTY */}
+        {step === 0 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>Tell us about your property</Text>
+            <Text style={styles.stepSubtitle}>Start with the basic details of your listing.</Text>
+
+            <TextInput
+              label="Title"
+              value={form.title}
+              onChangeText={(v) => update_('title', v)}
+              placeholder="e.g. 10 Marla House in DHA Phase 5"
+              caption="A short, descriptive headline for your listing."
+              style={styles.pillOverride}
+            />
+            <TextInput
+              label="Description"
+              value={form.description}
+              onChangeText={(v) => update_('description', v)}
+              multiline
+              placeholder="Describe the property, its condition and nearby landmarks..."
+              style={styles.pillOverrideMultiline}
+            />
+
+            {/* PURPOSE */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Purpose</Text>
+              <View style={styles.segmentedControl}>
+                {[
+                  { id: 'sale', label: 'For Sale' },
+                  { id: 'rent', label: 'For Rent' },
+                ].map((p) => {
+                  const isActive = form.purpose === p.id;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => update_('purpose', p.id as ListingPurpose)}
+                      style={[styles.segmentTab, isActive && styles.segmentTabActive]}
+                    >
+                      <Text style={[styles.segmentTabText, isActive && styles.segmentTabTextActive]}>{p.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          )}
-          
-          {/* MODERN PROPERTY TYPE CHIPS */}
-          <View style={styles.chipRow}>
-            {typesInActiveCategory.map((type) => {
-              const active = form.propertyTypeId === type.id;
-              return active ? (
-                <Pressable key={type.id} onPress={() => update_('propertyTypeId', type.id)}>
-                  <LinearGradient
-                    colors={SELECTION_BORDER_GRADIENT}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.chipGradientBorder}
-                  >
-                    <View style={styles.chipInner}>
-                      <Text style={[styles.chipText, styles.chipTextActive]}>{type.label}</Text>
-                    </View>
-                  </LinearGradient>
-                </Pressable>
-              ) : (
-                <Pressable key={type.id} onPress={() => update_('propertyTypeId', type.id)} style={styles.chip}>
-                  <Text style={styles.chipText}>{type.label}</Text>
-                </Pressable>
-              );
-            })}
+
+            {/* PROPERTY TYPE — 3 square icon cards */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Property Type</Text>
+              <View style={styles.categoryCardRow}>
+                {categories.map((c) => {
+                  const isActive = activeCategoryTab === c.slug;
+                  return (
+                    <Pressable
+                      key={c.slug}
+                      onPress={() => setSelectedCategoryTab(c.slug)}
+                      style={[styles.categoryCard, isActive && styles.categoryCardActive]}
+                    >
+                      <Ionicons
+                        name={CATEGORY_ICONS[c.slug] ?? 'home-outline'}
+                        size={22}
+                        color={isActive ? theme.colors.figma.primary : '#6B7280'}
+                      />
+                      <Text style={[styles.categoryCardText, isActive && styles.categoryCardTextActive]}>{c.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* SUBTYPE — wrapped pills */}
+            {typesInActiveCategory.length > 0 && (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Subtype</Text>
+                <View style={styles.chipRow}>
+                  {typesInActiveCategory.map((type) => {
+                    const active = form.propertyTypeId === type.id;
+                    return (
+                      <Pressable
+                        key={type.id}
+                        onPress={() => update_('propertyTypeId', type.id)}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{type.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
           </View>
-        </View>
-      </View>
+        )}
 
-      <View style={styles.divider} />
-
-      {/* LOCATION */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Location</Text>
-        <PickerField value={form.city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={(v) => update_('city', v)} />
-        <PlacesAutocompleteInput label="Area / Location" value={form.area} onChange={(v) => update_('area', v)} />
-        <TextInput label="Society / Phase / Block" value={form.society} onChangeText={(v) => update_('society', v)} />
-        <TextInput label="Sub-area" value={form.subArea} onChangeText={(v) => update_('subArea', v)} />
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* PRICE AND AREA */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Price and Area</Text>
-        <TextInput label="Price (PKR)" value={form.price} onChangeText={(v) => update_('price', v.replace(/\D/g, ''))} keyboardType="number-pad" />
-        <View style={styles.row2}>
-          <View style={styles.flex1}>
-            <TextInput label="Area Value" value={form.areaValue} onChangeText={(v) => update_('areaValue', v.replace(/\D/g, ''))} keyboardType="number-pad" />
+        {/* LOCATION */}
+        {step === 1 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>Where is it located?</Text>
+            <Text style={styles.stepSubtitle}>Help buyers find your property.</Text>
+            <PickerField value={form.city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={(v) => update_('city', v)} style={styles.pillOverride} />
+            <PlacesAutocompleteInput label="Area / Location" value={form.area} onChange={(v) => update_('area', v)} style={styles.pillOverride} />
+            <TextInput label="Society / Phase / Block" value={form.society} onChangeText={(v) => update_('society', v)} style={styles.pillOverride} />
+            <TextInput label="Sub-area" value={form.subArea} onChangeText={(v) => update_('subArea', v)} style={styles.pillOverride} />
           </View>
-          <View style={styles.flex1}>
-            <Text style={styles.fieldLabel}>Area Unit</Text>
-            <PickerField value={form.areaUnit} options={AREA_UNITS} title="Area Unit" onChange={(v) => update_('areaUnit', v as AreaUnit)} />
-          </View>
-        </View>
-        <View style={styles.row2}>
-          <View style={styles.flex1}>
-            <Text style={styles.fieldLabel}>Bedrooms</Text>
-            <PickerField value={form.bedrooms} options={BEDROOM_OPTIONS} title="Bedrooms" onChange={(v) => update_('bedrooms', v)} />
-          </View>
-          <View style={styles.flex1}>
-            <Text style={styles.fieldLabel}>Bathrooms</Text>
-            <PickerField value={form.bathrooms} options={BATHROOM_OPTIONS} title="Bathrooms" onChange={(v) => update_('bathrooms', v)} />
-          </View>
-        </View>
-        <TextInput label="Year Built" value={form.yearBuilt} onChangeText={(v) => update_('yearBuilt', v.replace(/\D/g, ''))} keyboardType="number-pad" />
-        <TextInput label="Floor Level" value={form.floorLevel} onChangeText={(v) => update_('floorLevel', v)} />
-        <Text style={styles.fieldLabel}>Furnishing Status</Text>
-        <PickerField
-          value={form.furnishingStatus}
-          options={FURNISHING_STATUSES}
-          title="Furnishing Status"
-          onChange={(v) => update_('furnishingStatus', v as FurnishingStatus)}
-        />
-      </View>
+        )}
 
-      <View style={styles.divider} />
+        {/* DETAILS — Price and Area + Installments folded into one step */}
+        {step === 2 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>Property details</Text>
+            <Text style={styles.stepSubtitle}>Pricing, size and payment terms.</Text>
 
-      {/* INSTALLMENTS */}
-      <View style={styles.section}>
-        <View style={styles.switchRow}>
-          <Text style={styles.sectionTitleNoMargin}>Installments Available</Text>
-          <Switch
-            value={form.installmentAvailable}
-            onValueChange={(v) => update_('installmentAvailable', v)}
-            trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
-          />
-        </View>
-        {form.installmentAvailable && (
-          <View style={styles.conditionalGroup}>
-            <TextInput label="Advance Amount" value={form.advanceAmount} onChangeText={(v) => update_('advanceAmount', v.replace(/\D/g, ''))} keyboardType="number-pad" />
-            <TextInput label="Number of Installments" value={form.numberOfInstallments} onChangeText={(v) => update_('numberOfInstallments', v.replace(/\D/g, ''))} keyboardType="number-pad" />
-            <TextInput label="Monthly Installment" value={form.monthlyInstallment} onChangeText={(v) => update_('monthlyInstallment', v.replace(/\D/g, ''))} keyboardType="number-pad" />
+            <TextInput label="Price (PKR)" value={form.price} onChangeText={(v) => update_('price', v.replace(/\D/g, ''))} keyboardType="number-pad" style={styles.pillOverride} />
+            <View style={styles.row2}>
+              <View style={styles.flex1}>
+                <TextInput label="Area Value" value={form.areaValue} onChangeText={(v) => update_('areaValue', v.replace(/\D/g, ''))} keyboardType="number-pad" style={styles.pillOverride} />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={styles.fieldLabel}>Area Unit</Text>
+                <PickerField value={form.areaUnit} options={AREA_UNITS} title="Area Unit" onChange={(v) => update_('areaUnit', v as AreaUnit)} style={styles.pillOverride} />
+              </View>
+            </View>
+            <View style={styles.row2}>
+              <View style={styles.flex1}>
+                <Text style={styles.fieldLabel}>Bedrooms</Text>
+                <PickerField value={form.bedrooms} options={BEDROOM_OPTIONS} title="Bedrooms" onChange={(v) => update_('bedrooms', v)} style={styles.pillOverride} />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={styles.fieldLabel}>Bathrooms</Text>
+                <PickerField value={form.bathrooms} options={BATHROOM_OPTIONS} title="Bathrooms" onChange={(v) => update_('bathrooms', v)} style={styles.pillOverride} />
+              </View>
+            </View>
+            <TextInput label="Year Built" value={form.yearBuilt} onChangeText={(v) => update_('yearBuilt', v.replace(/\D/g, ''))} keyboardType="number-pad" style={styles.pillOverride} />
+            <TextInput label="Floor Level" value={form.floorLevel} onChangeText={(v) => update_('floorLevel', v)} style={styles.pillOverride} />
+            <Text style={styles.fieldLabel}>Furnishing Status</Text>
+            <PickerField
+              value={form.furnishingStatus}
+              options={FURNISHING_STATUSES}
+              title="Furnishing Status"
+              onChange={(v) => update_('furnishingStatus', v as FurnishingStatus)}
+              style={styles.pillOverride}
+            />
+
+            <View style={styles.divider} />
+
             <View style={styles.switchRow}>
-              <Text style={styles.fieldLabel}>Ready for Possession</Text>
-              <Switch value={form.readyForPossession} onValueChange={(v) => update_('readyForPossession', v)} trackColor={{ true: theme.colors.primary, false: theme.colors.border }} />
+              <Text style={styles.sectionTitleNoMargin}>Installments Available</Text>
+              <Switch
+                value={form.installmentAvailable}
+                onValueChange={(v) => update_('installmentAvailable', v)}
+                trackColor={{ true: theme.colors.figma.primary, false: theme.colors.border }}
+              />
             </View>
+            {form.installmentAvailable && (
+              <View style={styles.conditionalGroup}>
+                {/* TODO: balloonPaymentAmount/ballotingFeeAmount/possessionFeeAmount/
+                    developmentFeeAmount exist in form state but have no rendered
+                    inputs anywhere in this screen — pre-existing gap, carried
+                    forward unchanged by this step-wizard restructuring. */}
+                <TextInput label="Advance Amount" value={form.advanceAmount} onChangeText={(v) => update_('advanceAmount', v.replace(/\D/g, ''))} keyboardType="number-pad" style={styles.pillOverride} />
+                <TextInput label="Number of Installments" value={form.numberOfInstallments} onChangeText={(v) => update_('numberOfInstallments', v.replace(/\D/g, ''))} keyboardType="number-pad" style={styles.pillOverride} />
+                <TextInput label="Monthly Installment" value={form.monthlyInstallment} onChangeText={(v) => update_('monthlyInstallment', v.replace(/\D/g, ''))} keyboardType="number-pad" style={styles.pillOverride} />
+                <View style={styles.switchRow}>
+                  <Text style={styles.fieldLabel}>Ready for Possession</Text>
+                  <Switch value={form.readyForPossession} onValueChange={(v) => update_('readyForPossession', v)} trackColor={{ true: theme.colors.figma.primary, false: theme.colors.border }} />
+                </View>
+              </View>
+            )}
           </View>
         )}
-      </View>
 
-      <View style={styles.divider} />
-
-      {/* FEATURES & AMENITIES */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Feature and Amenities</Text>
-        {selectedAmenities.size > 0 && (
-          <Text style={styles.mutedText}>{selectedAmenities.size} feature(s) selected</Text>
+        {/* FEATURES */}
+        {step === 3 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>What features does it have?</Text>
+            <Text style={styles.stepSubtitle}>Select the amenities that apply.</Text>
+            {selectedAmenities.size > 0 && (
+              <Text style={styles.mutedText}>{selectedAmenities.size} feature(s) selected</Text>
+            )}
+            <Button variant="secondary" label="Add Features" onPress={openAddFeatures} />
+          </View>
         )}
-        <Pressable onPress={openAddFeatures}>
-          <LinearGradient colors={theme.gradients.gold.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
-            <Text style={styles.goldButtonText}>Add Features</Text>
-          </LinearGradient>
-        </Pressable>
-      </View>
 
-      <View style={styles.divider} />
-
-      {/* PHOTOS & VIDEOS — Airbnb-style categorized mandatory media */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Photos and Videos</Text>
-        <Text style={styles.mutedText}>Photo counts below are recommended, not required — add as many or as few as you have.</Text>
-        {requiredMediaCategories.map((cat) => {
-          const items = mediaItems.filter((m) => m.category === cat.slug);
-          const doneCount = items.filter((m) => m.status === 'done').length;
-          const satisfied = doneCount >= cat.minCount;
-          return (
-            <Accordion
-              key={cat.slug}
-              icon={cat.required && !satisfied ? 'alert-circle-outline' : 'checkmark-circle-outline'}
-              label={cat.required ? `${cat.label} (${doneCount}/${cat.minCount})` : `${cat.label}${items.length ? ` (${items.length})` : ''}`}
-            >
-              <MediaCategoryGrid
-                items={items}
-                coverId={coverId ?? mediaItems[0]?.id}
-                onRemove={removeMedia}
-                onSetCover={setCoverId}
-              />
-              <Pressable onPress={() => pickMedia(cat.slug)}>
-                <LinearGradient colors={theme.gradients.gold.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
-                  <Text style={styles.goldButtonText}>Add Photos</Text>
-                </LinearGradient>
-              </Pressable>
-            </Accordion>
-          );
-        })}
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* OWNERSHIP DOCUMENTS — required for owners and independent agents
-          (no agency); an agency-affiliated agent doesn't see this section
-          at all, their agency's own onboarding docs cover them. */}
-      {documentsRequired && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ownership Documents</Text>
-          <Text style={styles.gateSubtitle}>
-            Upload proof of ownership so our team can verify this listing. Both documents are required before you
-            can submit.
-          </Text>
-          <DocumentUploadRow
-            label="Ownership Document"
-            uploaded={uploadedDocTypes.has('ownership_proof')}
-            hasPendingFile={!!documentFiles.ownership_proof}
-            isUploading={uploadingDocType === 'ownership_proof'}
-            onPick={async (file) => {
-              if (!editId) {
-                setDocumentFiles((prev) => ({ ...prev, ownership_proof: file }));
-                return;
-              }
-              setUploadingDocType('ownership_proof');
-              try {
-                await listingsRepository.uploadDocument(editId, 'ownership_proof', file);
-                setUploadedDocTypes((prev) => new Set(prev).add('ownership_proof'));
-                showToast('Ownership Document uploaded.');
-              } catch {
-                showToast('Upload failed — please try again.', 'error');
-              } finally {
-                setUploadingDocType(null);
-              }
-            }}
-          />
-          <DocumentUploadRow
-            label="Utility Bill"
-            uploaded={uploadedDocTypes.has('utility_bill')}
-            hasPendingFile={!!documentFiles.utility_bill}
-            isUploading={uploadingDocType === 'utility_bill'}
-            onPick={async (file) => {
-              if (!editId) {
-                setDocumentFiles((prev) => ({ ...prev, utility_bill: file }));
-                return;
-              }
-              setUploadingDocType('utility_bill');
-              try {
-                await listingsRepository.uploadDocument(editId, 'utility_bill', file);
-                setUploadedDocTypes((prev) => new Set(prev).add('utility_bill'));
-                showToast('Utility Bill uploaded.');
-              } catch {
-                showToast('Upload failed — please try again.', 'error');
-              } finally {
-                setUploadingDocType(null);
-              }
-            }}
-          />
-        </View>
-      )}
-
-      {/* CONTACT INFO */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
-        <PhoneField label="Mobile" value={form.mobile} onChangeText={(v) => update_('mobile', v)} dialCode={form.mobileDialCode} onDialCodeChange={(v) => update_('mobileDialCode', v)} />
-        <PhoneField label="Landline" value={form.landline} onChangeText={(v) => update_('landline', v)} dialCode={form.landlineDialCode} onDialCodeChange={(v) => update_('landlineDialCode', v)} />
-      </View>
-
-      {usage && role === 'agent' && !editId && (
-        <Text style={[styles.quotaText, quotaReached && styles.quotaTextReached]}>
-          {usage.used} of {usage.quota} listings used on your plan
-          {quotaReached && (
-            <>
-              {' '}
-              — quota reached,{' '}
-              <Text style={styles.quotaLink} onPress={() => navigation.navigate('Plan')}>
-                upgrade your plan
-              </Text>{' '}
-              to publish more.
-            </>
-          )}
-        </Text>
-      )}
-      <View style={styles.submitContainer}>
-        {!editId && (
-          <Button
-            label={saveDraft.isPending ? 'Saving…' : 'Save as Draft'}
-            variant="secondary"
-            size="sm"
-            onPress={handleSaveDraft}
-            disabled={isPending}
-          />
+        {/* MEDIA — Airbnb-style categorized mandatory media */}
+        {step === 4 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>Add photos and videos</Text>
+            <Text style={styles.stepSubtitle}>High-quality media gets more views.</Text>
+            <Text style={styles.mutedText}>Photo counts below are recommended, not required — add as many or as few as you have.</Text>
+            {requiredMediaCategories.map((cat) => {
+              const items = mediaItems.filter((m) => m.category === cat.slug);
+              const doneCount = items.filter((m) => m.status === 'done').length;
+              const satisfied = doneCount >= cat.minCount;
+              return (
+                <Accordion
+                  key={cat.slug}
+                  icon={cat.required && !satisfied ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+                  label={cat.required ? `${cat.label} (${doneCount}/${cat.minCount})` : `${cat.label}${items.length ? ` (${items.length})` : ''}`}
+                >
+                  <MediaCategoryGrid
+                    items={items}
+                    coverId={coverId ?? mediaItems[0]?.id}
+                    onRemove={removeMedia}
+                    onSetCover={setCoverId}
+                  />
+                  <Button variant="secondary" label="Add Photos" onPress={() => pickMedia(cat.slug)} />
+                </Accordion>
+              );
+            })}
+          </View>
         )}
-        <Button
-          label={isPending ? (editId ? 'Saving…' : 'Submitting…') : editId ? 'Save Changes' : 'Submit for Verification'}
-          size="sm"
-          onPress={handleSubmit}
-          disabled={isPending || quotaReached}
-        />
-      </View>
-    </ScrollView>
+
+        {/* DOCUMENTS — required for owners and independent agents (no
+            agency); an agency-affiliated agent still gets this step's pill,
+            but sees a pass-through note instead of the upload rows. */}
+        {step === 5 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>Ownership documents</Text>
+            <Text style={styles.stepSubtitle}>Verify you own or represent this property.</Text>
+            {documentsRequired ? (
+              <>
+                <Text style={styles.gateSubtitle}>
+                  Upload proof of ownership so our team can verify this listing. Both documents are required before
+                  you can submit.
+                </Text>
+                <DocumentUploadRow
+                  label="Ownership Document"
+                  uploaded={uploadedDocTypes.has('ownership_proof')}
+                  hasPendingFile={!!documentFiles.ownership_proof}
+                  isUploading={uploadingDocType === 'ownership_proof'}
+                  onPick={async (file) => {
+                    if (!editId) {
+                      setDocumentFiles((prev) => ({ ...prev, ownership_proof: file }));
+                      return;
+                    }
+                    setUploadingDocType('ownership_proof');
+                    try {
+                      await listingsRepository.uploadDocument(editId, 'ownership_proof', file);
+                      setUploadedDocTypes((prev) => new Set(prev).add('ownership_proof'));
+                      showToast('Ownership Document uploaded.');
+                    } catch {
+                      showToast('Upload failed — please try again.', 'error');
+                    } finally {
+                      setUploadingDocType(null);
+                    }
+                  }}
+                />
+                <DocumentUploadRow
+                  label="Utility Bill"
+                  uploaded={uploadedDocTypes.has('utility_bill')}
+                  hasPendingFile={!!documentFiles.utility_bill}
+                  isUploading={uploadingDocType === 'utility_bill'}
+                  onPick={async (file) => {
+                    if (!editId) {
+                      setDocumentFiles((prev) => ({ ...prev, utility_bill: file }));
+                      return;
+                    }
+                    setUploadingDocType('utility_bill');
+                    try {
+                      await listingsRepository.uploadDocument(editId, 'utility_bill', file);
+                      setUploadedDocTypes((prev) => new Set(prev).add('utility_bill'));
+                      showToast('Utility Bill uploaded.');
+                    } catch {
+                      showToast('Upload failed — please try again.', 'error');
+                    } finally {
+                      setUploadingDocType(null);
+                    }
+                  }}
+                />
+              </>
+            ) : (
+              <Text style={styles.mutedText}>
+                No documents required for your account — your agency's onboarding already covers this.
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* CONTACT */}
+        {step === 6 && (
+          <View style={styles.section}>
+            <Text style={styles.stepHeading}>How can buyers reach you?</Text>
+            <Text style={styles.stepSubtitle}>We'll only share this with serious inquiries.</Text>
+            <PhoneField label="Mobile" value={form.mobile} onChangeText={(v) => update_('mobile', v)} dialCode={form.mobileDialCode} onDialCodeChange={(v) => update_('mobileDialCode', v)} />
+            <PhoneField label="Landline" value={form.landline} onChangeText={(v) => update_('landline', v)} dialCode={form.landlineDialCode} onDialCodeChange={(v) => update_('landlineDialCode', v)} />
+
+            {usage && role === 'agent' && !editId && (
+              <Text style={[styles.quotaText, quotaReached && styles.quotaTextReached]}>
+                {usage.used} of {usage.quota} listings used on your plan
+                {quotaReached && (
+                  <>
+                    {' '}
+                    — quota reached,{' '}
+                    <Text style={styles.quotaLink} onPress={() => navigation.navigate('Plan')}>
+                      upgrade your plan
+                    </Text>{' '}
+                    to publish more.
+                  </>
+                )}
+              </Text>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      <WizardFooter
+        onBack={goBack}
+        backDisabled={step === 0}
+        isLastStep={isLastStep}
+        onContinue={goNext}
+        continueDisabled={!canContinue(step)}
+        onSaveDraft={!editId ? handleSaveDraft : undefined}
+        saveDraftLabel={saveDraft.isPending ? 'Saving…' : 'Save as Draft'}
+        onSubmit={handleSubmit}
+        submitLabel={isPending ? (editId ? 'Saving…' : 'Submitting…') : editId ? 'Save Changes' : 'Submit for Verification'}
+        submitDisabled={isPending || quotaReached}
+      />
+    </View>
   );
 }
 
@@ -835,9 +942,12 @@ function DocumentUploadRow({
         {uploaded && <Text style={styles.docUploaded}>Uploaded</Text>}
         {!uploaded && hasPendingFile && <Text style={styles.docPending}>Selected — uploads when you submit</Text>}
       </View>
-      <Pressable style={styles.docUploadButton} onPress={handlePick} disabled={isUploading}>
-        <Text style={styles.docUploadButtonText}>{isUploading ? 'Uploading…' : done ? 'Replace' : 'Upload'}</Text>
-      </Pressable>
+      <Button
+        variant="dashed"
+        label={isUploading ? 'Uploading…' : done ? 'Replace' : 'Upload'}
+        onPress={handlePick}
+        disabled={isUploading}
+      />
     </View>
   );
 }
@@ -860,10 +970,10 @@ function PhoneField({
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.phoneRow}>
         <View style={styles.countryCodeWrapper}>
-          <CountryCodeField countries={COUNTRIES} value={dialCode} onChange={onDialCodeChange} />
+          <CountryCodeField countries={COUNTRIES} value={dialCode} onChange={onDialCodeChange} style={styles.pillOverride} />
         </View>
         <TextInput
-          style={styles.phoneInput}
+          style={[styles.phoneInput, styles.pillOverride]}
           value={value}
           maxLength={getMaxPhoneDigits(dialCode)}
           onChangeText={(text: string) => onChangeText(text.replace(/\D/g, '').slice(0, getMaxPhoneDigits(dialCode)))}
@@ -876,6 +986,16 @@ function PhoneField({
 }
 
 const styles = StyleSheet.create({
+  // Rounds the shared TextInput/PickerField's default theme.radius.sm
+  // (6px) corners up to a full pill, matching the rest of this wizard's
+  // Figma redesign (segmented control, category cards, buttons are all
+  // fully rounded already) — same escape hatch PostProjectScreen/
+  // ProfileSettingsScreen use rather than changing the shared default.
+  pillOverride: { borderRadius: 999 },
+  // Multiline (Description) stays a rounded rectangle, not a stadium — a
+  // fully-rounded pill on a multi-line box reads oddly once it's tall.
+  pillOverrideMultiline: { borderRadius: 16 },
+
   gateContainer: {
     flex: 1,
     backgroundColor: theme.colors.bg,
@@ -885,14 +1005,33 @@ const styles = StyleSheet.create({
   },
   gateTitle: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
   gateSubtitle: { fontSize: 14, color: theme.colors.muted, marginBottom: 8 },
+
+  // --- Step wizard chrome ---
+  wizardRoot: { flex: 1, backgroundColor: theme.colors.bg },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
+  // Balances BackButton's width so the title stays visually centered.
+  headerSpacer: { width: 40 },
+  headerDivider: { height: 1, backgroundColor: theme.colors.figma.border },
+  stepperWrap: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 4 },
+  stepHeading: { fontSize: 20, fontWeight: '800', color: theme.colors.text },
+  stepSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 2, marginBottom: 4 },
+
   root: {
     flex: 1,
     backgroundColor: theme.colors.bg
   },
-  content: { 
-    paddingHorizontal: 24, 
-    paddingTop: 24, 
-    paddingBottom: 60 
+  content: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32
   },
   section: {
     gap: 16,
@@ -934,16 +1073,7 @@ const styles = StyleSheet.create({
   },
   docUploaded: { fontSize: 12, color: theme.colors.primary, marginTop: 2 },
   docPending: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
-  docUploadButton: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.inputBorder,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  docUploadButtonText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
-  mutedText: { 
+  mutedText: {
     fontSize: 13, 
     fontWeight: '500',
     color: theme.colors.mutedLight,
@@ -982,12 +1112,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // --- REFINED: Modern Property Type Chips ---
-  chipRow: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: 10, 
-    marginTop: 12 
+  // --- Subtype pills — flat border+tint selection (no gradient ring),
+  // matching the Figma reference's flatter look. ---
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12
   },
   chip: {
     backgroundColor: theme.colors.bg,
@@ -997,15 +1128,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  chipGradientBorder: {
-    borderRadius: 24,
-    padding: 1.07,
-  },
-  chipInner: {
-    backgroundColor: theme.colors.bg,
-    borderRadius: 22.93,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  chipActive: {
+    borderColor: theme.colors.figma.primary,
+    borderWidth: 1.5,
+    backgroundColor: '#EAF5F0',
   },
   chipText: {
     fontSize: 14,
@@ -1013,8 +1139,28 @@ const styles = StyleSheet.create({
     color: theme.colors.muted
   },
   chipTextActive: {
-    color: theme.colors.primary,
+    color: theme.colors.figma.primary,
   },
+
+  // --- Property Type — 3 square icon cards ---
+  categoryCardRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  categoryCard: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: theme.colors.figma.border,
+    backgroundColor: theme.colors.figma.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  categoryCardActive: {
+    borderColor: theme.colors.figma.primary,
+    backgroundColor: '#EAF5F0',
+  },
+  categoryCardText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  categoryCardTextActive: { color: theme.colors.figma.primary },
 
   // Layout Grids
   row2: { 
@@ -1035,26 +1181,6 @@ const styles = StyleSheet.create({
   conditionalGroup: {
     gap: 16,
     marginTop: 8,
-  },
-
-  // Gold Gradient Buttons
-  goldButton: {
-    borderRadius: 999,
-    minHeight: 38,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: theme.gradients.gold.colors[1],
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-    marginTop: 8,
-  },
-  goldButtonText: {
-    color: theme.colors.bg,
-    fontWeight: '700',
-    fontSize: 15,
   },
 
   // Media Grid
@@ -1126,10 +1252,4 @@ const styles = StyleSheet.create({
   quotaText: { marginTop: 16, fontSize: 12, fontWeight: '500', color: theme.colors.muted, textAlign: 'center' },
   quotaTextReached: { color: theme.colors.danger },
   quotaLink: { fontWeight: '700', textDecorationLine: 'underline' },
-
-  // Main Submit
-  submitContainer: {
-    marginTop: 32,
-    gap: 12,
-  },
 });

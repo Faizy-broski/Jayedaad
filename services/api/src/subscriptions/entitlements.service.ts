@@ -119,10 +119,15 @@ export class EntitlementsService {
   async getProjectUsage(agentId: string, userId: string): Promise<{ used: number; quota: number }> {
     const [entitlements, { count, error }] = await Promise.all([
       this.getEntitlements(agentId),
+      // Mirrors getListingUsage's .neq('status', 'draft') above — the quota
+      // is a publish limit, so a saved-but-unpublished draft shouldn't eat
+      // into it (create() now exempts drafts from the check that writes
+      // these rows; this keeps the displayed usage consistent with that).
       this.supabase.client
         .from('projects')
         .select('id', { count: 'exact', head: true })
-        .eq('created_by', userId),
+        .eq('created_by', userId)
+        .neq('status', 'draft'),
     ]);
     if (error) throw error;
     return { used: count ?? 0, quota: entitlements.projectQuota };

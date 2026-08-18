@@ -15,6 +15,18 @@ import {
 } from '@jayedaad/core';
 import { Button, Card, CardContent, CountryCodeField, PickerField, theme, useToast } from '@jayedaad/ui-native';
 import { PlacesAutocompleteInput } from '../components/PlacesAutocompleteInput';
+import { Ionicons } from '@expo/vector-icons';
+
+// FIGMA COLORS
+const FIGMA_BG = '#F8FAFC';
+const FIGMA_CARD = '#FFFFFF';
+const FIGMA_PRIMARY = '#0F5A3E';
+const FIGMA_BORDER = '#E2E8F0';
+const FIGMA_LABEL = '#475569';
+const FIGMA_SECTION_TITLE = '#64748B';
+const FIGMA_MUTED = '#94A3B8';
+const FIGMA_DANGER_BG = '#FEE2E2';
+const FIGMA_DANGER_TEXT = '#EF4444';
 
 function parsePhone(stored: string | null | undefined): { dialCode: string; number: string } {
   if (!stored) return { dialCode: '92', number: '' };
@@ -29,33 +41,65 @@ function parsePhone(stored: string | null | undefined): { dialCode: string; numb
   return { dialCode: '92', number: stored.replace(/\D/g, '') };
 }
 
-const DESTRUCTIVE_COLOR = theme.colors.danger;
-
 export function ProfileSettingsScreen() {
   const { role } = useAuthViewModel();
   const isAgent = role === 'agent';
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Card style={styles.card}>
-        <CardContent style={styles.cardContent}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-
-          {isAgent ? <AgentProfileForm /> : <SelfProfileForm />}
-        </CardContent>
-      </Card>
+      {isAgent ? <AgentProfileForm /> : <SelfProfileForm />}
 
       {isAgent && <AgencyDetailsCard />}
 
       <Card style={[styles.card, styles.sectionSpacing]}>
         <CardContent style={styles.cardContent}>
-          <Text style={styles.sectionTitle}>General Settings</Text>
+          <Text style={styles.sectionTitle}>GENERAL SETTINGS</Text>
           <PreferencesFields />
         </CardContent>
       </Card>
 
       <DeleteAccountRow />
     </ScrollView>
+  );
+}
+
+function ProfileHeader({ 
+  profile, 
+  displayName, 
+  email, 
+  onPickPhoto, 
+  isUploading 
+}: { 
+  profile: any; 
+  displayName: string; 
+  email: string; 
+  onPickPhoto: () => void; 
+  isUploading: boolean;
+}) {
+  return (
+    <View style={styles.profileHeaderRow}>
+      <Pressable onPress={onPickPhoto} disabled={isUploading}>
+        <View style={styles.avatarContainer}>
+          {profile?.photoUrl ? (
+            <Image source={{ uri: profile.photoUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarPlaceholderText}>{(displayName || '?').charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
+          <View style={styles.cameraBadge}>
+            <Ionicons name="camera" size={12} color={FIGMA_CARD} />
+          </View>
+        </View>
+      </Pressable>
+      <View style={styles.headerInfo}>
+        <Text style={styles.headerName}>{displayName || 'User'}</Text>
+        <Text style={styles.headerEmail}>{email}</Text>
+        <Pressable onPress={onPickPhoto} disabled={isUploading}>
+          <Text style={styles.headerChangePhoto}>{isUploading ? 'Uploading...' : 'Change photo'}</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -134,57 +178,53 @@ function AgentProfileForm() {
 
   return (
     <>
-      <View style={styles.photoRow}>
-        {profile?.photoUrl ? (
-          <Image source={{ uri: profile.photoUrl }} style={styles.photoPreview} />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Text style={styles.photoPlaceholderText}>{(displayName || '?').charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
-        <Pressable 
-          style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]} 
-          onPress={handlePickPhoto} 
-          disabled={uploadPhoto.isPending}
-        >
-          <Text style={styles.photoButtonText}>{uploadPhoto.isPending ? 'Uploading…' : 'Browse and Upload'}</Text>
-        </Pressable>
-      </View>
-      {uploadPhoto.isError && <Text style={styles.error}>Upload failed — please try again.</Text>}
+      <ProfileHeader 
+        profile={profile} 
+        displayName={displayName} 
+        email={user?.email ?? ''} 
+        onPickPhoto={handlePickPhoto} 
+        isUploading={uploadPhoto.isPending} 
+      />
 
-      <Field label="Name" value={displayName} onChangeText={setDisplayName} />
-      <Field label="Email Address" value={user?.email ?? ''} disabled />
-      <PhoneField label="Mobile" value={phone} onChangeText={setPhone} dialCode={phoneDialCode} onDialCodeChange={setPhoneDialCode} />
-      <PhoneField
-        label="Landline"
-        value={landline}
-        onChangeText={setLandline}
-        dialCode={landlineDialCode}
-        onDialCodeChange={setLandlineDialCode}
-      />
-      <PhoneField
-        label="Whatsapp"
-        value={whatsapp}
-        onChangeText={setWhatsapp}
-        dialCode={whatsappDialCode}
-        onDialCodeChange={setWhatsappDialCode}
-      />
-      <View style={styles.field}>
-        <Text style={styles.fieldLabel}>City</Text>
-        <PickerField value={city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={setCity} />
-      </View>
-      <PlacesAutocompleteInput label="Address" value={address} onChange={setAddress} />
-      <View style={styles.buttonContainer}>
-        <Button label={updateProfile.isPending ? 'Updating…' : 'Update Profile'} onPress={handleSave} disabled={updateProfile.isPending} />
-      </View>
+      <Card style={styles.card}>
+        <CardContent style={styles.cardContent}>
+          <Text style={styles.sectionTitle}>PERSONAL INFORMATION</Text>
+          <Field label="Name" value={displayName} onChangeText={setDisplayName} />
+          <Field label="Email Address" value={user?.email ?? ''} disabled />
+          <PhoneField label="Mobile" value={phone} onChangeText={setPhone} dialCode={phoneDialCode} onDialCodeChange={setPhoneDialCode} />
+          <PhoneField
+            label="Landline"
+            value={landline}
+            onChangeText={setLandline}
+            dialCode={landlineDialCode}
+            onDialCodeChange={setLandlineDialCode}
+          />
+          <PhoneField
+            label="WhatsApp"
+            value={whatsapp}
+            onChangeText={setWhatsapp}
+            dialCode={whatsappDialCode}
+            onDialCodeChange={setWhatsappDialCode}
+          />
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>City</Text>
+            <PickerField value={city} options={PAKISTAN_CITIES} placeholder="Select City" title="Select City" onChange={setCity} style={styles.pillOverride} />
+          </View>
+          <PlacesAutocompleteInput label="Address" value={address} onChange={setAddress} style={styles.pillOverride} inputStyle={styles.pillOverride} />
+          <View style={styles.buttonContainer}>
+            <Button 
+              label={updateProfile.isPending ? 'Updating…' : 'Update Profile'} 
+              onPress={handleSave} 
+              disabled={updateProfile.isPending} 
+              style={styles.primaryButton}
+            />
+          </View>
+        </CardContent>
+      </Card>
     </>
   );
 }
 
-// Previously agency name/city/phone were write-once, set at registerAgency()
-// during signup with no read or edit path anywhere afterward. Only rendered
-// for agent-role users; a no-op internally (query disabled) if they don't
-// belong to an agency at all.
 function AgencyDetailsCard() {
   const { agency, isLoading, isAgencyAdmin, update } = useMyAgencyViewModel();
   const { showToast } = useToast();
@@ -218,7 +258,7 @@ function AgencyDetailsCard() {
   return (
     <Card style={[styles.card, styles.sectionSpacing]}>
       <CardContent style={styles.cardContent}>
-        <Text style={styles.sectionTitle}>Agency Details</Text>
+        <Text style={styles.sectionTitle}>AGENCY DETAILS</Text>
         {isLoading ? (
           <Text style={styles.muted}>Loading…</Text>
         ) : (
@@ -235,13 +275,19 @@ function AgencyDetailsCard() {
                 title="Select City"
                 disabled={!isAgencyAdmin}
                 onChange={setCity}
+                style={styles.pillOverride}
               />
             </View>
-            <PlacesAutocompleteInput label="Address" value={address} onChange={setAddress} editable={isAgencyAdmin} />
+            <PlacesAutocompleteInput label="Address" value={address} onChange={setAddress} editable={isAgencyAdmin} style={styles.pillOverride} inputStyle={styles.pillOverride} />
             <Field label="Description" value={description} onChangeText={setDescription} disabled={!isAgencyAdmin} />
             {isAgencyAdmin && (
               <View style={styles.buttonContainer}>
-                <Button label={update.isPending ? 'Updating…' : 'Update Agency'} onPress={handleSave} disabled={update.isPending} />
+                <Button 
+                  label={update.isPending ? 'Updating…' : 'Update Agency'} 
+                  onPress={handleSave} 
+                  disabled={update.isPending} 
+                  style={styles.primaryButton}
+                />
               </View>
             )}
           </>
@@ -259,9 +305,6 @@ function SelfProfileForm() {
   const [phone, setPhone] = useState('');
   const [phoneDialCode, setPhoneDialCode] = useState('92');
 
-  // Previously this form had no read path at all — phone (already saved
-  // correctly at signup) never appeared here, only whatever the user
-  // typed into this session. Mirrors AgentProfileForm's prefill effect.
   useEffect(() => {
     if (!profile) return;
     const parsedPhone = parsePhone(profile.phone);
@@ -311,34 +354,30 @@ function SelfProfileForm() {
 
   return (
     <>
-      <View style={styles.photoRow}>
-        {profile?.photoUrl ? (
-          <Image source={{ uri: profile.photoUrl }} style={styles.photoPreview} />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Text style={styles.photoPlaceholderText}>{(displayName || '?').charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
-        <Pressable
-          style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
-          onPress={handlePickPhoto}
-          disabled={uploadPhoto.isPending}
-        >
-          <Text style={styles.photoButtonText}>{uploadPhoto.isPending ? 'Uploading…' : 'Browse and Upload'}</Text>
-        </Pressable>
-      </View>
-      {uploadPhoto.isError && <Text style={styles.error}>Upload failed — please try again.</Text>}
+      <ProfileHeader 
+        profile={profile} 
+        displayName={displayName} 
+        email={user?.email ?? ''} 
+        onPickPhoto={handlePickPhoto} 
+        isUploading={uploadPhoto.isPending} 
+      />
 
-      <Field label="Name" value={displayName} onChangeText={setDisplayName} />
-      <Field label="Email Address" value={user?.email ?? ''} disabled />
-      <PhoneField label="Mobile" value={phone} onChangeText={setPhone} dialCode={phoneDialCode} onDialCodeChange={setPhoneDialCode} />
-      <View style={styles.buttonContainer}>
-        <Button
-          label={updateProfile.isPending ? 'Updating…' : 'Update Profile'}
-          onPress={handleSave}
-          disabled={updateProfile.isPending}
-        />
-      </View>
+      <Card style={styles.card}>
+        <CardContent style={styles.cardContent}>
+          <Text style={styles.sectionTitle}>PERSONAL INFORMATION</Text>
+          <Field label="Name" value={displayName} onChangeText={setDisplayName} />
+          <Field label="Email Address" value={user?.email ?? ''} disabled />
+          <PhoneField label="Mobile" value={phone} onChangeText={setPhone} dialCode={phoneDialCode} onDialCodeChange={setPhoneDialCode} />
+          <View style={styles.buttonContainer}>
+            <Button
+              label={updateProfile.isPending ? 'Updating…' : 'Update Profile'}
+              onPress={handleSave}
+              disabled={updateProfile.isPending}
+              style={styles.primaryButton}
+            />
+          </View>
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -361,8 +400,6 @@ function PreferencesFields() {
     );
   }
 
-  // Mirrors saveAreaUnit exactly — previously the only "picker" here was a
-  // disabled, hardcoded "Pakistan (PKR)" field with no onPress at all.
   function saveCurrency(label: string) {
     const currency = CURRENCY_OPTIONS.find((c) => c.label === label);
     if (!currency) return;
@@ -389,6 +426,7 @@ function PreferencesFields() {
           options={CURRENCY_OPTIONS.map((c) => c.label)}
           title="Currency"
           onChange={saveCurrency}
+          style={styles.pillOverride}
         />
       </View>
       <View style={styles.field}>
@@ -398,6 +436,7 @@ function PreferencesFields() {
           options={AREA_UNIT_OPTIONS.map((u) => u.label)}
           title="Area Unit"
           onChange={saveAreaUnit}
+          style={styles.pillOverride}
         />
       </View>
       <Field label="Language" value="English" disabled />
@@ -429,17 +468,16 @@ function DeleteAccountRow() {
   }
 
   return (
-    <Card style={[styles.card, styles.sectionSpacing, styles.deleteCard]}>
-      <CardContent style={styles.deleteContent}>
-        <Pressable 
-          style={({ pressed }) => [styles.deleteRow, pressed && styles.deleteRowPressed]} 
-          onPress={handleDelete} 
-          disabled={deleteAccount.isPending}
-        >
-          <Text style={styles.deleteText}>{deleteAccount.isPending ? 'Deleting…' : 'Delete Account'}</Text>
-        </Pressable>
-      </CardContent>
-    </Card>
+    <View style={styles.deleteSection}>
+      <Pressable 
+        style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]} 
+        onPress={handleDelete} 
+        disabled={deleteAccount.isPending}
+      >
+        <Text style={styles.deleteButtonText}>{deleteAccount.isPending ? 'Deleting…' : 'Delete Account'}</Text>
+      </Pressable>
+      <Text style={styles.deleteDisclaimer}>This will permanently remove your account and data.</Text>
+    </View>
   );
 }
 
@@ -488,7 +526,12 @@ function PhoneField({
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.phoneRow}>
         <View style={styles.countryCodeWrapper}>
-          <CountryCodeField countries={COUNTRIES} value={dialCode} onChange={onDialCodeChange} />
+          <CountryCodeField 
+            countries={COUNTRIES} 
+            value={dialCode} 
+            onChange={onDialCodeChange}
+            style={styles.countryCodeHiddenBorders}
+          />
         </View>
         <RNTextInput
           style={[styles.input, styles.phoneInput]}
@@ -497,7 +540,7 @@ function PhoneField({
           onChangeText={(text) => onChangeText(text.replace(/\D/g, '').slice(0, getMaxPhoneDigits(dialCode)))}
           keyboardType="number-pad"
           placeholder="3XXXXXXXXX"
-          placeholderTextColor={theme.colors.mutedLight}
+          placeholderTextColor={FIGMA_MUTED}
         />
       </View>
     </View>
@@ -507,21 +550,89 @@ function PhoneField({
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
-    backgroundColor: theme.colors.bg 
+    backgroundColor: FIGMA_BG 
   },
   content: { 
-    padding: 16, 
+    padding: 20, 
     paddingBottom: 40 
   },
-  card: {
+  
+  // Header / Avatar Styles
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  avatarContainer: {
+    position: 'relative',
+    width: 68,
+    height: 68,
+  },
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  avatarPlaceholder: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: FIGMA_PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPlaceholderText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: FIGMA_CARD,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: FIGMA_PRIMARY,
+    width: 24,
+    height: 24,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: FIGMA_CARD,
+  },
+  headerInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  headerName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  headerEmail: {
+    fontSize: 13,
+    color: FIGMA_LABEL,
+    marginBottom: 2,
+  },
+  headerChangePhoto: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: FIGMA_PRIMARY,
+  },
+
+  // Card Styles
+  card: {
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.surfaceAlt,
-    backgroundColor: theme.colors.bg,
+    borderColor: '#F1F5F9', // Ultra light border to match modern aesthetics
+    backgroundColor: FIGMA_CARD,
     shadowColor: '#000',
     shadowOpacity: 0.02,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 1,
   },
   cardContent: { 
@@ -532,104 +643,73 @@ const styles = StyleSheet.create({
     marginTop: 20 
   },
   sectionTitle: { 
-    fontSize: 12, 
+    fontSize: 11, 
     fontWeight: '700', 
-    color: theme.colors.muted, 
+    color: FIGMA_SECTION_TITLE, 
     letterSpacing: 0.8, 
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   muted: { 
     fontSize: 14, 
-    color: theme.colors.muted 
-  },
-  
-  // Photo Upload Row
-  photoRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 16,
-    marginBottom: 8,
-  },
-  photoPreview: { 
-    width: 64, 
-    height: 64, 
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  photoPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  photoPlaceholderText: { 
-    fontSize: 22, 
-    fontWeight: '700', 
-    color: theme.colors.mutedLight 
-  },
-  photoButton: {
-    flex: 1,
-    height: 48,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.border,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
-  },
-  photoButtonPressed: {
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  photoButtonText: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: theme.colors.muted 
-  },
-  error: { 
-    fontSize: 13, 
-    color: DESTRUCTIVE_COLOR, 
-    marginTop: -8 
+    color: FIGMA_MUTED 
   },
 
   // Form Fields
   field: { 
-    gap: 8 
+    gap: 6 
   },
   fieldLabel: { 
-    fontSize: 13, 
+    fontSize: 12, 
     fontWeight: '500',
-    color: theme.colors.muted 
+    color: FIGMA_LABEL 
   },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.radius.sm,
+    borderColor: FIGMA_BORDER,
+    borderRadius: 92, // Fully rounded pill shape
     paddingHorizontal: 16,
-    paddingVertical: theme.spacing.sm,
-    fontSize: 15,
+    paddingVertical: 12,
+    fontSize: 14,
     color: theme.colors.text,
-    backgroundColor: theme.colors.bg,
+    backgroundColor: FIGMA_CARD,
+    height: 48,
   },
   inputDisabled: { 
-    backgroundColor: theme.colors.surfaceAlt, 
-    color: theme.colors.muted,
-    borderColor: theme.colors.surfaceAlt,
+    backgroundColor: '#F8FAFC', 
+    color: FIGMA_MUTED,
+    borderColor: '#F1F5F9',
   },
   
+  // Custom Overrides for Third-party picker components to follow pill shape
+  pillOverride: {
+    borderRadius: 92,
+  },
+
   // Phone Fields
   phoneRow: { 
     flexDirection: 'row', 
     gap: 12,
   },
   countryCodeWrapper: {
-    width: 125, // Fixed width prevents the text from wrapping inside the picker
+    width: 100,
+    height: 48,
+    borderWidth: 1,
+    borderColor: FIGMA_BORDER,
+    borderRadius: 92, // Fully rounded pill shape
+    backgroundColor: FIGMA_CARD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Strips the field's own border/background so only the wrapper's single
+  // rounded outline shows, instead of two nested boxes.
+  countryCodeHiddenBorders: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    borderRadius: 92,
   },
   phoneInput: { 
     flex: 1 
@@ -638,28 +718,42 @@ const styles = StyleSheet.create({
   // Buttons
   buttonContainer: {
     marginTop: 8,
-    marginBottom: 16,
+    alignItems: 'center',
+  },
+  primaryButton: {
+    backgroundColor: FIGMA_PRIMARY,
+    borderRadius: 999,
+    width: 249,
+    height: 35,
+    justifyContent: 'center',
   },
   
-  // Delete Row
-  deleteCard: {
+  // Delete Section
+  deleteSection: {
+    marginTop: 32,
     marginBottom: 20,
+    alignItems: 'center',
+    gap: 12,
   },
-  deleteContent: {
-    padding: 0,
-  },
-  deleteRow: { 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  deleteRowPressed: {
-    backgroundColor: theme.colors.dangerBg, // Soft red background on press
+  deleteButton: {
+    backgroundColor: FIGMA_DANGER_BG,
     borderRadius: 999,
+    width: 249,
+    height: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  deleteText: { 
-    color: DESTRUCTIVE_COLOR, 
-    fontWeight: '700', 
-    fontSize: 15 
+  deleteButtonPressed: {
+    opacity: 0.8,
+  },
+  deleteButtonText: {
+    color: FIGMA_DANGER_TEXT,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  deleteDisclaimer: {
+    fontSize: 11,
+    color: FIGMA_MUTED,
+    textAlign: 'center',
   },
 });

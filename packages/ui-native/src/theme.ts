@@ -17,6 +17,18 @@ export const theme = {
     mutedLight: '#9CA3AF',
     danger: '#dc2626',
     dangerBg: '#FEF2F2',
+    // Newer Figma redesign pass's palette — was duplicated as local
+    // FIGMA_PRIMARY/FIGMA_BORDER/etc. constants in ListingDetailScreen.tsx
+    // and ProjectDetailScreen.tsx; promoted here so the post-listing/
+    // post-project step wizard (and any future screen in the same redesign)
+    // reads the same green instead of the slightly different
+    // theme.colors.primary (#0D634B).
+    figma: {
+      primary: '#0F5A3E',
+      surface: '#FFFFFF',
+      mutedBg: '#F5F7F7',
+      border: '#E5E7EB',
+    },
   },
   spacing: {
     xs: 4,

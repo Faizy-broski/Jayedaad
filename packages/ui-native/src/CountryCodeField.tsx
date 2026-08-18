@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from './theme';
 
@@ -17,6 +17,10 @@ export interface CountryCodeFieldProps {
   // screens, sitting beside a pill-variant phone TextInput). Omit for the
   // existing bordered-rectangle default everywhere else.
   variant?: 'default' | 'pill';
+  // Overrides the trigger's own box (border/background/radius) so it can be
+  // dropped, borderless, into a caller-drawn container instead of drawing
+  // its own nested border.
+  style?: StyleProp<ViewStyle>;
 }
 
 // Same regional-indicator-emoji trick as ui-web's CountryCodeSelect — no
@@ -30,7 +34,7 @@ function flagEmoji(iso2: string): string {
 // RN has no native <select>; this is the flag+abbreviation+dial-code
 // equivalent of ui-web's CountryCodeSelect, using the same full-screen
 // searchable modal pattern as PickerField.
-export function CountryCodeField({ countries, value, onChange, variant = 'default' }: CountryCodeFieldProps) {
+export function CountryCodeField({ countries, value, onChange, variant = 'default', style }: CountryCodeFieldProps) {
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -51,7 +55,7 @@ export function CountryCodeField({ countries, value, onChange, variant = 'defaul
 
   return (
     <>
-      <Pressable style={[styles.trigger, variant === 'pill' && styles.triggerPill]} onPress={() => setVisible(true)}>
+      <Pressable style={[styles.trigger, variant === 'pill' && styles.triggerPill, style]} onPress={() => setVisible(true)}>
         <Text style={styles.triggerText} numberOfLines={1} adjustsFontSizeToFit>
           {flagEmoji(selected.iso2)} {selected.iso2} +{selected.dialCode}
         </Text>

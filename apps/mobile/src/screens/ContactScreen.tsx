@@ -1,10 +1,9 @@
 import { memo, useState } from 'react';
-import { ScrollView, Text, TextInput as RNTextInput, TextInputProps, View, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, Text, TextInput as RNTextInput, TextInputProps, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { COUNTRIES, getMaxPhoneDigits, useContactViewModel } from '@jayedaad/core';
-import { CountryCodeField, theme, useToast } from '@jayedaad/ui-native';
+import { Button, CountryCodeField, theme, useToast } from '@jayedaad/ui-native';
 
 export const ContactScreen = memo(function ContactScreen() {
   const [name, setName] = useState('');
@@ -109,16 +108,13 @@ export const ContactScreen = memo(function ContactScreen() {
           />
 
           {/* Premium Gold Action Button */}
-          <Pressable disabled={submit.isPending} onPress={handleSend} style={styles.submitButtonWrapper}>
-            <LinearGradient
-              colors={theme.gradients.gold.colors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.goldButton}
-            >
-              <Text style={styles.goldButtonText}>{submit.isPending ? 'Sending…' : 'Send Your Question'}</Text>
-            </LinearGradient>
-          </Pressable>
+          <Button
+            variant="secondary"
+            label={submit.isPending ? 'Sending…' : 'Send Your Question'}
+            disabled={submit.isPending}
+            onPress={handleSend}
+            style={styles.submitButtonWrapper}
+          />
         </View>
 
       </ScrollView>
@@ -240,17 +236,5 @@ const styles = StyleSheet.create({
   // Premium Button
   submitButtonWrapper: {
     marginTop: 12,
-  },
-  goldButton: {
-    borderRadius: 999,
-    minHeight: 48,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goldButtonText: {
-    color: theme.colors.bg,
-    fontWeight: '700',
-    fontSize: 15,
   },
 });

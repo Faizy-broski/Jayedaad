@@ -64,18 +64,18 @@ export function MyPropertiesScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Clean Header Area */}
+      {/* Clean Header Area — Tabs and "Add Property" share one row. The
+          shared Button is a fixed 249px pill that doesn't fit beside the
+          Tabs, so this is a smaller, purpose-built pill (icon + real label,
+          not a bare unlabeled "+") sized to sit next to them instead of
+          claiming its own full-width row. */}
       <View style={styles.headerRow}>
         <Tabs tabs={TOP_TABS} activeId={topTab} onChange={(id) => setTopTab(id as TopTab)} />
-        {/* Previously the only way to add a property was EmptyState's "Post
-            an Ad" button, which only renders once a tab/filter combo has
-            zero results — anyone with existing listings had no way to add
-            another one from this screen at all. That was a bare unlabeled
-            "+" circle next to a "Select" label that did nothing — replaced
-            with one real, legible button. */}
-        <Pressable style={styles.addButton} onPress={addProperty}>
+        <Pressable style={styles.addPropertyBtn} onPress={addProperty}>
           <Ionicons name="add" size={16} color={theme.colors.bg} />
-          <Text style={styles.addButtonText}>Add Property</Text>
+          <Text style={styles.addPropertyBtnText} numberOfLines={1}>
+            Add Property
+          </Text>
         </Pressable>
       </View>
 
@@ -684,21 +684,22 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
-  addButton: {
+  addPropertyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: theme.colors.primary,
     borderRadius: 999,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: theme.colors.primary,
+    paddingVertical: 9,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  addButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.bg,
-  },
-  
+  addPropertyBtnText: { color: theme.colors.bg, fontWeight: '700', fontSize: 13 },
+
   // Search bar + filter icon, side by side — same pattern as
   // BuyerSearchScreen.tsx's own searchRow/searchFilterIconButton.
   searchRow: {

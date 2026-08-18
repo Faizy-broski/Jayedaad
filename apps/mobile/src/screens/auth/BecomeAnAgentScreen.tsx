@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView, ScrollView, Text, View, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { agenciesRepository, OnboardingDocumentType, useAgentProfileViewModel, useOwnerVerificationViewModel } from '@jayedaad/core';
 import { Button, theme, useToast } from '@jayedaad/ui-native';
@@ -177,9 +177,7 @@ function DocumentRow({
         <Text style={styles.rowLabel}>{label}</Text>
         {uploaded && <Text style={styles.rowUploaded}>Uploaded</Text>}
       </View>
-      <Pressable style={styles.uploadButton} onPress={handleUpload} disabled={isUploading}>
-        <Text style={styles.uploadButtonText}>{isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}</Text>
-      </Pressable>
+      <Button variant="dashed" label={isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'} onPress={handleUpload} disabled={isUploading} />
     </View>
   );
 }
@@ -202,13 +200,4 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 14, fontWeight: '600', color: theme.colors.text },
   rowUploaded: { fontSize: 12, color: theme.colors.primary, marginTop: 2 },
-  uploadButton: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.inputBorder,
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  uploadButtonText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
 });

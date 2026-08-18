@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { OwnerIdentityDocumentType, useOwnerVerificationViewModel } from '@jayedaad/core';
-import { theme, useToast } from '@jayedaad/ui-native';
+import { Button, theme, useToast } from '@jayedaad/ui-native';
 
 const DOCUMENT_TYPES: { type: OwnerIdentityDocumentType; label: string; useCamera?: boolean }[] = [
   { type: 'cnic_front', label: 'CNIC (Front)' },
@@ -138,9 +138,7 @@ function DocumentRow({
         <Text style={styles.rowLabel}>{label}</Text>
         {uploaded && <Text style={styles.rowUploaded}>Uploaded</Text>}
       </View>
-      <Pressable style={styles.uploadButton} onPress={handlePress} disabled={isUploading}>
-        <Text style={styles.uploadButtonText}>{isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'}</Text>
-      </Pressable>
+      <Button variant="dashed" label={isUploading ? 'Uploading…' : uploaded ? 'Replace' : 'Upload'} onPress={handlePress} disabled={isUploading} />
     </View>
   );
 }
@@ -161,13 +159,4 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 14, fontWeight: '600', color: theme.colors.text },
   rowUploaded: { fontSize: 12, color: theme.colors.primary, marginTop: 2 },
-  uploadButton: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.inputBorder,
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  uploadButtonText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
 });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, View, Pressable, RefreshControl, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -52,11 +53,15 @@ export function FavoritesScreen() {
           {TABS.map((t) => {
             const isActive = tab === t.id;
             return (
-              <Pressable
-                key={t.id}
-                onPress={() => setTab(t.id as TabId)}
-                style={[styles.segmentTab, isActive && styles.segmentTabActive]}
-              >
+              <Pressable key={t.id} onPress={() => setTab(t.id as TabId)} style={styles.segmentTab}>
+                {isActive && (
+                  <LinearGradient
+                    colors={theme.gradients.primary.colors}
+                    start={theme.gradients.primary.start}
+                    end={theme.gradients.primary.end}
+                    style={styles.segmentTabActiveFill}
+                  />
+                )}
                 <Text style={[styles.segmentTabText, isActive && styles.segmentTabTextActive]}>{t.label}</Text>
               </Pressable>
             );
@@ -117,6 +122,20 @@ function FavoritesTab() {
             }
           >
             <View style={styles.cardContent}>
+              {item ? (
+                <LinearGradient
+                  colors={theme.gradients.primary.colors}
+                  start={theme.gradients.primary.start}
+                  end={theme.gradients.primary.end}
+                  style={styles.cardIcon}
+                >
+                  <Ionicons name={isProject ? 'business' : 'home'} size={20} color="#ffffff" />
+                </LinearGradient>
+              ) : (
+                <View style={[styles.cardIcon, styles.cardIconMuted]}>
+                  <Ionicons name="alert-circle-outline" size={20} color={theme.colors.mutedLight} />
+                </View>
+              )}
               <View style={styles.cardTextWrap}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item ? (isProject ? favorite.project!.name : favorite.listing!.title) : 'No longer available'}
@@ -127,7 +146,9 @@ function FavoritesTab() {
                       {item.area}, {item.city}
                     </Text>
                     {!isProject && (
-                      <Text style={styles.cardPrice}>{formatPrice(Number(favorite.listing!.price))}</Text>
+                      <View style={styles.priceChip}>
+                        <Text style={styles.cardPrice}>{formatPrice(Number(favorite.listing!.price))}</Text>
+                      </View>
                     )}
                   </>
                 )}
@@ -190,6 +211,14 @@ function SavedSearchesTab() {
       {savedSearches.map((search) => (
         <View key={search.id} style={styles.card}>
           <View style={styles.cardContent}>
+            <LinearGradient
+              colors={theme.gradients.primary.colors}
+              start={theme.gradients.primary.start}
+              end={theme.gradients.primary.end}
+              style={styles.cardIcon}
+            >
+              <Ionicons name="search" size={20} color="#ffffff" />
+            </LinearGradient>
             <View style={styles.cardTextWrap}>
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {search.name ?? 'Saved search'}
@@ -231,9 +260,14 @@ function EmptyState({
 }) {
   return (
     <View style={styles.empty}>
-      <View style={styles.emptyIconCircle}>
-        <Ionicons name={icon} size={42} color={theme.colors.primary} />
-      </View>
+      <LinearGradient
+        colors={theme.gradients.primary.colors}
+        start={theme.gradients.primary.start}
+        end={theme.gradients.primary.end}
+        style={styles.emptyIconCircle}
+      >
+        <Ionicons name={icon} size={42} color="#ffffff" />
+      </LinearGradient>
       <Text style={styles.emptyHeading}>{heading}</Text>
       <Text style={styles.emptyMessage}>{message}</Text>
       <View style={styles.emptyButtonWrapper}>
@@ -286,12 +320,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderRadius: 999,
+    overflow: 'hidden',
   },
-  segmentTabActive: {
-    backgroundColor: theme.colors.primary,
+  // Gradient fill absolutely behind the label, rather than the label sitting
+  // inside a flat-colored Pressable — matches Button's brand gradient
+  // instead of the plain solid theme.colors.primary this used before.
+  segmentTabActiveFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
     shadowColor: theme.colors.primary,
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
@@ -328,12 +367,14 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceAlt,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   emptyHeading: {
     fontSize: 18,
@@ -374,11 +415,23 @@ const styles = StyleSheet.create({
   cardContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    gap: 12,
+  },
+  // Brand-gradient icon avatar per row — the previous card was plain title/
+  // subtitle text on white with no color beyond the price and heart icon,
+  // which read as bare and generic rather than branded.
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardIconMuted: {
+    backgroundColor: theme.colors.surfaceAlt,
   },
   cardTextWrap: {
     flex: 1,
-    paddingRight: 16,
   },
   cardTitle: {
     fontSize: 16,
@@ -392,17 +445,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 8,
   },
+  // Soft brand-tinted pill instead of bare bold text — gives the price a
+  // visual anchor consistent with the rest of the branded refresh.
+  priceChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E6F2ED',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
   cardPrice: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: theme.colors.primary,
   },
 
-  // Specific styling for Saved Searches badge
+  // Specific styling for Saved Searches badge — brand-tinted instead of
+  // neutral gray, matching the priceChip treatment.
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: '#E6F2ED',
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -413,7 +476,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.muted,
+    color: theme.colors.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

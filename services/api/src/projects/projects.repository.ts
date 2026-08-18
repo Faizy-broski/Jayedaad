@@ -484,7 +484,11 @@ export class ProjectsRepository {
     // check against, same as owner-submitted listings. Row-count is keyed
     // on creatorId (what `created_by` actually stores — see
     // EntitlementsService.getProjectUsage's comment), tier lookup on agentId.
-    if (creatorRole === 'agent' && agentId) {
+    // Drafts are exempt: the quota is a publish limit, not a "how many rows
+    // can exist" limit, and mobile's "Save as Draft" is offered regardless
+    // of quota state — it must not 403 an agent who's simply saving work in
+    // progress.
+    if (creatorRole === 'agent' && agentId && input.status !== 'draft') {
       const allowed = await this.entitlements.canCreateProject(agentId, creatorId);
       if (!allowed) {
         throw new ForbiddenException('Project quota reached for your current plan — upgrade or free up a slot.');
