@@ -61,6 +61,16 @@ export function AnimatedSplashScreen({ onContinue }: AnimatedSplashScreenProps) 
   const textOpacity = useRef(new Animated.Value(1)).current;
   const [slideIndex, setSlideIndex] = useState(0);
 
+  // Warms expo-image's cache for slides 2/3 as soon as this screen mounts,
+  // instead of only starting to fetch/decode each image the moment its
+  // slide becomes active. Without this, the first switch to a not-yet-
+  // decoded slide showed the watermark layer (already on screen, zIndex 1)
+  // over a still-blank photo layer for a beat before the image popped in —
+  // "logo, then image" instead of one clean crossfade.
+  useEffect(() => {
+    Image.prefetch(SLIDES.map((s) => s.image));
+  }, []);
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -99,12 +109,14 @@ export function AnimatedSplashScreen({ onContinue }: AnimatedSplashScreenProps) 
 
   return (
     <View style={styles.root}>
-      {/* 1. Full-bleed Background Image — crossfades with the text on the
-          same textOpacity value so the photo swap lands in the trough of
-          the transition instead of hard-cutting. */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: textOpacity }]}>
-        <Image source={slide.image} style={StyleSheet.absoluteFill} contentFit="cover" />
-      </Animated.View>
+      {/* 1. Full-bleed Background Image — expo-image's own `transition`
+          crossfades old→new source only once the new one has actually
+          decoded, so a not-yet-cached slide never shows as a blank flash
+          before popping in (see the prefetch effect above). Previously
+          wrapped in an Animated.View tied to textOpacity, which faded the
+          layer to visible on a fixed timer regardless of whether the image
+          itself was ready yet. */}
+      <Image source={slide.image} style={StyleSheet.absoluteFill} contentFit="cover" transition={CROSSFADE_MS} />
 
       {/* 2. Giant Watermark Logo Overlay */}
       <View style={styles.watermarkContainer} pointerEvents="none">
