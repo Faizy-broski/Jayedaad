@@ -14,9 +14,14 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('HomePage', () => {
-  it('renders the hero heading', () => {
+  // Hero.tsx has no text heading (h1/role="heading") any more — it's a
+  // wordmark image + tagline paragraph, and it renders BOTH a desktop and a
+  // mobile variant unconditionally (Tailwind's `hidden`/`lg:block` never
+  // actually hides anything in jsdom, since no stylesheet is applied), so
+  // this asserts on "at least one" wordmark image rather than a unique node.
+  it('renders the hero wordmark', () => {
     renderWithProviders(<HomePage />);
 
-    expect(screen.getByRole('heading', { name: /building trust in real estate/i })).toBeInTheDocument();
+    expect(screen.getAllByAltText('Jayedaad').length).toBeGreaterThan(0);
   });
 });

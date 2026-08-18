@@ -86,7 +86,7 @@ Route (app)                              Size     First Load JS
 ├ ○ /verification/settings               2.06 kB         332 kB
 └ ○ /verify-email                        2.86 kB         295 kB
 + First Load JS shared by all            162 kB
-  ├ chunks/1876-ec343511f0be1cc4.js      104 kB
+  ├ chunks/1876-626144fad6a316b3.js      104 kB
   ├ chunks/1e5c34dc-6d130bfc659b04c6.js  53.8 kB
   └ other shared chunks (total)          3.38 kB
 
