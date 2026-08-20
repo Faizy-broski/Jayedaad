@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import { FavoriteButton } from './ListingContactActions';
+import { VerifiedBadgeIcon } from './VerifiedBadgeIcon';
 
 export interface PropertyCardProps {
   listing: Listing;
@@ -42,7 +43,7 @@ export function PropertyCard({ listing, onPress, footer }: PropertyCardProps) {
         <View style={styles.topLeftBadgeStack}>
           {listing.status === 'verified' && (
             <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={12} color={theme.colors.primary} />
+              <VerifiedBadgeIcon size={12} />
               <Text style={styles.verifiedText}>Verified</Text>
             </View>
           )}

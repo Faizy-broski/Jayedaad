@@ -3,7 +3,8 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
-import { FavoriteButton } from './ListingContactActions';
+import { ContactActions, FavoriteButton } from './ListingContactActions';
+import { VerifiedBadgeIcon } from './VerifiedBadgeIcon';
 
 export interface PropertyListRowProps {
   listing: Listing;
@@ -22,6 +23,11 @@ export function PropertyListRow({ listing, onPress }: PropertyListRowProps) {
   const { format: formatPrice } = useFormattedPrice();
   const { format: formatArea } = useFormattedArea();
   const cover = listing.media.find((m) => m.isCover) ?? listing.media[0];
+  // Same spent-credit badges Home's PropertyCard.tsx (and now
+  // ProjectCard.tsx) already show — this row never surfaced them at all,
+  // so an agent's Hot/Super Hot/Story credit spend was invisible here.
+  const isBoosted = listing.boostTier === 'hot' || listing.boostTier === 'super_hot';
+  const hasActiveStory = !!listing.storyExpiresAt && new Date(listing.storyExpiresAt) > new Date();
 
   return (
     <Pressable style={styles.row} onPress={onPress}>
@@ -34,21 +40,48 @@ export function PropertyListRow({ listing, onPress }: PropertyListRowProps) {
           </View>
         )}
         {listing.status === 'verified' && (
+          // Opaque white backing behind the icon — it's a thin green
+          // outline glyph with no fill, so directly on a photo of unknown
+          // color it can disappear; a solid disc keeps it legible on any
+          // thumbnail, same reasoning the pre-icon-swap badge's colored
+          // circle background already covered.
           <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark" size={11} color={theme.colors.bg} />
+            <VerifiedBadgeIcon size={16} />
           </View>
         )}
       </View>
 
       <View style={styles.details}>
+        {(isBoosted || hasActiveStory) && (
+          // Labeled, not icon-only — and in the details column, not on the
+          // thumbnail: the 112px-wide thumbnail has no room next to the
+          // Verified badge for a full "Super Hot" text pill without
+          // clipping or overlapping it. Matches Home's PropertyCard.tsx
+          // wording exactly, same "TITANIUM/tier badges live in the text
+          // column, not on the photo" layout the real Zameen app uses.
+          <View style={styles.badgeRow}>
+            {isBoosted && (
+              <View style={styles.boostBadge}>
+                <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={10} color="#B45309" />
+                <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
+              </View>
+            )}
+            {hasActiveStory && (
+              <View style={styles.storyBadge}>
+                <Ionicons name="film-outline" size={10} color="#A21CAF" />
+                <Text style={styles.storyBadgeText}>Story</Text>
+              </View>
+            )}
+          </View>
+        )}
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
             {listing.title}
           </Text>
-          <FavoriteButton listing={listing} size={17} style={styles.favoriteButton} />
+          <FavoriteButton listing={listing} size={20} style={styles.favoriteButton} />
         </View>
         <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={12} color={theme.colors.muted} />
+          <Ionicons name="location-outline" size={13} color={theme.colors.muted} />
           <Text style={styles.location} numberOfLines={1}>
             {listing.area}
           </Text>
@@ -58,18 +91,28 @@ export function PropertyListRow({ listing, onPress }: PropertyListRowProps) {
           {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths ·{' '}
           {formatArea(Number(listing.areaValue), listing.areaUnit)}
         </Text>
+        {/* Real Call/WhatsApp/SMS row, confirmed on the live Zameen app's
+            own search results cards — small, inline with the rest of this
+            column rather than a separate full-width row under the photo.
+            Nested inside the same outer Pressable as FavoriteButton above;
+            RN's touch responder system gives each inner Pressable its own
+            tap, so this never triggers onPress (navigate to detail). */}
+        <ContactActions listing={listing} size="compact" />
       </View>
     </Pressable>
   );
 }
 
+// Row + thumbnail + text all bumped up a size from the original compact
+// dimensions — on a real phone width the old 84px thumbnail and 11-14px
+// text left most of the row as bare whitespace instead of content.
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: theme.spacing.md,
     backgroundColor: theme.colors.bg,
     borderRadius: theme.radius.md,
-    padding: theme.spacing.sm,
+    padding: theme.spacing.md,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -77,8 +120,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   thumbWrap: {
-    width: 84,
-    height: 84,
+    width: 112,
+    height: 112,
     borderRadius: theme.radius.sm,
     overflow: 'hidden',
     backgroundColor: theme.colors.surfaceAlt,
@@ -86,26 +129,45 @@ const styles = StyleSheet.create({
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
   verifiedBadge: {
     position: 'absolute',
-    top: 4,
-    left: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: theme.colors.primary,
+    top: 6,
+    left: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: theme.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.bg,
   },
-  details: { flex: 1, justifyContent: 'center', gap: 2 },
+  details: { flex: 1, justifyContent: 'center', gap: 4 },
+  badgeRow: { flexDirection: 'row', gap: 6, marginBottom: 2 },
+  boostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 3,
+  },
+  boostBadgeText: { fontSize: 10, fontWeight: '700', color: '#B45309' },
+  storyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAE8FF',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 3,
+  },
+  storyBadgeText: { fontSize: 10, fontWeight: '700', color: '#A21CAF' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
-  title: { flex: 1, fontSize: 14, fontWeight: '700', color: theme.colors.text },
+  title: { flex: 1, fontSize: 16, fontWeight: '700', color: theme.colors.text },
   // Overrides FavoriteButton's own 36x36 circular-chip default (built for
-  // floating over a photo) down to a plain small icon that fits inline next
-  // to the title in this compact row.
-  favoriteButton: { width: 22, height: 22, borderRadius: 0, backgroundColor: 'transparent' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  location: { fontSize: 11, color: theme.colors.muted, flexShrink: 1 },
-  price: { fontSize: 14, fontWeight: '800', color: theme.colors.primary, marginTop: 2 },
-  stats: { fontSize: 11, color: theme.colors.muted },
+  // floating over a photo) down to a plain icon that fits inline next
+  // to the title in this row.
+  favoriteButton: { width: 24, height: 24, borderRadius: 0, backgroundColor: 'transparent' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  location: { fontSize: 13, color: theme.colors.muted, flexShrink: 1 },
+  price: { fontSize: 17, fontWeight: '800', color: theme.colors.primary, marginTop: 2 },
+  stats: { fontSize: 12.5, color: theme.colors.muted },
 });

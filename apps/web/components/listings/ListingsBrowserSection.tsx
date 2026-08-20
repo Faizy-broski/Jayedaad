@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
-import { useTaxonomyViewModel, type AreaUnit, type ListingPurpose } from '@jayedaad/core';
+import { useTaxonomyViewModel, type AreaUnit, type ListingPosterType, type ListingPurpose } from '@jayedaad/core';
 import { ListingsBrowser } from './ListingsBrowser';
 import { DEFAULT_LISTING_FILTERS } from './PropertyFilters';
 
@@ -26,6 +26,9 @@ export function ListingsBrowserSection() {
   // its slug, so the Agency detail page passes it alongside agencySlug
   // purely for this badge; it plays no role in the actual filter/query.
   const agencyName = searchParams.get('agencyName') ?? '';
+  const posterTypeParam = searchParams.get('posterType');
+  const posterType: ListingPosterType | undefined =
+    posterTypeParam === 'owner' || posterTypeParam === 'agent' || posterTypeParam === 'agency' ? posterTypeParam : undefined;
 
   const { propertyTypes } = useTaxonomyViewModel();
   const categoryLabel = propertyTypes.find((t) => t.category?.slug === propertyTypeCategory)?.category?.label;
@@ -43,6 +46,7 @@ export function ListingsBrowserSection() {
     minAreaValue: searchParams.get('minAreaValue') ?? '',
     maxAreaValue: searchParams.get('maxAreaValue') ?? '',
     areaUnit: (searchParams.get('areaUnit') as AreaUnit) || DEFAULT_LISTING_FILTERS.areaUnit,
+    posterType: posterType ?? DEFAULT_LISTING_FILTERS.posterType,
   };
 
   // Clearing drops the agency scope too (back to the plain, sitewide

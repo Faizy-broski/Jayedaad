@@ -12,7 +12,12 @@ export interface ButtonProps extends PressableProps {
   // PostListingScreen), previously 4 near-duplicate hand-rolled copies —
   // kept separate from "outline" rather than reusing it, since "outline"'s
   // own comment above already flags it as visually distinct on purpose.
-  variant?: 'primary' | 'secondary' | 'outline' | 'dashed';
+  // "muted" — flat #F3F4F6 fill, no border/gradient: Login/Signup's
+  // Google/Apple buttons (previously "secondary"'s gold gradient, which
+  // reads as a branded primary CTA and clashes with third-party-auth
+  // convention — those are expected to look like a neutral, secondary
+  // action, not gold).
+  variant?: 'primary' | 'secondary' | 'outline' | 'dashed' | 'muted';
   // Every button is now a fixed 249x35 (see `base` below) regardless of
   // size — kept in the prop type purely so existing call sites passing
   // size="sm"/"lg" don't need touching, but it no longer affects
@@ -40,7 +45,7 @@ export interface ButtonProps extends PressableProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function Button({ label, variant = 'primary', size = 'md', icon, style, disabled, ...props }: ButtonProps) {
   const gradient = variant === 'secondary' ? theme.gradients.gold : theme.gradients.primary;
-  const isFlat = variant === 'outline' || variant === 'dashed';
+  const isFlat = variant === 'outline' || variant === 'dashed' || variant === 'muted';
 
   return (
     <Pressable
@@ -53,14 +58,14 @@ export function Button({ label, variant = 'primary', size = 'md', icon, style, d
       {...props}
     >
       {isFlat ? (
-        // No gradient at all — flat bordered/transparent fill. "outline"
-        // additionally flattens border/text color when disabled (e.g.
-        // "Back" on a wizard's first step) rather than just dimming like
-        // primary/secondary/dashed do.
+        // No gradient at all — flat bordered/transparent/filled-neutral
+        // surface. "outline" additionally flattens border/text color when
+        // disabled (e.g. "Back" on a wizard's first step) rather than just
+        // dimming like primary/secondary/dashed/muted do.
         <View
           style={[
             styles.surface,
-            variant === 'outline' ? styles.outline : styles.dashed,
+            variant === 'outline' ? styles.outline : variant === 'dashed' ? styles.dashed : styles.muted,
             variant === 'outline' && disabled && styles.outlineDisabled,
           ]}
         >
@@ -68,7 +73,7 @@ export function Button({ label, variant = 'primary', size = 'md', icon, style, d
             {icon}
             <Text
               style={[
-                variant === 'outline' ? styles.textOutline : styles.textDashed,
+                variant === 'outline' ? styles.textOutline : variant === 'dashed' ? styles.textDashed : styles.textMuted,
                 variant === 'outline' && disabled && styles.textOutlineDisabled,
               ]}
               numberOfLines={1}
@@ -92,14 +97,17 @@ export function Button({ label, variant = 'primary', size = 'md', icon, style, d
 }
 
 const styles = StyleSheet.create({
-  // Figma spec: every button is a fixed 249x35 pill. alignSelf:'center' so
+  // Figma spec: every button is a fixed 249-wide pill. alignSelf:'center' so
   // a button sitting in a full-width parent (nearly every existing CTA —
   // Login/Signup/HelpDesk/ContactScreen/etc. previously rendered full-bleed
   // via implicit flex stretch) centers itself instead of sticking flush-left
-  // next to full-width fields above it.
+  // next to full-width fields above it. Height is 48 (not the original
+  // 35) — 35 undershot both iOS's 44pt and Android's 48dp minimum touch
+  // target, and read as visibly thinner than the rest of the app's other
+  // hand-rolled buttons, which mostly already sit at 44-48.
   base: {
     width: 249,
-    height: 35,
+    height: 48,
     alignSelf: 'center',
     borderRadius: 999,
   },
@@ -157,5 +165,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: theme.colors.muted,
+  },
+  muted: {
+    backgroundColor: '#F3F4F6',
+  },
+  textMuted: {
+    color: theme.colors.text,
+    fontWeight: '600',
   },
 });

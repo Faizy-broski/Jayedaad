@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight, Flame, Sparkles, Clapperboard } from 'lucide-react';
+import { MapPin, Eye, Tag, Clock, Heart, ChevronRight, Flame, Sparkles, Clapperboard } from 'lucide-react';
 import { useFormattedPrice } from '@jayedaad/core';
 import { Reveal } from '@/components/Reveal';
+import { VerifiedBadgeIcon } from '@/components/icons/VerifiedBadgeIcon';
 import { TestimonialCard } from '@/components/landing/testimonials/TestimonialCards';
 import { PropertyGallery } from './PropertyGallery';
 import { AgentCard } from './AgentCard';
@@ -88,7 +89,7 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
             <div className="flex flex-wrap items-center gap-2">
               {listing.verified && (
                 <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  <BadgeCheck className="h-3 w-3" />
+                  <VerifiedBadgeIcon className="h-3 w-3" />
                   Verified
                 </span>
               )}
@@ -203,6 +204,7 @@ export function PropertyDetail({ listing, similar, images }: PropertyDetailProps
         >
           <AgentCard
             agent={listing.agent}
+            posterType={listing.posterType}
             listingId={listing.id}
             listingTitle={listing.title}
             referenceLabel={String(referenceNumber).padStart(5, '0')}

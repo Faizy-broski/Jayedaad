@@ -19,6 +19,7 @@ const AREA_UNITS = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'] as const;
 const FURNISHING_STATUSES = ['unfurnished', 'semi_furnished', 'furnished'] as const;
 const CONTACT_NUMBER_TYPES = ['mobile', 'landline'] as const;
 const LISTING_MEDIA_TYPES = ['image', 'video'] as const;
+export const LISTING_POSTER_TYPES = ['owner', 'agent', 'agency'] as const;
 
 // Confirmed real on the live Profolio "Post Listing" form (screenshot): a
 // repeatable "+"-add Mobile field plus a separate Landline field, each with
@@ -91,6 +92,16 @@ export class CreateListingDto {
 
   @IsIn(['sale', 'rent'])
   purpose!: 'sale' | 'rent';
+
+  // Explicit poster identity chosen at submission (Owner / Agent / Agency).
+  // Never trusted as-is — the controller/repository re-derive and validate
+  // it server-side against the requester's role/agency_id before it's ever
+  // written (see ListingsController.create() and
+  // ListingsRepository.create()); the DB trigger from the poster_type
+  // migration is the final backstop for any other write path.
+  @IsOptional()
+  @IsIn(LISTING_POSTER_TYPES)
+  posterType?: (typeof LISTING_POSTER_TYPES)[number];
 
   @IsString()
   title!: string;

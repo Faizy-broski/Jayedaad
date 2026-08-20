@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, PanResponder, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -90,6 +90,23 @@ export const HomeScreen = memo(function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
 
+  // Swipe-from-left-edge to open the drawer, same gesture users expect from
+  // SideDrawer's hamburger icon. Built on RN core's PanResponder rather than
+  // react-native-gesture-handler — SideDrawer.tsx already deliberately
+  // avoids that dependency (see its own comment), so this stays consistent.
+  // Capture-phase + a left-edge start + mostly-horizontal movement means it
+  // only steals the gesture from the ScrollView for this specific swipe,
+  // not normal vertical scrolling.
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
+        evt.nativeEvent.pageX < 24 && gestureState.dx > 12 && Math.abs(gestureState.dy) < 20,
+      onPanResponderRelease: (_evt, gestureState) => {
+        if (gestureState.dx > 60) setDrawerVisible(true);
+      },
+    }),
+  ).current;
+
   const {
     listings: featuredListings,
     isLoading: featuredLoading,
@@ -140,7 +157,7 @@ export const HomeScreen = memo(function HomeScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.root} edges={['left', 'right']}>
+    <SafeAreaView style={styles.root} edges={['left', 'right']} {...panResponder.panHandlers}>
       <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
       <ScrollView
         style={styles.scrollBody}
@@ -554,16 +571,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.bg },
   scrollBody: { flex: 1 },
   scrollContent: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
+  // Flat section wrapper — no background fill/border-radius/shadow of its
+  // own (that read as a big boxed "outline" behind each section on the
+  // home screen). Just spacing; the actual cards inside each section
+  // (category tiles, property cards) keep their own background/shadow/
+  // elevation untouched.
   sectionCard: {
-    backgroundColor: theme.colors.bg,
-    borderRadius: 20,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
   // alignItems:'center' here would shrink PremiumPromoCard to its content's
   // intrinsic width instead of stretching full-width (RN's flex default is
@@ -577,9 +592,18 @@ const styles = StyleSheet.create({
   // relative to all that green — same content, wrong proportions. This
   // margin brings the card back down near Figma's actual width so its
   // existing type scale fills it the way the design intends.
+  // marginTop added so the gap above the card is a real, explicit value
+  // instead of relying purely on the previous sectionCard's own
+  // paddingBottom — and marginBottom bumped past that same value (lg over
+  // md) to compensate for the card's own downward drop shadow
+  // (shadowOffset height:4 + shadowRadius:10), which visually eats into
+  // the gap below the card but not the gap above it. Without the bump, the
+  // shadow's blur made the space to the next section read noticeably
+  // tighter than the space above, even though the raw margins matched.
   premiumCardWrap: {
     marginHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -607,7 +631,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
-  headerLogo: { width: 108, height: 72 },
+  // hero-logo.webp is now cropped tight to the mark+wordmark with a
+  // transparent background (was a full-canvas asset with a large opaque
+  // white background, which rendered as a washed-out white patch over the
+  // hero photo instead of a floating logo) — its real aspect ratio is
+  // ~2.82:1, not the old asset's 1.5:1, so the box changes to match.
+  headerLogo: { width: 136, height: 48 },
   headerTopIcons: { flexDirection: 'row', gap: theme.spacing.sm },
   headerIconButton: {
     width: 32,

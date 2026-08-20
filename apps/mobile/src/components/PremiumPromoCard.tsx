@@ -102,6 +102,10 @@ const styles = StyleSheet.create({
   button: {
     marginTop: theme.spacing.xs,
     alignSelf: 'flex-start',
+    // minHeight (not just paddingVertical) so this matches the app's other
+    // CTA buttons at 48 instead of the ~34pt the padding alone implied.
+    minHeight: 48,
+    justifyContent: 'center',
     backgroundColor: theme.colors.bg,
     borderRadius: 999,
     paddingHorizontal: theme.spacing.lg,

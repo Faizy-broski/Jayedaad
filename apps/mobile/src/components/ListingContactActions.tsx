@@ -128,32 +128,48 @@ export function ContactIconActions({ listing, onMessagePress }: { listing: Listi
 
 // Call/WhatsApp/SMS numbers come from the listing's own contactNumbers —
 // Listing.agent (ListingAgentSummary) has no phone field at all.
-export function ContactActions({ listing }: { listing: Listing }) {
+// size="compact" (PropertyListRow's search-results card, matching the
+// real Zameen app's own result-card buttons: small, Call/SMS carry a
+// label, WhatsApp is icon-only) vs the default full-size row (unused
+// elsewhere yet, kept as the original size for any future full-width use).
+export function ContactActions({ listing, size = 'default' }: { listing: Listing; size?: 'default' | 'compact' }) {
   const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
   const landline = listing.contactNumbers.find((c) => c.type === 'landline');
   const callContact = mobile ?? landline;
   if (!callContact) return null;
 
+  const compact = size === 'compact';
   const callNumber = `${callContact.countryCode}${callContact.number}`;
   const whatsappDigits = mobile ? `${mobile.countryCode}${mobile.number}`.replace(/\D/g, '') : undefined;
   const smsNumber = mobile ? `${mobile.countryCode}${mobile.number}` : undefined;
+  const iconSize = compact ? 14 : 18;
 
   return (
-    <View style={styles.contactRow}>
-      <Pressable style={styles.contactButtonPrimary} onPress={() => trackAndOpen(listing.id, 'call', `tel:${callNumber}`)}>
-        <Text style={styles.contactButtonPrimaryText}>Call</Text>
+    <View style={[styles.contactRow, compact && styles.contactRowCompact]}>
+      <Pressable
+        style={[styles.contactButtonPrimary, compact && styles.contactButtonCompact]}
+        onPress={() => trackAndOpen(listing.id, 'call', `tel:${callNumber}`)}
+      >
+        <Ionicons name="call" size={iconSize} color={theme.colors.bg} />
+        <Text style={[styles.contactButtonPrimaryText, compact && styles.contactButtonTextCompact]}>Call</Text>
       </Pressable>
-      {whatsappDigits && (
+      {smsNumber && (
         <Pressable
-          style={styles.contactButton}
-          onPress={() => trackAndOpen(listing.id, 'whatsapp', `https://wa.me/${whatsappDigits}`)}
+          style={[styles.contactButton, compact && styles.contactButtonCompact]}
+          onPress={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)}
         >
-          <Text style={styles.contactButtonText}>WhatsApp</Text>
+          <Text style={[styles.contactButtonText, compact && styles.contactButtonTextCompact]}>SMS</Text>
         </Pressable>
       )}
-      {smsNumber && (
-        <Pressable style={styles.contactButton} onPress={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)}>
-          <Text style={styles.contactButtonText}>SMS</Text>
+      {whatsappDigits && (
+        <Pressable
+          style={[styles.whatsappButton, compact && styles.whatsappButtonCompact]}
+          onPress={() => trackAndOpen(listing.id, 'whatsapp', `https://wa.me/${whatsappDigits}`)}
+        >
+          <Ionicons name="logo-whatsapp" size={iconSize} color={theme.colors.bg} />
+          {/* Icon-only in compact (matches Call/SMS's sizing and the real
+              Zameen reference) — text label stays for the full-size variant. */}
+          {!compact && <Text style={styles.contactButtonPrimaryText}>WhatsApp</Text>}
         </Pressable>
       )}
     </View>
@@ -170,18 +186,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contactRow: { flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.sm },
+  contactRowCompact: { gap: 6, marginTop: theme.spacing.xs },
   contactButtonPrimary: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
   },
   contactButtonPrimaryText: { color: theme.colors.bg, fontWeight: '700', fontSize: 14 },
   contactButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.primary,
@@ -189,6 +208,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contactButtonText: { color: theme.colors.primary, fontWeight: '700', fontSize: 14 },
+  // Same filled-pill treatment as contactButtonPrimary (Call) — WhatsApp
+  // gets its own style object only because it's the same shape at both
+  // sizes (unlike Call/SMS, it doesn't need an outline variant elsewhere).
+  whatsappButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.md,
+  },
+  // Icon-only in compact, but still flex:1 like Call/SMS below — an equal
+  // three-way split of the row's full width, not a small fixed circle
+  // sitting in leftover space.
+  whatsappButtonCompact: {
+    flex: 1,
+    minHeight: 30,
+    borderRadius: 999,
+    paddingHorizontal: 0,
+  },
+  // Compact row (PropertyListRow's search-results card): each button gets
+  // an equal flex:1 share, so Call/SMS/WhatsApp together fill the full
+  // width of the card instead of sitting sized-to-content with empty
+  // space left over on the right.
+  contactButtonCompact: {
+    flex: 1,
+    minHeight: 30,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  contactButtonTextCompact: { fontSize: 12 },
   iconRow: { flexDirection: 'row', gap: theme.spacing.sm },
   iconButton: {
     width: 36,

@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { MapPin, Eye, Tag, Clock, BadgeCheck, Heart, ChevronRight } from 'lucide-react';
+import { MapPin, Eye, Tag, Clock, Heart, ChevronRight } from 'lucide-react';
 import { useFormattedPrice } from '@jayedaad/core';
 import { Reveal } from '@/components/Reveal';
+import { VerifiedBadgeIcon } from '@/components/icons/VerifiedBadgeIcon';
 import { ProjectGallery } from './ProjectGallery';
 import { DeveloperCard } from './DeveloperCard';
 import { ProjectStats } from './ProjectStats';
@@ -81,7 +82,7 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
             <div className="flex flex-wrap items-center gap-2">
               {project.verificationStatus === 'verified' && (
                 <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  <BadgeCheck className="h-3 w-3" />
+                  <VerifiedBadgeIcon className="h-3 w-3" />
                   Verified
                 </span>
               )}

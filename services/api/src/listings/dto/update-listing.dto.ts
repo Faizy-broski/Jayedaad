@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, ValidateNested } from 'class-validator';
-import { CreateListingAmenityDto, CreateListingContactNumberDto, CreateListingMediaDto } from './create-listing.dto';
+import { CreateListingAmenityDto, CreateListingContactNumberDto, CreateListingMediaDto, LISTING_POSTER_TYPES } from './create-listing.dto';
 
 const AREA_UNITS = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'] as const;
 const FURNISHING_STATUSES = ['unfurnished', 'semi_furnished', 'furnished'] as const;
@@ -18,6 +18,12 @@ export class UpdateListingDto {
   @IsOptional()
   @IsIn(['sale', 'rent'])
   purpose?: 'sale' | 'rent';
+
+  // See CreateListingDto.posterType — same re-derivation/validation applies
+  // server-side on update.
+  @IsOptional()
+  @IsIn(LISTING_POSTER_TYPES)
+  posterType?: (typeof LISTING_POSTER_TYPES)[number];
 
   @IsOptional()
   @IsString()

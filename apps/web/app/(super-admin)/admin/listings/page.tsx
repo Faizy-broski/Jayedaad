@@ -23,17 +23,22 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
-// Owner-listed or independent-agent listings carry their own ownership/
-// utility-bill verification documents (see AdminListingDetailPage's
-// "Verification Documents" section, GET /listings/:id/documents). An
-// agency-affiliated agent's listings are covered by the agency's own
-// verification documents instead (same convention as AgentsPage exempting
-// agency-linked agents from the individual document-completeness gate) —
-// so this split hides the documents row entirely on the Agency tab.
-type SourceTab = 'owner_agent' | 'agency';
+// Real 3-way poster-type split, backed by the stored listings.poster_type
+// column (see the poster_type migration) — replaces the old 2-bucket
+// source: 'owner_agent' | 'agency' split that lumped Owner and independent
+// Agent together. Owner-listed and independent-agent listings carry their
+// own ownership/utility-bill verification documents (see
+// AdminListingDetailPage's "Verification Documents" section, GET
+// /listings/:id/documents). An agency-affiliated agent's listings are
+// covered by the agency's own verification documents instead (same
+// convention as AgentsPage exempting agency-linked agents from the
+// individual document-completeness gate) — so this hides the documents row
+// entirely on the Agency tab only.
+type PosterTypeTab = 'owner' | 'agent' | 'agency';
 
-const SOURCE_TABS: { id: SourceTab; label: string }[] = [
-  { id: 'owner_agent', label: 'Owner / Agent' },
+const POSTER_TYPE_TABS: { id: PosterTypeTab; label: string }[] = [
+  { id: 'owner', label: 'Owner' },
+  { id: 'agent', label: 'Agent' },
   { id: 'agency', label: 'Agency' },
 ];
 
@@ -83,17 +88,17 @@ const PAGE_SIZE = 20;
 // /listings/mine/status-counts, not a fabricated analytics endpoint.
 export default function AdminListingsPage() {
   const [status, setStatus] = useState<ListingStatus>('pending_verification');
-  const [sourceTab, setSourceTab] = useState<SourceTab>('owner_agent');
+  const [posterTypeTab, setPosterTypeTab] = useState<PosterTypeTab>('owner');
   const [page, setPage] = useState(1);
   const [docsModalListing, setDocsModalListing] = useState<Listing | null>(null);
-  // Owner/Agent vs Agency is filtered server-side (findMine's `source`
-  // param) rather than over one already-fetched page — at real platform
-  // scale, filtering client-side after pagination would make `total`/
-  // totalPages wrong and could show a near-empty page for a tab whose
-  // matches happened to land on a different page.
+  // Owner vs Agent vs Agency is filtered server-side (findMine's
+  // `posterType` param) rather than over one already-fetched page — at real
+  // platform scale, filtering client-side after pagination would make
+  // `total`/totalPages wrong and could show a near-empty page for a tab
+  // whose matches happened to land on a different page.
   const { listings, total, isLoading, isError, statusCounts, setStatus: setListingStatus, remove } = useAdminListingsViewModel({
     status,
-    source: sourceTab,
+    posterType: posterTypeTab,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -203,20 +208,20 @@ export default function AdminListingsPage() {
 
       <Reveal>
         <div className="flex gap-1 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
-          {SOURCE_TABS.map((tab) => (
+          {POSTER_TYPE_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => {
-                setSourceTab(tab.id);
+                setPosterTypeTab(tab.id);
                 setPage(1);
               }}
               className={cn(
                 'relative shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
-                sourceTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                posterTypeTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {sourceTab === tab.id && (
+              {posterTypeTab === tab.id && (
                 <motion.span
                   layoutId="adminListingsSourcePill"
                   className="bg-heading-gradient absolute inset-0 rounded-full"
@@ -296,8 +301,8 @@ export default function AdminListingsPage() {
                               {listing.area}, {listing.city}
                             </span>
                             <span className="flex items-center gap-1">
-                              {listing.agent ? <User className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
-                              {listing.agent?.displayName ?? 'Owner-listed'}
+                              {listing.posterType === 'agency' ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                              {listing.posterType === 'owner' ? 'Owner-listed' : listing.agent?.displayName ?? 'Owner-listed'}
                             </span>
                           </div>
                         </div>
@@ -309,8 +314,8 @@ export default function AdminListingsPage() {
                             agency's own verification documents (see
                             AgenciesPage) — only owner/independent-agent
                             listings carry their own, so this button only
-                            ever shows on the Owner/Agent tab. */}
-                        {sourceTab === 'owner_agent' && (
+                            ever shows on the Owner/Agent tabs, not Agency. */}
+                        {posterTypeTab !== 'agency' && (
                           <Button variant="outline" size="sm" onClick={() => setDocsModalListing(listing)}>
                             <FileCheck2 className="mr-1 h-3.5 w-3.5" />
                             Documents

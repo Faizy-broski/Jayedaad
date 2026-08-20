@@ -7,6 +7,7 @@ import {
   Listing,
   ListingDocument,
   ListingDocumentType,
+  ListingPosterType,
   ListingPurpose,
   ListingStatus,
   TrendingListing,
@@ -30,6 +31,10 @@ export interface ListingSearchFilters {
   furnishingStatus?: FurnishingStatus;
   hasVideo?: boolean;
   agencySlug?: string;
+  // Backed by the stored listings.poster_type column — see
+  // MyListingsFilters.posterType for the full 3-way (owner/agent/agency)
+  // explanation.
+  posterType?: ListingPosterType;
   sortBy?: 'relevance' | 'newest' | 'price_asc' | 'price_desc';
   page?: number;
   pageSize?: number;
@@ -39,10 +44,13 @@ export interface ListingSearchFilters {
 // — confirmed real on the live Profolio "My Listings" filter panel.
 export interface MyListingsFilters {
   status?: ListingStatus;
-  // Super Admin's Listings page's Owner/Agent vs Agency split — filtered
-  // server-side so pagination/totals stay correct at real scale (see
-  // listings.repository.ts::findMine's agencyAgentIds pre-lookup).
-  source?: 'owner_agent' | 'agency';
+  // Super Admin's Listings page's real 3-way split: Owner, Agent
+  // (independent), Agency (agency-affiliated) — backed by the stored
+  // listings.poster_type column (see the poster_type migration), filtered
+  // server-side so pagination/totals stay correct at real scale. Replaces
+  // the old 2-bucket source: 'owner_agent' | 'agency' split, which lumped
+  // Owner and independent Agent together.
+  posterType?: ListingPosterType;
   // A category slug — property_type_categories is Super Admin-managed data
   // now, not a fixed enum, so this is deliberately `string`, not a union.
   propertyTypeCategory?: string;
@@ -87,6 +95,10 @@ export interface CreateListingAmenityInput {
 export interface CreateListingInput {
   propertyTypeId: string;
   purpose: ListingPurpose;
+  // Requested poster identity — re-derived/validated server-side, see
+  // ListingsRepository.resolvePosterType() in services/api. Omit to let the
+  // server pick a sensible default for the requester's role/agency.
+  posterType?: ListingPosterType;
   title: string;
   description?: string;
   price: number;

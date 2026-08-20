@@ -208,7 +208,7 @@ export function LoginScreen() {
             <Button
               label="Google"
               icon={<GoogleIcon />}
-              variant="secondary"
+              variant="muted"
               size="lg"
               style={styles.socialButton}
               onPress={handleGoogleSignIn}
@@ -218,7 +218,7 @@ export function LoginScreen() {
             <Button
               label="Apple"
               icon={<AppleIcon />}
-              variant="secondary"
+              variant="muted"
               size="lg"
               style={styles.socialButton}
               onPress={handleAppleSignIn}

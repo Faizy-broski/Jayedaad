@@ -9,6 +9,7 @@ import {
   AreaUnit,
   FurnishingStatus,
   Listing,
+  ListingPosterType,
   ListingPurpose,
   ListingSearchFilters,
   PAKISTAN_CITIES,
@@ -108,6 +109,11 @@ const FURNISHING_OPTIONS: { value: FurnishingStatus; label: string }[] = [
   { value: 'semi_furnished', label: 'Semi Furnished' },
   { value: 'furnished', label: 'Furnished' },
 ];
+const POSTER_TYPE_OPTIONS: { value: ListingPosterType; label: string }[] = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'agent', label: 'Agent' },
+  { value: 'agency', label: 'Agency' },
+];
 
 // Field label + control cell — matches Zameen.com's search bar: small
 // uppercase label above the control, cells separated by dividers, on a
@@ -167,8 +173,9 @@ function SearchPageContent() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [furnishingStatus, setFurnishingStatus] = useState<FurnishingStatus | ''>('');
   const [hasVideo, setHasVideo] = useState(false);
+  const [posterType, setPosterType] = useState<ListingPosterType | ''>('');
 
-  const moreSelectedCount = (furnishingStatus ? 1 : 0) + (hasVideo ? 1 : 0);
+  const moreSelectedCount = (furnishingStatus ? 1 : 0) + (hasVideo ? 1 : 0) + (posterType ? 1 : 0);
 
   const categories = propertyTypes.reduce<{ slug: string; label: string }[]>((acc, type) => {
     if (type.category && !acc.some((c) => c.slug === type.category.slug)) acc.push(type.category);
@@ -190,6 +197,7 @@ function SearchPageContent() {
     keyword: keyword || undefined,
     furnishingStatus: furnishingStatus || undefined,
     hasVideo: hasVideo || undefined,
+    posterType: posterType || undefined,
       };
 
   const singleTypeResult = useListingSearchViewModel({
@@ -441,6 +449,21 @@ function SearchPageContent() {
                   <input type="checkbox" checked={hasVideo} onChange={(e) => setHasVideo(e.target.checked)} />
                   Has video tour
                 </label>
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Posted By</span>
+                  <select
+                    value={posterType}
+                    onChange={(e) => setPosterType(e.target.value as ListingPosterType | '')}
+                    className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Any</option>
+                    {POSTER_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   type="button"
                   onClick={() => setMoreOpen(false)}

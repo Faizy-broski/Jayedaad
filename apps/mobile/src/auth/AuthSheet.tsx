@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, Pressable, View, StyleSheet } from 'react-native';
+import { Animated, KeyboardAvoidingView, PanResponder, Platform, Pressable, View, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,6 +54,34 @@ export function AuthSheet({
     ]).start(() => onClose());
   }
 
+  // Swipe-to-dismiss — the sheet is full-height (see the comment on
+  // `sheet` below), so once it's open there's no backdrop left exposed to
+  // tap-to-close, and there was no gesture at all otherwise, just the X
+  // button. Attached only to the drag handle row below (a sibling of the
+  // ScrollView-based auth screens, not wrapping them) so dragging never
+  // fights the form's own scroll gesture. Plain core-RN PanResponder, not
+  // react-native-gesture-handler — this app doesn't depend on that
+  // library elsewhere and the existing entrance/exit animation here
+  // already uses the plain Animated API, so this stays consistent with it.
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 6,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) translateY.setValue(gesture.dy);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        // Dragged more than a third of the way, or flicked down fast —
+        // either way finish the dismiss instead of snapping back.
+        if (gesture.dy > 140 || gesture.vy > 0.8) {
+          handleClose();
+        } else {
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        }
+      },
+    }),
+  ).current;
+
   if (!visible) return null;
 
   return (
@@ -62,6 +90,18 @@ export function AuthSheet({
         <Pressable style={StyleSheet.absoluteFillObject} onPress={handleClose} />
       </Animated.View>
       <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        {/* Covers the whole non-interactive header band (brand logo/title/
+            subtitle — see AuthBrandHeader), not just the thin pill, so a
+            swipe started anywhere up there closes the sheet, not only a
+            pixel-precise grab on the handle bar itself. Stops well above
+            the first input field so it never eats a tap meant for the
+            form below. zIndex keeps it above the ScrollView content it
+            visually overlaps despite coming first in JSX (paint order),
+            so it actually receives the touch instead of the header
+            painting over it and swallowing the gesture. */}
+        <View style={[styles.dragHandleZone, { top: insets.top }]} {...panResponder.panHandlers}>
+          <View style={styles.dragHandle} />
+        </View>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
           <SafeAreaView style={styles.flex} edges={['top']}>
             <View style={styles.navigatorWrap}>
@@ -85,7 +125,7 @@ export function AuthSheet({
           onPress={handleClose}
           hitSlop={12}
         >
-          <Ionicons name="close" size={22} color={theme.colors.muted} />
+          <Ionicons name="close" size={20} color={theme.colors.text} />
         </Pressable>
       </Animated.View>
     </View>
@@ -104,7 +144,40 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     right: theme.spacing.lg,
+    zIndex: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.bg,
+    // A flat icon on a busy/photo background (see LoginScreen's bgImage)
+    // was nearly invisible — a solid rounded pill with its own shadow
+    // reads as an actual button regardless of what's behind it.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  dragHandleZone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    // Tall enough to cover the brand logo/title/subtitle block above the
+    // form fields (roughly xxl padding + logo + title + subtitle, see
+    // LoginScreen/SignupScreen), short enough to stop before the first
+    // input so typing/tapping there is never intercepted.
+    height: 140,
+    alignItems: 'center',
+    paddingTop: theme.spacing.sm,
     zIndex: 1,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: theme.colors.border,
   },
   navigatorWrap: { flex: 1 },
 });

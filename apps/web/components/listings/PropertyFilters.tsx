@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { PAKISTAN_CITIES, useTaxonomyViewModel, type AreaUnit } from '@jayedaad/core';
+import { PAKISTAN_CITIES, useTaxonomyViewModel, type AreaUnit, type ListingPosterType } from '@jayedaad/core';
 import { Checkbox, Select, cn } from '@jayedaad/ui-web';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import { PRICE_OPTIONS, priceOptionLabel } from '@/lib/priceOptions';
@@ -24,6 +24,10 @@ export interface ListingFiltersState {
   newProjects: boolean;
   readyToMove: boolean;
   amenities: string[];
+  // Who posted the listing — Owner, (independent) Agent, or Agency. '' means
+  // no filter (any poster type). Backed by the stored listings.poster_type
+  // column, filtered server-side (see ListingsBrowser's baseFilters).
+  posterType: ListingPosterType | '';
 }
 
 export const DEFAULT_LISTING_FILTERS: ListingFiltersState = {
@@ -43,7 +47,14 @@ export const DEFAULT_LISTING_FILTERS: ListingFiltersState = {
   newProjects: false,
   readyToMove: false,
   amenities: [],
+  posterType: '',
 };
+
+const POSTER_TYPE_OPTIONS: { value: ListingPosterType; label: string }[] = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'agent', label: 'Agent' },
+  { value: 'agency', label: 'Agency' },
+];
 
 const BEDROOM_OPTIONS = [1, 2, 3, 4, 5, 6];
 const BATHROOM_OPTIONS = [1, 2, 3, 4, 5];
@@ -94,8 +105,11 @@ function Chip({
   );
 }
 
+// Spacing between sections comes from the scroll container's own `gap`
+// below — this only adds the divider line, not extra top padding, so
+// sections aren't double-spaced (gap + padding stacking on top of each other).
 function Section({ children, first }: { children: React.ReactNode; first?: boolean }) {
-  return <div className={first ? '' : 'border-t border-slate-100 pt-6'}>{children}</div>;
+  return <div className={first ? '' : 'border-t border-slate-100 pt-4'}>{children}</div>;
 }
 
 // Checkbox-list dropdown used for Property Type & Amenities — same
@@ -256,7 +270,20 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
     : propertyTypes;
 
   return (
-    <aside className="flex w-full flex-col gap-6 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+    // Sticky + height-capped on desktop so the panel never grows taller
+    // than the viewport (it easily can, with this many sections) — content
+    // scrolls inside it while Reset/Apply stay pinned at the bottom,
+    // visible without scrolling. Plain in-flow on mobile, where the panel
+    // is stacked above the results rather than side-by-side.
+    <aside className="flex w-full flex-col rounded-3xl border border-slate-100 bg-white shadow-sm lg:sticky lg:top-24">
+      {/* max-height (not height) lives on THIS scrollable content div, not
+          the outer <aside> — capping it here only ever bounds the content,
+          it never forces the card to grow past what its content actually
+          needs. Capping the outer <aside> instead made it always claim the
+          full calc(100vh-7rem) box regardless of how short the content
+          was, leaving a blank gap above Reset/Apply on any filter set that
+          didn't fill the viewport. */}
+      <div className="flex flex-col gap-4 overflow-y-auto p-5 lg:max-h-[calc(100vh-7rem-4.75rem)]">
       {/* Price Range — dual min/max slider */}
       <Section first>
         <div className="flex items-center justify-between">
@@ -452,6 +479,22 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         </div>
       </Section>
 
+      {/* Posted by — Owner / Agent / Agency */}
+      <Section>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Posted By</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {POSTER_TYPE_OPTIONS.map(({ value, label }) => (
+            <Chip
+              key={value}
+              active={filters.posterType === value}
+              onClick={() => set('posterType', filters.posterType === value ? '' : value)}
+            >
+              {label}
+            </Chip>
+          ))}
+        </div>
+      </Section>
+
       {/* Preferences */}
       <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preferences</h3>
@@ -489,9 +532,11 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           emptyMessage="Pick a category above to see its amenities."
         />
       </Section>
+      </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 border-t border-slate-100 pt-4">
+      {/* Actions — outside the scroll area so it's always visible, not
+          something you have to scroll the whole filter list to reach. */}
+      <div className="flex shrink-0 gap-2 border-t border-slate-100 p-5">
         <button
           type="button"
           onClick={onReset}

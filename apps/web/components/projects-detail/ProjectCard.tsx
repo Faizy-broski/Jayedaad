@@ -2,10 +2,11 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BadgeCheck, Clapperboard, Flame, MapPin, Layers, Sparkles, ArrowRight } from 'lucide-react';
+import { Clapperboard, Flame, MapPin, Layers, Sparkles, ArrowRight } from 'lucide-react';
 import { projectsRepository, useFormattedPrice } from '@jayedaad/core';
 import type { ProjectCardData } from '@/lib/types';
 import { getViewerSessionId } from '@/lib/viewerSession';
+import { VerifiedBadgeIcon } from '@/components/icons/VerifiedBadgeIcon';
 
 const STATUS_LABEL: Record<ProjectCardData['status'], string> = {
   planned: 'Planned',
@@ -39,7 +40,7 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
         <Image src={project.coverImageUrl} alt={project.name} fill sizes="288px" className="object-cover" />
         {project.verificationStatus === 'verified' && (
           <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-            <BadgeCheck className="h-3 w-3 text-primary" />
+            <VerifiedBadgeIcon className="h-3 w-3 text-primary" />
             Verified
           </span>
         )}

@@ -7,6 +7,7 @@ import {
   AgentCreditType,
   AreaUnit,
   ListingDocumentType,
+  ListingPosterType,
   ListingPurpose,
   ListingStatus,
   MyListingsFilters,
@@ -113,6 +114,7 @@ interface DraftFilters {
   minAreaValue: number;
   maxAreaValue: number;
   areaUnit: AreaUnit;
+  posterType: ListingPosterType | '';
 }
 
 const EMPTY_DRAFT: DraftFilters = {
@@ -128,7 +130,14 @@ const EMPTY_DRAFT: DraftFilters = {
   minAreaValue: 0,
   maxAreaValue: AREA_MAX,
   areaUnit: 'sqm',
+  posterType: '',
 };
+
+const POSTER_TYPE_OPTIONS: { value: ListingPosterType; label: string }[] = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'agent', label: 'Agent' },
+  { value: 'agency', label: 'Agency' },
+];
 
 // Profolio "My Listings" reference: filter bar + status tabs (with count
 // badges) + empty/populated list + pagination. Reuses the /property-management
@@ -176,6 +185,7 @@ export default function PropertyManagementPage() {
     areaUnit: applied.minAreaValue > 0 || applied.maxAreaValue < AREA_MAX ? applied.areaUnit : undefined,
     listedDateFrom: applied.dateRange.from,
     listedDateTo: applied.dateRange.to,
+    posterType: applied.posterType || undefined,
     page,
     pageSize: 20,
   };
@@ -256,7 +266,7 @@ export default function PropertyManagementPage() {
   // this via assertDocumentsComplete, this is just so the user lands on
   // the right screen instead of a raw error toast).
   async function handleSubmitForVerification(listing: (typeof listings)[number]) {
-    if (!listing.agent?.agency) {
+    if (listing.posterType !== 'agency') {
       const docs = await listingsRepository.listDocuments(listing.id);
       const uploadedTypes = new Set(docs.map((d) => d.documentType));
       const incomplete = REQUIRED_LISTING_DOCUMENT_TYPES.some((type) => !uploadedTypes.has(type));
@@ -422,7 +432,7 @@ export default function PropertyManagementPage() {
               mobile's MyPropertiesScreen already has this. Owner and
               independent-agent listings only — an agency-affiliated
               agent's listing is exempt. */}
-          {!listing.agent?.agency && (
+          {listing.posterType !== 'agency' && (
             <Link href={`/submit/documents?listingId=${listing.id}`}>
               <Button variant="outline" size="sm">
                 <FileCheck2 className="mr-1.5 h-3.5 w-3.5" />
@@ -561,6 +571,21 @@ export default function PropertyManagementPage() {
                   {categories.map((c) => (
                     <option key={c.slug} value={c.slug}>
                       {c.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Posted By</label>
+                <Select
+                  value={draft.posterType}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, posterType: e.target.value as ListingPosterType | '' }))}
+                >
+                  <option value="">Any</option>
+                  {POSTER_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </Select>

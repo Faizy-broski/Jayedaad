@@ -34,14 +34,17 @@ export const REQUIRED_LISTING_DOCUMENT_TYPES: ListingDocumentType[] = ['ownershi
 // range — a rich filter set that didn't exist at all for "my listings" before.
 export interface MyListingsFilters {
   status?: 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive';
-  // Super Admin's Listings page splits into an "Owner / Agent" tab (no
-  // agent, or an independent agent with no agency — carries its own
-  // ownership/utility-bill documents) vs "Agency" (an agency-affiliated
-  // agent's listings, covered by the agency's own documents instead — see
-  // AgentsPage's document-completeness exemption for the same split).
-  // Filtered server-side (not client-side over one page) so pagination and
-  // totals stay correct at real scale.
-  source?: 'owner_agent' | 'agency';
+  // Super Admin's Listings page's real 3-way split: Owner (posted as a
+  // personal, non-professional listing), Agent (an independent agent, no
+  // agency — carries its own ownership/utility-bill documents), Agency (an
+  // agency-affiliated agent's listings, covered by the agency's own
+  // documents instead — see AgentsPage's document-completeness exemption).
+  // Backed by the stored listings.poster_type column (see the poster_type
+  // migration), not a derived agent_id/agency_id join — replaces the old
+  // 2-bucket source: 'owner_agent' | 'agency' split, which lumped Owner and
+  // independent Agent together. Filtered server-side (not client-side over
+  // one page) so pagination and totals stay correct at real scale.
+  posterType?: 'owner' | 'agent' | 'agency';
   // A category slug — property_type_categories is Super Admin-managed data
   // now, not a fixed enum, so this is deliberately `string`, not a union.
   propertyTypeCategory?: string;
@@ -88,6 +91,9 @@ export interface ListingSearchFilters {
   furnishingStatus?: 'unfurnished' | 'semi_furnished' | 'furnished';
   hasVideo?: boolean;
   agencySlug?: string;
+  // Backed by the stored listings.poster_type column — see MyListingsFilters
+  // for the full 3-way (owner/agent/agency) explanation.
+  posterType?: 'owner' | 'agent' | 'agency';
   sortBy?: 'relevance' | 'newest' | 'price_asc' | 'price_desc';
   page?: number;
   pageSize?: number;
@@ -138,7 +144,7 @@ const PUBLIC_LISTING_COLUMNS = `
   balloting_fee_applicable, balloting_fee_amount,
   possession_fee_applicable, possession_fee_amount,
   development_fee_applicable, development_fee_amount,
-  status, created_at,
+  status, poster_type, created_at,
   property_types!inner (slug, label, property_type_categories (slug, label)),
   listing_media (url, type, compressed_url, is_cover, sort_order, category),
   listing_amenities (value, text_value, amenities (slug, label, category, value_type, value_unit, options)),
@@ -237,6 +243,7 @@ export class ListingsRepository {
       const term = sanitizeKeyword(filters.keyword);
       if (term) query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
     }
+    if (filters.posterType) query = query.eq('poster_type', filters.posterType);
     if (videoListingIds) query = query.in('id', videoListingIds);
     if (agencyAgentIds) query = query.in('agent_id', agencyAgentIds);
 
@@ -307,6 +314,40 @@ export class ListingsRepository {
   // pre-verified [Spec §7]. The one narrow exception is `status: 'draft'`,
   // only ever passed by ListingsController's dedicated POST /listings/draft
   // path — never reachable from the public create() endpoint's DTO.
+  // Re-derives/validates the authoritative poster_type server-side — never
+  // trusts the client's CreateListingDto/UpdateListingDto value as-is. No
+  // assigned agent (a plain requester) can only ever post as 'owner'. An
+  // agent chooses between 'owner' and whichever of 'agent'/'agency' matches
+  // their own agency_id — the DB trigger from the poster_type migration is
+  // the final backstop for any write path that bypasses this.
+  private async resolvePosterType(
+    agentId: string | null | undefined,
+    requested: 'owner' | 'agent' | 'agency' | undefined,
+  ): Promise<'owner' | 'agent' | 'agency'> {
+    if (!agentId) return 'owner';
+
+    const { data: agentProfile, error } = await this.supabase.client
+      .from('agent_profiles')
+      .select('agency_id')
+      .eq('id', agentId)
+      .single();
+    if (error) throw error;
+
+    const isAgencyAffiliated = !!agentProfile.agency_id;
+    const allowed: Array<'owner' | 'agent' | 'agency'> = isAgencyAffiliated ? ['owner', 'agency'] : ['owner', 'agent'];
+    const fallback = isAgencyAffiliated ? 'agency' : 'agent';
+
+    if (requested === undefined) return fallback;
+    if (!allowed.includes(requested)) {
+      throw new BadRequestException(
+        isAgencyAffiliated
+          ? 'You can only post as Owner or Agency — your agent profile is linked to an agency.'
+          : 'You can only post as Owner or Agent — link your agent profile to an agency to post as Agency.',
+      );
+    }
+    return requested;
+  }
+
   async create(input: CreateListingDto & { ownerId: string; agentId?: string; status?: 'draft' | 'pending_verification' }) {
     // Per-room photo counts (getRequiredMediaCategories) are no longer a
     // hard gate here — product decision: a listing can be submitted with
@@ -332,11 +373,14 @@ export class ListingsRepository {
       }
     }
 
+    const posterType = await this.resolvePosterType(input.agentId, input.posterType);
+
     const { data: listing, error } = await this.supabase.client
       .from('listings')
       .insert({
         owner_id: input.ownerId,
         agent_id: input.agentId,
+        poster_type: posterType,
         property_type_id: input.propertyTypeId,
         purpose: input.purpose,
         title: input.title,
@@ -429,7 +473,7 @@ export class ListingsRepository {
   async update(listingId: string, input: UpdateListingDto) {
     const { data: existing, error: existingError } = await this.supabase.client
       .from('listings')
-      .select('status, property_type_id')
+      .select('status, property_type_id, agent_id')
       .eq('id', listingId)
       .single();
     if (existingError) throw existingError;
@@ -437,6 +481,9 @@ export class ListingsRepository {
     const nextStatus = existing.status === 'rejected' ? 'pending_verification' : existing.status;
 
     const updatePayload: Record<string, unknown> = { status: nextStatus };
+    if (input.posterType !== undefined) {
+      updatePayload.poster_type = await this.resolvePosterType(existing.agent_id, input.posterType);
+    }
     const fieldMap: Record<string, unknown> = {
       property_type_id: input.propertyTypeId,
       purpose: input.purpose,
@@ -732,25 +779,6 @@ export class ListingsRepository {
       if (categoryPropertyTypeIds.length === 0) return { items: [], total: 0, page, pageSize };
     }
 
-    // Same pre-lookup pattern as categoryPropertyTypeIds above — PostgREST's
-    // embedded-filter dot-path (listings -> agents -> agency_id) can't
-    // express "agent has no agency OR there's no agent at all" as a single
-    // .or() across a join, so resolve agency-affiliated agent ids first and
-    // filter listings.agent_id against that set instead.
-    let agencyAgentIds: string[] | undefined;
-    if (filters.source) {
-      const { data: agencyAgentRows, error: agentError } = await this.supabase.client
-        .from('agent_profiles')
-        .select('id')
-        .not('agency_id', 'is', null);
-      if (agentError) throw agentError;
-      agencyAgentIds = (agencyAgentRows ?? []).map((r: any) => r.id);
-
-      if (filters.source === 'agency' && agencyAgentIds.length === 0) {
-        return { items: [], total: 0, page, pageSize };
-      }
-    }
-
     let query = this.supabase.client.from('listings').select(PUBLIC_LISTING_COLUMNS, { count: 'exact' });
 
     if (scope.role === 'owner') {
@@ -772,15 +800,10 @@ export class ListingsRepository {
     }
     // super_admin: no scoping filter — bypasses per [Spec §5]/[Dev Instr §2.1].
 
-    if (filters.source === 'agency') {
-      query = query.in('agent_id', agencyAgentIds!);
-    } else if (filters.source === 'owner_agent' && agencyAgentIds!.length > 0) {
-      // Owner-listed (agent_id is null) OR an independent agent (agent_id
-      // set but not one of the agency-affiliated ones). When no
-      // agency-affiliated agents exist at all, every listing already
-      // qualifies — no filter needed.
-      query = query.or(`agent_id.is.null,agent_id.not.in.(${agencyAgentIds!.join(',')})`);
-    }
+    // Backed by the stored listings.poster_type column — one indexed
+    // equality check, replacing the old source filter's agent_profiles
+    // pre-lookup + hand-rolled OR-NOT-IN join.
+    if (filters.posterType) query = query.eq('poster_type', filters.posterType);
 
     if (filters.status) query = query.eq('status', filters.status);
     if (categoryPropertyTypeIds) query = query.in('property_type_id', categoryPropertyTypeIds);
@@ -1187,13 +1210,16 @@ export class ListingsRepository {
   async getDocumentCompleteness(listingId: string) {
     const { data: listing, error: listingError } = await this.supabase.client
       .from('listings')
-      .select('agent_id, agent_profiles (agency_id)')
+      .select('poster_type')
       .eq('id', listingId)
       .single();
     if (listingError) throw listingError;
 
-    const isAgencyAffiliatedAgent = !!(listing.agent_id && (listing as any).agent_profiles?.agency_id);
-    if (isAgencyAffiliatedAgent) {
+    // poster_type='agency' listings are covered by the agency's own
+    // documents instead (see the poster_type migration) — was previously
+    // derived via an agent_id -> agent_profiles.agency_id join; now backed
+    // directly by the stored column.
+    if (listing.poster_type === 'agency') {
       return { required: [] as ListingDocumentType[], uploaded: [] as ListingDocumentType[], missing: [] as ListingDocumentType[] };
     }
 
@@ -1271,6 +1297,7 @@ function mapPublicListingRow(row: any) {
     developmentFeeApplicable: row.development_fee_applicable,
     developmentFeeAmount: row.development_fee_amount,
     status: row.status,
+    posterType: row.poster_type,
     createdAt: row.created_at,
     media: (row.listing_media ?? []).map((m: any) => ({
       url: m.url,

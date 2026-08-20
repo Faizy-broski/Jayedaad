@@ -34,6 +34,10 @@ export interface Property {
   /** Real listings.story_expires_at — set by a spent Story credit
    *  (POST /listings/:id/story), null/past means no active story. */
   storyExpiresAt?: string | null;
+  /** Real listings.poster_type — who posted this listing: Owner,
+   *  (independent) Agent, or Agency. Optional so apps/web/data/listings.ts's
+   *  legacy mock fixtures don't need updating too. */
+  posterType?: 'owner' | 'agent' | 'agency';
 }
 
 // export type PropertyTypeOption = 'Villa' | 'Apartment' | 'Penthouse' | 'Townhouse' | 'House' | 'Bungalow';

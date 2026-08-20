@@ -22,6 +22,7 @@ export function listingToProperty(listing: Listing): Property {
     areaSqft: convertArea(Number(listing.areaValue), listing.areaUnit, 'sqft'),
     boostTier: listing.boostTier,
     storyExpiresAt: listing.storyExpiresAt,
+    posterType: listing.posterType,
   };
 }
 
@@ -57,9 +58,14 @@ export function listingToListingProperty(listing: Listing): ListingProperty {
     // No ownership field exists on the real Listing model yet — every
     // Pakistani market listing defaults to Freehold rather than guessing.
     ownership: 'Freehold',
+    posterType: listing.posterType,
+    // posterType 'owner' always has agent: null (enforced by the DB's
+    // enforce_listing_poster_type trigger) — 'Jayedaad Team' previously
+    // filled that gap here, misleadingly framing an owner-listed property
+    // as platform/agent-branded. Now labeled plainly as the property owner.
     agent: {
-      name: listing.agent?.displayName ?? 'Jayedaad Team',
-      role: listing.agent?.agency?.name ?? 'Agent',
+      name: listing.posterType === 'owner' ? 'Property Owner' : listing.agent?.displayName ?? 'Jayedaad Team',
+      role: listing.agent?.agency?.name ?? (listing.posterType === 'owner' ? 'Owner' : 'Agent'),
       avatar: listing.agent?.photoUrl ?? '/images/agents/ahmed-raza.jpg',
       phone: contact ? `${contact.countryCode}${contact.number}` : '',
       subscriptionTierName: listing.agent?.subscriptionTierName ?? null,

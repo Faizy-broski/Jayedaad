@@ -109,6 +109,7 @@ export function ListingsBrowser({ initialFilters, purpose, agencySlug }: Listing
     bedrooms: appliedFilters.minBedrooms ?? undefined,
     minBathrooms: appliedFilters.minBathrooms ?? undefined,
     furnishingStatus: appliedFilters.furnished ? 'furnished' : undefined,
+    posterType: appliedFilters.posterType || undefined,
     sortBy: SORT_TO_API[sort],
   };
 

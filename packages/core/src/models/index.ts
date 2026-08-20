@@ -19,6 +19,12 @@ export type ListingStatus =
   | 'downgraded'
   | 'inactive';
 export type ListingPurpose = 'sale' | 'rent';
+// Explicit poster identity, chosen at submission — stored on
+// listings.poster_type (see the poster_type migration), decoupled from
+// profiles.role. A clean 3-way partition: 'owner' (anyone, including an
+// agent listing a property they personally own), 'agent' (independent
+// agents only, no agency), 'agency' (agency-affiliated agents only).
+export type ListingPosterType = 'owner' | 'agent' | 'agency';
 // Marla/Kanal lead the list — Jayedaad's primary market is Pakistan (Zameen.com
 // is the primary schema reference; Zillow only contributed the living-area vs.
 // lot-size and price-history disciplines layered on top).
@@ -278,6 +284,8 @@ export interface Listing {
   developmentFeeApplicable: boolean;
   developmentFeeAmount: number | null;
   status: ListingStatus;
+  // Every listing always has one, post-poster_type-migration backfill.
+  posterType: ListingPosterType;
   createdAt: string;
   media: ListingMediaItem[];
   amenities: ListingAmenity[];
@@ -1054,6 +1062,7 @@ export interface ListingSearchFiltersJson {
   minAreaValue?: number;
   maxAreaValue?: number;
   areaUnit?: AreaUnit;
+  posterType?: ListingPosterType;
 }
 
 // --- Projects (mirrors 0008_projects.sql) --------------------------------------

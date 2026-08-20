@@ -16,6 +16,7 @@ import {
   getMaxPhoneDigits,
   getRequiredMediaCategories,
   ListingDocumentType,
+  ListingPosterType,
   ListingPurpose,
   PAKISTAN_CITIES,
   listingsRepository,
@@ -159,10 +160,14 @@ const PROPERTY_TYPE_ICONS: Record<string, LucideIcon> = {
 // 'documents' (step 7) is a real, always-present step — not a separate
 // post-submit redirect — so ownership proof/utility bill are visibly part
 // of "the steps" for every listing, not a surprise screen afterward. It
-// renders differently per role (see step === 6 below): required and
-// blocking for an individual owner and an independent agent (no agency),
-// a pass-through no-op for an agency-affiliated agent (their agency's own
-// onboarding docs cover them).
+// renders differently per chosen poster type (see step === 7 below):
+// required and blocking when posting as Owner or (independent) Agent, a
+// pass-through no-op when posting as Agency (the agency's own onboarding
+// docs cover them).
+// 'agent' (Poster & Contact) is deliberately BEFORE 'documents' — the
+// poster-type choice made there (Owner/Agent/Agency) decides whether the
+// Documents step is required at all (documentsRequired below), so it must
+// be answered first.
 const STEPS = [
   { key: 'purpose', label: 'Purpose', question: 'What are you listing today?' },
   { key: 'basics', label: 'Basics', question: 'Basics' },
@@ -170,8 +175,8 @@ const STEPS = [
   { key: 'amenities', label: 'Amenities', question: "What's included?" },
   { key: 'media', label: 'Media', question: 'Upload media' },
   { key: 'pricing', label: 'Pricing', question: 'Pricing' },
+  { key: 'agent', label: 'Poster & Contact', question: 'Who is posting this listing?' },
   { key: 'documents', label: 'Documents', question: 'Ownership documents' },
-  { key: 'agent', label: 'Agent', question: 'Agent information' },
   { key: 'preview', label: 'Preview', question: 'Preview your listing' },
   { key: 'publish', label: 'Publish', question: 'Ready to go live?' },
 ] as const;
@@ -217,6 +222,14 @@ export default function SubmitListingPage() {
   // — isIndependentAgent alone covers this now, since the promotion below
   // lands a fresh buyer on role='agent' with no agency.
   const needsIdentityVerification = isIndependentAgent && !editId && !verificationLoading && verification?.status !== 'verified';
+
+  // Poster identity choice (Owner / Agent / Agency) — a clean 3-way
+  // partition matching the server's enforce_listing_poster_type() trigger.
+  // Only an independent agent gets an actual choice (Owner vs Agent) — an
+  // agency-affiliated agent has nothing to pick, every listing they submit
+  // is posted under their agency (see the render below and the default
+  // effect after `form` is declared).
+  const posterTypeOptions: ListingPosterType[] = ['owner', 'agent'];
 
   // No signup path ever grants 'agent' directly for a plain buyer — every
   // fresh individual signup is 'buyer' by default
@@ -288,7 +301,17 @@ export default function SubmitListingPage() {
     landline: '',
     mobileDialCode: '92',
     landlineDialCode: '92',
+    // '' means "not yet defaulted" — set once role/agentProfile are known
+    // (see the poster-type default effect below) or prefilled from an
+    // existing listing on edit. Never sent to the API as ''.
+    posterType: '' as ListingPosterType | '',
   });
+
+  useEffect(() => {
+    if (editId || form.posterType) return;
+    setForm((prev) => ({ ...prev, posterType: isIndependentAgent ? 'agent' : 'agency' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, isIndependentAgent, form.posterType]);
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string | undefined>(undefined);
   // Keyed by amenity slug — presence in the map means selected. `value` is
   // used for 'number'-valueType amenities, `textValue` for 'text' and
@@ -336,6 +359,7 @@ export default function SubmitListingPage() {
       description: editListing.description ?? '',
       price: String(editListing.price),
       purpose: editListing.purpose,
+      posterType: editListing.posterType,
       propertyTypeId: propertyTypes.find((t) => t.slug === editListing.propertyType.slug)?.id ?? '',
       city: editListing.city,
       area: editListing.area,
@@ -472,6 +496,7 @@ export default function SubmitListingPage() {
       description: form.description || undefined,
       price: Number(form.price),
       purpose: form.purpose,
+      posterType: form.posterType || undefined,
       propertyTypeId: form.propertyTypeId,
       city: form.city,
       area: form.area,
@@ -584,10 +609,13 @@ export default function SubmitListingPage() {
   // just checked per-step instead of all at once. This now also drives the
   // Continue button's disabled state and which step pills are unlocked, not
   // just the toast shown on a blocked click.
-  // Required for independent agents (no agency) — only an agency-affiliated
-  // agent is exempt, mirrors the server's getDocumentCompleteness exemption.
-  // ('owner' role retired — see 0056_retire_owner_role.sql.)
-  const documentsRequired = isIndependentAgent;
+  // Required unless the listing is posted as Agency — an agency-affiliated
+  // agent posting under their agency is exempt (the agency's own onboarding
+  // docs cover them), mirrors the server's getDocumentCompleteness
+  // exemption (now keyed off poster_type directly). Posting as Owner or
+  // Agent (independent) — including an agency-affiliated agent choosing to
+  // list a property they personally own — always requires these documents.
+  const documentsRequired = form.posterType !== 'agency';
   const documentsComplete =
     !documentsRequired ||
     REQUIRED_LISTING_DOCUMENT_TYPES.every((type) => uploadedDocTypes.has(type) || !!documentFiles[type]);
@@ -601,7 +629,7 @@ export default function SubmitListingPage() {
     // any amount of media, including none. The counts/checkmarks still
     // render in the step below so the requirement stays visible.
     if (index === 5) return form.price.trim() !== '';
-    if (index === 6) return documentsComplete;
+    if (index === 7) return documentsComplete;
     return true;
   }
 
@@ -1154,7 +1182,7 @@ export default function SubmitListingPage() {
                   </>
                 )}
 
-                {step === 6 && (
+                {step === 7 && (
                   <>
                     {!documentsRequired ? (
                       <p className="text-sm text-muted-foreground">
@@ -1215,8 +1243,44 @@ export default function SubmitListingPage() {
                   </>
                 )}
 
-                {step === 7 && (
+                {step === 6 && (
                   <>
+                    <FieldRow icon={Building2} label="Posting as">
+                      {isIndependentAgent ? (
+                        <>
+                          <div className="flex gap-2">
+                            {posterTypeOptions.map((option) => (
+                              <motion.button
+                                key={option}
+                                type="button"
+                                whileHover={{ scale: 1.04 }}
+                                whileTap={{ scale: 0.96 }}
+                                onClick={() => update('posterType', option)}
+                                className={`rounded-full border px-4 py-1.5 text-sm font-medium capitalize transition-colors ${
+                                  form.posterType === option
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : 'border-input text-muted-foreground hover:bg-muted'
+                                }`}
+                              >
+                                {option === 'owner' ? 'Owner' : 'Agent'}
+                              </motion.button>
+                            ))}
+                          </div>
+                          <p className="mt-1.5 text-xs text-muted-foreground">
+                            {form.posterType === 'owner'
+                              ? 'Listed as a personal property — ownership documents are required.'
+                              : 'Listed under your independent agent profile — ownership documents are required.'}
+                          </p>
+                        </>
+                      ) : (
+                        // Agency-affiliated agent — no choice to make, every
+                        // listing they submit is posted under their agency
+                        // (see posterTypeOptions/the default effect above).
+                        <p className="text-sm text-muted-foreground">
+                          Listed under your agency — your agency&apos;s own verification covers this listing.
+                        </p>
+                      )}
+                    </FieldRow>
                     <FieldRow icon={Mail} label="Email">
                       <Input value={user?.email ?? ''} disabled className="rounded-full bg-muted" />
                     </FieldRow>

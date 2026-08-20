@@ -109,11 +109,15 @@ function FavoritesTab() {
     >
       {favorites.map((favorite) => {
         const item = favorite.listing ?? favorite.project;
-        const isProject = !!favorite.project;
+        // Uses the FK, not the joined object — favorite.project is null for
+        // a stale favorite (its project was deleted/unpublished) exactly
+        // like favorite.listing would be, so deriving isProject from the
+        // join would mislabel every stale project favorite as a listing.
+        const isProject = !!favorite.projectId;
         return (
           <Pressable
             key={favorite.id}
-            style={styles.card}
+            style={[styles.card, !item && styles.cardStale]}
             disabled={!item}
             onPress={() =>
               isProject
@@ -140,7 +144,7 @@ function FavoritesTab() {
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item ? (isProject ? favorite.project!.name : favorite.listing!.title) : 'No longer available'}
                 </Text>
-                {item && (
+                {item ? (
                   <>
                     <Text style={styles.cardSubtitle} numberOfLines={1}>
                       {item.area}, {item.city}
@@ -151,6 +155,10 @@ function FavoritesTab() {
                       </View>
                     )}
                   </>
+                ) : (
+                  <Text style={styles.cardSubtitle} numberOfLines={2}>
+                    This {isProject ? 'project' : 'listing'} was removed or unpublished — tap the heart to clear it.
+                  </Text>
                 )}
               </View>
               <Pressable
@@ -411,6 +419,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+  },
+  // Dims the whole row for a stale favorite (its listing/project was
+  // deleted or unpublished) so it visually reads as inactive instead of
+  // just looking like a broken/empty card — same opacity convention
+  // disabled controls use elsewhere in this app.
+  cardStale: {
+    opacity: 0.6,
   },
   cardContent: {
     flexDirection: 'row',

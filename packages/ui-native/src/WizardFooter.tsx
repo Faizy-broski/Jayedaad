@@ -93,8 +93,9 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', gap: theme.spacing.sm, flexWrap: 'wrap' },
   flex1: { flex: 1, minWidth: 100 },
-  // Overrides Button's own fixed 249x35 sizing — this footer needs each
+  // Overrides Button's own fixed 249-wide sizing — this footer needs each
   // button to fill its flex:1 wrapping View instead (2-3 buttons sharing
-  // one row never fit at a fixed 249 width each on a phone screen).
-  fullWidthButton: { width: '100%', height: 44 },
+  // one row never fit at a fixed 249 width each on a phone screen). Height
+  // matches Button's own default (48) instead of the old 44 override.
+  fullWidthButton: { width: '100%', height: 48 },
 });

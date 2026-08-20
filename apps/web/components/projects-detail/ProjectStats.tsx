@@ -1,7 +1,8 @@
 'use client';
 
-import { Building2, MapPin, CalendarClock, Layers, BadgeCheck, Wallet } from 'lucide-react';
+import { Building2, MapPin, CalendarClock, Layers, Wallet } from 'lucide-react';
 import { useFormattedPrice } from '@jayedaad/core';
+import { VerifiedBadgeIcon } from '@/components/icons/VerifiedBadgeIcon';
 import type { DisplayProject } from '@/lib/types';
 
 const STATUS_LABEL: Record<DisplayProject['status'], string> = {
@@ -39,7 +40,7 @@ export function ProjectStats({ project }: ProjectStatsProps) {
       { icon: Layers, label: 'Unit Types', value: `${project.unitTypes.length}` },
     ],
     [
-      { icon: BadgeCheck, label: 'Verification', value: VERIFICATION_LABEL[project.verificationStatus] },
+      { icon: VerifiedBadgeIcon, label: 'Verification', value: VERIFICATION_LABEL[project.verificationStatus] },
       {
         icon: Wallet,
         label: 'Price Range',

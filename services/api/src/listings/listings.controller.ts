@@ -60,6 +60,7 @@ export class ListingsController {
     @Query('furnishingStatus') furnishingStatus?: 'unfurnished' | 'semi_furnished' | 'furnished',
     @Query('hasVideo') hasVideo?: string,
     @Query('agencySlug') agencySlug?: string,
+    @Query('posterType') posterType?: 'owner' | 'agent' | 'agency',
     @Query('sortBy') sortBy?: 'relevance' | 'newest' | 'price_asc' | 'price_desc',
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -83,6 +84,7 @@ export class ListingsController {
         furnishingStatus,
         hasVideo: hasVideo === 'true',
         agencySlug,
+        posterType,
         sortBy,
         page: page ? Number(page) : undefined,
         pageSize: pageSize ? Number(pageSize) : undefined,
@@ -153,7 +155,7 @@ export class ListingsController {
     @Req() req: any,
     @Query('status')
     status?: 'draft' | 'pending_verification' | 'verified' | 'rejected' | 'expired' | 'deleted' | 'downgraded' | 'inactive',
-    @Query('source') source?: 'owner_agent' | 'agency',
+    @Query('posterType') posterType?: 'owner' | 'agent' | 'agency',
     @Query('propertyTypeCategory') propertyTypeCategory?: string,
     @Query('propertyTypeSlug') propertyTypeSlug?: string,
     @Query('purpose') purpose?: 'sale' | 'rent',
@@ -175,7 +177,7 @@ export class ListingsController {
       { userId: req.user.id, role: req.user.role, agentId: req.user.agentId },
       {
         status,
-        source,
+        posterType,
         propertyTypeCategory,
         propertyTypeSlug,
         purpose,
@@ -227,6 +229,12 @@ export class ListingsController {
       ...body,
       ownerId: req.user.id,
       agentId: req.user.role === 'agent' ? req.user.agentId : undefined,
+      // A non-agent requester can only ever post as themself, the owner —
+      // client-sent posterType is ignored in that case. An agent's chosen
+      // posterType (owner/agent/agency) is passed through and re-validated
+      // against their agency_id in ListingsRepository.create() (the DB
+      // trigger from the poster_type migration is the final backstop).
+      posterType: req.user.role === 'agent' ? body.posterType : 'owner',
     });
   }
 
@@ -242,6 +250,7 @@ export class ListingsController {
       ...body,
       ownerId: req.user.id,
       agentId: req.user.role === 'agent' ? req.user.agentId : undefined,
+      posterType: req.user.role === 'agent' ? body.posterType : 'owner',
       status: 'draft',
     });
   }

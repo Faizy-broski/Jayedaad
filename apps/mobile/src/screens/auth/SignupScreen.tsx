@@ -332,7 +332,7 @@ export function SignupScreen() {
                 <Button
                   label="Google"
                   icon={<GoogleIcon />}
-                  variant="secondary"
+                  variant="muted"
                   size="lg"
                   style={styles.socialButton}
                   onPress={handleGoogleSignUp}
@@ -341,7 +341,7 @@ export function SignupScreen() {
                 <Button
                   label="Apple"
                   icon={<AppleIcon />}
-                  variant="secondary"
+                  variant="muted"
                   size="lg"
                   style={styles.socialButton}
                   onPress={handleAppleSignUp}

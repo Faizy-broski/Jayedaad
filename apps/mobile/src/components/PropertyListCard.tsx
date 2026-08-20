@@ -1,8 +1,9 @@
-import { Image, Pressable, Text, View, StyleSheet } from 'react-native';
+import { Pressable, Text, View, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
 import { FavoriteButton } from './ListingContactActions';
+import { VerifiedBadgeIcon } from './VerifiedBadgeIcon';
 
 export interface PropertyListCardProps {
   listing: Listing;
@@ -36,8 +37,8 @@ export function PropertyListCard({ listing, onPress }: PropertyListCardProps) {
         )}
         <View style={styles.topLeftBadgeStack}>
           {listing.status === 'verified' && (
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark" size={10} color={theme.colors.bg} />
+            <View style={[styles.dotBadge, styles.verifiedDotBadge]}>
+              <VerifiedBadgeIcon size={11} />
             </View>
           )}
           {isBoosted && (
@@ -75,14 +76,6 @@ const styles = StyleSheet.create({
   thumb: { width: 96, height: 96, borderRadius: theme.radius.md },
   thumbPlaceholder: { backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   topLeftBadgeStack: { position: 'absolute', top: 6, left: 6, gap: 4 },
-  verifiedBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   dotBadge: {
     width: 16,
     height: 16,
@@ -90,6 +83,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Opaque backing — the new icon is a thin outline glyph with no fill, so
+  // it needs a solid disc behind it to stay legible on a photo of unknown
+  // color (matching boost/story's own solid-color dot badges here).
+  verifiedDotBadge: { backgroundColor: theme.colors.bg },
   boostDotBadge: { backgroundColor: '#FEF3C7' },
   storyDotBadge: { backgroundColor: '#FAE8FF' },
   favoriteButton: {

@@ -384,7 +384,20 @@ export function AgentDashboardScreen() {
                 placeholderTextColor={theme.colors.mutedLight}
                 onSubmitEditing={handleAddTask}
               />
-              <Button label="Add" size="sm" disabled={!newTaskTitle.trim() || createTask.isPending} onPress={handleAddTask} />
+              {/* Not the shared Button — it's a fixed 249x35 pill (see
+                  ui-native Button.tsx) that squeezed this composer's flex:1
+                  input down to a sliver in the remaining space. A compact
+                  button sized to its own "Add" label instead. */}
+              <Pressable
+                style={[
+                  styles.followUpAddBtn,
+                  (!newTaskTitle.trim() || createTask.isPending) && styles.followUpAddBtnDisabled,
+                ]}
+                disabled={!newTaskTitle.trim() || createTask.isPending}
+                onPress={handleAddTask}
+              >
+                <Text style={styles.followUpAddBtnText}>Add</Text>
+              </Pressable>
             </View>
 
             {isTasksLoading ? (
@@ -649,6 +662,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.text,
   },
+  followUpAddBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  followUpAddBtnDisabled: { opacity: 0.5 },
+  followUpAddBtnText: { color: theme.colors.bg, fontWeight: '700', fontSize: 13 },
   followUpsList: { gap: theme.spacing.sm },
   followUpRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingVertical: 4 },
   followUpTitle: { flex: 1, fontSize: 13, color: theme.colors.text },

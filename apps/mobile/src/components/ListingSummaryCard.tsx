@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Listing, useFormattedArea, useFormattedPrice } from '@jayedaad/core';
 import { theme } from '@jayedaad/ui-native';
+import { VerifiedBadgeIcon } from './VerifiedBadgeIcon';
 
 export interface ListingSummaryCardProps {
   listing: Listing;
@@ -32,7 +33,7 @@ export function ListingSummaryCard({ listing, onPress }: ListingSummaryCardProps
         )}
         {listing.status === 'verified' && (
           <View style={styles.verifiedDot}>
-            <Ionicons name="checkmark" size={11} color="#ffffff" />
+            <VerifiedBadgeIcon size={13} />
           </View>
         )}
       </View>
@@ -86,11 +87,9 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
   },
   body: { flex: 1, justifyContent: 'center', gap: 3 },
   title: { fontSize: 14, fontWeight: '700', color: theme.colors.text },

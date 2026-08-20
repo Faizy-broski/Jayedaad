@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  BadgeCheck,
   Bed,
   Bath,
   Ruler,
@@ -14,11 +13,14 @@ import {
   Flame,
   Sparkles,
   Clapperboard,
+  Building2,
+  User,
 } from "lucide-react";
 import { listingsRepository, useFormattedArea, useFormattedPrice } from "@jayedaad/core";
 import type { Property } from "@/lib/types";
 import { useFavorites } from "@/lib/favoritesContext";
 import { getViewerSessionId } from "@/lib/viewerSession";
+import { VerifiedBadgeIcon } from "@/components/icons/VerifiedBadgeIcon";
 
 export function PropertyCard({ property }: { property: Property }) {
   const {
@@ -35,7 +37,9 @@ export function PropertyCard({ property }: { property: Property }) {
     areaSqft,
     boostTier,
     storyExpiresAt,
+    posterType,
   } = property;
+  const posterTypeLabel = posterType === "owner" ? "Owner" : posterType === "agency" ? "Agency" : posterType === "agent" ? "Agent" : null;
   const { isFavorited, toggle } = useFavorites();
   const favorited = isFavorited(id);
   // Real conversion (useExchangeRatesViewModel-backed rates,
@@ -71,7 +75,7 @@ export function PropertyCard({ property }: { property: Property }) {
           <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1">
             {verified && (
               <span className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-                <BadgeCheck className="h-3 w-3 text-primary" />
+                <VerifiedBadgeIcon className="h-3 w-3 text-primary" />
                 Verified
               </span>
             )}
@@ -126,9 +130,17 @@ export function PropertyCard({ property }: { property: Property }) {
           </span>
         </div>
 
-        <p className="flex items-center gap-1 truncate text-xs text-slate-500">
-          <MapPin className="h-3.5 w-3.5 shrink-0" />
-          {location}
+        <p className="flex items-center gap-2 truncate text-xs text-slate-500">
+          <span className="flex min-w-0 items-center gap-1 truncate">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            {location}
+          </span>
+          {posterTypeLabel && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+              {posterType === "agency" ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+              {posterTypeLabel}
+            </span>
+          )}
         </p>
         <div className="flex gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1">

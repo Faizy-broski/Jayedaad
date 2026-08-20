@@ -11,6 +11,11 @@ import type { ListingProperty } from '@/lib/types';
 
 interface AgentCardProps {
   agent: ListingProperty['agent'];
+  /** Drives the "Verified agent"/"Verified owner" copy below — 'owner'
+   *  means this card is fronting the property owner directly, not a
+   *  professional agent (see listingToListingProperty's agent.name/role
+   *  fallback for the same 'owner' case). */
+  posterType?: 'owner' | 'agent' | 'agency';
   listingId: string;
   listingTitle: string;
   /** Zero-padded listing_number, e.g. "00123" — see PropertyDetail.tsx. */
@@ -26,7 +31,7 @@ interface AgentCardProps {
   onIntentChange?: (intent: 'inquiry' | 'visit') => void;
 }
 
-export function AgentCard({ agent, listingId, listingTitle, referenceLabel, intent = 'inquiry' }: AgentCardProps) {
+export function AgentCard({ agent, posterType, listingId, listingTitle, referenceLabel, intent = 'inquiry' }: AgentCardProps) {
   // Fire-and-forget — feeds the agent dashboard's Calls/WhatsApp/SMS/Emails
   // analytics (see packages/core's listingsRepository.trackEngagement);
   // never blocks the real tel:/wa.me/sms:/mailto: action.
@@ -51,7 +56,7 @@ export function AgentCard({ agent, listingId, listingTitle, referenceLabel, inte
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
           <BadgeCheck className="h-3.5 w-3.5" />
-          Verified agent
+          {posterType === 'owner' ? 'Verified owner' : 'Verified agent'}
         </div>
         {agent.subscriptionTierName && <Badge variant="success">{agent.subscriptionTierName}</Badge>}
       </div>
