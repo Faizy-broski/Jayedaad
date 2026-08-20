@@ -39,41 +39,45 @@ export function PropertyListRow({ listing, onPress }: PropertyListRowProps) {
             <Ionicons name="image-outline" size={20} color={theme.colors.mutedLight} />
           </View>
         )}
-        {listing.status === 'verified' && (
-          // Opaque white backing behind the icon — it's a thin green
-          // outline glyph with no fill, so directly on a photo of unknown
-          // color it can disappear; a solid disc keeps it legible on any
-          // thumbnail, same reasoning the pre-icon-swap badge's colored
-          // circle background already covered.
-          <View style={styles.verifiedBadge}>
-            <VerifiedBadgeIcon size={16} />
-          </View>
-        )}
+        {/* One row at top-left: Verified checkmark, then Hot/Super
+            Hot/Story right after it — not stacked below. "Hot"/"Super
+            Hot" (max 9 characters) is short enough to sit beside the
+            badge without the collision risk "Under Construction" (19
+            characters) had on Project Card, which is what the stacked
+            layout was defending against. maxWidth on each pill still caps
+            them at the thumbnail's real remaining width so they clip
+            cleanly against the edge rather than overflowing it. */}
+        <View style={styles.topLeftBadgeRow}>
+          {listing.status === 'verified' && (
+            // Opaque white backing behind the icon — it's a thin green
+            // outline glyph with no fill, so directly on a photo of
+            // unknown color it can disappear; a solid disc keeps it
+            // legible on any thumbnail, same reasoning the pre-icon-swap
+            // badge's colored circle background already covered.
+            <View style={styles.verifiedBadge}>
+              <VerifiedBadgeIcon size={16} />
+            </View>
+          )}
+          {isBoosted && (
+            <View style={styles.boostBadge}>
+              <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={10} color="#B45309" />
+              <Text style={styles.boostBadgeText} numberOfLines={1}>
+                {listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}
+              </Text>
+            </View>
+          )}
+          {hasActiveStory && (
+            <View style={styles.storyBadge}>
+              <Ionicons name="film-outline" size={10} color="#A21CAF" />
+              <Text style={styles.storyBadgeText} numberOfLines={1}>
+                Story
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.details}>
-        {(isBoosted || hasActiveStory) && (
-          // Labeled, not icon-only — and in the details column, not on the
-          // thumbnail: the 112px-wide thumbnail has no room next to the
-          // Verified badge for a full "Super Hot" text pill without
-          // clipping or overlapping it. Matches Home's PropertyCard.tsx
-          // wording exactly, same "TITANIUM/tier badges live in the text
-          // column, not on the photo" layout the real Zameen app uses.
-          <View style={styles.badgeRow}>
-            {isBoosted && (
-              <View style={styles.boostBadge}>
-                <Ionicons name={listing.boostTier === 'super_hot' ? 'flame' : 'sparkles'} size={10} color="#B45309" />
-                <Text style={styles.boostBadgeText}>{listing.boostTier === 'super_hot' ? 'Super Hot' : 'Hot'}</Text>
-              </View>
-            )}
-            {hasActiveStory && (
-              <View style={styles.storyBadge}>
-                <Ionicons name="film-outline" size={10} color="#A21CAF" />
-                <Text style={styles.storyBadgeText}>Story</Text>
-              </View>
-            )}
-          </View>
-        )}
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
             {listing.title}
@@ -127,10 +131,20 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
   },
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
-  verifiedBadge: {
+  // One row, not each badge individually positioned — Verified sits first,
+  // Hot/Super Hot/Story follow right after it. maxWidth caps the row to
+  // the thumbnail's real remaining width (112 - 6 - 6) so a long label
+  // clips cleanly against the image edge instead of overflowing it.
+  topLeftBadgeRow: {
     position: 'absolute',
     top: 6,
     left: 6,
+    maxWidth: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  verifiedBadge: {
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -139,11 +153,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   details: { flex: 1, justifyContent: 'center', gap: 4 },
-  badgeRow: { flexDirection: 'row', gap: 6, marginBottom: 2 },
   boostBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 1,
     backgroundColor: '#FEF3C7',
     borderRadius: 999,
     paddingHorizontal: theme.spacing.sm,
@@ -154,6 +168,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 1,
     backgroundColor: '#FAE8FF',
     borderRadius: 999,
     paddingHorizontal: theme.spacing.sm,

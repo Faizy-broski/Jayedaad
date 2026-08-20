@@ -73,7 +73,14 @@ export function ProjectCard({ project, onPress }: ProjectCardProps) {
           </View>
         )}
         <View style={styles.statusPill}>
-          <Text style={styles.statusText}>{STATUS_LABELS[project.status]}</Text>
+          {/* Stacked below the Verified badge (both left-anchored), not
+              beside it — top-right left it competing for a ~88px budget
+              with "Under Construction", which still didn't fit even
+              shrunk. Left-anchored with nothing to its right within the
+              thumbnail gives it the real room it needs at full size. */}
+          <Text style={styles.statusText} numberOfLines={1}>
+            {STATUS_LABELS[project.status]}
+          </Text>
         </View>
       </View>
 
@@ -98,7 +105,16 @@ export function ProjectCard({ project, onPress }: ProjectCardProps) {
               {project.area}, {project.city}
             </Text>
           </View>
-          {price && <Text style={styles.price}>{price}</Text>}
+          {/* adjustsFontSizeToFit shrinks the text to stay on one line
+              instead of wrapping "PKR X Cr – PKR Y Cr" onto a second row —
+              a real range can be too wide for this column at the base
+              size, and shrinking reads better here than truncating a
+              price with an ellipsis. */}
+          {price && (
+            <Text style={styles.price} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              {price}
+            </Text>
+          )}
 
           <View style={styles.metaRow}>
             <View style={styles.developerPill}>
@@ -199,8 +215,13 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    // Below the Verified badge (22px tall, top:6 → bottom edge at 28),
+    // not beside it — left-anchored with nothing to its right within
+    // the thumbnail, so even "Under Construction" gets the full ~128px
+    // of real room instead of a squeezed shared row.
+    top: 34,
+    left: 6,
+    maxWidth: 128,
     backgroundColor: theme.colors.primary,
     borderRadius: 999,
     paddingHorizontal: theme.spacing.sm,
