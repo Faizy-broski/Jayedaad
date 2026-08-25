@@ -76,6 +76,8 @@ const STATUS_BADGE: Record<ListingStatus, { label: string; className: string }> 
   deleted: { label: 'Deleted', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
   downgraded: { label: 'Downgraded', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
   inactive: { label: 'Inactive', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+  sold: { label: 'Sold', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  rented: { label: 'Rented', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
 };
 
 const PAGE_SIZE = 20;

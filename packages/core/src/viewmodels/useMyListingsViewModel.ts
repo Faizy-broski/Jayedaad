@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { agentsRepository } from '../services/agentsRepository';
 import { CreateListingInput, listingsRepository, MyListingsFilters } from '../services/listingsRepository';
-import { BoostListingInput } from '../models';
+import { BoostListingInput, Listing, ListingAnalytics } from '../models';
 import { useAuthViewModel } from './useAuthViewModel';
+
+// Extends Listing with the batch per-listing analytics merged in below —
+// left local to this viewmodel rather than added onto the shared Listing
+// type, since analytics is only ever populated here.
+export type ListingWithAnalytics = Listing & { analytics?: ListingAnalytics };
 
 // Drives the Profolio-style "My Listings" page — status tabs (with count
 // badges) plus a filtered/paginated list. GET /listings/mine is role-aware
@@ -9,20 +15,40 @@ import { useAuthViewModel } from './useAuthViewModel';
 // sees all), so this gates on any signed-in user, not agentId specifically
 // (unlike useAgentDashboardViewModel, which is agent-only).
 export function useMyListingsViewModel(filters: MyListingsFilters) {
-  const { user } = useAuthViewModel();
+  const { user, agentId } = useAuthViewModel();
   const queryClient = useQueryClient();
 
+  // Defaults to 'own' — matches the API's default and LeadListFilters.scope
+  // convention. Agency Admin passes 'agency' to widen to every associate.
+  const scope = filters.scope ?? 'own';
+  const scopedFilters = { ...filters, scope };
+
   const listingsQuery = useQuery({
-    queryKey: ['listings', 'mine', filters],
-    queryFn: () => listingsRepository.findMine(filters),
+    queryKey: ['listings', 'mine', scopedFilters],
+    queryFn: () => listingsRepository.findMine(scopedFilters),
     enabled: !!user,
   });
 
   const statusCountsQuery = useQuery({
-    queryKey: ['listings', 'mine', 'status-counts'],
+    queryKey: ['listings', 'mine', 'status-counts', scope],
     queryFn: () => listingsRepository.getMyStatusCounts(),
     enabled: !!user,
   });
+
+  // Per-listing performance breakdown for the current page — a secondary
+  // query, same graceful-degrade convention as useAgentDashboardViewModel's
+  // recentListingsQuery: a slow/failed fetch here never blocks the listings
+  // themselves from rendering, it just leaves `analytics` undefined per row.
+  const analyticsQuery = useQuery({
+    queryKey: ['agents', agentId, 'listings', 'analytics', scope],
+    queryFn: () => agentsRepository.getListingsAnalytics(agentId!, scope),
+    enabled: !!agentId,
+  });
+
+  const listingsWithAnalytics: ListingWithAnalytics[] = (listingsQuery.data?.items ?? []).map((listing) => ({
+    ...listing,
+    analytics: analyticsQuery.data?.find((row) => row.listingId === listing.id),
+  }));
 
   // Edit/delete on the Property Management page — invalidating the
   // ['listings','mine'] prefix refreshes both this list (any filter combo)
@@ -90,12 +116,13 @@ export function useMyListingsViewModel(filters: MyListingsFilters) {
   });
 
   return {
-    listings: listingsQuery.data?.items ?? [],
+    listings: listingsWithAnalytics,
     total: listingsQuery.data?.total ?? 0,
     page: listingsQuery.data?.page ?? filters.page ?? 1,
     pageSize: listingsQuery.data?.pageSize ?? filters.pageSize ?? 20,
     isLoading: listingsQuery.isLoading,
     isError: listingsQuery.isError,
+    isListingsAnalyticsLoading: analyticsQuery.isLoading,
     // Named distinctly from `refresh` below — that's an unrelated paid
     // mutation (spends a "Refresh credit" to bump sort position), not a
     // cache refetch. Pull-to-refresh call sites want these two, not that.

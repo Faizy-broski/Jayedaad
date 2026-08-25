@@ -7,6 +7,8 @@ import { LeadsRepository } from './leads.repository';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { AddLeadNoteDto } from './dto/add-lead-note.dto';
+import { ConvertLeadDto } from './dto/convert-lead.dto';
+import { OpportunitiesRepository } from '../opportunities/opportunities.repository';
 
 // Guards are applied per-method (not at the class level) because `create`
 // must be reachable by an unauthenticated buyer submitting a contact-form
@@ -14,7 +16,10 @@ import { AddLeadNoteDto } from './dto/add-lead-note.dto';
 // verification_staff never sees this module at all [Dev Instr §2.2].
 @Controller('crm/leads')
 export class LeadsController {
-  constructor(private readonly leads: LeadsRepository) {}
+  constructor(
+    private readonly leads: LeadsRepository,
+    private readonly opportunities: OpportunitiesRepository,
+  ) {}
 
   // Public intake: chatbot leads, contact-agent form submissions, call
   // requests [Dev Instr §3.1]. No role required — the requester has no
@@ -77,6 +82,19 @@ export class LeadsController {
   @Patch(':id/status')
   updateStatus(@Req() req: any, @Param('id') id: string, @Body() body: UpdateLeadStatusDto) {
     return this.leads.updateStatus(req.user, id, body.status);
+  }
+
+  // "Convert to Opportunity" — promotes this lead into a real pre-close
+  // pipeline object (services/api/src/opportunities/). Agent- or
+  // super_admin-eligible (mirrors updateStatus above): a super_admin can
+  // convert on behalf of the lead's own agent, same as they can update its
+  // status on that agent's behalf. Eligibility (status, no existing active
+  // opportunity) is enforced in OpportunitiesRepository.convertFromLead.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Post(':id/convert')
+  convert(@Req() req: any, @Param('id') id: string, @Body() body: ConvertLeadDto) {
+    return this.opportunities.convertFromLead(req.user, id, body);
   }
 
   // J.Team-only per [Dev Instr §3.2]: "Agents cannot reassign leads to other

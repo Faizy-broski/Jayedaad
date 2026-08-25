@@ -8,7 +8,7 @@ import { AgentsRepository } from '../agents/agents.repository';
 import { NotificationsRepository } from '../notifications/notifications.repository';
 
 const AGENCY_COLUMNS =
-  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, rejection_reason, sales_associate_count, tier';
+  'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, rejection_reason, sales_associate_count, tier, default_commission_rate';
 
 export type AgencyTier = 'titanium' | 'featured' | 'basic';
 
@@ -444,6 +444,7 @@ export class AgenciesRepository {
         business_hours: input.businessHours,
         logo_url: input.logoUrl,
         sales_associate_count: input.salesAssociateCount,
+        default_commission_rate: input.defaultCommissionRate,
       })
       .eq('id', id)
       .select(AGENCY_COLUMNS)

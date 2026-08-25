@@ -50,6 +50,21 @@ export class CreateSubscriptionTierDto {
   @IsOptional()
   @IsString()
   stripePriceId?: string;
+
+  // Annual counterparts — both optional, and independent of the monthly
+  // pair above. Leaving annualPrice unset keeps this tier monthly-only (no
+  // Annual toggle option shown for it on the Plan page). annualPrice must
+  // match the real amount configured on stripeAnnualPriceId's Stripe Price
+  // object, same manual-entry convention as price/stripePriceId — the
+  // discount shown to agents is always derived from these two real numbers
+  // (packages/core's getAnnualDiscountPercent), never stored separately.
+  @IsOptional()
+  @IsNumber()
+  annualPrice?: number | null;
+
+  @IsOptional()
+  @IsString()
+  stripeAnnualPriceId?: string;
 }
 
 export class UpdateSubscriptionTierDto {
@@ -90,4 +105,13 @@ export class UpdateSubscriptionTierDto {
   @IsOptional()
   @IsString()
   stripePriceId?: string;
+
+  // Same annual pair as CreateSubscriptionTierDto above.
+  @IsOptional()
+  @IsNumber()
+  annualPrice?: number | null;
+
+  @IsOptional()
+  @IsString()
+  stripeAnnualPriceId?: string;
 }

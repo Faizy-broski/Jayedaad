@@ -37,15 +37,20 @@ const STATUS_VARIANT: Record<SupportTicketStatus, 'warning' | 'default' | 'succe
 // 'support_ticket' notifications here).
 export default function AdminSupportPage() {
   const [activeTab, setActiveTab] = useState<StatusTab>('all');
+  const [assignedFilter, setAssignedFilter] = useState<string>(''); // '' = all staff/unassigned
   const [page, setPage] = useState(1);
-  const { tickets, total, isLoading, updateStatus, remove } = useAdminSupportViewModel({
+  const { tickets, total, isLoading, updateStatus, remove, assign } = useAdminSupportViewModel({
     status: activeTab === 'all' ? undefined : activeTab,
+    assignedTo: assignedFilter || undefined,
     page,
     pageSize: PAGE_SIZE,
   });
   // Unfiltered roster to resolve created_by -> a real name, same pattern
-  // Verification Log uses for reviewerId -> name.
+  // Verification Log uses for reviewerId -> name. Also doubles as the
+  // eligible-assignee list (filtered to verification_staff client-side)
+  // rather than a second fetch — this roster already has every user.
   const { users } = useUserManagementViewModel();
+  const staff = users.filter((u) => u.role === 'verification_staff');
   const [viewingTicket, setViewingTicket] = useState<SupportTicket | null>(null);
   const [editingTicket, setEditingTicket] = useState<SupportTicket | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -58,6 +63,23 @@ export default function AdminSupportPage() {
     const user = users.find((u) => u.id === id);
     return user?.displayName ?? user?.email ?? id;
   };
+
+  const staffName = (id: string | null) => {
+    if (!id) return null;
+    const user = users.find((u) => u.id === id);
+    return user?.displayName ?? user?.email ?? id;
+  };
+
+  function handleAssign(ticketId: string, staffId: string) {
+    if (!staffId) return;
+    assign.mutate(
+      { id: ticketId, staffId },
+      {
+        onSuccess: () => toast.success('Ticket assigned.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
+  }
 
   function handleTabChange(next: StatusTab) {
     setActiveTab(next);
@@ -110,27 +132,52 @@ export default function AdminSupportPage() {
       </Reveal>
 
       <Reveal>
-        <div className="flex gap-1 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                'relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                activeTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {activeTab === tab.id && (
-                <motion.span
-                  layoutId="supportStatusTab"
-                  className="bg-heading-gradient absolute inset-0 rounded-full"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                />
-              )}
-              <span className="relative">{tab.label}</span>
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1 overflow-x-auto rounded-full border border-border bg-muted/40 p-1">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  'relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                  activeTab === tab.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {activeTab === tab.id && (
+                  <motion.span
+                    layoutId="supportStatusTab"
+                    className="bg-heading-gradient absolute inset-0 rounded-full"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Filters the list down to one staff member's queue — the "see
+              the status of tickets assigned" half of the feature. Left at
+              the default ('' = every ticket regardless of assignment) so
+              this doesn't change today's behavior unless explicitly used. */}
+          {staff.length > 0 && (
+            <div className="w-48">
+              <Select
+                value={assignedFilter}
+                onChange={(e) => {
+                  setAssignedFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All assignees</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.displayName ?? s.email}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
       </Reveal>
 
@@ -169,9 +216,32 @@ export default function AdminSupportPage() {
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     From {submitterName(ticket.createdBy)} ·{' '}
                     {new Date(ticket.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {ticket.assignedTo && (
+                      <>
+                        {' '}
+                        · Assigned to <span className="font-medium text-foreground">{staffName(ticket.assignedTo)}</span>
+                      </>
+                    )}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {staff.length > 0 && (
+                    <select
+                      value={ticket.assignedTo ?? ''}
+                      onChange={(e) => handleAssign(ticket.id, e.target.value)}
+                      disabled={assign.isPending}
+                      className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                    >
+                      <option value="" disabled>
+                        Assign to…
+                      </option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.displayName ?? s.email}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => setViewingTicket(ticket)}>
                     <Eye className="mr-1 h-3.5 w-3.5" />
                     View
@@ -203,6 +273,7 @@ export default function AdminSupportPage() {
               <span className="text-xs text-muted-foreground">
                 From {submitterName(viewingTicket.createdBy)} ·{' '}
                 {new Date(viewingTicket.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {viewingTicket.assignedTo && <> · Assigned to {staffName(viewingTicket.assignedTo)}</>}
               </span>
             </div>
             <p className="whitespace-pre-wrap text-sm text-foreground/90">{viewingTicket.message}</p>

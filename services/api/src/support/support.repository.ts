@@ -7,7 +7,8 @@ import { UpdateSupportTicketDto } from './dto/update-support-ticket.dto';
 import { UpdateSupportTicketStatusDto } from './dto/update-support-ticket-status.dto';
 import { paginate, PaginationParams, resolvePagination } from '../common/pagination';
 
-const SUPPORT_TICKET_COLUMNS = 'id, created_by, agency_id, subject, message, status, admin_note, created_at, updated_at';
+const SUPPORT_TICKET_COLUMNS =
+  'id, created_by, agency_id, subject, message, status, admin_note, assigned_to, created_at, updated_at';
 
 const STATUS_TITLE: Record<'open' | 'in_progress' | 'resolved', string> = {
   open: 'Open',
@@ -69,8 +70,11 @@ export class SupportRepository {
     return paginate(query, pagination);
   }
 
-  // Super Admin-only (enforced at the controller).
-  async listAll(filters: PaginationParams & { status?: 'open' | 'in_progress' | 'resolved' } = {}) {
+  // Super Admin-only (enforced at the controller). assignedTo lets the
+  // Super Admin support page filter down to "tickets assigned to staff X"
+  // — the "see the status of tickets assigned" half of the feature —
+  // alongside the existing status filter.
+  async listAll(filters: PaginationParams & { status?: 'open' | 'in_progress' | 'resolved'; assignedTo?: string } = {}) {
     const pagination = resolvePagination(filters);
     let query = this.supabase.client
       .from('support_tickets')
@@ -78,9 +82,71 @@ export class SupportRepository {
       .order('created_at', { ascending: false });
 
     if (filters.status) query = query.eq('status', filters.status);
+    if (filters.assignedTo) query = query.eq('assigned_to', filters.assignedTo);
     query = query.range(pagination.from, pagination.to);
 
     return paginate(query, pagination);
+  }
+
+  // verification_staff-only (enforced at the controller) — the "assigned
+  // to me" queue, same shape as listMine() but keyed on assigned_to instead
+  // of created_by.
+  async listAssigned(staffId: string, filters: PaginationParams & { status?: 'open' | 'in_progress' | 'resolved' } = {}) {
+    const pagination = resolvePagination(filters);
+    let query = this.supabase.client
+      .from('support_tickets')
+      .select(SUPPORT_TICKET_COLUMNS, { count: 'exact' })
+      .eq('assigned_to', staffId)
+      .order('created_at', { ascending: false });
+
+    if (filters.status) query = query.eq('status', filters.status);
+    query = query.range(pagination.from, pagination.to);
+
+    return paginate(query, pagination);
+  }
+
+  // Super Admin-only (enforced at the controller). staffId's eligibility is
+  // validated here, not trusted from the client — mirrors this codebase's
+  // standing "never trust a client-supplied id for a role-sensitive
+  // assignment" discipline (e.g. subscription-tiers.repository.ts's
+  // poster_type eligibility check).
+  async assign(id: string, staffId: string) {
+    const { data: staffProfile, error: staffError } = await this.supabase.client
+      .from('profiles')
+      .select('role')
+      .eq('id', staffId)
+      .maybeSingle();
+    if (staffError) throw staffError;
+    if (!staffProfile || staffProfile.role !== 'verification_staff') {
+      throw new BadRequestException('You can only assign tickets to a verification staff member.');
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('support_tickets')
+      .update({ assigned_to: staffId, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select(SUPPORT_TICKET_COLUMNS)
+      .single();
+    if (error) throw error;
+
+    await this.notifyAssignee(staffId, data.subject);
+    return data;
+  }
+
+  // Same best-effort discipline as notifySuperAdmins/notifyOwner below —
+  // lets a verification_staff member know a ticket landed in their queue
+  // without waiting for them to stumble onto it.
+  private async notifyAssignee(staffId: string, subject: string): Promise<void> {
+    try {
+      await this.notifications.create({
+        userId: staffId,
+        type: 'support_ticket',
+        title: 'A support ticket was assigned to you',
+        body: subject,
+      });
+    } catch {
+      // non-fatal
+    }
   }
 
   // Agent-facing edit — only while the ticket is still 'open'. Once Super

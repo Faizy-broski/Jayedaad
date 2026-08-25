@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   Image,
   ImageBackground,
   Linking,
+  Modal,
+  PanResponder,
   ScrollView,
   Share,
   Text,
@@ -33,7 +36,9 @@ import { ProjectFavoriteButton } from '../components/ListingContactActions';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 const { width } = Dimensions.get('window');
-const GALLERY_HEIGHT = 360;
+// Was 360 — shrunk to match ListingDetailScreen.tsx's identical density
+// pass, leaving more room for badges/price/stats above the fold.
+const GALLERY_HEIGHT = 300;
 const THUMB_SIZE = 48;
 
 // FIGMA COLORS
@@ -77,10 +82,48 @@ export function ProjectDetailScreen() {
   const { projectSlug } = route.params;
   const { project, isLoading } = usePublicProjectDetailViewModel(projectSlug);
   const { projects: cityProjects } = useProjectsViewModel(project ? { city: project.city } : {});
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  // Was an inline numberOfLines toggle (Read more/less expanded in place) —
+  // now opens a real bottom sheet with the full title + description, same
+  // "Title and Description" slide-up sheet as ListingDetailScreen.tsx.
+  const [descriptionSheetOpen, setDescriptionSheetOpen] = useState(false);
+  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
+  // Modal's own built-in animationType can't be driven by a gesture, so
+  // this sheet manages its own slide (animationType="none" below) —
+  // Animated.Value for translateY, PanResponder on a drag handle for
+  // swipe-to-dismiss, backdrop Pressable for tap-to-dismiss. Mirrors
+  // ListingDetailScreen.tsx's identical sheet exactly.
+  const descriptionSheetY = useRef(new Animated.Value(600)).current;
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryIntent, setEnquiryIntent] = useState<'inquiry' | 'visit'>('inquiry');
   const { format } = useFormattedPrice();
+
+  useEffect(() => {
+    if (!descriptionSheetOpen) return;
+    Animated.timing(descriptionSheetY, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+  }, [descriptionSheetOpen, descriptionSheetY]);
+
+  function closeDescriptionSheet() {
+    Animated.timing(descriptionSheetY, { toValue: 600, duration: 200, useNativeDriver: true }).start(() =>
+      setDescriptionSheetOpen(false),
+    );
+  }
+
+  const descriptionSheetPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 6,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) descriptionSheetY.setValue(gesture.dy);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > 120 || gesture.vy > 0.8) {
+          closeDescriptionSheet();
+        } else {
+          Animated.spring(descriptionSheetY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        }
+      },
+    }),
+  ).current;
 
   if (isLoading || !project) {
     return (
@@ -152,11 +195,11 @@ export function ProjectDetailScreen() {
           {project.description && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>About this property</Text>
-              <Text style={styles.description} numberOfLines={descriptionExpanded ? undefined : 4}>
+              <Text style={styles.description} numberOfLines={4}>
                 {project.description}
               </Text>
-              <Pressable onPress={() => setDescriptionExpanded((v) => !v)} style={{ marginTop: 4 }}>
-                <Text style={styles.link}>{descriptionExpanded ? 'Read less' : 'Read more'}</Text>
+              <Pressable onPress={() => setDescriptionSheetOpen(true)} style={{ marginTop: 4 }}>
+                <Text style={styles.link}>Read more</Text>
               </Pressable>
             </View>
           )}
@@ -254,18 +297,28 @@ export function ProjectDetailScreen() {
             </View>
           )}
 
-          {/* AMENITIES - Updated to Figma soft-shadow aesthetic */}
+          {/* AMENITIES — capped to 6 until "See more", same expand pattern
+              as ListingDetailScreen.tsx's Amenities section (there capped
+              to 4 — projects' amenity cards are denser/2-column, so 6
+              fills roughly the same visual height before the toggle). */}
           {!!project.amenities?.length && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Amenities</Text>
               <View style={styles.amenityChecklist}>
-                {project.amenities.map((a) => (
+                {(amenitiesExpanded ? project.amenities : project.amenities.slice(0, 6)).map((a) => (
                   <View key={a.slug} style={styles.amenityRow}>
                     <Ionicons name="checkmark" size={16} color={FIGMA_PRIMARY} />
                     <Text style={styles.amenityText}>{a.label}</Text>
                   </View>
                 ))}
               </View>
+              {project.amenities.length > 6 && (
+                <Pressable onPress={() => setAmenitiesExpanded((v) => !v)} style={{ marginTop: 4, alignSelf: 'center' }}>
+                  <Text style={styles.link}>
+                    {amenitiesExpanded ? 'See less' : `See ${project.amenities.length - 6} more`}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -305,7 +358,7 @@ export function ProjectDetailScreen() {
                 <Text style={styles.developerName}>{project.developer.name}</Text>
                 <Text style={styles.developerSubtitle}>Developer</Text>
               </View>
-              <DeveloperContactIcons developer={project.developer} onMessagePress={() => openEnquiry('inquiry')} />
+              <DeveloperContactIcons developer={project.developer} />
             </View>
           </View>
 
@@ -315,6 +368,36 @@ export function ProjectDetailScreen() {
             projectName={project.name}
             intent={enquiryIntent}
           />
+
+          {/* TITLE AND DESCRIPTION — full-screen slide-up sheet, not an
+              inline expand. Closable by the X button, tapping the dimmed
+              backdrop, or swiping the handle down. Mirrors
+              ListingDetailScreen.tsx's identical sheet. */}
+          <Modal
+            visible={descriptionSheetOpen}
+            animationType="none"
+            transparent
+            onRequestClose={closeDescriptionSheet}
+          >
+            <View style={styles.descriptionSheetBackdrop}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={closeDescriptionSheet} />
+              <Animated.View style={[styles.descriptionSheet, { transform: [{ translateY: descriptionSheetY }] }]}>
+                <View {...descriptionSheetPanResponder.panHandlers}>
+                  <View style={styles.descriptionSheetHandle} />
+                  <View style={styles.descriptionSheetHeader}>
+                    <Text style={styles.descriptionSheetHeaderTitle}>Title and Description</Text>
+                    <Pressable onPress={closeDescriptionSheet} hitSlop={8}>
+                      <Ionicons name="close" size={24} color={theme.colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+                <ScrollView contentContainerStyle={styles.descriptionSheetBody}>
+                  <Text style={styles.descriptionSheetTitle}>{project.name}</Text>
+                  <Text style={styles.description}>{project.description}</Text>
+                </ScrollView>
+              </Animated.View>
+            </View>
+          </Modal>
 
           {/* MORE PROJECTS IN THIS CITY */}
           {moreInCity.length > 0 && (
@@ -360,6 +443,11 @@ export function ProjectDetailScreen() {
 
 function Gallery({ project, onBack }: { project: Project; onBack: () => void }) {
   const [index, setIndex] = useState(0);
+  // Drives both directions of sync, same as ListingDetailScreen.tsx's
+  // identical gallery: swiping the hero updates the active thumbnail
+  // (onMomentumScrollEnd below), tapping a thumbnail scrolls the hero to
+  // match (heroListRef.scrollToOffset in the thumbnail's onPress).
+  const heroListRef = useRef<FlatList>(null);
   const images = [project.coverImageUrl, ...project.galleryImageUrls].filter((u): u is string => !!u);
   const items: Array<{ url: string; type: 'image' | 'video' }> = [
     ...images.map((url) => ({ url, type: 'image' as const })),
@@ -388,21 +476,37 @@ function Gallery({ project, onBack }: { project: Project; onBack: () => void }) 
     );
   }
 
-  const active = items[index];
-
   return (
     <View style={{ position: 'relative' }}>
-      {active.type === 'video' ? (
-        <Pressable
-          style={[styles.galleryHero, styles.galleryVideo, { height: GALLERY_HEIGHT }]}
-          onPress={() => Linking.openURL(active.url).catch(() => {})}
-        >
-          <Ionicons name="play-circle" size={56} color="#ffffff" />
-        </Pressable>
-      ) : (
-        <Image source={{ uri: active.url }} style={[styles.galleryHero, { height: GALLERY_HEIGHT }]} />
-      )}
-      
+      {/* Swipeable hero — was a single static Image only ever changed by
+          tapping a thumbnail below; now a real horizontally-paged
+          FlatList, one photo/video per full-width page, same treatment as
+          ListingDetailScreen.tsx's identical gallery. */}
+      <FlatList
+        ref={heroListRef}
+        data={items}
+        keyExtractor={(item, i) => `hero-${item.url}-${i}`}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const nextIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+          setIndex(nextIndex);
+        }}
+        renderItem={({ item }) =>
+          item.type === 'video' ? (
+            <Pressable
+              style={[styles.galleryHero, styles.galleryVideo, { width, height: GALLERY_HEIGHT }]}
+              onPress={() => Linking.openURL(item.url).catch(() => {})}
+            >
+              <Ionicons name="play-circle" size={56} color="#ffffff" />
+            </Pressable>
+          ) : (
+            <Image source={{ uri: item.url }} style={[styles.galleryHero, { width, height: GALLERY_HEIGHT }]} />
+          )
+        }
+      />
+
       {/* Gradient overlay for better top/bottom legibility */}
       <View style={styles.galleryGradient} pointerEvents="none" />
 
@@ -427,7 +531,12 @@ function Gallery({ project, onBack }: { project: Project; onBack: () => void }) 
           style={styles.thumbStrip}
           contentContainerStyle={styles.thumbStripContent}
           renderItem={({ item, index: i }) => (
-            <Pressable onPress={() => setIndex(i)}>
+            <Pressable
+              onPress={() => {
+                setIndex(i);
+                heroListRef.current?.scrollToOffset({ offset: i * width, animated: true });
+              }}
+            >
               {item.type === 'video' ? (
                 <View style={[styles.thumb, styles.galleryVideo, i === index && styles.thumbActive]}>
                   <Ionicons name="play" size={16} color="#ffffff" />
@@ -443,18 +552,13 @@ function Gallery({ project, onBack }: { project: Project; onBack: () => void }) 
   );
 }
 
-function DeveloperContactIcons({
-  developer,
-  onMessagePress,
-}: {
-  developer: Project['developer'];
-  onMessagePress: () => void;
-}) {
+// Was Message/Call/WhatsApp (chatbubble-outline "message" icon opened the
+// in-app enquiry form, no SMS at all) — now Call/WhatsApp/SMS, same paper-
+// plane "send" icon ContactIconActions.tsx uses on the listing side, so
+// the two contact rows read identically across properties and projects.
+function DeveloperContactIcons({ developer }: { developer: Project['developer'] }) {
   return (
     <View style={styles.iconRow}>
-      <Pressable style={[styles.contactCircleBtn, { backgroundColor: FIGMA_MUTED_BG, borderColor: FIGMA_BORDER, borderWidth: 1 }]} onPress={onMessagePress}>
-        <Ionicons name="chatbubble-outline" size={18} color={theme.colors.text} />
-      </Pressable>
       {developer.phone && (
         <Pressable style={[styles.contactCircleBtn, { backgroundColor: FIGMA_PRIMARY }]} onPress={() => Linking.openURL(`tel:${developer.phone}`)}>
           <Ionicons name="call" size={18} color={FIGMA_SURFACE} />
@@ -466,6 +570,14 @@ function DeveloperContactIcons({
           onPress={() => Linking.openURL(`https://wa.me/${developer.whatsapp!.replace(/\D/g, '')}`)}
         >
           <Ionicons name="logo-whatsapp" size={18} color={FIGMA_SURFACE} />
+        </Pressable>
+      )}
+      {developer.phone && (
+        <Pressable
+          style={[styles.contactCircleBtn, { backgroundColor: FIGMA_MUTED_BG, borderColor: FIGMA_BORDER, borderWidth: 1 }]}
+          onPress={() => Linking.openURL(`sms:${developer.phone}`)}
+        >
+          <Ionicons name="paper-plane-outline" size={18} color={theme.colors.text} />
         </Pressable>
       )}
     </View>
@@ -606,11 +718,14 @@ const styles = StyleSheet.create({
     opacity: 0.05, // Subtle watermark for maximum readability
     resizeMode: 'cover',
   },
-  headerContent: { 
-    paddingHorizontal: 20, 
-    paddingTop: 24, 
-    paddingBottom: 20,
-    gap: 8,
+  headerContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 14,
+    // `gap` alone spaces badgeRow/title/locationRow/price/possessionRow —
+    // was 8 plus each child's own marginTop stacked on top of it, same
+    // double-spacing fix as ListingDetailScreen.tsx's identical header.
+    gap: 4,
   },
   contentBody: {
     paddingHorizontal: 20,
@@ -667,18 +782,52 @@ const styles = StyleSheet.create({
   pillBadge: { backgroundColor: FIGMA_MUTED_BG, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   pillBadgeText: { fontSize: 10, fontWeight: '700', color: theme.colors.text, letterSpacing: 0.5 },
 
-  title: { fontSize: 24, fontWeight: '900', color: theme.colors.text, letterSpacing: -0.5, marginTop: 4 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  location: { fontSize: 14, color: theme.colors.muted },
-  price: { fontSize: 28, fontWeight: '900', color: FIGMA_PRIMARY, marginTop: 12 },
-  possessionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  title: { fontSize: 22, fontWeight: '700', color: theme.colors.text, letterSpacing: -0.5 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  location: { fontSize: 13, color: theme.colors.muted },
+  // Softened from '900' — same typography pass as ListingDetailScreen's
+  // price, which was reported as excessively bold.
+  price: { fontSize: 26, fontWeight: '600', color: FIGMA_PRIMARY, marginTop: 4 },
+  possessionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   possessionText: { fontSize: 13, color: theme.colors.muted },
 
   section: { marginTop: 28, gap: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '900', color: theme.colors.text, letterSpacing: -0.3 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text, letterSpacing: -0.3 },
   sectionSubtitle: { fontSize: 13, color: theme.colors.muted, marginTop: -8, marginBottom: 8 },
   description: { fontSize: 14, color: theme.colors.muted, lineHeight: 22 },
   link: { fontSize: 13, fontWeight: '700', color: FIGMA_PRIMARY },
+
+  // "Title and Description" sheet — mirrors ListingDetailScreen.tsx's
+  // identical styles exactly.
+  descriptionSheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  descriptionSheet: {
+    maxHeight: '85%',
+    backgroundColor: FIGMA_SURFACE,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  descriptionSheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: FIGMA_BORDER,
+    marginTop: 10,
+  },
+  descriptionSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: FIGMA_BORDER,
+  },
+  descriptionSheetHeaderTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text },
+  descriptionSheetBody: { padding: 20, gap: 16, paddingBottom: 32 },
+  descriptionSheetTitle: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
 
   // Updated Vertical Unit Cards
   cardListVertical: { gap: 12 },

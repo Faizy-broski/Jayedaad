@@ -1,4 +1,4 @@
-import { IsEmail, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEmail, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class UpdateAgencyDto {
   @IsOptional()
@@ -37,4 +37,14 @@ export class UpdateAgencyDto {
   @IsInt()
   @Min(1)
   salesAssociateCount?: number;
+
+  // Percent (0-100) — falls back to DealsRepository's
+  // PLATFORM_DEFAULT_COMMISSION_RATE when unset. Same admin-only write path
+  // as every other field here (AgenciesController.update's
+  // assertCanManageAgency check).
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  defaultCommissionRate?: number;
 }

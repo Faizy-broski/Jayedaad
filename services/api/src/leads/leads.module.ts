@@ -3,9 +3,13 @@ import { LeadsController } from './leads.controller';
 import { LeadsRepository } from './leads.repository';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { OpportunitiesModule } from '../opportunities/opportunities.module';
 
 @Module({
-  imports: [AppointmentsModule, NotificationsModule],
+  // OpportunitiesModule: LeadsController's "Convert to Opportunity" action
+  // (POST /crm/leads/:id/convert) delegates straight to
+  // OpportunitiesRepository.convertFromLead — no new logic duplicated here.
+  imports: [AppointmentsModule, NotificationsModule, OpportunitiesModule],
   controllers: [LeadsController],
   providers: [LeadsRepository],
   // RemindersModule/TasksModule reuse LeadsRepository's ownership check

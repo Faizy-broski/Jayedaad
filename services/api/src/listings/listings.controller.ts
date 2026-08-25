@@ -26,12 +26,16 @@ import { TrackEngagementDto } from './dto/track-engagement.dto';
 import { SetListingStatusDto } from './dto/set-status.dto';
 import { UploadListingDocumentDto } from './dto/upload-document.dto';
 import { BoostListingDto } from './dto/boost-listing.dto';
+import { DealsRepository } from '../deals/deals.repository';
+import { MarkSoldDto } from '../deals/dto/mark-sold.dto';
+import { MarkRentedDto } from '../deals/dto/mark-rented.dto';
 
 @Controller('listings')
 export class ListingsController {
   constructor(
     private readonly listings: ListingsRepository,
     private readonly listingMedia: ListingMediaService,
+    private readonly deals: DealsRepository,
   ) {}
 
   // Public, unauthenticated — verified-only, identical response whether called
@@ -170,6 +174,11 @@ export class ListingsController {
     @Query('areaUnit') areaUnit?: 'marla' | 'kanal' | 'sqyd' | 'sqft' | 'sqm' | 'acre',
     @Query('listedDateFrom') listedDateFrom?: string,
     @Query('listedDateTo') listedDateTo?: string,
+    // Agency Admin-only in practice — the repository ignores this filter
+    // unless the caller's agent_profiles.is_agency_admin is true, same
+    // "ignored, not rejected" discipline as leads.controller.ts's identical
+    // scope param.
+    @Query('scope') scope?: 'own' | 'agency',
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -192,6 +201,7 @@ export class ListingsController {
         areaUnit,
         listedDateFrom,
         listedDateTo,
+        scope,
         page: page ? Number(page) : undefined,
         pageSize: pageSize ? Number(pageSize) : undefined,
       },
@@ -203,8 +213,8 @@ export class ListingsController {
   @UseGuards(ScopeGuard)
   @Roles('agent', 'super_admin')
   @Get('mine/status-counts')
-  getMyStatusCounts(@Req() req: any) {
-    return this.listings.getStatusCounts({ userId: req.user.id, role: req.user.role, agentId: req.user.agentId });
+  getMyStatusCounts(@Req() req: any, @Query('scope') scope?: 'own' | 'agency') {
+    return this.listings.getStatusCounts({ userId: req.user.id, role: req.user.role, agentId: req.user.agentId }, { scope });
   }
 
   // The property detail page itself — confirmed real via a scraped Zameen
@@ -216,6 +226,39 @@ export class ListingsController {
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.listings.findById(id);
+  }
+
+  // Per-listing breakdown of the same Views/Clicks/Calls/WhatsApp/SMS/
+  // Emails/Leads metrics AgentsRepository.getAnalytics sums across an
+  // agent's whole inventory — backs a single listing's analytics panel
+  // (Profolio "My Listings" -> one listing -> Analytics). Private business
+  // data, same as agents.controller.ts's :id/analytics — ScopeGuard only
+  // checks role membership, so ownership (own listing, own listing's
+  // agency admin, or super_admin) is enforced explicitly via
+  // assertCanAccessListingAnalytics before the query runs.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/analytics')
+  async getListingAnalytics(@Req() req: any, @Param('id') id: string, @Query('since') since?: string) {
+    await this.listings.assertCanAccessListingAnalytics(
+      { userId: req.user.id, role: req.user.role, agentId: req.user.agentId },
+      id,
+    );
+    return this.listings.getAnalytics(id, { since: since ? new Date(since) : undefined });
+  }
+
+  // Same real sources as getListingAnalytics above, bucketed by day instead
+  // of summed into one total — mirrors agents.controller.ts's
+  // :id/analytics/daily sibling exactly. Same ownership check.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/analytics/daily')
+  async getListingDailyAnalytics(@Req() req: any, @Param('id') id: string, @Query('days') days?: string) {
+    await this.listings.assertCanAccessListingAnalytics(
+      { userId: req.user.id, role: req.user.role, agentId: req.user.agentId },
+      id,
+    );
+    return this.listings.getDailyAnalytics(id, days ? Number(days) : undefined);
   }
 
   // Submission entry point for the Manual Verification workflow [Spec §7].
@@ -324,6 +367,30 @@ export class ListingsController {
   async renew(@Req() req: any, @Param('id') id: string) {
     await this.assertOwnListing(req, id);
     return this.listings.renew(id, req.user.agentId);
+  }
+
+  // Books a one-time commission-revenue deals row and flips the listing to
+  // its terminal 'sold' status — a listing-transition action in the same
+  // family as renew()/boost() above, but the guard-then-write logic itself
+  // lives in DealsRepository (not assertOwnListing/ListingsRepository)
+  // since it also has to write the deals table and — unlike
+  // assertOwnListing — must allow the listing's agency admin too, not just
+  // its own agent or super_admin. DealsRepository.markSold enforces that
+  // ownership check itself before touching either table.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Post(':id/mark-sold')
+  markSold(@Req() req: any, @Param('id') id: string, @Body() body: MarkSoldDto) {
+    return this.deals.markSold(id, req.user, body);
+  }
+
+  // Same shape as markSold above, for rent listings — 'rented' status,
+  // deal_type 'rent', amount = monthlyRent.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Post(':id/mark-rented')
+  markRented(@Req() req: any, @Param('id') id: string, @Body() body: MarkRentedDto) {
+    return this.deals.markRented(id, req.user, body);
   }
 
   // Photos/videos upload as they're picked on the submit form — before the

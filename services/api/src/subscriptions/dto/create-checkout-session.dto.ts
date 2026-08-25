@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsUUID, Matches } from 'class-validator';
 
 export class CreateCheckoutSessionDto {
   @IsUUID()
@@ -12,4 +12,13 @@ export class CreateCheckoutSessionDto {
   @IsOptional()
   @Matches(/^jayedaad:\/\//, { message: 'returnUrl must use the jayedaad:// scheme' })
   returnUrl?: string;
+
+  // Which of the tier's two real Stripe prices to check out with. Safe to
+  // trust here (unlike the webhook, where the authoritative interval is
+  // re-derived from Stripe's own subscription object) because the server
+  // still resolves the actual priceId from the tier row, never from this
+  // value directly — worst case a mismatched value just 400s.
+  @IsOptional()
+  @IsIn(['month', 'year'])
+  billingInterval?: 'month' | 'year';
 }

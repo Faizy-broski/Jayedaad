@@ -29,7 +29,12 @@ interface AuthShellProps {
 //
 // The hero panel is inset with a page-level gap (`p-4` below) and rounded
 // corners rather than full-bleed to the viewport edge, so the photo reads
-// as a framed card floating on a white page.
+// as a framed card floating on the page. `<main>` uses the bg-background
+// token (not a hardcoded bg-white) so it flips dark in dark mode along with
+// every form control inside (Input/Select/Checkbox/Label all use theme
+// tokens too) — a hardcoded-white shell with dark-mode-colored children
+// painted on top was the actual cause of the "disturbed" dark-mode signup
+// page (washed-out labels + near-invisible input boxes) fixed alongside this.
 //
 // Right column centering: `my-auto` on the inner child, NOT `items-center`
 // on this flex container — align-items centering clips the TOP half
@@ -49,13 +54,13 @@ export function AuthShell({
   children,
 }: AuthShellProps) {
   return (
-    <main className="relative grid h-screen gap-4 overflow-hidden bg-white p-4 lg:grid-cols-12">
+    <main className="relative grid h-screen gap-4 overflow-hidden bg-background p-4 lg:grid-cols-12">
       {/* Escape hatch back to the marketing site — AppChrome deliberately
           omits Header/Footer on auth routes (see AppChrome.tsx), so this is
           the only way back without hitting the browser back button. */}
       <Link
         href="/"
-        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-white"
+        className="absolute right-6 top-6 z-20 flex items-center gap-1.5 rounded-full border border-input bg-background/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur hover:bg-background"
       >
         <Home className="h-4 w-4" />
         Home

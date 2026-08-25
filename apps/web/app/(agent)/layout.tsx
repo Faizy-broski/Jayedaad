@@ -27,9 +27,14 @@ import {
   ChevronsUpDown,
   CalendarDays,
   AlertTriangle,
+  Wallet,
+  Kanban,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
+import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
 // sidebar + topbar, matches every other route group's convention of one
@@ -45,7 +50,9 @@ const NAV_ITEMS = [
   { href: '/property-management', label: 'Property Management', icon: Building2, roles: ['agent', 'super_admin'] },
   { href: '/projects', label: 'Projects', icon: Landmark, roles: ['agent', 'super_admin'] },
   { href: '/crm', label: 'Inbox', icon: Inbox, roles: ['agent', 'super_admin'] },
+  { href: '/pipeline', label: 'Pipeline', icon: Kanban, roles: ['agent', 'super_admin'] },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['agent', 'super_admin'] },
+  { href: '/revenue', label: 'Revenue', icon: Wallet, roles: ['agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
   { href: '/plan', label: 'Plan', icon: CreditCard, roles: ['agent', 'super_admin'] },
   { href: '/agent-settings', label: 'Settings', icon: Settings, roles: ['agent', 'super_admin'] },
@@ -55,6 +62,9 @@ const NAV_ITEMS = [
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  // Scoped to this dashboard shell's own wrapper div below, not
+  // document.documentElement — see ThemeProvider.tsx for why.
+  const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const { profile } = useAgentProfileViewModel();
   const displayName = profile?.displayName || getDisplayName(user, 'Agent');
@@ -264,7 +274,10 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   return (
     <RequireEmailVerified>
-    <div className="flex min-h-screen bg-muted/30">
+    {/* bg-muted, not bg-muted/30 — opaque so descendants' translucent
+        bg-x/NN utilities blend against this dark backdrop, not the
+        always-light <body> behind it. See (super-admin)/layout.tsx. */}
+    <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -336,6 +349,8 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             >
               <HelpCircle className="h-5 w-5" />
             </Link>
+            <DarkModeToggle />
+            <PreferencesMenu />
             <NotificationBell />
             <Link
               href="/property-management"

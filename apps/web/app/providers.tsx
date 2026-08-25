@@ -4,11 +4,18 @@ import { useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserClient } from '@supabase/ssr';
 import { Toaster } from 'react-hot-toast';
-import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken } from '@jayedaad/core';
+import {
+  createQueryClient,
+  configureHttpClient,
+  configureSupabaseClient,
+  getCurrentAccessToken,
+  signOut,
+} from '@jayedaad/core';
 import { getClientEnv } from '@/lib/env';
 import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 import { TopProgressBar } from '@/components/TopProgressBar';
 import { FavoritesProvider } from '@/lib/favoritesContext';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 // Guarded to the browser only: Next.js also executes 'use client' modules
 // during server-side prerendering, where there's no real Supabase session to
@@ -35,16 +42,31 @@ if (typeof window !== 'undefined') {
   configureHttpClient({
     baseURL: env.apiBaseUrl,
     getToken: getCurrentAccessToken,
+    // A 401 here means JwtAuthGuard rejected the token outright (missing,
+    // malformed, or expired) — most commonly now because an admin changed
+    // this account's role, which revokes its refresh tokens server-side
+    // (services/api's updateRole()) so its next silent refresh fails. Force
+    // a clean sign-out + full reload to /login instead of leaving a dead
+    // session sitting in the tab still rendering its old cached role.
+    onUnauthorized: () => {
+      signOut()
+        .catch(() => {})
+        .finally(() => {
+          window.location.href = '/login';
+        });
+    },
   });
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
   return (
-    <QueryClientProvider client={queryClient}>
-      <TopProgressBar />
-      <FavoritesProvider>{children}</FavoritesProvider>
-      <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TopProgressBar />
+        <FavoritesProvider>{children}</FavoritesProvider>
+        <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

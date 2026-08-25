@@ -56,7 +56,7 @@ export function PreferencesMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Currency and area unit preferences"
-        className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
       >
         <Settings className="h-4.5 w-4.5" />
       </button>
@@ -68,24 +68,24 @@ export function PreferencesMenu() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-0 top-full z-10 mt-2 w-56 origin-top-right overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+            className="absolute right-0 top-full z-10 mt-2 w-56 origin-top-right overflow-hidden rounded-lg border border-border bg-card p-1.5 shadow-lg"
           >
             {view === 'menu' && (
               <>
                 <button
                   type="button"
                   onClick={() => setView('area')}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <Ruler className="h-4 w-4 text-slate-400" />
+                  <Ruler className="h-4 w-4 text-muted-foreground" />
                   Change Area Unit
                 </button>
                 <button
                   type="button"
                   onClick={() => setView('currency')}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <DollarSign className="h-4 w-4 text-slate-400" />
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                   Change Currency
                 </button>
               </>
@@ -96,7 +96,7 @@ export function PreferencesMenu() {
                 <button
                   type="button"
                   onClick={() => setView('menu')}
-                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-slate-500 hover:text-slate-900"
+                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   Back
@@ -106,7 +106,7 @@ export function PreferencesMenu() {
                     key={currency.code}
                     type="button"
                     onClick={() => selectCurrency(currency.code)}
-                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     {currency.label}
                     {preferences.preferredCurrency === currency.code && <Check className="h-3.5 w-3.5 text-primary" />}
@@ -120,7 +120,7 @@ export function PreferencesMenu() {
                 <button
                   type="button"
                   onClick={() => setView('menu')}
-                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-slate-500 hover:text-slate-900"
+                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   Back
@@ -130,7 +130,7 @@ export function PreferencesMenu() {
                     key={unit.value}
                     type="button"
                     onClick={() => selectAreaUnit(unit.value)}
-                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     {unit.label}
                     {preferences.preferredAreaUnit === unit.value && <Check className="h-3.5 w-3.5 text-primary" />}

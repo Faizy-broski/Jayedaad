@@ -5,6 +5,8 @@ import {
   ContactNumberType,
   FurnishingStatus,
   Listing,
+  ListingAnalytics,
+  ListingDailyAnalyticsPoint,
   ListingDocument,
   ListingDocumentType,
   ListingPosterType,
@@ -51,6 +53,10 @@ export interface MyListingsFilters {
   // the old 2-bucket source: 'owner_agent' | 'agency' split, which lumped
   // Owner and independent Agent together.
   posterType?: ListingPosterType;
+  // Agency Admin-only (mirrors LeadListFilters.scope) — widens the result
+  // set to every associate's listings in the caller's agency. Ignored for a
+  // non-admin agent or super_admin.
+  scope?: 'own' | 'agency';
   // A category slug — property_type_categories is Super Admin-managed data
   // now, not a fixed enum, so this is deliberately `string`, not a union.
   propertyTypeCategory?: string;
@@ -160,6 +166,22 @@ export const listingsRepository = {
   // Backs the status tab badges ("Active (0)", "Pending (0)", etc.).
   getMyStatusCounts: async (): Promise<Record<string, number>> => {
     const { data } = await httpClient.get('/listings/mine/status-counts');
+    return data;
+  },
+
+  // Backs the per-listing performance breakdown (Views/Clicks/Leads/Calls/
+  // WhatsApp/SMS/Emails) — GET /listings/:id/analytics, same shape/style as
+  // agentsRepository.getAnalytics.
+  getAnalytics: async (listingId: string, filters: { since?: string } = {}): Promise<ListingAnalytics> => {
+    const { data } = await httpClient.get(`/listings/${listingId}/analytics`, { params: filters });
+    return data;
+  },
+
+  // Same real listing_engagement_events/leads rows getAnalytics sums into
+  // one total, bucketed by calendar day instead — mirrors
+  // agentsRepository.getDailyAnalytics.
+  getDailyAnalytics: async (listingId: string, days = 7): Promise<ListingDailyAnalyticsPoint[]> => {
+    const { data } = await httpClient.get(`/listings/${listingId}/analytics/daily`, { params: { days } });
     return data;
   },
 

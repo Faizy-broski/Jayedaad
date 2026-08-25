@@ -52,6 +52,8 @@ export class SubscriptionTiersRepository {
         refresh_credits_per_period: input.refreshCreditsPerPeriod ?? 0,
         story_credits_per_period: input.storyCreditsPerPeriod ?? 0,
         stripe_price_id: input.stripePriceId,
+        annual_price: input.annualPrice,
+        stripe_annual_price_id: input.stripeAnnualPriceId,
       })
       .select()
       .single();
@@ -72,6 +74,8 @@ export class SubscriptionTiersRepository {
         refresh_credits_per_period: input.refreshCreditsPerPeriod,
         story_credits_per_period: input.storyCreditsPerPeriod,
         stripe_price_id: input.stripePriceId,
+        annual_price: input.annualPrice,
+        stripe_annual_price_id: input.stripeAnnualPriceId,
       })
       .eq('id', id)
       .select()

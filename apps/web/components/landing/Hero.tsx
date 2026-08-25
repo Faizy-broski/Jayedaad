@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { PropertySearchBar } from "@/components/shared/PropertySearchBar";
+import { HeroSearchCard } from "@/components/landing/HeroSearchCard";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -16,37 +16,26 @@ const textItem = {
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
 };
 
-// Wordmark reveal — plays once on mount/reload only. It starts tucked
-// behind the house cutout and glides up into its resting spot, so it
-// reads as emerging from behind the house. Purely time-based; scrolling
-// the page has no effect on it.
-const wordmarkReveal = {
-  hidden: { opacity: 0, y: 120 },
-  show: {
-    opacity: 0.9,
-    y: 0,
-    transition: { duration: 1.2, ease: EASE, delay: 0.35 },
-  },
-};
-
+// Single flat background photo (Minar-e-Pakistan skyline + modern house) with
+// the heading/subtext overlaid directly on it — matches the provided mockup.
+// Desktop/mobile each get their own block below (same convention the
+// previous layered version used) so responsive spacing changes at one
+// breakpoint never leak into the other.
 export function Hero() {
   return (
-    <section className="relative">
-      {/* ————————————————————————————————————————————————————————————
-          Desktop (lg+) — own image heights/paddings/overlap technique,
-          kept as a self-contained block so responsive work below lg can
-          never leak into how this renders at lg+. */}
+    <section className="relative bg-white">
+      {/* Desktop (lg+) */}
       <div className="relative hidden lg:block">
         <div className="pt-16 sm:pt-[68px] lg:pt-0">
-          <div className="relative h-[480px] w-full overflow-hidden sm:h-[620px] md:h-[680px]">
+          <div className="relative h-[560px] w-full overflow-hidden rounded-bl-[72px] rounded-br-[72px] sm:h-[620px] md:h-[680px]">
             <motion.div
-              initial={{ opacity: 0, scale: 1.12 }}
+              initial={{ opacity: 0, scale: 1.08 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.6, ease: EASE }}
               className="absolute inset-0"
             >
               <Image
-                src="/images/belowest-hero-image.png"
+                src="/images/hero-bg.png"
                 alt=""
                 fill
                 priority
@@ -55,53 +44,23 @@ export function Hero() {
               />
             </motion.div>
 
-            {/* Wordmark — sits behind the house cutout and glides up into
-                place once on mount, reading as if it emerges from behind
-                the house. Not tied to scroll in any way. */}
-            <motion.div
-              variants={wordmarkReveal}
-              initial="hidden"
-              animate="show"
-              className="absolute inset-0 flex justify-center pt-6 shrink-0 sm:pt-[150px]"
-            >
-              <Image
-                src="/images/jayedaad-text.png"
-                alt="Jayedaad"
-                width={1200}
-                height={168}
-                priority
-                className="h-16 w-full max-w-6xl select-none sm:h-36"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.3, ease: EASE, delay: 0.15 }}
-              className="absolute inset-0"
-            >
-              <Image
-                src="/images/top-hero-image.png"
-                alt=""
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover object-center"
-              />
-            </motion.div>
+            {/* Left-to-right scrim so the heading stays legible over the
+                photo without hiding it, same intent as SearchHero's gradient
+                but lighter since this photo is airy, not dark. */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/40 to-transparent" />
 
             <motion.div
               variants={textGroup}
               initial="hidden"
               animate="show"
-              className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col pb-20 pt-28 sm:pt-[300px] md:pb-28"
+              className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col justify-center px-6 pb-24"
             >
-              <motion.p
-                variants={textItem}
-                className="max-w-xs text-left text-sm leading-relaxed text-white/90 sm:text-base"
-              >
-                Pakistan&apos;s smartest real estate platform for buying,
-                selling and renting verified properties.
+              <motion.h1 variants={textItem} className="max-w-xl text-4xl font-bold leading-tight text-slate-900 md:text-5xl">
+                Find your perfect{" "}
+                <span className="text-heading-gradient">property in Pakistan</span>
+              </motion.h1>
+              <motion.p variants={textItem} className="mt-4 max-w-md text-base leading-relaxed text-slate-600">
+                Simple search. Verified listings. Smart decisions.
               </motion.p>
             </motion.div>
           </div>
@@ -111,44 +70,24 @@ export function Hero() {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.5 }}
-          className="pointer-events-auto absolute inset-x-4 -bottom-28 z-30 mx-auto flex max-w-4xl flex-col sm:-bottom-10"
+          className="pointer-events-auto absolute inset-x-4 -bottom-24 z-30 mx-auto flex max-w-4xl flex-col"
         >
-          <PropertySearchBar defaultPurpose="buy" />
+          <HeroSearchCard />
         </motion.div>
       </div>
 
-      {/* ————————————————————————————————————————————————————————————
-          Mobile/tablet (below lg) — redesigned for real screen space
-          instead of reusing the desktop's fixed pixel heights: the hero
-          photo scales with a responsive height, the wordmark sits in a
-          comfortable flex column instead of magic-number padding, and the
-          search card sits in normal flow (pulled up with a negative
-          margin) rather than the desktop's absolute-overlap technique,
-          which only really works with a fixed-height hero. */}
-      {/* All screens - same hero composition */}
+      {/* Mobile/tablet (below lg) */}
       <div className="lg:hidden">
         <div className="pt-16 sm:pt-[68px]">
-          <div
-            className="
-        relative
-        h-[420px]
-        w-full
-        overflow-hidden
-
-        sm:h-[560px]
-        md:h-[650px]
-        lg:h-[680px]
-      "
-          >
-            {/* Background house environment */}
+          <div className="relative h-[440px] w-full overflow-hidden rounded-bl-[40px] rounded-br-[40px] sm:h-[520px] sm:rounded-bl-[56px] sm:rounded-br-[56px] md:h-[560px]">
             <motion.div
-              initial={{ opacity: 0, scale: 1.12 }}
+              initial={{ opacity: 0, scale: 1.08 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.6, ease: EASE }}
               className="absolute inset-0"
             >
               <Image
-                src="/images/belowest-hero-image.png"
+                src="/images/hero-bg.png"
                 alt=""
                 fill
                 priority
@@ -157,99 +96,31 @@ export function Hero() {
               />
             </motion.div>
 
-            {/* Jayedaad wordmark behind house */}
-            <motion.div
-              variants={wordmarkReveal}
-              initial="hidden"
-              animate="show"
-              className=" absolute inset-0 flex justify-center pt-28 sm:pt-[170px] md:pt-36 lg:pt-[150px]"
-            >
-              <Image
-                src="/images/jayedaad-text.png"
-                alt="Jayedaad"
-                width={1200}
-                height={168}
-                priority
-                className=" h-14 w-auto max-w-[90%] sm:h-28 md:h-32 lg:h-36"
-              />
-            </motion.div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/60 to-white/90" />
 
-            {/* House foreground cutout */}
-            <motion.div
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{
-                duration: 1.3,
-                ease: EASE,
-                delay: 0.15,
-              }}
-              className="absolute inset-0"
-            >
-              <Image
-                src="/images/top-hero-image.png"
-                alt=""
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover object-center"
-              />
-            </motion.div>
-
-            {/* Content */}
             <motion.div
               variants={textGroup}
               initial="hidden"
               animate="show"
-              className=" pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col px-5 pb-12 pt-48 sm:pb-16 sm:pt-[260px] md:pb-20 md:pt-[320px] lg:pb-28 lg:pt-[300px]
-"
+              className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col justify-end px-5 pb-10"
             >
-              <motion.p
-                variants={textItem}
-                className="
-    max-w-xs
-    text-left
-    text-sm
-    leading-relaxed
-    text-white/90
-    sm:max-w-sm
-    sm:text-base
-  "
-              >
-                Pakistan&apos;s smartest real estate platform for buying,
-                selling and renting verified properties.
+              <motion.h1 variants={textItem} className="text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">
+                Find your perfect{" "}
+                <span className="text-heading-gradient">property in Pakistan</span>
+              </motion.h1>
+              <motion.p variants={textItem} className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600 sm:text-base">
+                Simple search. Verified listings. Smart decisions.
               </motion.p>
             </motion.div>
           </div>
 
-          {/* Floating Search */}
           <motion.div
-            initial={{
-              opacity: 0,
-              y: 24,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              duration: 0.7,
-              ease: EASE,
-              delay: 0.5,
-            }}
-            className="
-        relative
-        z-20
-
-        mx-4
-        -mt-36
-
-        sm:-mt-20
-
-        md:mx-auto
-        md:max-w-4xl
-      "
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE, delay: 0.5 }}
+            className="relative z-20 mx-4 -mt-6 sm:-mt-10 md:mx-auto md:max-w-4xl"
           >
-            <PropertySearchBar defaultPurpose="buy" />
+            <HeroSearchCard />
           </motion.div>
         </div>
 

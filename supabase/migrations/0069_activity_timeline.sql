@@ -1,0 +1,15 @@
+-- Phase 2 of the CRM maturity build-out: a real interaction history — calls,
+-- emails, WhatsApp messages, meetings — logged against a lead and/or an
+-- opportunity. lead_activity_type (0001_init.sql) already had call/email/
+-- whatsapp values but nothing ever wrote or rendered them (only 'note'/
+-- 'status_change'/'assignment' were ever actually inserted); this adds the
+-- missing 'meeting' value. Split into its own migration/transaction — a
+-- table's CHECK constraint that references a brand-new enum value (as
+-- 0070_activity_timeline_tables.sql's activity_log_entries does) counts as
+-- an "unsafe use" if it's in the SAME transaction as the value being added
+-- (Postgres error 55P04: "New enum values must be committed before they
+-- can be used" — this is stricter than the ALTER-TYPE-then-plain-INSERT
+-- case 0064/0067's own ALTER TYPE statements got away with in the same
+-- file, since a CHECK constraint is validated at CREATE TABLE time, not
+-- deferred like a plpgsql function body's contents are).
+alter type public.lead_activity_type add value 'meeting';

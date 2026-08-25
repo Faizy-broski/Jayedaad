@@ -6,6 +6,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LEAD_STATUS_TRANSITIONS, LeadStatus, ReminderChannel, useLeadDetailViewModel, useLeadRemindersViewModel } from '@jayedaad/core';
 import { Button, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { ActivityTimeline } from '../components/ActivityTimeline';
+import { LogActivitySheet } from '../components/LogActivitySheet';
+import { ConvertToOpportunitySheet } from '../components/ConvertToOpportunitySheet';
 
 const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'new', label: 'New' },
@@ -48,6 +51,8 @@ export function LeadDetailScreen() {
   const [noteDraft, setNoteDraft] = useState('');
   const [reminderDateText, setReminderDateText] = useState('');
   const [reminderChannel, setReminderChannel] = useState<ReminderChannel>('in_app');
+  const [logActivityOpen, setLogActivityOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
 
   function changeStatus(status: LeadStatus) {
     if (!lead || status === lead.status) return;
@@ -239,6 +244,21 @@ export function LeadDetailScreen() {
           </View>
         </View>
 
+        {(lead.status === 'contacted' || lead.status === 'negotiating') && (
+          <Button label="Convert to Opportunity" variant="secondary" onPress={() => setConvertOpen(true)} style={styles.convertButton} />
+        )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Activity</Text>
+            <Pressable style={styles.logActivityBtn} onPress={() => setLogActivityOpen(true)} hitSlop={6}>
+              <Ionicons name="add-circle-outline" size={14} color={theme.colors.primary} />
+              <Text style={styles.logActivityBtnText}>Log Activity</Text>
+            </Pressable>
+          </View>
+          <ActivityTimeline leadId={lead.id} />
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reminders{reminders.length ? ` (${reminders.length})` : ''}</Text>
           {reminders.length > 0 && (
@@ -287,6 +307,8 @@ export function LeadDetailScreen() {
           />
         </View>
       </ScrollView>
+      <LogActivitySheet open={logActivityOpen} onClose={() => setLogActivityOpen(false)} leadId={lead.id} />
+      <ConvertToOpportunitySheet open={convertOpen} onClose={() => setConvertOpen(false)} lead={lead} />
     </SafeAreaView>
   );
 }
@@ -312,6 +334,10 @@ const styles = StyleSheet.create({
   contactInfoText: { fontSize: 12, color: theme.colors.muted },
   section: { marginTop: theme.spacing.xl },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.sm },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.spacing.sm },
+  convertButton: { marginTop: theme.spacing.lg },
+  logActivityBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  logActivityBtnText: { fontSize: 12, fontWeight: '600', color: theme.colors.primary },
   messageText: { fontSize: 14, color: theme.colors.text, lineHeight: 20 },
   propertyLink: {
     flexDirection: 'row',

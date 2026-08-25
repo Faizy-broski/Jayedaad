@@ -8,7 +8,14 @@ import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AgentCreditType, useAgentCreditsViewModel, useFormattedPrice, useSubscriptionViewModel } from '@jayedaad/core';
+import {
+  AgentCreditType,
+  BillingInterval,
+  getAnnualDiscountPercent,
+  useAgentCreditsViewModel,
+  useFormattedPrice,
+  useSubscriptionViewModel,
+} from '@jayedaad/core';
 import { Button, Card, CardContent, CreditQuotaCard, CreditCardAccent, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -92,6 +99,7 @@ export function PlanScreen() {
   // Story balances, the same numbers "Buy more credits" below is meant to
   // help them top up.
   const { credits } = useAgentCreditsViewModel();
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>('month');
 
   // Opens the Stripe Checkout URL in an in-app browser sheet and waits for
   // it to redirect to returnUrl — resolves once Stripe returns control to
@@ -168,9 +176,15 @@ export function PlanScreen() {
               <Text style={styles.muted}>Loading…</Text>
             ) : current ? (
               <View>
-                <Text style={styles.currentName}>{current.tier.name}</Text>
+                <Text style={styles.currentName}>
+                  {current.tier.name}
+                  {current.billingInterval === 'year' ? ' · Annual' : ''}
+                </Text>
                 <Text style={styles.currentDetail}>
-                  {formatPrice(current.tier.price)} · {current.tier.listingQuota} listings ·
+                  {current.billingInterval === 'year' && current.tier.annualPrice != null
+                    ? `${formatPrice(current.tier.annualPrice)}/yr`
+                    : `${formatPrice(current.tier.price)}/mo`}{' '}
+                  · {current.tier.listingQuota} listings ·
                   status: {current.status}
                   {current.currentPeriodEnd &&
                     ` · ${current.cancelAtPeriodEnd ? 'cancels' : 'renews'} ${new Date(current.currentPeriodEnd).toLocaleDateString()}`}
@@ -224,6 +238,23 @@ export function PlanScreen() {
             <Text style={styles.learnMore}>Learn More</Text>
           </Pressable>
         </View>
+        {/* Small segmented control — no existing reusable pattern in this
+            app to lean on, so this is a minimal local pair of Pressables
+            styled like the stepper/pill controls already used above. */}
+        <View style={styles.intervalSwitch}>
+          <Pressable
+            style={[styles.intervalOption, billingInterval === 'month' && styles.intervalOptionActive]}
+            onPress={() => setBillingInterval('month')}
+          >
+            <Text style={[styles.intervalOptionText, billingInterval === 'month' && styles.intervalOptionTextActive]}>Monthly</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.intervalOption, billingInterval === 'year' && styles.intervalOptionActive]}
+            onPress={() => setBillingInterval('year')}
+          >
+            <Text style={[styles.intervalOptionText, billingInterval === 'year' && styles.intervalOptionTextActive]}>Annual</Text>
+          </Pressable>
+        </View>
         {isTiersLoading ? (
           <Text style={styles.muted}>Loading…</Text>
         ) : tiers.length === 0 ? (
@@ -240,6 +271,9 @@ export function PlanScreen() {
             {tiers.map((tier) => {
               const isCurrent = current?.tierId === tier.id;
               const isPaid = Number(tier.price) > 0;
+              const hasAnnual = isPaid && tier.annualPrice != null;
+              const showAnnual = billingInterval === 'year' && hasAnnual;
+              const discountPercent = hasAnnual ? getAnnualDiscountPercent(tier) : null;
               const features = [
                 `${tier.listingQuota.toLocaleString()} listing quota`,
                 // Previously absent — an agent had no way to see how many
@@ -264,10 +298,20 @@ export function PlanScreen() {
                       <Text style={styles.tierName}>{tier.name}</Text>
                       {isCurrent && <Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />}
                     </View>
-                    <Text style={styles.tierPrice}>
-                      {formatPrice(tier.price)}
-                      <Text style={styles.tierPriceSuffix}> /mo</Text>
-                    </Text>
+                    <View style={styles.tierPriceRow}>
+                      <Text style={styles.tierPrice}>
+                        {showAnnual ? formatPrice(tier.annualPrice as number) : formatPrice(tier.price)}
+                        <Text style={styles.tierPriceSuffix}>{showAnnual ? ' /yr' : ' /mo'}</Text>
+                      </Text>
+                      {showAnnual && discountPercent != null && (
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountBadgeText}>Save {discountPercent}%</Text>
+                        </View>
+                      )}
+                    </View>
+                    {billingInterval === 'year' && isPaid && !hasAnnual && (
+                      <Text style={styles.muted}>Annual not available for this plan.</Text>
+                    )}
                     <View style={styles.featureList}>
                       {features.map((feature) => (
                         <Text key={feature} style={styles.tierQuota}>
@@ -277,11 +321,20 @@ export function PlanScreen() {
                     </View>
                     <Button
                       variant={isCurrent ? 'secondary' : 'primary'}
-                      disabled={isCurrent || selectTier.isPending || checkoutTier.isPending}
+                      disabled={
+                        isCurrent ||
+                        selectTier.isPending ||
+                        checkoutTier.isPending ||
+                        (billingInterval === 'year' && isPaid && !hasAnnual)
+                      }
                       onPress={() => {
                         if (isPaid) {
                           checkoutTier.mutate(
-                            { tierId: tier.id, returnUrl: ExpoLinking.createURL('plan') },
+                            {
+                              tierId: tier.id,
+                              returnUrl: ExpoLinking.createURL('plan'),
+                              billingInterval: showAnnual ? 'year' : 'month',
+                            },
                             {
                               onSuccess: (result) => {
                                 if (result.url) openCheckoutAndRefresh(result.url);
@@ -306,9 +359,11 @@ export function PlanScreen() {
                           ? 'Current Plan'
                           : selectTier.isPending || checkoutTier.isPending
                             ? 'Please wait…'
-                            : isPaid
-                              ? 'Upgrade with Stripe'
-                              : 'Select Plan'
+                            : !isPaid
+                              ? 'Select Plan'
+                              : showAnnual
+                                ? 'Upgrade with Stripe (Annual)'
+                                : 'Upgrade with Stripe'
                       }
                     />
                   </CardContent>
@@ -424,13 +479,29 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text, marginTop: theme.spacing.sm },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   learnMore: { fontSize: 12, fontWeight: '700', color: theme.colors.primary },
+  // Minimal segmented control — Monthly/Annual, above the tier grid.
+  intervalSwitch: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    padding: 3,
+    gap: 2,
+  },
+  intervalOption: { paddingHorizontal: theme.spacing.md, paddingVertical: 6, borderRadius: 999 },
+  intervalOptionActive: { backgroundColor: theme.colors.bg },
+  intervalOptionText: { fontSize: 13, fontWeight: '600', color: theme.colors.muted },
+  intervalOptionTextActive: { color: theme.colors.text },
   tierGrid: { gap: theme.spacing.md },
   tierCard: { borderWidth: 1, borderColor: theme.colors.border },
   tierCardCurrent: { borderColor: theme.colors.primary },
   tierHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   tierName: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
+  tierPriceRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
   tierPrice: { fontSize: 22, fontWeight: '800', color: theme.colors.text },
   tierPriceSuffix: { fontSize: 13, fontWeight: '400', color: theme.colors.muted },
+  discountBadge: { backgroundColor: `${theme.colors.primary}1A`, borderRadius: 999, paddingHorizontal: theme.spacing.sm, paddingVertical: 2 },
+  discountBadgeText: { fontSize: 11, fontWeight: '700', color: theme.colors.primary },
   featureList: { gap: 2 },
   tierQuota: { fontSize: 13, color: theme.colors.muted },
   selectButton: { marginTop: theme.spacing.sm },

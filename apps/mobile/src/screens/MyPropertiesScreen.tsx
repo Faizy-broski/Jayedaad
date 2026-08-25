@@ -21,6 +21,7 @@ import {
 import { BackButton, Button, PickerField, refreshControlProps, Tabs, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { BoostMenu } from '../components/BoostMenu';
+import { MarkDealSheet } from '../components/MarkDealSheet';
 
 const PURPOSE_OPTIONS: { id: ListingPurpose | ''; label: string }[] = [
   { id: '', label: 'Any Purpose' },
@@ -47,11 +48,21 @@ const TOP_TABS: { id: TopTab; label: string }[] = [
 const STATUS_TABS: { id: ListingStatus; label: string }[] = [
   { id: 'verified', label: 'Active' },
   { id: 'pending_verification', label: 'Pending' },
+  { id: 'sold', label: 'Sold' },
+  { id: 'rented', label: 'Rented' },
   { id: 'rejected', label: 'Rejected' },
   { id: 'expired', label: 'Expired' },
   { id: 'deleted', label: 'Deleted' },
   { id: 'inactive', label: 'Inactive' },
 ];
+
+// Sold/Rented are terminal, positive end-states (DealsRepository.markSold/
+// markRented) — kept visually distinct from verified's plain title row with
+// a small green badge, same idea as the boost/story badges beside it.
+const DEAL_STATUS_BADGE: Partial<Record<ListingStatus, { label: string; icon: keyof typeof Ionicons.glyphMap }>> = {
+  sold: { label: 'Sold', icon: 'checkmark-circle' },
+  rented: { label: 'Rented', icon: 'checkmark-circle' },
+};
 
 const DESTRUCTIVE_COLOR = theme.colors.danger;
 
@@ -114,6 +125,17 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
     ? propertyTypes.filter((t) => t.category?.label === categoryLabel)
     : propertyTypes;
 
+  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
+  const { profile: agentProfile } = useAgentProfileViewModel();
+  // Agency-wide view — same "Agency" toggle pattern as AgentCRMScreen's
+  // agencyScope, gated on isAgencyAdmin the same way. Off by default (own
+  // listings only), matches useMyListingsViewModel's own 'own' default.
+  const [agencyScope, setAgencyScope] = useState(false);
+  // Mark Sold/Mark Rented sheet target — null when closed.
+  const [dealTarget, setDealTarget] = useState<{ listingId: string; purpose: Extract<ListingPurpose, 'sale' | 'rent'> } | null>(
+    null,
+  );
+
   const filters: MyListingsFilters = {
     status: applied.listingNumber ? undefined : status,
     page: 1,
@@ -122,6 +144,7 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
     propertyTypeCategory: applied.categorySlug || undefined,
     propertyTypeSlug: applied.propertyTypeSlug || undefined,
     purpose: applied.purpose || undefined,
+    scope: agentProfile?.isAgencyAdmin && agencyScope ? 'agency' : 'own',
   };
 
   const {
@@ -144,8 +167,6 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
   // purely an additive UI convenience, not a replacement for it).
   const { credits } = useAgentCreditsViewModel();
   const creditsAvailable = (type: AgentCreditType) => credits.find((c) => c.creditType === type)?.available ?? 0;
-  // enabled: !!agentId inside the hook itself — a no-op fetch for non-agents.
-  const { profile: agentProfile } = useAgentProfileViewModel();
   // Required for owners AND independent agents (no agency) — only an
   // agency-affiliated agent is exempt, mirrors the server's
   // getDocumentCompleteness exemption.
@@ -343,6 +364,22 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
               <Text style={[styles.pillText, s.id === status && styles.pillTextActive]}>{s.label}</Text>
             </Pressable>
           ))}
+          {/* Agency-wide view — only agency admins get this pill, same
+              gate as AgencyStaffScreen's admin-only actions. */}
+          {agentProfile?.isAgencyAdmin && (
+            <Pressable
+              onPress={() => setAgencyScope((v) => !v)}
+              style={[styles.pill, styles.agencyPill, agencyScope && styles.pillActive]}
+            >
+              <Ionicons
+                name="business-outline"
+                size={13}
+                color={agencyScope ? theme.colors.bg : theme.colors.muted}
+                style={styles.agencyPillIcon}
+              />
+              <Text style={[styles.pillText, agencyScope && styles.pillTextActive]}>Whole Agency</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
 
@@ -390,6 +427,12 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                     <Text style={styles.storyBadgeText}>Story</Text>
                   </View>
                 )}
+                {DEAL_STATUS_BADGE[listing.status] && (
+                  <View style={styles.dealBadge}>
+                    <Ionicons name={DEAL_STATUS_BADGE[listing.status]!.icon} size={11} color={theme.colors.primary} />
+                    <Text style={styles.dealBadgeText}>{DEAL_STATUS_BADGE[listing.status]!.label}</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.rowSubtitle} numberOfLines={1}>
                 {listing.area}, {listing.city}
@@ -397,6 +440,13 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
               {listing.status === 'verified' && listing.expiresAt && (
                 <Text style={styles.expiresText}>
                   Expires {new Date(listing.expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                </Text>
+              )}
+              {/* Only meaningful once "Whole Agency" is on — otherwise every
+                  row is the signed-in agent's own listing anyway. */}
+              {agencyScope && listing.agent?.displayName && (
+                <Text style={styles.postedByText} numberOfLines={1}>
+                  Posted by {listing.agent.displayName}
                 </Text>
               )}
 
@@ -468,6 +518,28 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
                 )}
 
                 <Pressable
+                  style={styles.actionButton}
+                  onPress={() => navigation.navigate('ListingPerformance', { listingId: listing.id })}
+                >
+                  <Ionicons name="stats-chart-outline" size={14} color={theme.colors.primary} />
+                  <Text style={styles.actionTextPrimary} numberOfLines={1}>Performance</Text>
+                </Pressable>
+
+                {/* Only verified listings can be closed out, and only as the
+                    action matching the listing's own purpose — never both. */}
+                {listing.status === 'verified' && (listing.purpose === 'sale' || listing.purpose === 'rent') && (
+                  <Pressable
+                    style={styles.actionButton}
+                    onPress={() => setDealTarget({ listingId: listing.id, purpose: listing.purpose as 'sale' | 'rent' })}
+                  >
+                    <Ionicons name="checkmark-done-outline" size={14} color={theme.colors.primary} />
+                    <Text style={styles.actionTextPrimary} numberOfLines={1}>
+                      {listing.purpose === 'sale' ? 'Mark Sold' : 'Mark Rented'}
+                    </Text>
+                  </Pressable>
+                )}
+
+                <Pressable
                   style={[styles.actionButton, styles.actionButtonDestructive]}
                   disabled={remove.isPending}
                   onPress={() => handleDelete(listing.id, listing.title)}
@@ -481,6 +553,13 @@ function UploadedTab({ onAddProperty }: { onAddProperty: () => void }) {
           ))}
         </View>
       )}
+
+      <MarkDealSheet
+        open={!!dealTarget}
+        onClose={() => setDealTarget(null)}
+        listingId={dealTarget?.listingId ?? ''}
+        purpose={dealTarget?.purpose ?? 'sale'}
+      />
     </ScrollView>
   );
 }
@@ -809,10 +888,14 @@ const styles = StyleSheet.create({
     fontWeight: '600', 
     color: theme.colors.muted 
   },
-  pillTextActive: { 
-    color: theme.colors.bg 
+  pillTextActive: {
+    color: theme.colors.bg
   },
-  
+  // "Whole Agency" toggle pill — sits at the end of the same horizontal
+  // pill row as the status tabs, only rendered for agency admins.
+  agencyPill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  agencyPillIcon: { marginTop: -1 },
+
   // List & Loading
   loadingContainer: {
     flex: 1,
@@ -901,12 +984,34 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   storyBadgeText: { fontSize: 11, fontWeight: '700', color: '#A21CAF' },
+  // Sold/Rented — a positive terminal state, styled with the same
+  // green-on-tint pattern used for closed leads elsewhere in this app
+  // (AgentCRMScreen's STATUS_COLORS.closed), distinct from verified's plain
+  // title row.
+  dealBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: theme.colors.secondaryBg,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  dealBadgeText: { fontSize: 11, fontWeight: '700', color: theme.colors.primary },
   rowSubtitle: {
     fontSize: 13,
     color: theme.colors.muted,
     fontWeight: '500',
   },
+  postedByText: { fontSize: 12, color: theme.colors.mutedLight, marginTop: 2, fontWeight: '500' },
   expiresText: { fontSize: 11, color: theme.colors.mutedLight, marginTop: 2 },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 10,
+  },
+  metricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metricText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   cardDivider: {
     height: 1,
     backgroundColor: theme.colors.surfaceAlt,

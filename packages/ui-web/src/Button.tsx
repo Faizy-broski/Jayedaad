@@ -12,8 +12,13 @@ const buttonVariants = cva(
         primary: 'bg-brand-gradient text-primary-foreground shadow-sm hover:opacity-90 hover:shadow-md',
         secondary: 'bg-gold-gradient text-foreground shadow-sm hover:opacity-90 hover:shadow-md',
         destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md',
-        outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
+        // text-foreground is required, not decorative — a bare <button>
+        // doesn't inherit the page's text color like other elements do; it
+        // falls back to the browser's `buttontext` system color (effectively
+        // black), which read as a washed-out, near-invisible outline button
+        // against a dark background before this was added explicitly.
+        outline: 'border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
+        ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground',
       },
       size: {
         default: 'h-10 px-4 py-2',

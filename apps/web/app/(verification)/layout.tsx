@@ -6,8 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getDisplayName, useAccountProfileViewModel, useAuthViewModel, useRoleAccessViewModel } from '@jayedaad/core';
-import { LayoutGrid, Home, UserCheck, ShieldCheck, Settings, LogOut, ChevronsUpDown, Menu, X } from 'lucide-react';
+import { LayoutGrid, Home, UserCheck, ShieldCheck, Settings, LogOut, ChevronsUpDown, Menu, X, LifeBuoy } from 'lucide-react';
+import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
+import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useTheme } from '@/components/ThemeProvider';
 
 // verification_staff's real shell — previously this role's only two pages
 // (/verification, /agent-verification) lived in a route group with no
@@ -20,11 +23,17 @@ const NAV_ITEMS = [
   { href: '/verification/listings', label: 'Listings Queue', icon: Home },
   { href: '/agent-verification', label: 'Agent Applications', icon: UserCheck },
   { href: '/owner-verification', label: 'Owner Applications', icon: ShieldCheck },
+  // Tickets Super Admin has assigned to this staff member — see
+  // support.controller.ts's GET /support/tickets/assigned.
+  { href: '/verification/tickets', label: 'My Tickets', icon: LifeBuoy },
   { href: '/verification/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function VerificationLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // Scoped to this dashboard shell's own wrapper div below, not
+  // document.documentElement — see ThemeProvider.tsx for why.
+  const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const { profile } = useAccountProfileViewModel();
   const { current: roleAccess } = useRoleAccessViewModel(role);
@@ -165,7 +174,10 @@ export default function VerificationLayout({ children }: { children: React.React
 
   return (
     <RequireEmailVerified>
-      <div className="flex min-h-screen bg-muted/30">
+      {/* bg-muted, not bg-muted/30 — opaque so descendants' translucent
+          bg-x/NN utilities blend against this dark backdrop, not the
+          always-light <body> behind it. See (super-admin)/layout.tsx. */}
+      <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -201,6 +213,11 @@ export default function VerificationLayout({ children }: { children: React.React
             <div className="min-w-0 shrink-0 text-sm text-muted-foreground">
               <span className="hidden sm:inline">Verification / </span>
               <span className="font-medium text-foreground">{activeItem?.label ?? 'Dashboard'}</span>
+            </div>
+
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
+              <DarkModeToggle />
+              <PreferencesMenu />
             </div>
           </header>
 

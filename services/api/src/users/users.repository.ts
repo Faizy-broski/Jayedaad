@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-role.dto';
@@ -12,6 +12,8 @@ import { paginate, PaginationParams, resolvePagination, sanitizeKeyword } from '
 // never manages passwords/sessions directly, only orchestrates the Admin API.
 @Injectable()
 export class UsersRepository {
+  private readonly logger = new Logger(UsersRepository.name);
+
   constructor(private readonly supabase: SupabaseService) {}
 
   async findById(id: string) {
@@ -147,6 +149,22 @@ export class UsersRepository {
       .update({ role: input.role })
       .eq('id', id);
     if (profileError) throw profileError;
+
+    // Force the affected account's existing sessions to stop silently
+    // refreshing on the old role, instead of leaving the change to surface
+    // whenever the client's next background token refresh happens to land
+    // (see supabase/migrations/0062_revoke_user_sessions_function.sql for
+    // why this is a DB-level refresh-token delete rather than an Admin API
+    // call — signOut() needs the session's own access token, which we don't
+    // have here, only the user's ID). Best-effort: a failure here shouldn't
+    // fail the role change itself, since the role write already succeeded
+    // and is the source of truth — just log it so it's not silently lost.
+    const { error: revokeError } = await this.supabase.client.rpc('revoke_user_sessions', {
+      target_user_id: id,
+    });
+    if (revokeError) {
+      this.logger.warn(`Failed to revoke sessions for user ${id} after role change: ${revokeError.message}`);
+    }
 
     return this.findById(id);
   }

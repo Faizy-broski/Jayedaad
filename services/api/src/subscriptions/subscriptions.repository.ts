@@ -18,6 +18,8 @@ export class SubscriptionsRepository {
           tier_id: input.tierId,
           status: 'active',
           current_period_end: input.currentPeriodEnd,
+          billing_interval: input.billingInterval ?? 'month',
+          credits_granted_at: new Date().toISOString(),
         },
         { onConflict: 'agent_id' },
       )
@@ -37,7 +39,13 @@ export class SubscriptionsRepository {
   // so a fresh period always starts with the full allotment available,
   // matching how the plan's featured-listing rules are described on the
   // Plan page.
-  private async grantPeriodCredits(agentId: string, tierId: string): Promise<void> {
+  // Not private: also called directly by PlanLifecycleService's
+  // dripAnnualCredits() sweep, which needs to re-run this same "SET to the
+  // tier's allotment" grant once a month for annual subscribers (Stripe
+  // only fires invoice.payment_succeeded once/year for them, so relying on
+  // that alone would under-credit annual subscribers to 1/12th their
+  // intended allotment).
+  async grantPeriodCredits(agentId: string, tierId: string): Promise<void> {
     const tier = await this.findTierById(tierId);
     if (!tier) return;
 
@@ -74,6 +82,7 @@ export class SubscriptionsRepository {
     stripeCustomerId: string;
     stripeSubscriptionId: string;
     currentPeriodEnd?: string;
+    billingInterval?: 'month' | 'year';
   }) {
     const { data, error } = await this.supabase.client
       .from('subscriptions')
@@ -85,6 +94,8 @@ export class SubscriptionsRepository {
           current_period_end: input.currentPeriodEnd,
           stripe_customer_id: input.stripeCustomerId,
           stripe_subscription_id: input.stripeSubscriptionId,
+          billing_interval: input.billingInterval ?? 'month',
+          credits_granted_at: new Date().toISOString(),
         },
         { onConflict: 'agent_id' },
       )
@@ -104,10 +115,16 @@ export class SubscriptionsRepository {
     status: string,
     currentPeriodEnd?: string,
     cancelAtPeriodEnd?: boolean,
+    billingInterval?: 'month' | 'year',
   ) {
     const { error } = await this.supabase.client
       .from('subscriptions')
-      .update({ status, current_period_end: currentPeriodEnd, cancel_at_period_end: cancelAtPeriodEnd })
+      .update({
+        status,
+        current_period_end: currentPeriodEnd,
+        cancel_at_period_end: cancelAtPeriodEnd,
+        ...(billingInterval ? { billing_interval: billingInterval } : {}),
+      })
       .eq('stripe_subscription_id', stripeSubscriptionId);
     if (error) throw error;
   }
@@ -118,15 +135,56 @@ export class SubscriptionsRepository {
   // too. Looked up by Stripe's subscription id, same as
   // updateStatusByStripeSubscriptionId, since that's all the webhook
   // payload carries.
-  async grantRenewalCredits(stripeSubscriptionId: string): Promise<void> {
+  // Returns the renewed subscription's agent/tier/interval — not just void —
+  // so the webhook caller (subscriptions.controller.ts) can record a
+  // payments ledger row for this renewal without a second DB lookup by the
+  // same stripe_subscription_id it already has.
+  async grantRenewalCredits(
+    stripeSubscriptionId: string,
+  ): Promise<{ agentId: string; tierId: string; billingInterval: 'month' | 'year' } | null> {
     const { data: subscription, error } = await this.supabase.client
       .from('subscriptions')
-      .select('agent_id, tier_id')
+      .select('agent_id, tier_id, billing_interval')
       .eq('stripe_subscription_id', stripeSubscriptionId)
       .maybeSingle();
     if (error) throw error;
-    if (!subscription) return;
+    if (!subscription) return null;
     await this.grantPeriodCredits(subscription.agent_id, subscription.tier_id);
+    await this.supabase.client
+      .from('subscriptions')
+      .update({ credits_granted_at: new Date().toISOString() })
+      .eq('stripe_subscription_id', stripeSubscriptionId);
+    return {
+      agentId: subscription.agent_id,
+      tierId: subscription.tier_id,
+      billingInterval: subscription.billing_interval === 'year' ? 'year' : 'month',
+    };
+  }
+
+  // PlanLifecycleService's monthly drip sweep for annual subscribers —
+  // Stripe's invoice.payment_succeeded/subscription_cycle event (which
+  // drives grantRenewalCredits above) only fires once a year for an annual
+  // subscription, so without this, annual subscribers would only ever get
+  // one twelfth of their intended yearly credit allotment. Re-runs the same
+  // "SET to the tier's allotment" grant every ~30 days independent of
+  // Stripe's own billing cycle.
+  async findActiveAnnualSubscriptionsDueForCredits(staleBefore: string) {
+    const { data, error } = await this.supabase.client
+      .from('subscriptions')
+      .select('agent_id, tier_id, credits_granted_at')
+      .eq('status', 'active')
+      .eq('billing_interval', 'year')
+      .or(`credits_granted_at.is.null,credits_granted_at.lt.${staleBefore}`);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async markCreditsGranted(agentId: string): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('subscriptions')
+      .update({ credits_granted_at: new Date().toISOString() })
+      .eq('agent_id', agentId);
+    if (error) throw error;
   }
 
   // Standalone credit purchase (POST /subscriptions/me/credits/checkout,

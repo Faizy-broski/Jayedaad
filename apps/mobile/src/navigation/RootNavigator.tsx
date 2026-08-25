@@ -7,6 +7,8 @@ import { AboutUsScreen } from '../screens/AboutUsScreen';
 import { ContactScreen } from '../screens/ContactScreen';
 import { AgentCRMScreen } from '../screens/AgentCRMScreen';
 import { LeadDetailScreen } from '../screens/LeadDetailScreen';
+import { PipelineScreen } from '../screens/PipelineScreen';
+import { OpportunityDetailScreen } from '../screens/OpportunityDetailScreen';
 import { AgentDashboardScreen } from '../screens/AgentDashboardScreen';
 import { TermsScreen } from '../screens/auth/TermsScreen';
 import { ProfileSettingsScreen } from '../screens/ProfileSettingsScreen';
@@ -36,6 +38,8 @@ import { BlogListScreen } from '../screens/BlogListScreen';
 import { BlogDetailScreen } from '../screens/BlogDetailScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { AnimatedSplashScreen } from '../components/AnimatedSplashScreen';
+import { ListingPerformanceScreen } from '../screens/ListingPerformanceScreen';
+import { RevenueScreen } from '../screens/RevenueScreen';
 
 export type RootStackParamList = {
   Main: undefined;
@@ -44,9 +48,19 @@ export type RootStackParamList = {
   // other way (out of the tab bar) but stay reachable via SideDrawer.
   AboutUs: undefined;
   Contact: undefined;
-  AgentCRM: undefined;
+  // listingId pre-filters the inbox to one listing's inquiries — arrives via
+  // ListingPerformanceScreen's "View all leads" action (mirrors apps/web's
+  // /crm?listingId= query param).
+  AgentCRM: { listingId?: string; listingTitle?: string } | undefined;
   LeadDetail: { leadId: string };
+  // Kanban-equivalent pipeline (Phase 3 of the CRM maturity build-out) — a
+  // stage-tab list instead of drag-and-drop, the realistic mobile
+  // equivalent of a single-column phone viewport (see PipelineScreen.tsx).
+  Pipeline: undefined;
+  OpportunityDetail: { opportunityId: string };
   AgentDashboard: undefined;
+  ListingPerformance: { listingId: string };
+  Revenue: undefined;
   Terms: undefined;
   ProfileSettings: undefined;
   MyProperties: { initialTab?: 'drafts' | 'uploaded' } | undefined;
@@ -117,7 +131,11 @@ function MainStack() {
       <Stack.Screen name="Contact" component={ContactScreen} options={{ title: 'Contact' }} />
       <Stack.Screen name="AgentCRM" component={AgentCRMScreen} options={{ title: 'Inquiry Inbox' }} />
       <Stack.Screen name="LeadDetail" component={LeadDetailScreen} options={{ title: 'Lead' }} />
+      <Stack.Screen name="Pipeline" component={PipelineScreen} options={{ title: 'Pipeline' }} />
+      <Stack.Screen name="OpportunityDetail" component={OpportunityDetailScreen} options={{ title: 'Opportunity' }} />
       <Stack.Screen name="AgentDashboard" component={AgentDashboardScreen} options={{ title: 'Dashboard' }} />
+      <Stack.Screen name="ListingPerformance" component={ListingPerformanceScreen} options={{ title: 'Performance' }} />
+      <Stack.Screen name="Revenue" component={RevenueScreen} options={{ title: 'Revenue' }} />
       <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms and Conditions' }} />
       <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} options={{ title: 'Profile Settings' }} />
       <Stack.Screen name="MyProperties" component={MyPropertiesScreen} options={{ title: 'My Properties' }} />

@@ -92,6 +92,14 @@ const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre']
 const FURNISHING_STATUSES: FurnishingStatus[] = ['unfurnished', 'semi_furnished', 'furnished'];
 const BEDROOM_OPTIONS = ['Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const BATHROOM_OPTIONS = ['1', '2', '3', '4', '5', '6+'];
+const AREA_SIZE_PRESETS: Record<AreaUnit, string[]> = {
+  marla: ['3', '5', '7', '10', '20'],
+  kanal: ['1', '2', '4', '8'],
+  sqyd: ['100', '200', '500', '1000'],
+  sqft: ['500', '1000', '2000', '5000'],
+  sqm: ['50', '100', '250', '500'],
+  acre: ['1', '2', '5', '10'],
+};
 
 // Hides scrollbar chrome while keeping the element scrollable (wheel/drag/
 // swipe still work) — used on the step-pill strip and the amenities modal's
@@ -921,6 +929,24 @@ export default function SubmitListingPage() {
                             </option>
                           ))}
                         </Select>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {(AREA_SIZE_PRESETS[form.areaUnit] ?? []).map((preset) => (
+                          <motion.button
+                            key={preset}
+                            type="button"
+                            whileHover={{ scale: 1.08 }}
+                            whileTap={{ scale: 0.92 }}
+                            onClick={() => update('areaValue', preset)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                              form.areaValue === preset
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-input text-muted-foreground hover:bg-muted'
+                            }`}
+                          >
+                            {preset}
+                          </motion.button>
+                        ))}
                       </div>
                     </FieldRow>
 

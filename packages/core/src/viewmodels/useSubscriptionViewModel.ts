@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { subscriptionsRepository } from '../services/subscriptionsRepository';
-import { AssignSubscriptionInput } from '../models';
+import { AssignSubscriptionInput, BillingInterval } from '../models';
 import { useAuthViewModel } from './useAuthViewModel';
 
 // Drives the agent "Plan" page — current subscription, the tier catalog to
@@ -53,8 +53,15 @@ export function useSubscriptionViewModel() {
   // returnUrl is mobile-only (see subscriptionsRepository.checkoutTier) —
   // web callers omit it.
   const checkoutTier = useMutation({
-    mutationFn: ({ tierId, returnUrl }: { tierId: string; returnUrl?: string }) =>
-      subscriptionsRepository.checkoutTier(tierId, returnUrl),
+    mutationFn: ({
+      tierId,
+      returnUrl,
+      billingInterval,
+    }: {
+      tierId: string;
+      returnUrl?: string;
+      billingInterval?: BillingInterval;
+    }) => subscriptionsRepository.checkoutTier(tierId, returnUrl, billingInterval),
   });
 
   // cancel_at_period_end via Stripe — no cache invalidation, same reasoning

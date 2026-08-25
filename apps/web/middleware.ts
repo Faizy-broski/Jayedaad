@@ -13,6 +13,9 @@ import { getSupabaseCookieOptions } from './lib/supabaseCookieOptions';
 const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   { prefix: '/verification', roles: ['super_admin', 'verification_staff'] },
   { prefix: '/crm', roles: ['agent', 'super_admin'] },
+  // Opportunity pipeline / Kanban board (Phase 3 of the CRM maturity
+  // build-out) — same role gate as /crm.
+  { prefix: '/pipeline', roles: ['agent', 'super_admin'] },
   // 'buyer' is allowed here because the page itself auto-promotes a fresh
   // buyer to 'agent' on mount — see apps/web/app/(agent)/submit/page.tsx's
   // isPromotingOwner effect ('owner' role is retired, see
@@ -21,6 +24,7 @@ const PROTECTED_ROUTES: { prefix: string; roles: string[] }[] = [
   // reaching that promotion in the first place.
   { prefix: '/submit', roles: ['buyer', 'agent', 'super_admin'] },
   { prefix: '/calendar', roles: ['agent', 'super_admin'] },
+  { prefix: '/revenue', roles: ['agent', 'super_admin'] },
   // Rest of the (agent) Profolio-style portal — see app/(agent)/layout.tsx.
   { prefix: '/dashboard', roles: ['agent', 'super_admin'] },
   { prefix: '/property-management', roles: ['agent', 'super_admin'] },
@@ -138,11 +142,13 @@ export const config = {
   matcher: [
     '/verification/:path*',
     '/crm/:path*',
+    '/pipeline/:path*',
     '/submit/:path*',
     '/dashboard/:path*',
     '/property-management/:path*',
     '/projects/:path*',
     '/agent-settings/:path*',
+    '/revenue/:path*',
     '/plan/:path*',
     '/admin/:path*',
     '/become-an-agent/:path*',

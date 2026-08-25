@@ -1,10 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { AgentCreditType, useAgentCreditsViewModel, useFormattedPrice, useSubscriptionViewModel } from '@jayedaad/core';
-import { Button, Card, CreditCardAccent, CreditQuotaCard } from '@jayedaad/ui-web';
+import {
+  AgentCreditType,
+  BillingInterval,
+  getAnnualDiscountPercent,
+  useAgentCreditsViewModel,
+  useFormattedPrice,
+  useSubscriptionViewModel,
+} from '@jayedaad/core';
+import { Button, Card, CreditCardAccent, CreditQuotaCard, Tabs } from '@jayedaad/ui-web';
 import { Check, Clapperboard, CreditCard, Flame, Home, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
@@ -45,6 +53,8 @@ export default function PlanPage() {
   // the same numbers the "Buy more credits" section right below this is
   // meant to help them top up.
   const { credits } = useAgentCreditsViewModel();
+  // Named to avoid shadowing the global window.setInterval.
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>('month');
 
   // Standalone top-up — a real Stripe Checkout Session (mode: 'payment'),
   // same "server is the source of truth, this just navigates to the
@@ -110,10 +120,17 @@ export default function PlanPage() {
                 </p>
                 {current ? (
                   <>
-                    <p className="mt-2 text-2xl font-bold sm:text-3xl">{current.tier.name}</p>
+                    <p className="mt-2 text-2xl font-bold sm:text-3xl">
+                      {current.tier.name}
+                      {current.billingInterval === 'year' && (
+                        <span className="ml-2 align-middle text-xs font-medium text-primary-foreground/70">· Annual</span>
+                      )}
+                    </p>
                     <p className="mt-1 text-sm text-primary-foreground/80">
-                      {formatPrice(current.tier.price)} /mo · {current.tier.listingQuota}{' '}
-                      listing quota
+                      {current.billingInterval === 'year' && current.tier.annualPrice != null
+                        ? `${formatPrice(current.tier.annualPrice)} /yr`
+                        : `${formatPrice(current.tier.price)} /mo`}{' '}
+                      · {current.tier.listingQuota} listing quota
                     </p>
                   </>
                 ) : (
@@ -200,12 +217,21 @@ export default function PlanPage() {
 
       <div>
         <Reveal>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-foreground">Available Plans</h2>
             <Link href="/help" className="text-sm font-medium text-primary hover:underline">
               Learn More
             </Link>
           </div>
+          <Tabs
+            className="mb-4"
+            tabs={[
+              { id: 'month', label: 'Monthly' },
+              { id: 'year', label: 'Annual' },
+            ]}
+            activeId={billingInterval}
+            onChange={(id) => setBillingInterval(id as BillingInterval)}
+          />
         </Reveal>
 
         {isTiersLoading && (
@@ -242,6 +268,12 @@ export default function PlanPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tiers.map((tier, index) => {
               const isCurrent = current?.tierId === tier.id;
+              const isFree = Number(tier.price) === 0;
+              // A free tier has no interval to speak of (no Stripe checkout
+              // either way) — always render/checkout it as monthly.
+              const hasAnnual = !isFree && tier.annualPrice != null;
+              const showAnnual = billingInterval === 'year' && hasAnnual;
+              const discountPercent = hasAnnual ? getAnnualDiscountPercent(tier) : null;
               const features = [
                 `${tier.listingQuota.toLocaleString()} listing quota`,
                 // Previously absent from this comparison entirely — an
@@ -289,10 +321,20 @@ export default function PlanPage() {
                       )}
                     </div>
 
-                    <p className="text-3xl font-bold text-foreground">
-                      {formatPrice(tier.price)}
-                      <span className="text-sm font-normal text-muted-foreground"> /mo</span>
-                    </p>
+                    <div>
+                      <p className="text-3xl font-bold text-foreground">
+                        {showAnnual ? formatPrice(tier.annualPrice as number) : formatPrice(tier.price)}
+                        <span className="text-sm font-normal text-muted-foreground">{showAnnual ? ' /yr' : ' /mo'}</span>
+                        {showAnnual && discountPercent != null && (
+                          <span className="ml-2 align-middle rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            Save {discountPercent}%
+                          </span>
+                        )}
+                      </p>
+                      {billingInterval === 'year' && !isFree && !hasAnnual && (
+                        <p className="mt-1 text-xs text-muted-foreground">Annual not available for this plan.</p>
+                      )}
+                    </div>
 
                     <ul className="flex-1 space-y-2">
                       {features.map((feature) => (
@@ -305,16 +347,24 @@ export default function PlanPage() {
 
                     <Button
                       variant={isCurrent ? 'secondary' : 'primary'}
-                      disabled={isCurrent || selectTier.isPending || checkoutTier.isPending}
+                      disabled={
+                        isCurrent ||
+                        selectTier.isPending ||
+                        checkoutTier.isPending ||
+                        (billingInterval === 'year' && !isFree && !hasAnnual)
+                      }
                       onClick={() => {
-                        if (Number(tier.price) > 0) {
-                          checkoutTier.mutate({ tierId: tier.id }, {
-                            onSuccess: (result) => {
-                              if (result.url) window.location.href = result.url;
-                              else toast.error('Checkout is not available for this plan yet — contact support.');
+                        if (!isFree) {
+                          checkoutTier.mutate(
+                            { tierId: tier.id, billingInterval: showAnnual ? 'year' : 'month' },
+                            {
+                              onSuccess: (result) => {
+                                if (result.url) window.location.href = result.url;
+                                else toast.error('Checkout is not available for this plan yet — contact support.');
+                              },
+                              onError: () => toast.error('Could not start checkout — please try again.'),
                             },
-                            onError: () => toast.error('Could not start checkout — please try again.'),
-                          });
+                          );
                         } else {
                           selectTier.mutate(
                             { tierId: tier.id },
@@ -330,9 +380,11 @@ export default function PlanPage() {
                         ? 'Current Plan'
                         : selectTier.isPending || checkoutTier.isPending
                           ? 'Please wait…'
-                          : Number(tier.price) > 0
-                            ? 'Upgrade with Stripe'
-                            : 'Select Plan'}
+                          : isFree
+                            ? 'Select Plan'
+                            : showAnnual
+                              ? 'Upgrade with Stripe (Annual)'
+                              : 'Upgrade with Stripe'}
                     </Button>
                   </Card>
                 </motion.div>

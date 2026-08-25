@@ -5,6 +5,7 @@ import { SupportRepository } from './support.repository';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateSupportTicketDto } from './dto/update-support-ticket.dto';
 import { UpdateSupportTicketStatusDto } from './dto/update-support-ticket-status.dto';
+import { AssignSupportTicketDto } from './dto/assign-support-ticket.dto';
 
 @UseGuards(ScopeGuard)
 @Controller('support/tickets')
@@ -32,10 +33,25 @@ export class SupportController {
   @Get()
   listAll(
     @Query('status') status?: 'open' | 'in_progress' | 'resolved',
+    @Query('assignedTo') assignedTo?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
     return this.support.listAll({
+      status,
+      assignedTo,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
+  }
+
+  // Registered before the bare ':id' routes below — 'assigned' as a static
+  // segment never collides with :id's single-segment match, but keeping it
+  // grouped with the other verification_staff-facing route reads clearer.
+  @Roles('verification_staff')
+  @Get('assigned')
+  listAssigned(@Req() req: any, @Query('status') status?: 'open' | 'in_progress' | 'resolved', @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.support.listAssigned(req.user.id, {
       status,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
@@ -46,6 +62,14 @@ export class SupportController {
   @Patch(':id')
   updateStatus(@Param('id') id: string, @Body() body: UpdateSupportTicketStatusDto) {
     return this.support.updateStatus(id, body);
+  }
+
+  // Hands a ticket off to a specific verification_staff member — mirrors
+  // leads.controller.ts's PATCH :id/assign (Super Admin-only reassignment).
+  @Roles('super_admin')
+  @Patch(':id/assign')
+  assign(@Param('id') id: string, @Body() body: AssignSupportTicketDto) {
+    return this.support.assign(id, body.staffId);
   }
 
   // Agent editing/deleting their own ticket — distinct paths from the

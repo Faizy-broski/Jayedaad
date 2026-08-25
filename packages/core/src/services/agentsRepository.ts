@@ -7,15 +7,24 @@ import {
   AgentStats,
   ApplyAsAgentInput,
   GrantAgentCreditsInput,
+  ListingBatchAnalyticsItem,
   ListingPurpose,
   OnboardingDocument,
   OnboardingDocumentType,
   PendingAgentApplication,
+  RevenueSummary,
 } from '../models';
 
 export interface AgentAnalyticsFilters {
   purpose?: ListingPurpose;
   since?: string;
+}
+
+export interface AgentRevenueFilters {
+  period: 'month' | 'quarter' | 'year';
+  // Agency Admin-only — widens to every associate's deals, same "ignored,
+  // not rejected" convention as getListingsAnalytics's scope param.
+  scope?: 'own' | 'agency';
 }
 
 // Mirrors services/api/src/agents/dto/update-profile.dto.ts — Email is
@@ -53,6 +62,22 @@ export const agentsRepository = {
 
   getDailyAnalytics: async (agentId: string, days = 7): Promise<AgentDailyAnalyticsPoint[]> => {
     const { data } = await httpClient.get(`/agents/${agentId}/analytics/daily`, { params: { days } });
+    return data;
+  },
+
+  // Batch per-listing analytics for every listing the agent can see
+  // (scope-filtered own/agency) — backs the My Listings table's per-row
+  // performance breakdown without a fetch per listing.
+  getListingsAnalytics: async (agentId: string, scope?: 'own' | 'agency'): Promise<ListingBatchAnalyticsItem[]> => {
+    const { data } = await httpClient.get(`/agents/${agentId}/listings/analytics`, { params: { scope } });
+    return data;
+  },
+
+  // Commission revenue off the `deals` table (Mark Sold/Mark Rented),
+  // bucketed by month/quarter/year — backs the Revenue page. Mirrors
+  // getListingsAnalytics's scope param exactly.
+  getRevenue: async (agentId: string, params: AgentRevenueFilters): Promise<RevenueSummary> => {
+    const { data } = await httpClient.get(`/agents/${agentId}/revenue`, { params });
     return data;
   },
 

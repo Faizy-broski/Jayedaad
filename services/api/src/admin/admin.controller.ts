@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ScopeGuard } from '../common/guards/scope.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRepository } from './admin.repository';
+import { RevenueRepository } from './revenue.repository';
 import { ROLE_ACCESS_DESCRIPTIONS } from './role-access-descriptions';
 
 // Super Admin-only platform rollup — everything else this session is scoped
@@ -10,11 +11,26 @@ import { ROLE_ACCESS_DESCRIPTIONS } from './role-access-descriptions';
 @Roles('super_admin')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminRepository) {}
+  constructor(
+    private readonly admin: AdminRepository,
+    private readonly revenue: RevenueRepository,
+  ) {}
 
   @Get('stats')
   getStats() {
     return this.admin.getPlatformStats();
+  }
+
+  // Real earnings (from the payments ledger, 0065_payments_ledger.sql) —
+  // subscription and credit revenue kept as two separate totals, plus a
+  // per-tier breakdown (revenue + current active-subscriber count) sorted
+  // by active-subscriber count so the "top" plan is the one with the most
+  // people on it right now, not just the most historical revenue.
+  @Get('revenue')
+  async getRevenue() {
+    const [summary, tierBreakdown] = await Promise.all([this.revenue.getRevenueSummary(), this.revenue.getTierBreakdown()]);
+    const topTiers = [...tierBreakdown].sort((a, b) => b.activeSubscribers - a.activeSubscribers);
+    return { ...summary, tierBreakdown, topTiers };
   }
 
   @Get('agents')

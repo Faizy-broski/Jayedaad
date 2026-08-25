@@ -8,7 +8,9 @@ import {
   LeadSource,
   LeadStatus,
   LeadStatusHistoryEntry,
+  Opportunity,
 } from '../models';
+import { ConvertLeadInput, mapOpportunityRow } from './opportunitiesRepository';
 
 export interface LeadListFilters {
   status?: LeadStatus;
@@ -127,5 +129,14 @@ export const leadsRepository = {
   remove: async (leadId: string): Promise<{ id: string }> => {
     const { data } = await httpClient.delete(`/crm/leads/${leadId}`);
     return data;
+  },
+
+  // "Convert to Opportunity" — promotes this lead into a real pre-close
+  // pipeline object (see opportunitiesRepository.ts). Agent- or
+  // super_admin-eligible; eligibility rules (status, no existing active
+  // opportunity) are enforced server-side.
+  convertToOpportunity: async (leadId: string, input: ConvertLeadInput): Promise<Opportunity> => {
+    const { data } = await httpClient.post(`/crm/leads/${leadId}/convert`, input);
+    return mapOpportunityRow(data);
   },
 };

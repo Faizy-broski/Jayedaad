@@ -38,8 +38,11 @@
    `.text-gradient-*` heading utilities defined below.
 
    Dark mode follows tailwind.config.ts's `darkMode: 'class'` — a `.dark`
-   class on <html>, toggled by components/ThemeProvider.tsx (defaults to
-   light regardless of OS preference; persisted to localStorage). Brand hues
+   class applied by each dashboard layout (Super Admin/Agent/Account/
+   Verification) to its own top-level wrapper div, never to <html>, so the
+   public marketing site never goes dark; state comes from
+   components/ThemeProvider.tsx (defaults to light; persisted to
+   localStorage). Brand hues
    (primary/brand-dark/brand-emerald/highlight) stay the same family across
    light/dark; --primary's lightness is bumped up in dark mode purely for
    contrast against the dark background (18% on 11% would be nearly
@@ -101,7 +104,14 @@
   --radius: 0.75rem;
 }
 
-:root.dark {
+/* Not scoped to :root — dark mode is dashboard-only, applied via a `dark`
+   class on each dashboard layout's own wrapper div (see ThemeProvider.tsx),
+   never on <html>. Custom properties inherit down the DOM tree regardless
+   of which element they're redeclared on, so `.dark` here (rather than
+   `:root.dark`, which only ever matches <html>) is what lets that scoped
+   wrapper actually override --background/--foreground/etc. for its
+   subtree. */
+.dark {
   --background: 164 35% 6%;
   --foreground: 40 20% 95%;
 
@@ -132,8 +142,17 @@
   --destructive: 0 63% 31%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 164 18% 17%;
-  --input: 164 18% 17%;
+  /* Bumped from 17% — a border this close to --background's 6% lightness
+     reads as near-invisible in dark mode (e.g. the signup form's input
+     fields looked like blank black boxes with no visible edge). The
+     equivalent light-mode gap (--input 88% vs --background 100%, 12 points)
+     looks fine because lightness contrast is perceptually nonlinear: the
+     same numeric gap is far less visible near the bottom of the scale than
+     near the top, so dark mode needs a wider raw gap for a comparable
+     visible border — same "bumped purely for contrast" reasoning already
+     applied to --primary above. */
+  --border: 164 14% 26%;
+  --input: 164 14% 26%;
   --ring: 163 70% 32%;
 }
 

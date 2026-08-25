@@ -388,6 +388,89 @@ export class AgentsRepository {
     return Array.from(byDate, ([date, counts]) => ({ date, ...counts }));
   }
 
+  // Returns every agent_profiles.id sharing callerAgentId's agency, or null
+  // if the caller isn't an agency admin (or has no agency) — mirrors
+  // LeadsRepository.getSameAgencyAgentIds exactly (copied, not shared,
+  // to avoid a cross-module dependency for one small lookup; keep both in
+  // sync if the agency-admin resolution rule ever changes).
+  private async getSameAgencyAgentIds(callerAgentId?: string): Promise<string[] | null> {
+    if (!callerAgentId) return null;
+    const { data: caller, error: callerError } = await this.supabase.client
+      .from('agent_profiles')
+      .select('agency_id, is_agency_admin')
+      .eq('id', callerAgentId)
+      .single();
+    if (callerError) throw callerError;
+    if (!caller.is_agency_admin || !caller.agency_id) return null;
+
+    const { data: staff, error: staffError } = await this.supabase.client
+      .from('agent_profiles')
+      .select('id')
+      .eq('agency_id', caller.agency_id);
+    if (staffError) throw staffError;
+    return (staff ?? []).map((row: any) => row.id);
+  }
+
+  // Per-listing breakdown of the same views/clicks/leads/calls/whatsapp/sms/
+  // emails getAnalytics sums into one total — backs the Profolio "My
+  // Listings" overview table (one row of metrics per listing) instead of
+  // one dashboard-wide total. scope='agency' widens the listing set to
+  // every listing posted by any agent in the caller's agency (only honored
+  // when the caller is actually an agency admin, same "ignored, not
+  // rejected" discipline as findMine's identical scope filter); otherwise
+  // (or when the caller isn't an agency admin) falls back to just agentId's
+  // own listings. Aggregated in-memory over the matching rows, same
+  // pragmatic style as getAnalytics/getDailyAnalytics above — supabase-js
+  // has no native GROUP BY.
+  async getListingsAnalytics(
+    agentId: string,
+    scope: 'own' | 'agency' = 'own',
+  ): Promise<
+    { listingId: string; views: number; clicks: number; leads: number; calls: number; whatsapp: number; sms: number; emails: number }[]
+  > {
+    const agencyStaffIds = scope === 'agency' ? await this.getSameAgencyAgentIds(agentId) : null;
+    const agentIds = agencyStaffIds ?? [agentId];
+
+    const { data: listingRows, error: listingsError } = await this.supabase.client
+      .from('listings')
+      .select('id')
+      .in('agent_id', agentIds);
+    if (listingsError) throw listingsError;
+
+    const listingIds = (listingRows ?? []).map((r: any) => r.id);
+    if (listingIds.length === 0) return [];
+
+    const [{ data: eventRows, error: eventsError }, { data: leadRows, error: leadsError }] = await Promise.all([
+      this.supabase.client.from('listing_engagement_events').select('listing_id, type').in('listing_id', listingIds),
+      this.supabase.client.from('leads').select('listing_id').in('listing_id', listingIds),
+    ]);
+    if (eventsError) throw eventsError;
+    if (leadsError) throw leadsError;
+
+    const byListing = new Map<string, { views: number; clicks: number; leads: number; calls: number; whatsapp: number; sms: number; emails: number }>();
+    for (const id of listingIds) {
+      byListing.set(id, { views: 0, clicks: 0, leads: 0, calls: 0, whatsapp: 0, sms: 0, emails: 0 });
+    }
+
+    for (const row of eventRows ?? []) {
+      const bucket = byListing.get((row as any).listing_id);
+      if (!bucket) continue;
+      const type = (row as any).type as 'view' | 'click' | 'call' | 'whatsapp' | 'sms' | 'email';
+      if (type === 'view') bucket.views++;
+      else if (type === 'click') bucket.clicks++;
+      else if (type === 'call') bucket.calls++;
+      else if (type === 'whatsapp') bucket.whatsapp++;
+      else if (type === 'sms') bucket.sms++;
+      else if (type === 'email') bucket.emails++;
+    }
+    for (const row of leadRows ?? []) {
+      const bucket = byListing.get((row as any).listing_id);
+      if (bucket) bucket.leads++;
+    }
+
+    return Array.from(byListing, ([listingId, counts]) => ({ listingId, ...counts }));
+  }
+
   // Confirmed real on the Profolio "Quota and Credits" card: separate
   // Available/Used/Total pools per credit type, not a single quota number.
   async getCredits(agentId: string) {

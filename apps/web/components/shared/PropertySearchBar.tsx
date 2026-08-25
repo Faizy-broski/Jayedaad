@@ -121,7 +121,7 @@ function FilterField({
   );
 }
 
-function RangeDropdown({
+export function RangeDropdown({
   minValue,
   maxValue,
   options,

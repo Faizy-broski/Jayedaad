@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AgentOverview, useAdminDashboardViewModel, useAuthViewModel } from '@jayedaad/core';
+import { AgentOverview, useAdminDashboardViewModel, useAdminRevenueViewModel, useAuthViewModel, useFormattedPrice } from '@jayedaad/core';
 import { Badge, cn, KpiCard, Table, TableColumn } from '@jayedaad/ui-web';
 import {
   ArrowRight,
@@ -15,9 +15,11 @@ import {
   LayoutGrid,
   PieChart as PieChartIcon,
   ShieldCheck,
+  Sparkles,
   Sun,
   UserCircle2,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 
@@ -77,8 +79,19 @@ function sum(record: Record<string, number> | undefined) {
 // placeholder/sample data, same principle as the agent dashboard.
 export default function AdminDashboardPage() {
   const { stats, isStatsLoading, isStatsError, agents, isAgentsLoading } = useAdminDashboardViewModel();
+  const { revenue, isRevenueLoading, isRevenueError } = useAdminRevenueViewModel();
   const { user } = useAuthViewModel();
+  const { format: formatPrice } = useFormattedPrice();
   const [breakdown, setBreakdown] = useState<BreakdownKey>('agencies');
+
+  // Real payments-ledger figures (0065_payments_ledger.sql) — tracked only
+  // from when that migration shipped. A null ledgerStartsAt means zero
+  // payments recorded yet; the KPI tiles below render that as "Tracking
+  // starts once your first payment lands" instead of a bare "PKR 0" that
+  // would misleadingly read as a confirmed all-time-zero total.
+  const revenueLedgerStartLabel = revenue?.ledgerStartsAt
+    ? `Since ${new Date(revenue.ledgerStartsAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : 'Tracking starts once your first payment lands';
 
   const displayName = (user?.user_metadata?.display_name as string | undefined) || user?.email?.split('@')[0] || 'Admin';
   const hour = new Date().getHours();
@@ -167,9 +180,9 @@ export default function AdminDashboardPage() {
         </div>
       </Reveal>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {isStatsLoading ? (
-          [0, 1, 2, 3, 4].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-[24px] border border-border bg-muted/40" />)
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {isStatsLoading || isRevenueLoading ? (
+          [0, 1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-[104px] animate-pulse rounded-[24px] border border-border bg-muted/40" />)
         ) : (
           <>
             {[
@@ -178,6 +191,22 @@ export default function AdminDashboardPage() {
               { icon: Home, label: 'Listings', value: totals.listings, sub: 'All statuses' },
               { icon: Inbox, label: 'Leads', value: totals.leads, sub: 'All statuses' },
               { icon: CreditCard, label: 'Subscriptions', value: totals.subscriptions, sub: 'Currently active' },
+              // Kept as two separate totals, not one combined "Total
+              // Earnings" figure — subscription revenue (recurring plans)
+              // and credit revenue (one-off top-ups) answer different
+              // questions, per product decision.
+              {
+                icon: Wallet,
+                label: 'Subscription Revenue',
+                value: isRevenueError ? '—' : formatPrice(revenue?.subscriptionRevenue ?? 0),
+                sub: revenueLedgerStartLabel,
+              },
+              {
+                icon: Sparkles,
+                label: 'Credit Revenue',
+                value: isRevenueError ? '—' : formatPrice(revenue?.creditRevenue ?? 0),
+                sub: revenueLedgerStartLabel,
+              },
             ].map((tile, index) => (
               <motion.div
                 key={tile.label}
@@ -317,6 +346,67 @@ export default function AdminDashboardPage() {
           </div>
         </Reveal>
       </div>
+
+      {/* Revenue by Plan — real payments-ledger figures per tier, merged
+          with the CURRENT active-subscriber count (two different sources,
+          see revenue.repository.ts). Sorted by active subscribers (topTiers)
+          per product decision: "top" plan = most people on it right now,
+          not just highest historical revenue. Kept out of the count-only
+          Breakdown donut above it — mixing a money series into a
+          count-denominated chart would make its shared total/legend
+          ambiguous, so revenue gets its own panel. */}
+      <Reveal>
+        <div className="rounded-[24px] border border-border bg-background p-4 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-semibold text-foreground">Revenue by Plan</h2>
+            </div>
+            <Link href="/admin/plans" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+              Manage plans <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Real subscription payments collected per plan — {revenueLedgerStartLabel.toLowerCase()}.
+          </p>
+
+          {isRevenueLoading ? (
+            <div className="mt-4 h-32 animate-pulse rounded-md bg-muted/40" />
+          ) : isRevenueError ? (
+            <EmptyChartState isError />
+          ) : !revenue?.topTiers.length ? (
+            <EmptyChartState />
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">Plan</th>
+                    <th className="py-2 pr-4 font-medium">Active subscribers</th>
+                    <th className="py-2 font-medium">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revenue.topTiers.map((tier, index) => (
+                    <tr key={tier.tierId} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4 text-foreground">
+                        <span className="flex items-center gap-1.5">
+                          {tier.tierName}
+                          {index === 0 && tier.activeSubscribers > 0 && (
+                            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Most active</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-muted-foreground">{tier.activeSubscribers}</td>
+                      <td className="py-2 font-semibold text-foreground">{formatPrice(tier.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Reveal>
 
       {/* Agent roster */}
       <Reveal>

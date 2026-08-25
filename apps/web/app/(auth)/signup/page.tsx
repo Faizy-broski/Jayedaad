@@ -3,24 +3,11 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { COUNTRIES, getMaxPhoneDigits, PAKISTAN_CITIES, useAgencyRegistrationViewModel, useAuthViewModel } from '@jayedaad/core';
+import { COUNTRIES, getMaxPhoneDigits, PAKISTAN_CITIES, slugify, useAgencyRegistrationViewModel, useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, CountryCodeSelect, Input, Label, Select } from '@jayedaad/ui-web';
 import { AuthShell } from '@/components/auth/AuthShell';
 
 type AccountType = 'individual' | 'agency';
-
-// Slugs are a URL-facing implementation detail agencies shouldn't have to
-// think about at signup — auto-derived, same as any typical "company name"
-// -> "company-name" slugify, uniqueness enforced by the DB's unique
-// constraint on agencies.slug (a collision surfaces as a plain signup error,
-// same as any other failed registerSelfService call).
-function slugify(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
 
 // Split-screen layout matching /login: full-bleed hero image + copy on the
 // left (sticky, so it stays put while the longer form scrolls on the
@@ -161,12 +148,26 @@ export default function SignupPage() {
     }
   }
 
+  // Google/Apple's OAuth round-trip leaves the app entirely before there's
+  // any chance to collect agency name/city/phone/associate-count — so an
+  // Agency-intent OAuth signup is routed through /signup/agency-details
+  // first via ?next= (same passthrough mechanism login/page.tsx already
+  // uses for its own "continue to X after sign-in" redirect; the callback
+  // route validates next is an internal path before honoring it). An
+  // Individual-intent signup passes no next and keeps today's plain
+  // role-based landing.
+  function oauthRedirectUrl(): string {
+    const next = accountType === 'agency' ? '/signup/agency-details' : '';
+    const query = next ? `?next=${encodeURIComponent(next)}` : '';
+    return `${window.location.origin}/auth/callback${query}`;
+  }
+
   function handleGoogle() {
-    signInWithGoogle.mutate(`${window.location.origin}/auth/callback`);
+    signInWithGoogle.mutate(oauthRedirectUrl());
   }
 
   function handleApple() {
-    signInWithApple.mutate(`${window.location.origin}/auth/callback`);
+    signInWithApple.mutate(oauthRedirectUrl());
   }
 
   const isPending = isSubmitting || signUp.isPending || signIn.isPending || sendOtp.isPending || registerAgency.isPending;
@@ -194,41 +195,39 @@ export default function SignupPage() {
         </p>
       </div>
 
-          {/* Google/Apple's OAuth round-trip has no way to collect the
-              agency name/city/associate-count fields first, so both are
-              only offered for Individual signups — matches
-              apps/mobile/src/screens/auth/SignupScreen.tsx's existing
-              accountType === 'individual' guard around its own Google button. */}
-          {accountType === 'individual' && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  disabled={signInWithGoogle.isPending}
-                  onClick={handleGoogle}
-                  className="flex h-10 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
-                >
-                  <GoogleIcon className="h-4 w-4" />
-                  Google
-                </button>
-                <button
-                  type="button"
-                  disabled={signInWithApple.isPending}
-                  onClick={handleApple}
-                  className="flex h-10 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
-                >
-                  <AppleIcon className="h-4 w-4" />
-                  Apple
-                </button>
-              </div>
+          {/* Offered for both account types — an Agency-intent click routes
+              through /signup/agency-details after OAuth completes (see
+              oauthRedirectUrl above) to collect the fields this round-trip
+              can't carry, instead of being hidden entirely like before.
+              apps/mobile/src/screens/auth/SignupScreen.tsx still has its own
+              individual-only guard around its Google button — mobile parity
+              for this flow is a separate follow-up, not in scope here. */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={signInWithGoogle.isPending}
+              onClick={handleGoogle}
+              className="flex h-10 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
+            >
+              <GoogleIcon className="h-4 w-4" />
+              Google
+            </button>
+            <button
+              type="button"
+              disabled={signInWithApple.isPending}
+              onClick={handleApple}
+              className="flex h-10 items-center justify-center gap-2 rounded-full border border-input text-sm font-medium hover:bg-accent disabled:opacity-60"
+            >
+              <AppleIcon className="h-4 w-4" />
+              Apple
+            </button>
+          </div>
 
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="eyebrow-label whitespace-nowrap text-muted-foreground">Or</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-            </>
-          )}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="eyebrow-label whitespace-nowrap text-muted-foreground">Or</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-2.5">
             <div className="flex gap-2 rounded-full border border-input bg-muted/40 p-1">

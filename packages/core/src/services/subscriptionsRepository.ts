@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import {
   AssignSubscriptionInput,
+  BillingInterval,
   CreateCreditPackInput,
   CreateSubscriptionTierInput,
   CreditPack,
@@ -27,6 +28,8 @@ function mapTierRow(row: any): SubscriptionTier {
     storyCreditsPerPeriod: row.story_credits_per_period ?? 0,
     stripePriceId: row.stripe_price_id,
     listingDurationDays: row.listing_duration_days,
+    annualPrice: row.annual_price != null ? Number(row.annual_price) : null,
+    stripeAnnualPriceId: row.stripe_annual_price_id,
   };
 }
 
@@ -37,8 +40,21 @@ function mapSubscriptionRow(row: any): Subscription {
     status: row.status,
     currentPeriodEnd: row.current_period_end,
     cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
+    billingInterval: row.billing_interval === 'year' ? 'year' : 'month',
     tier: mapTierRow(row.subscription_tiers),
   };
+}
+
+// Single source of truth for "what % cheaper is a year vs. 12 months at the
+// monthly price" — reused by both apps/web and apps/mobile's Plan pages so
+// the discount badge can never drift between platforms. Returns null when
+// this tier has no real annual price configured (no badge should render),
+// and null (not a negative number) when the annual price isn't actually
+// cheaper — never show a fabricated "Save 0%"/"Save -5%" badge.
+export function getAnnualDiscountPercent(tier: SubscriptionTier): number | null {
+  if (tier.annualPrice == null || tier.price <= 0) return null;
+  const percent = Math.round((1 - tier.annualPrice / (tier.price * 12)) * 100);
+  return percent > 0 ? percent : null;
 }
 
 export interface ListTiersFilters {
@@ -103,8 +119,12 @@ export const subscriptionsRepository = {
   // not by this call itself. returnUrl is mobile-only (a jayedaad:// deep
   // link, see PlanScreen.tsx) — web omits it and keeps the server's
   // NEXT_PUBLIC_SITE_URL default.
-  checkoutTier: async (tierId: string, returnUrl?: string): Promise<{ url: string | null }> => {
-    const { data } = await httpClient.post('/subscriptions/me/checkout', { tierId, returnUrl });
+  checkoutTier: async (
+    tierId: string,
+    returnUrl?: string,
+    billingInterval?: BillingInterval,
+  ): Promise<{ url: string | null }> => {
+    const { data } = await httpClient.post('/subscriptions/me/checkout', { tierId, returnUrl, billingInterval });
     return data;
   },
 

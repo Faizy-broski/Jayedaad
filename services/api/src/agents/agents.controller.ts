@@ -24,12 +24,14 @@ import { ApplyAsAgentDto } from './dto/apply-as-agent.dto';
 import { UploadOnboardingDocumentDto } from './dto/upload-document.dto';
 import { SetAgentVerificationStatusDto } from './dto/set-verification-status.dto';
 import { AvatarMediaService } from './avatar-media.service';
+import { DealsRepository } from '../deals/deals.repository';
 
 @Controller('agents')
 export class AgentsController {
   constructor(
     private readonly agents: AgentsRepository,
     private readonly avatarMedia: AvatarMediaService,
+    private readonly deals: DealsRepository,
   ) {}
 
   // Staff review queue — the counterpart to GET /verification/queue for
@@ -107,6 +109,48 @@ export class AgentsController {
   getDailyAnalytics(@Req() req: any, @Param('id') id: string, @Query('days') days?: string) {
     this.assertOwnAgentOrAdmin(req, id);
     return this.agents.getDailyAnalytics(id, days ? Number(days) : undefined);
+  }
+
+  // Batch counterpart to ListingsRepository's new per-listing
+  // :id/analytics — backs the Profolio "My Listings" overview table's
+  // one-row-per-listing metrics without an N-request waterfall. Lives here
+  // (not listings.controller.ts) because the endpoint is agent-scoped, not
+  // listing-scoped, and already shares this controller's ScopeGuard/
+  // assertOwnAgentOrAdmin DI setup with getAnalytics/getDailyAnalytics
+  // above — same ownership discipline, just returning per-listing rows
+  // instead of one summed total. scope=agency is honored by the repository
+  // only when the caller is actually an agency admin, same "ignored, not
+  // rejected" convention as every other scope filter in this codebase.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/listings/analytics')
+  getListingsAnalytics(@Req() req: any, @Param('id') id: string, @Query('scope') scope?: 'own' | 'agency') {
+    this.assertOwnAgentOrAdmin(req, id);
+    return this.agents.getListingsAnalytics(id, scope);
+  }
+
+  // Commission revenue off the `deals` table (Mark Sold/Mark Rented),
+  // bucketed by month/quarter/year — lives here rather than on the new
+  // deals.controller.ts because it's agent-scoped, not deal-scoped, same
+  // reasoning as getListingsAnalytics above living here instead of on
+  // listings.controller.ts. Unlike assertOwnAgentOrAdmin (self-or-
+  // super_admin-only, used by every other endpoint on this controller),
+  // this one lets an agency admin view a DIFFERENT staff member's id
+  // directly — needed for the per-agent revenue breakdown — so the
+  // ownership+agency-admin check is delegated to
+  // DealsRepository.getRevenue itself (same shape as
+  // ListingsRepository.assertCanAccessListingAnalytics) instead of reusing
+  // assertOwnAgentOrAdmin here.
+  @UseGuards(ScopeGuard)
+  @Roles('agent', 'super_admin')
+  @Get(':id/revenue')
+  getRevenue(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query('period') period?: 'month' | 'quarter' | 'year',
+    @Query('scope') scope?: 'own' | 'agency',
+  ) {
+    return this.deals.getRevenue(id, req.user, { period: period ?? 'month', scope });
   }
 
   @UseGuards(ScopeGuard)

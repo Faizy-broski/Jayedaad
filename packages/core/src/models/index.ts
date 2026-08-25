@@ -9,6 +9,9 @@ export type Role = 'super_admin' | 'verification_staff' | 'agent' | 'buyer' | 'o
 // expired/deleted/inactive are unambiguous. 'downgraded' is real but its
 // exact semantics couldn't be confirmed from a UI screenshot alone (see
 // supabase/migrations/0001_init.sql for the inferred interpretation).
+// 'sold'/'rented' added by supabase/migrations/0064_deals_and_commission.sql
+// — terminal end-states written by DealsRepository.markSold/markRented
+// (Mark Sold/Mark Rented), distinct from every other status here.
 export type ListingStatus =
   | 'draft'
   | 'pending_verification'
@@ -17,7 +20,9 @@ export type ListingStatus =
   | 'expired'
   | 'deleted'
   | 'downgraded'
-  | 'inactive';
+  | 'inactive'
+  | 'sold'
+  | 'rented';
 export type ListingPurpose = 'sale' | 'rent';
 // Explicit poster identity, chosen at submission — stored on
 // listings.poster_type (see the poster_type migration), decoupled from
@@ -340,7 +345,10 @@ export type LeadSource = 'chatbot' | 'contact_form' | 'call_request';
 // Verified against a real Zameen.com "Contact Agent" form's "I am a:"
 // dropdown — who the inquirer is, distinct from LeadSource (how they reached us).
 export type LeadInquirerType = 'buyer_tenant' | 'agent' | 'other';
-export type LeadActivityType = 'note' | 'status_change' | 'call' | 'assignment' | 'email' | 'whatsapp';
+// 'opportunity_converted' added alongside the opportunities feature
+// (0067_opportunities.sql) — the system-generated timeline entry a lead
+// gets when it's promoted via "Convert to Opportunity".
+export type LeadActivityType = 'note' | 'status_change' | 'call' | 'assignment' | 'email' | 'whatsapp' | 'opportunity_converted';
 
 export interface Lead {
   id: string;
@@ -403,6 +411,107 @@ export interface LeadListResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+// --- Opportunities: the real pre-close pipeline object (0067_opportunities.sql),
+// sitting between Lead (raw inquiry) and Deal (closed-won revenue ledger,
+// see DealType/Deal below) — mirrors services/api/src/opportunities/. ---
+
+export type OpportunityStage = 'qualification' | 'needs_analysis' | 'proposal' | 'negotiation' | 'won' | 'lost';
+
+// Mirrors services/api/src/opportunities/opportunities.repository.ts's
+// ALLOWED_STAGE_TRANSITIONS exactly — forward-only through the live
+// stages, plus any non-terminal stage can jump straight to 'lost'; 'won'/
+// 'lost' are terminal. Shared here so web/mobile can gray out invalid
+// kanban drop targets client-side, same reasoning as LEAD_STATUS_TRANSITIONS.
+export const OPPORTUNITY_STAGE_TRANSITIONS: Record<OpportunityStage, OpportunityStage[]> = {
+  qualification: ['needs_analysis', 'proposal', 'negotiation', 'won', 'lost'],
+  needs_analysis: ['proposal', 'negotiation', 'won', 'lost'],
+  proposal: ['negotiation', 'won', 'lost'],
+  negotiation: ['won', 'lost'],
+  won: [],
+  lost: [],
+};
+
+export interface Opportunity {
+  id: string;
+  // Nullable — an opportunity can be promoted from a lead ("Convert to
+  // Opportunity") or created directly with no source lead (a walk-in/
+  // referral); both are real, supported paths.
+  leadId: string | null;
+  listingId: string | null;
+  projectId: string | null;
+  agentId: string;
+  agencyId: string | null;
+  dealType: DealType;
+  name: string;
+  value: number;
+  stage: OpportunityStage;
+  probability: number;
+  expectedCloseDate: string;
+  // Set once stage moves to 'lost' — the reason is required at that point
+  // (see OPPORTUNITY_STAGE_TRANSITIONS' usage in the stage-change UI).
+  lostReason: string | null;
+  // Set once this opportunity is won and a matching `deals` row exists.
+  dealId: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  stageHistory: OpportunityStageHistoryEntry[];
+}
+
+export interface OpportunityStageHistoryEntry {
+  id: string;
+  opportunityId: string;
+  fromStage: OpportunityStage | null;
+  toStage: OpportunityStage;
+  changedBy: string;
+  changedAt: string;
+}
+
+export interface OpportunityListResult {
+  items: Opportunity[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Real interaction history — a logged call/email/whatsapp/meeting against a
+// lead and/or an opportunity (0070_activity_timeline_tables.sql). Distinct from
+// LeadActivityEntry (the lightweight lead_activity pointer row, type +
+// refId only): this is the actual logged content, rendered by
+// ActivityTimeline (web) / ActivityTimeline (mobile).
+// Funnel & conversion analytics (Phase 4 of the CRM maturity build-out) —
+// GET /crm/opportunities/funnel. 'lost' is excluded from stageConversion's
+// forward-progress ordering (it's a separate exit metric, see winLoss);
+// conversionFromPrevious is null (never Infinity/NaN) when zero
+// opportunities reached the prior stage.
+export interface OpportunityFunnelStageConversion {
+  stage: OpportunityStage;
+  reachedCount: number;
+  conversionFromPrevious: number | null;
+}
+
+export interface OpportunityFunnelStats {
+  stageConversion: OpportunityFunnelStageConversion[];
+  openPipelineValue: number;
+  openPipelineCount: number;
+  won: number;
+  lost: number;
+  winLossRatio: number | null;
+  forecastedRevenue: number;
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  leadId: string | null;
+  opportunityId: string | null;
+  type: LeadActivityType;
+  loggedBy: string;
+  occurredAt: string;
+  summary: string;
+  outcome: string | null;
+  createdAt: string;
 }
 
 // A reminder is always lead-scoped (0001_init.sql's reminders.lead_id is
@@ -563,6 +672,14 @@ export interface SubscriptionTier {
   // unlimited. Applied on approval (record_verification_action RPC) and on
   // POST /listings/:id/renew.
   listingDurationDays: number | null;
+  // Annual counterpart to price/stripePriceId — null means this tier is
+  // monthly-only (no Annual option shown on the Plan page for it).
+  // annualPrice must match the real amount configured on
+  // stripeAnnualPriceId's Stripe Price object; any discount vs. monthly
+  // shown to agents is always derived from these two real numbers (see
+  // getAnnualDiscountPercent below), never stored separately.
+  annualPrice: number | null;
+  stripeAnnualPriceId: string | null;
 }
 
 export interface CreateSubscriptionTierInput {
@@ -576,6 +693,8 @@ export interface CreateSubscriptionTierInput {
   storyCreditsPerPeriod?: number;
   stripePriceId?: string;
   listingDurationDays?: number | null;
+  annualPrice?: number | null;
+  stripeAnnualPriceId?: string;
 }
 
 export interface UpdateSubscriptionTierInput {
@@ -589,7 +708,11 @@ export interface UpdateSubscriptionTierInput {
   storyCreditsPerPeriod?: number;
   stripePriceId?: string;
   listingDurationDays?: number | null;
+  annualPrice?: number | null;
+  stripeAnnualPriceId?: string;
 }
+
+export type BillingInterval = 'month' | 'year';
 
 export interface Subscription {
   agentId: string;
@@ -599,12 +722,18 @@ export interface Subscription {
   // True once POST /subscriptions/me/cancel has gone through — the
   // subscription stays active/usable until currentPeriodEnd, then lapses.
   cancelAtPeriodEnd: boolean;
+  // Which of the tier's two real prices this agent is actually paying —
+  // set server-side (checkout webhook derives it from Stripe's own Price
+  // object; the free-tier/admin-override select() path defaults to
+  // 'month'). Drives the Plan page's "Current Plan · Annual" display.
+  billingInterval: BillingInterval;
   tier: SubscriptionTier;
 }
 
 export interface AssignSubscriptionInput {
   tierId: string;
   currentPeriodEnd?: string;
+  billingInterval?: BillingInterval;
 }
 
 // --- Standalone (à la carte) credit top-up purchases ---
@@ -676,6 +805,33 @@ export interface PlatformStats {
   listingsByStatus: Record<string, number>;
   leadsByStatus: Record<string, number>;
   activeSubscriptionsByTier: Record<string, number>;
+}
+
+// GET /admin/revenue — real payments-ledger figures (see
+// supabase/migrations/0065_payments_ledger.sql), tracked only from when
+// that migration shipped. subscriptionRevenue/creditRevenue are kept as
+// two separate totals (a product decision, not combined into one number)
+// since they answer different questions: recurring plan revenue vs.
+// one-off credit top-ups. ledgerStartsAt is null on a platform with zero
+// payments recorded yet — render that as "tracking starts once your first
+// payment lands", never a bare "PKR 0" implying a false all-time total.
+export interface RevenueTierBreakdown {
+  tierId: string;
+  tierName: string;
+  activeSubscribers: number;
+  revenue: number;
+}
+
+export interface RevenueStats {
+  subscriptionRevenue: number;
+  creditRevenue: number;
+  currency: string;
+  ledgerStartsAt: string | null;
+  // Per-tier revenue + current active-subscriber count.
+  tierBreakdown: RevenueTierBreakdown[];
+  // Same rows as tierBreakdown, sorted by activeSubscribers descending —
+  // "top" plan is the one with the most people on it right now.
+  topTiers: RevenueTierBreakdown[];
 }
 
 // One row per agent joining profile + agency + listing counts + subscription
@@ -753,6 +909,10 @@ export interface Agency {
   rejectionReason: string | null;
   salesAssociateCount: number;
   tier: AgencyTier;
+  // Percent (0-100), nullable — falls back to DealsRepository's
+  // PLATFORM_DEFAULT_COMMISSION_RATE when unset. See
+  // supabase/migrations/0064_deals_and_commission.sql.
+  defaultCommissionRate?: number | null;
 }
 
 // Public Agents directory search — mirrors ProjectSearchFilters in shape.
@@ -843,6 +1003,8 @@ export interface UpdateAgencyInput {
   businessHours?: string;
   logoUrl?: string;
   salesAssociateCount?: number;
+  // Percent (0-100) — see Agency.defaultCommissionRate.
+  defaultCommissionRate?: number;
 }
 
 export interface SetAgencyVerificationStatusInput {
@@ -983,6 +1145,73 @@ export interface AgentDailyAnalyticsPoint {
   date: string;
   views: number;
   leads: number;
+}
+
+// Same {views,clicks,leads,calls,whatsapp,sms,emails} shape as
+// AgentAnalytics, listing-scoped instead of agent-scoped — GET
+// /listings/:id/analytics (per-listing performance breakdown).
+export type ListingAnalytics = AgentAnalytics;
+
+// Same {date,views,leads} shape as AgentDailyAnalyticsPoint, listing-scoped
+// — GET /listings/:id/analytics/daily.
+export type ListingDailyAnalyticsPoint = AgentDailyAnalyticsPoint;
+
+// GET /agents/:id/listings/analytics — one ListingAnalytics row per listing
+// the agent can see (scope-filtered own/agency), for batch-merging into a
+// My Listings table without a per-row analytics fetch.
+export interface ListingBatchAnalyticsItem extends ListingAnalytics {
+  listingId: string;
+}
+
+// --- Deals & Revenue --------------------------------------------------------
+// Mirrors services/api/src/deals/deals.repository.ts's DEAL_LIST_COLUMNS
+// mapping and markSold/markRented's returned `deal` shape. The revenue
+// ledger row written by "Mark Sold"/"Mark Rented" — see
+// supabase/migrations/0064_deals_and_commission.sql's `deals` table.
+export type DealType = 'sale' | 'rent';
+
+// listingTitle/agentName are only populated by DealsRepository.list's join
+// (listings/agent_profiles embed) — markSold/markRented's returned deal
+// omits both, so they're optional here rather than on a separate type.
+export interface Deal {
+  id: string;
+  listingId: string;
+  listingTitle?: string | null;
+  agentId: string;
+  agentName?: string | null;
+  agencyId?: string | null;
+  dealType: DealType;
+  amount: number; // sale price, or monthly rent for a rent deal
+  commissionRate?: number | null; // percent
+  commissionAmount: number;
+  closedAt: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+// GET /agents/:id/revenue — mirrors DealsRepository.getRevenue's returned
+// shape exactly (period bucket key format depends on the requested
+// RevenuePeriod: 'YYYY-MM' | 'YYYY-Qn' | 'YYYY').
+export interface RevenuePeriodPoint {
+  period: string;
+  revenue: number;
+  dealCount: number;
+}
+
+// Only present when scope: 'agency' was requested AND the target agent is
+// actually an agency admin — see DealsRepository.getRevenue.
+export interface AgentRevenueBreakdown {
+  agentId: string;
+  displayName: string | null;
+  revenue: number;
+  dealCount: number;
+}
+
+export interface RevenueSummary {
+  totalRevenue: number;
+  dealCount: number;
+  byPeriod: RevenuePeriodPoint[];
+  byAgent?: AgentRevenueBreakdown[];
 }
 
 export type ListingEngagementType = 'view' | 'click' | 'call' | 'whatsapp' | 'sms' | 'email';
@@ -1454,6 +1683,10 @@ export interface SupportTicket {
   message: string;
   status: SupportTicketStatus;
   adminNote: string | null;
+  // The verification_staff member this ticket has been handed off to —
+  // null means still unassigned (the default for every ticket). Set only
+  // by Super Admin (PATCH /support/tickets/:id/assign).
+  assignedTo: string | null;
   createdAt: string;
   updatedAt: string;
 }

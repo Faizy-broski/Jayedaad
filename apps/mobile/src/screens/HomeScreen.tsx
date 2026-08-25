@@ -33,7 +33,10 @@ import { getRecentlyViewed } from '../lib/recentlyViewedStorage';
 import { getHomeCity, setHomeCity } from '../lib/homeCityStorage';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
-import heroLogoImage from '../../assets/images/hero-logo.webp';
+// White/light variant, not hero-logo.webp's dark-green mark — that one was
+// designed for a light background and read as near-invisible against this
+// header's dark photo/gradient.
+import heroLogoImage from '../../assets/images/logo.png';
 import heroBannerImage from '../../assets/images/home-banner.webp';
 import lahoreImage from '../../assets/images/lahore.webp';
 import karachiImage from '../../assets/images/karachi.webp';
@@ -631,11 +634,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
-  // hero-logo.webp is now cropped tight to the mark+wordmark with a
-  // transparent background (was a full-canvas asset with a large opaque
-  // white background, which rendered as a washed-out white patch over the
-  // hero photo instead of a floating logo) — its real aspect ratio is
-  // ~2.82:1, not the old asset's 1.5:1, so the box changes to match.
+  // logo.png is the white/light variant (~2.68:1, transparent background) —
+  // was hero-logo.webp's dark-green wordmark, which read as near-invisible
+  // against this header's dark photo/gradient. contentFit="contain" keeps
+  // it undistorted regardless of the exact source ratio inside this box.
   headerLogo: { width: 136, height: 48 },
   headerTopIcons: { flexDirection: 'row', gap: theme.spacing.sm },
   headerIconButton: {

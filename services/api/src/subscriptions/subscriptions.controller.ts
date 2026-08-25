@@ -9,6 +9,7 @@ import { EntitlementsService } from './entitlements.service';
 import { SubscriptionsRepository } from './subscriptions.repository';
 import { StripeService } from './stripe.service';
 import { CreditPacksRepository } from './credit-packs.repository';
+import { PaymentsRepository } from './payments.repository';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CheckoutCreditPackDto } from './dto/checkout-credit-pack.dto';
@@ -23,6 +24,7 @@ export class SubscriptionsController {
     private readonly subscriptions: SubscriptionsRepository,
     private readonly stripe: StripeService,
     private readonly creditPacks: CreditPacksRepository,
+    private readonly payments: PaymentsRepository,
   ) {}
 
   // "40 of 50 listings used" — real-time usage tracking [Spec §6/§8.1].
@@ -87,8 +89,22 @@ export class SubscriptionsController {
     if (Number(tier.price) === 0) {
       throw new BadRequestException('This is a free tier — use POST /subscriptions/me/select instead.');
     }
-    if (!tier.stripe_price_id) {
-      throw new BadRequestException('This tier has no Stripe price configured yet — contact support.');
+
+    // Which of the tier's two real Stripe prices to use — resolved
+    // server-side from the tier row, never trusting a client-supplied
+    // priceId directly. The interval itself IS trusted at this stage (it
+    // only selects which admin-configured price to check out with), but
+    // the webhook below re-derives the authoritative interval from
+    // Stripe's own subscription object once payment completes, so a
+    // mismatched/stale value here can't ever mis-record what was paid.
+    const interval = body.billingInterval ?? 'month';
+    const priceId = interval === 'year' ? tier.stripe_annual_price_id : tier.stripe_price_id;
+    if (!priceId) {
+      throw new BadRequestException(
+        interval === 'year'
+          ? 'This tier has no Stripe annual price configured yet — contact support.'
+          : 'This tier has no Stripe price configured yet — contact support.',
+      );
     }
 
     const email = (await this.subscriptions.findEmailForUser(req.user.id)) ?? undefined;
@@ -99,10 +115,13 @@ export class SubscriptionsController {
     const base = body.returnUrl ?? `${siteUrl}/dashboard/plan`;
 
     const session = await this.stripe.createCheckoutSession({
-      priceId: tier.stripe_price_id,
+      priceId,
       customerEmail: email ?? '',
       clientReferenceId: req.user.agentId,
-      metadata: { agentId: req.user.agentId, tierId: tier.id },
+      // billingInterval here is a debugging hint only — the webhook below
+      // never trusts it, it re-derives the real interval from Stripe's own
+      // subscription/price object once checkout completes.
+      metadata: { agentId: req.user.agentId, tierId: tier.id, billingInterval: interval },
       successUrl: `${base}?checkout=success`,
       cancelUrl: `${base}?checkout=cancelled`,
     });
@@ -134,7 +153,11 @@ export class SubscriptionsController {
       priceId: pack.stripe_price_id,
       customerEmail: email ?? '',
       clientReferenceId: req.user.agentId,
-      metadata: { agentId: req.user.agentId, creditType: pack.credit_type, quantity: String(pack.quantity) },
+      // packId added so the webhook's payments-ledger write (see webhook()
+      // below) can tag a single-pack purchase with its credit_pack_id —
+      // topUpCredits() itself only ever needed creditType/quantity, packId
+      // wasn't carried through until the ledger needed it.
+      metadata: { agentId: req.user.agentId, creditType: pack.credit_type, quantity: String(pack.quantity), packId: pack.id },
       successUrl: `${base}?credits=success`,
       cancelUrl: `${base}?credits=cancelled`,
     });
@@ -267,6 +290,21 @@ export class SubscriptionsController {
                   await this.subscriptions.topUpCredits(agentId, item.creditType, item.amount);
                 }
               }
+              // One combined ledger row for the whole cart (matches the one
+              // combined Stripe session) — not per-item; per-pack
+              // attribution for a cart would need a second Stripe API call
+              // to list line items, not needed for this dashboard's
+              // "brief breakdown" scope.
+              if (session.amount_total != null) {
+                await this.payments.record({
+                  agentId,
+                  source: 'credit_cart',
+                  amount: session.amount_total / 100,
+                  currency: (session.currency ?? 'pkr').toUpperCase(),
+                  stripeReferenceId: session.id,
+                  stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+                });
+              }
             } else {
               this.logger.warn(`checkout.session.completed (payment, cart) missing agentId or empty cart — session ${session.id}`);
             }
@@ -277,6 +315,17 @@ export class SubscriptionsController {
           const quantity = Number(session.metadata?.quantity);
           if (agentId && creditType && Number.isFinite(quantity) && quantity > 0) {
             await this.subscriptions.topUpCredits(agentId, creditType, quantity);
+            if (session.amount_total != null) {
+              await this.payments.record({
+                agentId,
+                source: 'credit_pack',
+                creditPackId: session.metadata?.packId,
+                amount: session.amount_total / 100,
+                currency: (session.currency ?? 'pkr').toUpperCase(),
+                stripeReferenceId: session.id,
+                stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+              });
+            }
           } else {
             this.logger.warn(
               `checkout.session.completed (payment) missing required fields — session ${session.id}: agentId=${agentId} creditType=${creditType} quantity=${session.metadata?.quantity}`,
@@ -296,13 +345,34 @@ export class SubscriptionsController {
           const currentPeriodEnd = subscription.items.data[0]?.current_period_end
             ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
             : undefined;
+          // Authoritative interval — read off Stripe's own Price object,
+          // never trusted from session.metadata.billingInterval (that's a
+          // debugging hint only, set client-side before payment). Mirrors
+          // this codebase's existing pattern of server-deriving
+          // money/authorization-relevant fields rather than trusting client
+          // input (e.g. ListingsController re-deriving posterType from
+          // req.user.role instead of the client-supplied value).
+          const billingInterval = subscription.items.data[0]?.price?.recurring?.interval === 'year' ? 'year' : 'month';
           await this.subscriptions.assignFromStripeCheckout({
             agentId,
             tierId,
             stripeCustomerId,
             stripeSubscriptionId,
             currentPeriodEnd,
+            billingInterval,
           });
+          if (session.amount_total != null) {
+            await this.payments.record({
+              agentId,
+              source: 'subscription_new',
+              tierId,
+              billingInterval,
+              amount: session.amount_total / 100,
+              currency: (session.currency ?? 'pkr').toUpperCase(),
+              stripeReferenceId: session.id,
+              stripeCustomerId,
+            });
+          }
         } else {
           // Shouldn't happen — checkout() above always sets
           // client_reference_id/metadata.tierId, and a subscription-mode
@@ -323,11 +393,16 @@ export class SubscriptionsController {
         const currentPeriodEnd = subscription.items.data[0]?.current_period_end
           ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : undefined;
+        // Same Stripe-sourced derivation as checkout.session.completed
+        // above — covers an interval change made via Stripe's own customer
+        // portal, if that's ever enabled.
+        const billingInterval = subscription.items.data[0]?.price?.recurring?.interval === 'year' ? 'year' : 'month';
         await this.subscriptions.updateStatusByStripeSubscriptionId(
           subscription.id,
           subscription.status,
           currentPeriodEnd,
           subscription.cancel_at_period_end,
+          billingInterval,
         );
         break;
       }
@@ -342,7 +417,20 @@ export class SubscriptionsController {
         const subscriptionRef = invoice.parent?.subscription_details?.subscription;
         const subscriptionId = typeof subscriptionRef === 'string' ? subscriptionRef : subscriptionRef?.id;
         if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
-          await this.subscriptions.grantRenewalCredits(subscriptionId);
+          const renewed = await this.subscriptions.grantRenewalCredits(subscriptionId);
+          if (renewed && invoice.amount_paid != null) {
+            const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+            await this.payments.record({
+              agentId: renewed.agentId,
+              source: 'subscription_renewal',
+              tierId: renewed.tierId,
+              billingInterval: renewed.billingInterval,
+              amount: invoice.amount_paid / 100,
+              currency: (invoice.currency ?? 'pkr').toUpperCase(),
+              stripeReferenceId: invoice.id,
+              stripeCustomerId,
+            });
+          }
         }
         break;
       }

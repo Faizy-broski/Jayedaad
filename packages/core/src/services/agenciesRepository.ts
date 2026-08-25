@@ -44,6 +44,7 @@ export function mapAgencyRow(row: any): Agency {
     // backfilled still come back null, which broke the admin tier <Select>
     // (no option matches a null value, so it rendered with nothing selected).
     tier: row.tier ?? 'basic',
+    defaultCommissionRate: row.default_commission_rate ?? null,
   };
 }
 

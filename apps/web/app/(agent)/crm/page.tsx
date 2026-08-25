@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
+import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel, useListingDetailViewModel } from '@jayedaad/core';
 import { Button, Input, Select } from '@jayedaad/ui-web';
 import {
   AlertTriangle,
@@ -23,8 +24,16 @@ import {
   Search,
   Building2,
   ExternalLink,
+  X,
+  History,
+  PlusCircle,
+  ArrowRightCircle,
 } from 'lucide-react';
 import { SetReminderPopover } from '@/components/crm/SetReminderPopover';
+import { ActivityTimeline } from '@/components/crm/ActivityTimeline';
+import { LogActivityModal } from '@/components/crm/LogActivityModal';
+import { ConvertToOpportunityModal } from '@/components/crm/ConvertToOpportunityModal';
+import { relativeTime } from '@/lib/relativeTime';
 
 const PAGE_SIZE = 20;
 
@@ -51,16 +60,6 @@ const SOURCE_ICON: Record<string, typeof Globe> = {
   call_request: PhoneCall,
 };
 
-function relativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 function whatsappHref(phone: string, name: string): string {
   const digits = phone.replace(/\D/g, '');
   return `https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${name}, thanks for your enquiry on Jayedaad — `)}`;
@@ -74,16 +73,37 @@ function whatsappHref(phone: string, name: string): string {
 // list enter/exit as leads move between status filters.
 export default function CrmPage() {
   const { profile } = useAgentProfileViewModel();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Arrives pre-filtered when linked from a listing's Performance page
+  // ("View all leads for this listing") — cleared via the banner's × below,
+  // which just drops the query param and falls back to the full inbox.
+  const listingIdFilter = searchParams.get('listingId') || undefined;
+  const { listing: filteredListing } = useListingDetailViewModel(listingIdFilter);
   const [agencyScope, setAgencyScope] = useState(false);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [openNoteFor, setOpenNoteFor] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
+  const [openTimelineFor, setOpenTimelineFor] = useState<string | null>(null);
+  const [logActivityFor, setLogActivityFor] = useState<string | null>(null);
+  const [convertLeadFor, setConvertLeadFor] = useState<Lead | null>(null);
+  // Converting a lead never flips lead.status (the two state machines are
+  // deliberately decoupled), so the status-gated Convert button would
+  // otherwise stay live on an already-converted lead — clicking it again
+  // just 400s ("already has an active opportunity"). Tracked client-side
+  // since there's no cheap server-side signal for this without a new join.
+  const [convertedLeadIds, setConvertedLeadIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setPage(1);
+  }, [listingIdFilter]);
 
   const { leads, total, isLoading, isError, refetch, updateStatus, addNote } = useLeadInboxViewModel({
     scope: agencyScope ? 'agency' : 'own',
     status: statusFilter === 'all' ? undefined : statusFilter,
+    listingId: listingIdFilter,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -154,6 +174,23 @@ export default function CrmPage() {
           </button>
         )}
       </div>
+
+      {listingIdFilter && (
+        <div className="flex flex-wrap items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-foreground">
+          <Building2 className="h-4 w-4 shrink-0 text-primary" />
+          <span className="min-w-0 truncate">
+            Showing leads for <span className="font-medium">{filteredListing?.title ?? 'this listing'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => router.push('/crm')}
+            className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        </div>
+      )}
 
       <div className="relative w-full max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -231,6 +268,7 @@ export default function CrmPage() {
                 const style = STATUS_STYLES[lead.status];
                 const SourceIcon = SOURCE_ICON[lead.source] ?? Globe;
                 const noteOpen = openNoteFor === lead.id;
+                const timelineOpen = openTimelineFor === lead.id;
 
                 return (
                   <motion.li
@@ -321,6 +359,32 @@ export default function CrmPage() {
                         {lead.email}
                       </a>
                       <SetReminderPopover leadId={lead.id} />
+                      {(lead.status === 'contacted' || lead.status === 'negotiating') && !convertedLeadIds.has(lead.id) && (
+                        <button
+                          type="button"
+                          onClick={() => setConvertLeadFor(lead)}
+                          className="flex items-center gap-1 font-medium text-foreground hover:text-primary"
+                        >
+                          <ArrowRightCircle className="h-3.5 w-3.5" />
+                          Convert
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setLogActivityFor(lead.id)}
+                        className="flex items-center gap-1 font-medium text-foreground hover:text-primary"
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        Log Activity
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOpenTimelineFor(timelineOpen ? null : lead.id)}
+                        className="flex items-center gap-1 font-medium text-foreground hover:text-primary"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                        {timelineOpen ? 'Close timeline' : 'Timeline'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => setOpenNoteFor(noteOpen ? null : lead.id)}
@@ -330,6 +394,22 @@ export default function CrmPage() {
                         {noteOpen ? 'Close notes' : `Notes${lead.notes.length ? ` (${lead.notes.length})` : ''}`}
                       </button>
                     </div>
+
+                    <AnimatePresence initial={false}>
+                      {timelineOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 border-t border-border pt-3">
+                            <ActivityTimeline leadId={lead.id} />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     <AnimatePresence initial={false}>
                       {noteOpen && (
@@ -396,6 +476,14 @@ export default function CrmPage() {
           )}
         </>
       )}
+
+      <LogActivityModal open={!!logActivityFor} onClose={() => setLogActivityFor(null)} leadId={logActivityFor ?? undefined} />
+      <ConvertToOpportunityModal
+        open={!!convertLeadFor}
+        onClose={() => setConvertLeadFor(null)}
+        lead={convertLeadFor}
+        onConverted={(leadId) => setConvertedLeadIds((prev) => new Set(prev).add(leadId))}
+      />
     </div>
   );
 }

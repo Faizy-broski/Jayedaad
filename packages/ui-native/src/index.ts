@@ -1,6 +1,7 @@
 export * from './Button';
 export * from './TextInput';
 export * from './Card';
+export * from './KpiTile';
 export * from './Tabs';
 export * from './theme';
 export * from './PickerField';

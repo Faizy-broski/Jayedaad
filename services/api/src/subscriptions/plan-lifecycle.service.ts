@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SupabaseService } from '../supabase/supabase.service';
+import { SubscriptionsRepository } from './subscriptions.repository';
 
 // Three "plan lifecycle" sweeps, grouped in one cron service the same way
 // RemindersService is one job for one concern — these are related enough
@@ -16,7 +17,10 @@ import { SupabaseService } from '../supabase/supabase.service';
 export class PlanLifecycleService {
   private readonly logger = new Logger(PlanLifecycleService.name);
 
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly subscriptions: SubscriptionsRepository,
+  ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
   async runLifecycleSweep(): Promise<void> {
@@ -26,6 +30,35 @@ export class PlanLifecycleService {
     await this.revertExpiredProjectBoosts();
     await this.revertExpiredProjectStories();
     await this.expireListings();
+    await this.dripAnnualCredits();
+  }
+
+  // Annual subscribers only get Stripe's invoice.payment_succeeded event
+  // once a year (see subscriptions.controller.ts's webhook), which would
+  // otherwise leave grantRenewalCredits() granting a full year's worth of
+  // Hot/Super Hot/Refresh/Story credits just once instead of monthly like
+  // every monthly subscriber gets. This re-runs the same per-period grant
+  // for any active annual subscription whose credits haven't been topped up
+  // in ~30 days — grantPeriodCredits SETS totals (doesn't accumulate), so
+  // this behaves exactly like a fresh monthly period for them.
+  private async dripAnnualCredits(): Promise<void> {
+    const staleBefore = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    let due: { agent_id: string; tier_id: string }[] = [];
+    try {
+      due = await this.subscriptions.findActiveAnnualSubscriptionsDueForCredits(staleBefore);
+    } catch (err) {
+      this.logger.error('Failed to look up annual subscriptions due for a credit drip', err as Error);
+      return;
+    }
+    for (const row of due) {
+      try {
+        await this.subscriptions.grantPeriodCredits(row.agent_id, row.tier_id);
+        await this.subscriptions.markCreditsGranted(row.agent_id);
+      } catch (err) {
+        this.logger.error(`Failed to drip monthly credits for agent ${row.agent_id}`, err as Error);
+      }
+    }
+    if (due.length) this.logger.log(`Dripped monthly credits for ${due.length} annual subscriber(s).`);
   }
 
   // Defense-in-depth for a missed/delayed Stripe webhook — EntitlementsService

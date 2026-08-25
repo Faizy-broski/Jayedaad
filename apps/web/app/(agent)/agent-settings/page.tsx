@@ -353,7 +353,16 @@ function PhoneField({
 
 function AgencyDetailsPanel() {
   const { agency, isLoading, isAgencyAdmin, update } = useMyAgencyViewModel();
-  const [form, setForm] = useState({ name: '', description: '', phone: '', email: '', city: '', address: '', businessHours: '' });
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    phone: '',
+    email: '',
+    city: '',
+    address: '',
+    businessHours: '',
+    defaultCommissionRate: '',
+  });
 
   useEffect(() => {
     if (!agency) return;
@@ -365,6 +374,7 @@ function AgencyDetailsPanel() {
       city: agency.city ?? '',
       address: agency.address ?? '',
       businessHours: agency.businessHours ?? '',
+      defaultCommissionRate: agency.defaultCommissionRate != null ? String(agency.defaultCommissionRate) : '',
     });
   }, [agency]);
 
@@ -373,10 +383,16 @@ function AgencyDetailsPanel() {
   }
 
   function handleSave() {
-    update.mutate(form, {
-      onSuccess: () => toast.success('Agency details saved.'),
-      onError: () => toast.error('Something went wrong — please try again.'),
-    });
+    update.mutate(
+      {
+        ...form,
+        defaultCommissionRate: form.defaultCommissionRate ? Number(form.defaultCommissionRate) : undefined,
+      },
+      {
+        onSuccess: () => toast.success('Agency details saved.'),
+        onError: () => toast.error('Something went wrong — please try again.'),
+      },
+    );
   }
 
   if (isLoading || !agency) {
@@ -443,6 +459,25 @@ function AgencyDetailsPanel() {
               onChange={(e) => updateField('description', e.target.value)}
             />
           </div>
+          {/* Agency-admin-only field — feeds the Mark Sold/Rented forms'
+              commission-rate prefill agency-wide, so it's hidden entirely
+              from non-admin staff rather than merely disabled like the
+              fields above. */}
+          {isAgencyAdmin && (
+            <div className="space-y-1.5">
+              <Label htmlFor="agencyCommissionRate">Default Commission Rate (%)</Label>
+              <Input
+                id="agencyCommissionRate"
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                placeholder="Platform default"
+                value={form.defaultCommissionRate}
+                onChange={(e) => updateField('defaultCommissionRate', e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         {update.isError && <p className="text-sm text-destructive">Something went wrong — please try again.</p>}

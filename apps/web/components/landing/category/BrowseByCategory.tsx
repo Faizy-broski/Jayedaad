@@ -10,7 +10,7 @@ interface BrowseByCategoryProps {
 
 export function BrowseByCategory({ categories }: BrowseByCategoryProps) {
   return (
-<section className="relative overflow-hidden py-12">
+<section className="relative overflow-hidden bg-white py-12">
       {/* Faint building silhouette bleeding in from the right, behind the
           heading/cards — matches the reference screenshot's watermark bg. */}
       <div className="pointer-events-none absolute inset-y-0 right-0 -bottom-20 w-full max-w-3xl">

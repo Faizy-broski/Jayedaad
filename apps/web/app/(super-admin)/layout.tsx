@@ -29,7 +29,10 @@ import {
   LifeBuoy,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
+import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
 // separate from apps/web/app/(agent)/layout.tsx (the agent Profolio shell)
@@ -70,6 +73,9 @@ const NAV_ITEMS = [
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // Scoped to this dashboard shell's own wrapper div below, not
+  // document.documentElement — see ThemeProvider.tsx for why.
+  const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const displayName = getDisplayName(user, 'Admin');
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -278,7 +284,16 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   return (
     <RequireEmailVerified>
-    <div className="flex min-h-screen bg-muted/30">
+    {/* bg-muted, not bg-muted/30 — this div's own background needs to be
+        opaque now that dark mode is scoped here instead of on <body> (see
+        ThemeProvider.tsx). Every card/pill/table row inside uses its own
+        translucent bg-x/NN utility (bg-muted/40, bg-white/10, etc.)
+        expecting a solid dark backdrop behind it; a transparent wrapper
+        here would let those blend against the always-light <body> behind
+        it instead, washing everything out. Opaque bg-muted is close enough
+        to invisible against light-mode's white body that light mode looks
+        unchanged. */}
+    <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -334,6 +349,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             >
               <HelpCircle className="h-5 w-5" />
             </button>
+            <DarkModeToggle />
+            <PreferencesMenu />
             <NotificationBell />
             <a
               href="/"

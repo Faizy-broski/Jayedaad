@@ -6,6 +6,7 @@ import { EntitlementsService } from './entitlements.service';
 import { SubscriptionsRepository } from './subscriptions.repository';
 import { SubscriptionTiersRepository } from './subscription-tiers.repository';
 import { CreditPacksRepository } from './credit-packs.repository';
+import { PaymentsRepository } from './payments.repository';
 import { StripeService } from './stripe.service';
 import { PlanLifecycleService } from './plan-lifecycle.service';
 
@@ -16,6 +17,7 @@ import { PlanLifecycleService } from './plan-lifecycle.service';
     SubscriptionsRepository,
     SubscriptionTiersRepository,
     CreditPacksRepository,
+    PaymentsRepository,
     StripeService,
     PlanLifecycleService,
   ],

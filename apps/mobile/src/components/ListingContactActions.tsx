@@ -87,10 +87,13 @@ export function getPrimaryCallNumber(listing: Listing): string | undefined {
   return contact ? `${contact.countryCode}${contact.number}` : undefined;
 }
 
-// Compact icon-button row (Call/WhatsApp/Message) for the "Listed by" agent
+// Compact icon-button row (Call/WhatsApp/SMS) for the "Listed by" agent
 // card — same real numbers/tracking as ContactActions below, just a denser
 // visual treatment for a card that already shows the agent's name/agency.
-export function ContactIconActions({ listing, onMessagePress }: { listing: Listing; onMessagePress: () => void }) {
+// Was Call/WhatsApp/SMS/Message (4 icons) — the 4th (in-app enquiry form,
+// onMessagePress) was dropped as redundant with SMS now reading as the
+// "send a message" action via its icon.
+export function ContactIconActions({ listing }: { listing: Listing }) {
   const mobile = listing.contactNumbers.find((c) => c.type === 'mobile');
   const landline = listing.contactNumbers.find((c) => c.type === 'landline');
   const callContact = mobile ?? landline;
@@ -116,12 +119,12 @@ export function ContactIconActions({ listing, onMessagePress }: { listing: Listi
       )}
       {smsNumber && (
         <Pressable style={styles.iconButton} onPress={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)} hitSlop={6}>
-          <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.colors.primary} />
+          {/* Paper-plane "send" glyph, not a chat bubble — reads as
+              "send a message" at a glance, same icon language messaging
+              apps use for their compose/send action. */}
+          <Ionicons name="paper-plane-outline" size={18} color={theme.colors.primary} />
         </Pressable>
       )}
-      <Pressable style={styles.iconButton} onPress={onMessagePress} hitSlop={6}>
-        <Ionicons name="chatbubble-outline" size={18} color={theme.colors.primary} />
-      </Pressable>
     </View>
   );
 }
@@ -158,6 +161,10 @@ export function ContactActions({ listing, size = 'default' }: { listing: Listing
           style={[styles.contactButton, compact && styles.contactButtonCompact]}
           onPress={() => trackAndOpen(listing.id, 'sms', `sms:${smsNumber}`)}
         >
+          {/* Same paper-plane "send" icon as ContactIconActions/
+              DeveloperContactIcons — was text-only here, the only SMS
+              button in the app without it. */}
+          <Ionicons name="paper-plane-outline" size={iconSize} color={theme.colors.primary} />
           <Text style={[styles.contactButtonText, compact && styles.contactButtonTextCompact]}>SMS</Text>
         </Pressable>
       )}
@@ -204,8 +211,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
   },
   contactButtonText: { color: theme.colors.primary, fontWeight: '700', fontSize: 14 },
   // Same filled-pill treatment as contactButtonPrimary (Call) — WhatsApp

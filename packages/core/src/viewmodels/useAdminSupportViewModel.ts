@@ -28,6 +28,15 @@ export function useAdminSupportViewModel(filters: SupportTicketFilters = {}) {
     onSuccess: invalidate,
   });
 
+  // Hands a ticket off to a specific verification_staff member — the
+  // eligible-staff list itself comes from useUserManagementViewModel({
+  // roles: ['verification_staff'] }) at the call site (same "team members"
+  // roster the Users admin page already uses), not duplicated here.
+  const assign = useMutation({
+    mutationFn: ({ id, staffId }: { id: string; staffId: string }) => supportRepository.assign(id, staffId),
+    onSuccess: invalidate,
+  });
+
   return {
     tickets: query.data?.items ?? [],
     total: query.data?.total ?? 0,
@@ -36,5 +45,6 @@ export function useAdminSupportViewModel(filters: SupportTicketFilters = {}) {
     isLoading: query.isLoading,
     updateStatus,
     remove,
+    assign,
   };
 }

@@ -14,6 +14,7 @@ import {
   PAKISTAN_CITIES,
   listingsRepository,
   useAgentCreditsViewModel,
+  useAgentProfileViewModel,
   useMyListingsViewModel,
   useFormattedPrice,
   useTaxonomyViewModel,
@@ -24,12 +25,16 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Reveal } from '@/components/Reveal';
 import { PlacesAutocompleteInput } from '@/components/PlacesAutocompleteInput';
 import { CreditsMenu } from '@/components/shared/CreditsMenu';
+import { MarkDealModal } from '@/components/listings/MarkDealModal';
 import {
+  BarChart2,
   Building2,
+  CheckCircle2,
   Copy,
   Eye,
   FileCheck2,
   Flame,
+  Handshake,
   ImageOff,
   MapPin,
   PlusCircle,
@@ -83,6 +88,8 @@ const STATUS_TABS: { id: ListingStatus; label: string }[] = [
   { id: 'draft', label: 'Drafts' },
   { id: 'verified', label: 'Active' },
   { id: 'pending_verification', label: 'Pending' },
+  { id: 'sold', label: 'Sold' },
+  { id: 'rented', label: 'Rented' },
   { id: 'rejected', label: 'Rejected' },
   { id: 'expired', label: 'Expired' },
   { id: 'deleted', label: 'Deleted' },
@@ -99,6 +106,10 @@ const STATUS_BADGE: Record<ListingStatus, { label: string; className: string }> 
   deleted: { label: 'Deleted', className: 'bg-slate-100 text-slate-600' },
   downgraded: { label: 'Downgraded', className: 'bg-slate-100 text-slate-600' },
   inactive: { label: 'Inactive', className: 'bg-slate-100 text-slate-600' },
+  // Distinct emerald tone — a closed deal, not just "still active" (which
+  // 'verified' already conveys via the primary color).
+  sold: { label: 'Sold', className: 'bg-emerald-100 text-emerald-700' },
+  rented: { label: 'Rented', className: 'bg-emerald-100 text-emerald-700' },
 };
 
 interface DraftFilters {
@@ -146,11 +157,20 @@ export default function PropertyManagementPage() {
   const searchParams = useSearchParams();
   const { propertyTypes } = useTaxonomyViewModel();
   const { format: formatPrice } = useFormattedPrice();
+  const { profile } = useAgentProfileViewModel();
   const [activeTab, setActiveTab] = useState<ListingStatus>('verified');
   const [draft, setDraft] = useState<DraftFilters>(EMPTY_DRAFT);
   const [applied, setApplied] = useState<DraftFilters>(EMPTY_DRAFT);
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Mark Sold/Rented modal — tracks which listing (and its purpose) it's
+  // open for, rather than a bare boolean, since the row that triggered it
+  // determines the form's flavor (sale price vs. monthly rent).
+  const [dealTarget, setDealTarget] = useState<{ listingId: string; purpose: ListingPurpose } | null>(null);
+  // Agency-wide scope toggle for agency admins — same pattern as
+  // apps/web/app/(agent)/crm/page.tsx's "Show Whole Agency" toggle.
+  const [agencyScope, setAgencyScope] = useState(false);
+  const scope: 'own' | 'agency' = agencyScope ? 'agency' : 'own';
 
   // Deep-link from the topbar's Listing ID search (apps/web/app/(agent)/layout.tsx)
   // — status is unknown ahead of time, so the query below skips the status
@@ -186,6 +206,7 @@ export default function PropertyManagementPage() {
     listedDateFrom: applied.dateRange.from,
     listedDateTo: applied.dateRange.to,
     posterType: applied.posterType || undefined,
+    scope,
     page,
     pageSize: 20,
   };
@@ -402,6 +423,27 @@ export default function PropertyManagementPage() {
       header: 'Price',
       render: (listing) => <span className="text-sm font-semibold text-foreground">{formatPrice(Number(listing.price))}</span>,
     },
+    ...(scope === 'agency'
+      ? [
+          {
+            key: 'postedBy',
+            header: 'Posted By',
+            render: (listing) => (
+              <div className="flex items-center gap-2">
+                {listing.agent?.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={listing.agent.photoUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                    {listing.agent?.displayName?.charAt(0)?.toUpperCase() ?? '—'}
+                  </span>
+                )}
+                <span className="max-w-[140px] truncate text-sm text-foreground">{listing.agent?.displayName ?? '—'}</span>
+              </div>
+            ),
+          } satisfies TableColumn<(typeof listings)[number]>,
+        ]
+      : []),
     {
       key: 'expires',
       header: 'Expires',
@@ -420,6 +462,12 @@ export default function PropertyManagementPage() {
       className: 'text-right',
       render: (listing) => (
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link href={`/property-management/${listing.id}/performance`}>
+            <Button variant="outline" size="sm" title="View performance">
+              <BarChart2 className="mr-1.5 h-3.5 w-3.5" />
+              Performance
+            </Button>
+          </Link>
           <Link href={`/submit?edit=${listing.id}`}>
             <Button variant="outline" size="sm">
               <Eye className="mr-1.5 h-3.5 w-3.5" />
@@ -460,6 +508,21 @@ export default function PropertyManagementPage() {
               Renew
             </Button>
           )}
+          {listing.status === 'verified' && (
+            <Button size="sm" variant="outline" onClick={() => setDealTarget({ listingId: listing.id, purpose: listing.purpose })}>
+              {listing.purpose === 'sale' ? (
+                <>
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                  Mark Sold
+                </>
+              ) : (
+                <>
+                  <Handshake className="mr-1.5 h-3.5 w-3.5" />
+                  Mark Rented
+                </>
+              )}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -478,9 +541,25 @@ export default function PropertyManagementPage() {
   return (
     <div className="space-y-6">
       <Reveal>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Property Management</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Track, edit, and manage every listing you&apos;ve posted.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Property Management</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Track, edit, and manage every listing you&apos;ve posted.</p>
+          </div>
+          {profile?.isAgencyAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setAgencyScope((v) => !v);
+                setPage(1);
+              }}
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+                agencyScope ? 'border-primary bg-primary text-primary-foreground' : 'border-input text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {agencyScope ? 'Showing: Whole Agency' : 'Show Whole Agency'}
+            </button>
+          )}
         </div>
       </Reveal>
 
@@ -798,6 +877,15 @@ export default function PropertyManagementPage() {
           <Table columns={columns} rows={listings} rowKey={(listing) => listing.id} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
+      )}
+
+      {dealTarget && (
+        <MarkDealModal
+          open={!!dealTarget}
+          onClose={() => setDealTarget(null)}
+          listingId={dealTarget.listingId}
+          purpose={dealTarget.purpose}
+        />
       )}
     </div>
   );

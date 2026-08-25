@@ -12,7 +12,16 @@ import { Button, TextInput, theme, useToast } from '@jayedaad/ui-native';
 export function AgencySettingsScreen() {
   const { agency, isLoading, isAgencyAdmin, update } = useMyAgencyViewModel();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ name: '', description: '', phone: '', email: '', city: '', address: '', businessHours: '' });
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    phone: '',
+    email: '',
+    city: '',
+    address: '',
+    businessHours: '',
+    defaultCommissionRate: '',
+  });
 
   useEffect(() => {
     if (!agency) return;
@@ -24,6 +33,7 @@ export function AgencySettingsScreen() {
       city: agency.city ?? '',
       address: agency.address ?? '',
       businessHours: agency.businessHours ?? '',
+      defaultCommissionRate: agency.defaultCommissionRate != null ? String(agency.defaultCommissionRate) : '',
     });
   }, [agency]);
 
@@ -32,10 +42,15 @@ export function AgencySettingsScreen() {
   }
 
   function handleSave() {
-    update.mutate(form, {
-      onSuccess: () => showToast('Agency details saved.'),
-      onError: () => showToast('Something went wrong — please try again.', 'error'),
-    });
+    const { defaultCommissionRate, ...rest } = form;
+    const parsedRate = defaultCommissionRate.trim() === '' ? undefined : Number(defaultCommissionRate);
+    update.mutate(
+      { ...rest, defaultCommissionRate: parsedRate },
+      {
+        onSuccess: () => showToast('Agency details saved.'),
+        onError: () => showToast('Something went wrong — please try again.', 'error'),
+      },
+    );
   }
 
   if (isLoading || !agency) {
@@ -72,6 +87,14 @@ export function AgencySettingsScreen() {
           />
           <TextInput label="City" value={form.city} editable={isAgencyAdmin} onChangeText={(v) => updateField('city', v)} />
           <TextInput label="Address" value={form.address} editable={isAgencyAdmin} onChangeText={(v) => updateField('address', v)} />
+          <TextInput
+            label="Default Commission Rate (%)"
+            value={form.defaultCommissionRate}
+            editable={isAgencyAdmin}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 2.5"
+            onChangeText={(v) => updateField('defaultCommissionRate', v)}
+          />
           <TextInput
             label="Business Hours"
             value={form.businessHours}

@@ -59,6 +59,67 @@ const POSTER_TYPE_OPTIONS: { value: ListingPosterType; label: string }[] = [
 const BEDROOM_OPTIONS = [1, 2, 3, 4, 5, 6];
 const BATHROOM_OPTIONS = [1, 2, 3, 4, 5];
 
+// Karachi is conventionally advertised/measured in Sq. Yards, every other
+// city in Marla — same convention Zameen/Graana follow. Everywhere else
+// falls back to the Marla list.
+const QUICK_CITIES = ['Karachi', 'Lahore', 'Islamabad'];
+const MARLA_SIZE_OPTIONS: { value: number; label: string }[] = [
+  { value: 3, label: '3 Marla' },
+  { value: 5, label: '5 Marla' },
+  { value: 8, label: '8 Marla' },
+  { value: 10, label: '10 Marla' },
+  { value: 20, label: '20 Marla (1 Kanal)' },
+];
+const SQYD_SIZE_OPTIONS: { value: number; label: string }[] = [
+  { value: 120, label: '120 Sq. Yd' },
+  { value: 200, label: '200 Sq. Yd' },
+  { value: 240, label: '240 Sq. Yd' },
+  { value: 300, label: '300 Sq. Yd' },
+  { value: 500, label: '500 Sq. Yd' },
+  { value: 1000, label: '1000 Sq. Yd' },
+];
+
+// The four quick-pick buckets from the reference design. Houses/Flats map
+// to their real property-type slugs (supabase/migrations/0005_taxonomy_
+// seed.sql); Plots/Commercial map to their whole category since "Plots"/
+// "Commercial" as a quick pick is broader than any single type — matches
+// how PropertySearchBar/HeroSearchCard's quick pickers already treat
+// propertyTypeSlug vs. propertyTypeCategory. Purely a friendlier layer over
+// the same categorySlug/propertyTypeSlugs fields the Category/Property Type
+// dropdowns below already read and write — picking a chip here shows up in
+// those dropdowns too, and vice versa, so neither path is more "correct"
+// than the other.
+type QuickPropertyType = 'houses' | 'flats' | 'plots' | 'commercial';
+const QUICK_PROPERTY_TYPES: { key: QuickPropertyType; label: string; categorySlug: string; propertyTypeSlugs: string[] }[] = [
+  { key: 'houses', label: 'Houses', categorySlug: 'residential', propertyTypeSlugs: ['house'] },
+  { key: 'flats', label: 'Flats', categorySlug: 'residential', propertyTypeSlugs: ['flat'] },
+  { key: 'plots', label: 'Plots', categorySlug: 'plot', propertyTypeSlugs: [] },
+  { key: 'commercial', label: 'Commercial', categorySlug: 'commercial', propertyTypeSlugs: [] },
+];
+
+// Commercial's own quick sub-types. "Plots" here means commercial plots —
+// seeded as property_types.slug 'commercial_plot' under the *Plot* category,
+// not Commercial (see 0005_taxonomy_seed.sql) — so this chip cuts across
+// categories on purpose. "Plazas" has no dedicated seeded type; 'building'
+// is the closest real one, so the chip aliases that label onto it rather
+// than requiring a taxonomy migration for a fourth commercial type.
+const COMMERCIAL_SUBTYPES: { label: string; slug: string }[] = [
+  { label: 'Plots', slug: 'commercial_plot' },
+  { label: 'Shops', slug: 'shop' },
+  { label: 'Offices', slug: 'office' },
+  { label: 'Plazas', slug: 'building' },
+];
+
+function getQuickPropertyType(filters: ListingFiltersState): QuickPropertyType | null {
+  if (filters.categorySlug === 'residential' && filters.propertyTypeSlugs.length === 1) {
+    if (filters.propertyTypeSlugs[0] === 'house') return 'houses';
+    if (filters.propertyTypeSlugs[0] === 'flat') return 'flats';
+  }
+  if (filters.categorySlug === 'plot') return 'plots';
+  if (filters.categorySlug === 'commercial') return 'commercial';
+  return null;
+}
+
 const PREFERENCE_TOGGLES: { key: 'verifiedOnly' | 'furnished' | 'newProjects' | 'readyToMove'; label: string }[] = [
   { key: 'verifiedOnly', label: 'Verified only' },
   { key: 'furnished', label: 'Furnished' },
@@ -269,6 +330,42 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
     ? propertyTypes.filter((t) => t.category?.slug === filters.categorySlug)
     : propertyTypes;
 
+  const quickPropertyType = getQuickPropertyType(filters);
+
+  const selectQuickPropertyType = (type: (typeof QUICK_PROPERTY_TYPES)[number]) => {
+    if (quickPropertyType === type.key) {
+      onChange({ ...filters, categorySlug: '', propertyTypeSlugs: [], amenities: [] });
+    } else {
+      onChange({ ...filters, categorySlug: type.categorySlug, propertyTypeSlugs: type.propertyTypeSlugs, amenities: [] });
+    }
+  };
+
+  const selectCommercialSubtype = (slug: string) => {
+    const active = filters.propertyTypeSlugs.length === 1 && filters.propertyTypeSlugs[0] === slug;
+    set('propertyTypeSlugs', active ? [] : [slug]);
+  };
+
+  // Houses/Plots' size quick-picks — Sq. Yd for Karachi (its listings are
+  // conventionally advertised that way), Marla everywhere else. Same "N+"
+  // open-ended-minimum convention as the Bedroom/Bathroom chips below,
+  // rather than an exact min=max match, since real listings rarely land on
+  // an exact plot size.
+  const sizeUnit: AreaUnit = filters.city === 'Karachi' ? 'sqyd' : 'marla';
+  const sizeOptions = sizeUnit === 'sqyd' ? SQYD_SIZE_OPTIONS : MARLA_SIZE_OPTIONS;
+  const selectSize = (value: number) => {
+    const active = filters.areaUnit === sizeUnit && filters.minAreaValue === String(value);
+    onChange({
+      ...filters,
+      areaUnit: sizeUnit,
+      minAreaValue: active ? '' : String(value),
+      maxAreaValue: active ? filters.maxAreaValue : '',
+    });
+  };
+
+  // Bedroom/bathroom counts are meaningless for Plots and Commercial —
+  // hidden rather than shown-but-inapplicable once one of those is picked.
+  const showBedBath = quickPropertyType !== 'plots' && quickPropertyType !== 'commercial';
+
   return (
     // Sticky + height-capped on desktop so the panel never grows taller
     // than the viewport (it easily can, with this many sections) — content
@@ -390,13 +487,23 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         </div>
       </Section>
 
-      {/* City */}
+      {/* City — Karachi/Lahore/Islamabad as one-click chips (the common
+          case), with the full dropdown right below for every other city or
+          to go back to Any City. Both read/write the same `city` field, so
+          they're always in sync with each other. */}
       <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">City</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {QUICK_CITIES.map((city) => (
+            <Chip key={city} active={filters.city === city} onClick={() => set('city', filters.city === city ? '' : city)}>
+              {city}
+            </Chip>
+          ))}
+        </div>
         <Select
           value={filters.city}
           onChange={(e) => set('city', e.target.value)}
-          className="mt-3 w-full rounded-full border-slate-200 px-4 py-2 text-sm"
+          className="mt-2 w-full rounded-full border-slate-200 px-4 py-2 text-sm"
         >
           <option value="">Any City</option>
           {PAKISTAN_CITIES.map((c) => (
@@ -418,7 +525,63 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         />
       </Section>
 
-      {/* Category */}
+      {/* Property Type — Houses/Flats/Plots/Commercial quick chips cover the
+          common case in one click; Category + the checkbox dropdown below
+          stay fully functional for anything more specific (Penthouse,
+          Warehouse, mixing multiple types, etc.) and read/write the exact
+          same categorySlug/propertyTypeSlugs fields, so picking either way
+          shows up in both. */}
+      <Section>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {QUICK_PROPERTY_TYPES.map((type) => (
+            <Chip key={type.key} active={quickPropertyType === type.key} onClick={() => selectQuickPropertyType(type)}>
+              {type.label}
+            </Chip>
+          ))}
+        </div>
+      </Section>
+
+      {/* Commercial's own sub-types — only appears once Commercial is
+          picked above, cascading the search instead of showing every
+          possible sub-type up front. */}
+      {quickPropertyType === 'commercial' && (
+        <Section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Commercial Type</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {COMMERCIAL_SUBTYPES.map((sub) => (
+              <Chip
+                key={sub.slug}
+                active={filters.propertyTypeSlugs.length === 1 && filters.propertyTypeSlugs[0] === sub.slug}
+                onClick={() => selectCommercialSubtype(sub.slug)}
+              >
+                {sub.label}
+              </Chip>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Size — Houses/Plots only, cascading the same way. Sq. Yd for
+          Karachi, Marla everywhere else (see sizeUnit above); same "N+"
+          convention as Bedrooms/Bathrooms below. */}
+      {(quickPropertyType === 'houses' || quickPropertyType === 'plots') && (
+        <Section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Size</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sizeOptions.map(({ value, label }) => (
+              <Chip
+                key={value}
+                active={filters.areaUnit === sizeUnit && filters.minAreaValue === String(value)}
+                onClick={() => selectSize(value)}
+              >
+                {label}
+              </Chip>
+            ))}
+          </div>
+        </Section>
+      )}
+
       <Section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</h3>
         <Select
@@ -435,9 +598,9 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         </Select>
       </Section>
 
-      {/* Property Type — checkbox dropdown */}
+      {/* Property Type — checkbox dropdown, for exact/multi sub-type picks */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type (exact)</h3>
         <MultiSelectDropdown
           options={typesInSelectedCategory.map((type) => ({ key: type.slug, value: type.slug, label: type.label }))}
           selected={filters.propertyTypeSlugs}
@@ -447,37 +610,41 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         />
       </Section>
 
-      {/* Bedrooms */}
-      <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bedrooms</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {BEDROOM_OPTIONS.map((n) => (
-            <Chip
-              key={n}
-              active={filters.minBedrooms === n}
-              onClick={() => set('minBedrooms', filters.minBedrooms === n ? null : n)}
-            >
-              {n}+
-            </Chip>
-          ))}
-        </div>
-      </Section>
+      {/* Bedrooms/Bathrooms — hidden for Plots/Commercial, where a room
+          count doesn't apply. */}
+      {showBedBath && (
+        <Section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bedrooms</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {BEDROOM_OPTIONS.map((n) => (
+              <Chip
+                key={n}
+                active={filters.minBedrooms === n}
+                onClick={() => set('minBedrooms', filters.minBedrooms === n ? null : n)}
+              >
+                {n}+
+              </Chip>
+            ))}
+          </div>
+        </Section>
+      )}
 
-      {/* Bathrooms */}
-      <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bathrooms</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {BATHROOM_OPTIONS.map((n) => (
-            <Chip
-              key={n}
-              active={filters.minBathrooms === n}
-              onClick={() => set('minBathrooms', filters.minBathrooms === n ? null : n)}
-            >
-              {n}+
-            </Chip>
-          ))}
-        </div>
-      </Section>
+      {showBedBath && (
+        <Section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bathrooms</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {BATHROOM_OPTIONS.map((n) => (
+              <Chip
+                key={n}
+                active={filters.minBathrooms === n}
+                onClick={() => set('minBathrooms', filters.minBathrooms === n ? null : n)}
+              >
+                {n}+
+              </Chip>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* Posted by — Owner / Agent / Agency */}
       <Section>

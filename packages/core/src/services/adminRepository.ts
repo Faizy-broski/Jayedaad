@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient';
 import { mapAgencyRow } from './agenciesRepository';
-import { Agency, AgentOverview, PlatformStats, RoleAccessDescription } from '../models';
+import { Agency, AgentOverview, PlatformStats, RevenueStats, RoleAccessDescription } from '../models';
 
 export interface AdminPageFilters {
   page?: number;
@@ -35,6 +35,13 @@ export interface AdminPaginatedAgencies {
 export const adminRepository = {
   getPlatformStats: async (): Promise<PlatformStats> => {
     const { data } = await httpClient.get('/admin/stats');
+    return data;
+  },
+
+  // Real payments-ledger figures (see revenue.repository.ts) — already
+  // camelCase off the backend, no mapping needed here.
+  getRevenueStats: async (): Promise<RevenueStats> => {
+    const { data } = await httpClient.get('/admin/revenue');
     return data;
   },
 

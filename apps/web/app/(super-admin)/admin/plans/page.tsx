@@ -10,6 +10,7 @@ import {
   SubscriptionTier,
   useAdminAgentsViewModel,
   useCreditPackManagementViewModel,
+  getAnnualDiscountPercent,
   useFormattedPrice,
   usePlanManagementViewModel,
 } from '@jayedaad/core';
@@ -42,6 +43,8 @@ const EMPTY_FORM: CreateSubscriptionTierInput = {
   storyCreditsPerPeriod: 0,
   stripePriceId: '',
   listingDurationDays: null,
+  annualPrice: null,
+  stripeAnnualPriceId: '',
 };
 
 // Purchasable credit types only — 'listing_quota' is deliberately excluded,
@@ -127,11 +130,20 @@ export default function PlansPage() {
       storyCreditsPerPeriod: tier.storyCreditsPerPeriod,
       stripePriceId: tier.stripePriceId ?? '',
       listingDurationDays: tier.listingDurationDays,
+      annualPrice: tier.annualPrice,
+      stripeAnnualPriceId: tier.stripeAnnualPriceId ?? '',
     });
     setModalOpen(true);
   }
 
   function handleSave() {
+    // Same rigor the existing monthly price/Stripe Price ID pairing doesn't
+    // enforce today — but an annual price with no Stripe price behind it
+    // would otherwise 400 silently at checkout time later, worth catching now.
+    if (form.annualPrice != null && !form.stripeAnnualPriceId) {
+      toast.error('Set a Stripe Annual Price ID before saving an annual price — otherwise annual checkout will fail.');
+      return;
+    }
     if (editing) {
       updateTier.mutate(
         { id: editing.id, input: form },
@@ -305,6 +317,16 @@ export default function PlansPage() {
                     {formatPrice(tier.price)}
                     <span className="text-xs font-normal text-muted-foreground"> /mo</span>
                   </p>
+                  {tier.annualPrice != null && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {formatPrice(tier.annualPrice)} /yr
+                      {getAnnualDiscountPercent(tier) != null && (
+                        <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          Save {getAnnualDiscountPercent(tier)}%
+                        </span>
+                      )}
+                    </p>
+                  )}
 
                   <div className="mt-4 flex-1 space-y-1.5 text-xs text-muted-foreground">
                     <p className="flex items-center gap-1.5">
@@ -472,6 +494,37 @@ export default function PlansPage() {
           <div className="space-y-1.5">
             <Label>Price (PKR/mo)</Label>
             <Input type="number" value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: Number(e.target.value) }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Annual Price (PKR/yr, optional)</Label>
+            <Input
+              type="number"
+              placeholder="Leave blank to keep this plan monthly-only"
+              value={form.annualPrice ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, annualPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+            />
+            {form.annualPrice != null && !!form.price && form.price > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const pct = Math.round((1 - form.annualPrice! / (form.price! * 12)) * 100);
+                  return pct > 0
+                    ? `≈ ${pct}% off vs. paying monthly for a year.`
+                    : 'This annual price is not cheaper than 12 months at the monthly price — no discount will be shown to agents.';
+                })()}
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Stripe Annual Price ID</Label>
+            <Input
+              placeholder="price_... (leave blank until an annual plan can be checked out)"
+              value={form.stripeAnnualPriceId ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, stripeAnnualPriceId: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Required before this plan&apos;s Annual option can be checked out — create a matching recurring yearly Product/Price in
+              the Stripe dashboard first.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="space-y-1.5">

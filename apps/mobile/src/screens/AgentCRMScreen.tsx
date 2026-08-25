@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, SafeAreaView, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Lead, LeadStatus, useAgentProfileViewModel, useLeadInboxViewModel } from '@jayedaad/core';
 import { Button, refreshControlProps, TextInput, theme } from '@jayedaad/ui-native';
@@ -72,10 +72,16 @@ function relativeTime(iso: string): string {
 // for contact info/notes/call/WhatsApp, real error state, pull-to-refresh.
 export function AgentCRMScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'AgentCRM'>>();
   const { profile } = useAgentProfileViewModel();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [agencyScope, setAgencyScope] = useState(false);
   const [search, setSearch] = useState('');
+  // Arrives pre-filtered when linked from a listing's Performance screen
+  // ("View all leads for this listing") — local state (not the raw route
+  // param) so the banner's clear action can drop the filter without a
+  // navigation round-trip. Mirrors apps/web's (agent)/crm/page.tsx.
+  const [listingIdFilter, setListingIdFilter] = useState(route.params?.listingId);
   // isRefetching from the viewmodel goes true both for a manual pull *and*
   // the 30s background refetchInterval (useLeadInboxViewModel) — wiring it
   // straight into RefreshControl made the native spinner pop up on its own
@@ -85,6 +91,7 @@ export function AgentCRMScreen() {
   const { leads, isLoading, isError, refetch } = useLeadInboxViewModel({
     status: statusFilter === 'all' ? undefined : statusFilter,
     scope: agencyScope ? 'agency' : 'own',
+    listingId: listingIdFilter,
     pageSize: 50,
   });
 
@@ -120,6 +127,19 @@ export function AgentCRMScreen() {
           variant="pill"
         />
       </View>
+
+      {listingIdFilter && (
+        <View style={styles.listingBanner}>
+          <Ionicons name="business-outline" size={14} color={theme.colors.primary} />
+          <Text style={styles.listingBannerText} numberOfLines={1}>
+            Showing leads for <Text style={styles.listingBannerTitle}>{route.params?.listingTitle ?? 'this listing'}</Text>
+          </Text>
+          <Pressable style={styles.listingBannerClear} onPress={() => setListingIdFilter(undefined)}>
+            <Ionicons name="close" size={14} color={theme.colors.muted} />
+            <Text style={styles.listingBannerClearText}>Clear</Text>
+          </Pressable>
+        </View>
+      )}
 
       <FlatList
         horizontal
@@ -239,6 +259,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   filterChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  listingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 8,
+  },
+  listingBannerText: { flex: 1, fontSize: 12.5, color: theme.colors.text },
+  listingBannerTitle: { fontWeight: '700' },
+  listingBannerClear: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: theme.spacing.sm },
+  listingBannerClearText: { fontSize: 11.5, fontWeight: '600', color: theme.colors.muted },
   filterChipText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
   filterChipTextActive: { color: theme.colors.bg },
   loadingState: { alignItems: 'center', marginTop: theme.spacing.xl },

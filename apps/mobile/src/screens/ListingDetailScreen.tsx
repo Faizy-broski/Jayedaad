@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   Image,
   ImageBackground,
   Linking,
+  Modal,
+  PanResponder,
   ScrollView,
   Share,
   Text,
@@ -33,7 +36,12 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import { addRecentlyViewed, removeRecentlyViewed } from '../lib/recentlyViewedStorage';
 
 const { width } = Dimensions.get('window');
-const GALLERY_HEIGHT = 360;
+// Was 360 — a large fixed share of any screen regardless of device size,
+// pushing badges/price/title/stats further down than the real Figma
+// reference (a proportionally shorter photo area, more info above the
+// fold). Every gallery-height consumer (hero pages, thumbnail strip
+// position, top nav) reads off this one constant.
+const GALLERY_HEIGHT = 300;
 const THUMB_SIZE = 48;
 const MAP_HEIGHT = 180;
 
@@ -59,7 +67,47 @@ export function ListingDetailScreen() {
   const { listing, isLoading, error, similar } = useListingDetailViewModel(listingId);
   const { format: formatPrice } = useFormattedPrice();
   const { format: formatArea } = useFormattedArea();
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  // Was an inline numberOfLines toggle (Read more/less expanded in place) —
+  // now opens a real bottom sheet with the full title + description, same
+  // "Title and Description" slide-up sheet the real app uses instead of
+  // pushing the rest of the page down.
+  const [descriptionSheetOpen, setDescriptionSheetOpen] = useState(false);
+  // Modal's own built-in animationType can't be driven by a gesture, so
+  // this sheet manages its own slide (animationType="none" below) the same
+  // way AuthSheet.tsx already does for the login sheet — an Animated.Value
+  // for the translateY, a PanResponder on a drag handle for swipe-to-
+  // dismiss, and a backdrop Pressable for tap-to-dismiss. Previously the X
+  // button was the ONLY way to close it.
+  const descriptionSheetY = useRef(new Animated.Value(600)).current;
+
+  useEffect(() => {
+    if (!descriptionSheetOpen) return;
+    Animated.timing(descriptionSheetY, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+  }, [descriptionSheetOpen, descriptionSheetY]);
+
+  function closeDescriptionSheet() {
+    Animated.timing(descriptionSheetY, { toValue: 600, duration: 200, useNativeDriver: true }).start(() =>
+      setDescriptionSheetOpen(false),
+    );
+  }
+
+  const descriptionSheetPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 6,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) descriptionSheetY.setValue(gesture.dy);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > 120 || gesture.vy > 0.8) {
+          closeDescriptionSheet();
+        } else {
+          Animated.spring(descriptionSheetY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        }
+      },
+    }),
+  ).current;
+  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryIntent, setEnquiryIntent] = useState<'inquiry' | 'visit'>('inquiry');
 
@@ -145,21 +193,49 @@ export function ListingDetailScreen() {
                 {[listing.society, listing.subArea, listing.area, listing.city].filter(Boolean).join(', ')}
               </Text>
             </View>
-            <Text style={styles.listingNumber}>JYD-{String(listing.listingNumber).padStart(5, '0')}</Text>
-
             <Text style={styles.price}>{price}</Text>
 
-            {/* PRIMARY STATS - 103.27w x 60.94h Aesthetic */}
-            <View style={styles.statsGrid}>
-              {listing.bedrooms != null && <Stat icon="bed-outline" label="Beds" value={String(listing.bedrooms)} />}
-              {listing.bathrooms != null && <Stat icon="water-outline" label="Baths" value={String(listing.bathrooms)} />}
-              <Stat icon="scan-outline" label="Area" value={formatArea(Number(listing.areaValue), listing.areaUnit)} />
+            {/* One compact inline line, not three large shadow cards — same
+                "icon + text" convention PropertyListRow.tsx already uses
+                for this exact data, and matches the Figma reference's
+                single-row "4 Beds 5 Baths 10 Marla" density. */}
+            <View style={styles.statsRow}>
+              {listing.bedrooms != null && (
+                <View style={styles.statItem}>
+                  <Ionicons name="bed-outline" size={15} color={FIGMA_PRIMARY} />
+                  <Text style={styles.statItemText}>{listing.bedrooms} Beds</Text>
+                </View>
+              )}
+              {listing.bathrooms != null && (
+                <View style={styles.statItem}>
+                  <Ionicons name="water-outline" size={15} color={FIGMA_PRIMARY} />
+                  <Text style={styles.statItemText}>{listing.bathrooms} Baths</Text>
+                </View>
+              )}
+              <View style={styles.statItem}>
+                <Ionicons name="scan-outline" size={15} color={FIGMA_PRIMARY} />
+                <Text style={styles.statItemText}>{formatArea(Number(listing.areaValue), listing.areaUnit)}</Text>
+              </View>
             </View>
           </View>
         </ImageBackground>
 
         {/* REST OF CONTENT */}
         <View style={styles.contentBody}>
+          {/* ABOUT THIS PROPERTY — shown before the More Details point
+              list, so the description reads first. */}
+          {listing.description && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About this property</Text>
+              <Text style={styles.description} numberOfLines={4}>
+                {listing.description}
+              </Text>
+              <Pressable onPress={() => setDescriptionSheetOpen(true)} style={{ marginTop: 4 }}>
+                <Text style={styles.link}>Read more</Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* MORE DETAILS */}
           <View style={styles.moreDetailsGrid}>
             {listing.kitchens != null && <DetailRow label="Kitchens" value={String(listing.kitchens)} />}
@@ -170,27 +246,19 @@ export function ListingDetailScreen() {
             <DetailRow label="Possession" value={listing.readyForPossession ? 'Ready' : 'Under Construction'} />
           </View>
 
-          {/* ABOUT THIS PROPERTY */}
-          {listing.description && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>About this property</Text>
-              <Text style={styles.description} numberOfLines={descriptionExpanded ? undefined : 4}>
-                {listing.description}
-              </Text>
-              <Pressable onPress={() => setDescriptionExpanded((v) => !v)} style={{ marginTop: 4 }}>
-                <Text style={styles.link}>{descriptionExpanded ? 'Read less' : 'Read more'}</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* AMENITIES */}
+          {/* AMENITIES — capped to 4 until "See more", same expand
+              pattern as the description's Read more/less above, so a
+              long amenities list doesn't push everything else (Kitchens,
+              Location, Listed by) further down by default. */}
           {listing.amenities.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Amenities</Text>
               <View style={styles.amenityChecklist}>
-                {listing.amenities.map((a) => (
+                {(amenitiesExpanded ? listing.amenities : listing.amenities.slice(0, 4)).map((a) => (
                   <View key={a.slug} style={styles.amenityRow}>
-                    <Ionicons name="checkmark" size={16} color={FIGMA_PRIMARY} />
+                    <View style={styles.amenityCheckBadge}>
+                      <Ionicons name="checkmark" size={13} color={FIGMA_PRIMARY} />
+                    </View>
                     <Text style={styles.amenityText}>
                       {a.label}
                       {a.value != null ? ` — ${a.value}${a.valueUnit ? ` ${a.valueUnit}` : ''}` : ''}
@@ -199,6 +267,13 @@ export function ListingDetailScreen() {
                   </View>
                 ))}
               </View>
+              {listing.amenities.length > 4 && (
+                <Pressable onPress={() => setAmenitiesExpanded((v) => !v)} style={{ marginTop: 4, alignSelf: 'center' }}>
+                  <Text style={styles.link}>
+                    {amenitiesExpanded ? 'See less' : `See ${listing.amenities.length - 4} more`}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -296,7 +371,7 @@ export function ListingDetailScreen() {
                 </View>
                 <Text style={styles.agentAgency}>{listing.agent?.agency ? listing.agent.agency.name : 'Independent'}</Text>
               </View>
-              <ContactIconActions listing={listing} onMessagePress={() => openEnquiry('inquiry')} />
+              <ContactIconActions listing={listing} />
             </View>
           </View>
 
@@ -305,8 +380,41 @@ export function ListingDetailScreen() {
             onClose={() => setEnquiryOpen(false)}
             listingId={listing.id}
             listingTitle={listing.title}
+            referenceLabel={`JYD-${String(listing.listingNumber).padStart(5, '0')}`}
             intent={enquiryIntent}
           />
+
+          {/* TITLE AND DESCRIPTION — full-screen slide-up sheet, not an
+              inline expand, confirmed against the real app's own behavior.
+              Closable by the X button, tapping the dimmed backdrop, or
+              swiping the handle down (animationType="none" — the slide
+              itself is hand-driven, see descriptionSheetY above, so a
+              gesture can actually interrupt/reverse it). */}
+          <Modal
+            visible={descriptionSheetOpen}
+            animationType="none"
+            transparent
+            onRequestClose={closeDescriptionSheet}
+          >
+            <View style={styles.descriptionSheetBackdrop}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={closeDescriptionSheet} />
+              <Animated.View style={[styles.descriptionSheet, { transform: [{ translateY: descriptionSheetY }] }]}>
+                <View {...descriptionSheetPanResponder.panHandlers}>
+                  <View style={styles.descriptionSheetHandle} />
+                  <View style={styles.descriptionSheetHeader}>
+                    <Text style={styles.descriptionSheetHeaderTitle}>Title and Description</Text>
+                    <Pressable onPress={closeDescriptionSheet} hitSlop={8}>
+                      <Ionicons name="close" size={24} color={theme.colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+                <ScrollView contentContainerStyle={styles.descriptionSheetBody}>
+                  <Text style={styles.descriptionSheetTitle}>{listing.title}</Text>
+                  <Text style={styles.description}>{listing.description}</Text>
+                </ScrollView>
+              </Animated.View>
+            </View>
+          </Modal>
 
           {/* SIMILAR PROPERTIES */}
           {similar.length > 0 && (
@@ -357,6 +465,13 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
   const [index, setIndex] = useState(0);
   const media = listing.media;
   const items = media.length > 0 ? media : null;
+  // Drives both directions of sync: swiping the hero updates the active
+  // thumbnail (onMomentumScrollEnd below), and tapping a thumbnail scrolls
+  // the hero to match (heroListRef.scrollToOffset in the thumbnail's
+  // onPress) — previously the hero was a single static Image, only ever
+  // changed via the thumbnail row, with no swipe gesture on the photo
+  // itself at all.
+  const heroListRef = useRef<FlatList>(null);
 
   async function handleShare() {
     try {
@@ -379,20 +494,38 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
     );
   }
 
-  const active = items[index];
-
   return (
     <View style={{ position: 'relative' }}>
-      {active.type === 'video' ? (
-        <Pressable
-          style={[styles.galleryHero, styles.galleryVideo, { height: GALLERY_HEIGHT }]}
-          onPress={() => Linking.openURL(active.url).catch(() => {})}
-        >
-          <Ionicons name="play-circle" size={56} color="#ffffff" />
-        </Pressable>
-      ) : (
-        <Image source={{ uri: active.url }} style={[styles.galleryHero, { height: GALLERY_HEIGHT }]} />
-      )}
+      {/* Swipeable hero — was a single static Image only ever changed by
+          tapping a thumbnail below; now a real horizontally-paged
+          FlatList, one photo/video per full-width page. pagingEnabled
+          snaps to whole pages on release, same native feel as a photo app.
+          onMomentumScrollEnd (not onScroll) updates `index` once the swipe
+          actually settles, avoiding a flood of setState calls mid-gesture. */}
+      <FlatList
+        ref={heroListRef}
+        data={items}
+        keyExtractor={(item, i) => `hero-${item.url}-${i}`}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const nextIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+          setIndex(nextIndex);
+        }}
+        renderItem={({ item }) =>
+          item.type === 'video' ? (
+            <Pressable
+              style={[styles.galleryHero, styles.galleryVideo, { width, height: GALLERY_HEIGHT }]}
+              onPress={() => Linking.openURL(item.url).catch(() => {})}
+            >
+              <Ionicons name="play-circle" size={56} color="#ffffff" />
+            </Pressable>
+          ) : (
+            <Image source={{ uri: item.url }} style={[styles.galleryHero, { width, height: GALLERY_HEIGHT }]} />
+          )
+        }
+      />
 
       {/* Gradient overlay */}
       <View style={styles.galleryGradient} pointerEvents="none" />
@@ -417,7 +550,12 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
           style={styles.thumbStrip}
           contentContainerStyle={styles.thumbStripContent}
           renderItem={({ item, index: i }) => (
-            <Pressable onPress={() => setIndex(i)}>
+            <Pressable
+              onPress={() => {
+                setIndex(i);
+                heroListRef.current?.scrollToOffset({ offset: i * width, animated: true });
+              }}
+            >
               {item.type === 'video' ? (
                 <View style={[styles.thumb, styles.galleryVideo, i === index && styles.thumbActive]}>
                   <Ionicons name="play" size={16} color="#ffffff" />
@@ -429,17 +567,7 @@ function Gallery({ listing, onBack }: { listing: Listing; onBack: () => void }) 
           )}
         />
       )}
-    </View>
-  );
-}
 
-// 103.27w x 60.94h Exact Dimensions per Figma Aesthetic
-function Stat({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
-  const displayText = label.toLowerCase() === 'area' ? value : `${value} ${label}`;
-  return (
-    <View style={styles.statCard}>
-      <Ionicons name={icon} size={22} color={FIGMA_PRIMARY} />
-      <Text style={styles.statText} numberOfLines={2}>{displayText}</Text>
     </View>
   );
 }
@@ -504,12 +632,17 @@ function EnquiryDialog({
   onClose,
   listingId,
   listingTitle,
+  referenceLabel,
   intent,
 }: {
   visible: boolean;
   onClose: () => void;
   listingId: string;
   listingTitle: string;
+  // Was missing entirely — web's EnquiryDialog.tsx already builds its
+  // message subject as `${title} - ID${referenceLabel}`, mobile's never
+  // included the reference number at all. Now matches.
+  referenceLabel: string;
   intent: 'inquiry' | 'visit';
 }) {
   const { user } = useAuthViewModel();
@@ -525,12 +658,13 @@ function EnquiryDialog({
     if (!visible) return;
     setName((user?.user_metadata?.display_name as string | undefined) ?? '');
     setEmail(user?.email ?? '');
+    const subject = `${listingTitle} - ID${referenceLabel}`;
     setMessage(
       intent === 'visit'
-        ? `I would like to book a visit to see ${listingTitle}. Please let me know your available times.`
-        : `I would like to inquire about your property ${listingTitle}. Please contact me at your earliest convenience.`,
+        ? `I would like to book a visit to see ${subject}. Please let me know your available times.`
+        : `I would like to inquire about your property ${subject}. Please contact me at your earliest convenience.`,
     );
-  }, [visible, user, listingTitle, intent]);
+  }, [visible, user, listingTitle, referenceLabel, intent]);
 
   async function handleSend() {
     if (!name || !email || !phone || !message) {
@@ -600,11 +734,15 @@ const styles = StyleSheet.create({
     opacity: 0.05, // Further reduced to mimic a very subtle watermark for maximum readability
     resizeMode: 'cover',
   },
-  headerContent: { 
-    paddingHorizontal: 20, 
-    paddingTop: 24, 
-    paddingBottom: 20,
-    gap: 8,
+  headerContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 14,
+    // `gap` alone spaces badgeRow/title/locationRow/listingNumber/price/
+    // statsRow now — was 8 plus each child's own marginTop stacked on top
+    // of it (double-spacing), which is most of what was pushing content
+    // below the fold. Tightened per the Figma density comparison.
+    gap: 4,
   },
   contentBody: {
     paddingHorizontal: 20,
@@ -681,30 +819,31 @@ const styles = StyleSheet.create({
   pillBadge: { backgroundColor: FIGMA_MUTED_BG, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   pillBadgeText: { fontSize: 10, fontWeight: '700', color: theme.colors.text, letterSpacing: 0.5 },
 
-  title: { fontSize: 24, fontWeight: '900', color: theme.colors.text, letterSpacing: -0.5, marginTop: 4 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  location: { fontSize: 14, color: theme.colors.muted },
-  listingNumber: { fontSize: 11, color: theme.colors.mutedLight, fontWeight: '700', marginTop: 2 },
-  price: { fontSize: 28, fontWeight: '900', color: FIGMA_PRIMARY, marginTop: 12 },
+  title: { fontSize: 22, fontWeight: '700', color: theme.colors.text, letterSpacing: -0.5 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  location: { fontSize: 13, color: theme.colors.muted },
+  price: { fontSize: 26, fontWeight: '600', color: FIGMA_PRIMARY, marginTop: 4 },
 
-  // Fixed Dimension Figma Stat Cards
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
-  statCard: {
-    width: 103.27,
-    height: 60.94,
+  // One compact inline row (icon + "N Beds") — was three large shadowed
+  // cards (103x61 each); this is the single biggest space saver in the
+  // Figma density pass, same "icon + text" convention PropertyListRow.tsx
+  // already uses for identical beds/baths/area data.
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' },
+  // Each stat gets its own light chip — plain inline icon+text next to
+  // each other with only a small gap read as one merged run of text (hard
+  // to tell "3 Beds" ends and "3 Baths" begins at a glance). A light
+  // background per chip gives each one a real boundary without going back
+  // to the old large shadow cards.
+  statItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: FIGMA_SURFACE,
-    borderRadius: 14,
-    shadowColor: '#000', 
-    shadowOpacity: 0.06, 
-    shadowRadius: 10, 
-    shadowOffset: { width: 0, height: 4 }, 
-    elevation: 2,
-    paddingHorizontal: 4,
+    gap: 5,
+    backgroundColor: FIGMA_MUTED_BG,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  statText: { fontSize: 12, fontWeight: '800', color: FIGMA_PRIMARY, textAlign: 'center' },
+  statItemText: { fontSize: 13, fontWeight: '700', color: theme.colors.text },
 
   moreDetailsGrid: { gap: 6, marginTop: 12 },
   detailRow: {
@@ -718,9 +857,44 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
 
   section: { marginTop: 28, gap: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '900', color: theme.colors.text, letterSpacing: -0.3 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text, letterSpacing: -0.3 },
   description: { fontSize: 14, color: theme.colors.muted, lineHeight: 22 },
   link: { fontSize: 13, fontWeight: '700', color: FIGMA_PRIMARY },
+
+  // "Title and Description" sheet — slides up over a dimmed backdrop
+  // rather than expanding the description in place on the page.
+  descriptionSheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  descriptionSheet: {
+    maxHeight: '85%',
+    backgroundColor: FIGMA_SURFACE,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  // Drag handle — the visible affordance for the swipe-to-dismiss gesture
+  // (see descriptionSheetPanResponder), same pill shape convention
+  // AuthSheet.tsx's own drag handle uses.
+  descriptionSheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: FIGMA_BORDER,
+    marginTop: 10,
+  },
+  descriptionSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: FIGMA_BORDER,
+  },
+  descriptionSheetHeaderTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text },
+  descriptionSheetBody: { padding: 20, gap: 16, paddingBottom: 32 },
+  descriptionSheetTitle: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
 
   amenityChecklist: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 12 },
   amenityRow: {
@@ -739,6 +913,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   amenityText: { fontSize: 12, fontWeight: '700', color: FIGMA_PRIMARY, flexShrink: 1 },
+  // Light green tint, not solid — same "light-bg badge with the tint's own
+  // dark color icon" convention as boostBadge (#FEF3C7 amber) and
+  // storyBadge (#FAE8FF purple) elsewhere on this screen.
+  amenityCheckBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E1F0E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Financing table
   planTableWrap: {

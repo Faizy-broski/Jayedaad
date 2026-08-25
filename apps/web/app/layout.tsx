@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${plusJakartaSans.variable} ${outfit.variable}`}>
+    <html lang="en" className={`${plusJakartaSans.variable} ${outfit.variable}`} suppressHydrationWarning>
       {/* overflow-x-clip guards against the classic `w-screen`/`100vw`
           full-bleed bug (see OfficeShowCase.tsx) — 100vw includes the
           scrollbar's own width on browsers with a classic (non-overlay)
@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           sticks relative to that hijacked box instead of the real
           viewport scroll and silently stops sticking. `clip` blocks the
           same horizontal overflow without that pairing side effect. */}
-      <body className="min-h-screen overflow-x-clip bg-white text-foreground font-sans">
+      <body className="min-h-screen overflow-x-clip bg-background text-foreground font-sans">
         <Providers>
           <AppChrome>{children}</AppChrome>
         </Providers>

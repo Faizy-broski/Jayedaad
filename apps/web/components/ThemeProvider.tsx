@@ -8,11 +8,19 @@ const STORAGE_KEY = 'jayedaad-theme';
 
 const ThemeContext = createContext<{ theme: Theme; toggleTheme: () => void } | null>(null);
 
-// Default is light regardless of OS preference (darkMode: 'class' in
-// tailwind.config.ts, not 'media') — the inline script in app/layout.tsx's
-// <head> applies a persisted 'dark' choice before first paint so returning
-// dark-mode users don't see a light-mode flash; this provider just keeps
-// React's state in sync with that class afterwards.
+// Dark mode is dashboard-only (Super Admin/Agent/Account/Verification
+// shells) — it never applies to the public marketing site (homepage,
+// /listings, /developments, etc). Deliberately does NOT touch
+// document.documentElement: toggling a class on <html> would make the
+// choice global (it's the root of every route, public pages included), and
+// since this is an SPA-style app router, that class survives client-side
+// navigation away from the dashboard — a dashboard toggle used to leak dark
+// mode onto every public page until the next full reload. Each dashboard
+// layout instead reads `theme` here and applies the `dark` class to its own
+// top-level wrapper div, so Tailwind's `dark:` variants and the
+// `:root.dark` CSS variables only take effect inside that subtree; it
+// unmounts (and the class with it) the moment the user navigates to a
+// public route.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
@@ -24,7 +32,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   function toggleTheme() {
     setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
-      document.documentElement.classList.toggle('dark', next === 'dark');
       window.localStorage.setItem(STORAGE_KEY, next);
       return next;
     });
@@ -38,15 +45,3 @@ export function useTheme() {
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
   return ctx;
 }
-
-// Inlined into app/layout.tsx's <head> as a raw string (not JSX) so it runs
-// before React hydrates/paints — avoids a light-mode flash for a user who
-// previously chose dark.
-export const themeInitScript = `
-(function () {
-  try {
-    var theme = localStorage.getItem('${STORAGE_KEY}');
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-  } catch (e) {}
-})();
-`;

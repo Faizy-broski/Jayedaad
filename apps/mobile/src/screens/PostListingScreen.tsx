@@ -42,6 +42,14 @@ const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 const AREA_UNITS: AreaUnit[] = ['marla', 'kanal', 'sqyd', 'sqft', 'sqm', 'acre'];
+const AREA_SIZE_PRESETS: Record<AreaUnit, string[]> = {
+  marla: ['3', '5', '7', '10', '20'],
+  kanal: ['1', '2', '4', '8'],
+  sqyd: ['100', '200', '500', '1000'],
+  sqft: ['500', '1000', '2000', '5000'],
+  sqm: ['50', '100', '250', '500'],
+  acre: ['1', '2', '5', '10'],
+};
 const FURNISHING_STATUSES: FurnishingStatus[] = ['unfurnished', 'semi_furnished', 'furnished'];
 const BEDROOM_OPTIONS = ['Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const BATHROOM_OPTIONS = ['1', '2', '3', '4', '5', '6+'];
@@ -654,6 +662,20 @@ export function PostListingScreen() {
                 <Text style={styles.fieldLabel}>Area Unit</Text>
                 <PickerField value={form.areaUnit} options={AREA_UNITS} title="Area Unit" onChange={(v) => update_('areaUnit', v as AreaUnit)} style={styles.pillOverride} />
               </View>
+            </View>
+            <View style={styles.chipRow}>
+              {(AREA_SIZE_PRESETS[form.areaUnit] ?? []).map((preset) => {
+                const active = form.areaValue === preset;
+                return (
+                  <Pressable
+                    key={preset}
+                    onPress={() => update_('areaValue', preset)}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{preset}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
             <View style={styles.row2}>
               <View style={styles.flex1}>

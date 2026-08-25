@@ -156,6 +156,9 @@ export function ProjectCard({ project, onPress }: ProjectCardProps) {
             )}
             {phone && (
               <Pressable style={styles.smsButton} onPress={() => trackAndOpen(project.id, 'sms', `sms:${phone}`)}>
+                {/* Same paper-plane "send" icon as the listing side
+                    (ListingContactActions.tsx) — was text-only here. */}
+                <Ionicons name="paper-plane-outline" size={12} color={theme.colors.primary} />
                 <Text style={styles.smsButtonText}>SMS</Text>
               </Pressable>
             )}
@@ -275,8 +278,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
     paddingHorizontal: theme.spacing.sm,
   },
   smsButtonText: { fontSize: 12, fontWeight: '700', color: theme.colors.primary },

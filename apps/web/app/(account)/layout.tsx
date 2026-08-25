@@ -8,7 +8,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
 import { Heart, Search, LogOut, Menu, X, ChevronsUpDown } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
+import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Shell for the buyer account area (Favorites & Saved Searches, and later
 // Notifications/Profile) — same one-layout.tsx-per-persistent-chrome-section
@@ -22,6 +25,9 @@ const NAV_ITEMS = [{ href: '/account/saved', label: 'Favorites & Saved Searches'
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // Scoped to this dashboard shell's own wrapper div below, not
+  // document.documentElement — see ThemeProvider.tsx for why.
+  const { theme } = useTheme();
   const { user, signOut } = useAuthViewModel();
   const displayName = getDisplayName(user, 'Account');
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -145,7 +151,10 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
   return (
     <RequireEmailVerified>
-      <div className="flex min-h-screen bg-muted/30">
+      {/* bg-muted, not bg-muted/30 — opaque so descendants' translucent
+          bg-x/NN utilities blend against this dark backdrop, not the
+          always-light <body> behind it. See (super-admin)/layout.tsx. */}
+      <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -185,6 +194,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
+              <DarkModeToggle />
+              <PreferencesMenu />
               <NotificationBell />
             </div>
           </header>

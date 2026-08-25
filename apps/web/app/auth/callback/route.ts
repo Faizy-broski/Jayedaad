@@ -10,6 +10,17 @@ import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 // exists, i.e. after exchangeCodeForSession below. Password sign-in doesn't
 // have this problem (role is already known synchronously after signIn
 // resolves, same page), which is why this only lives here.
+// Only accept a same-app internal path as `next` — rejects a
+// protocol-relative '//host' (browsers treat that as an off-site redirect)
+// or anything not starting with a single '/'. `next` previously flowed
+// straight into the redirect with no check at all; safe in practice only
+// because its one existing caller (login/page.tsx) always sources it from
+// nextUrl.pathname, not because this route enforced anything — worth
+// closing properly now that signup/page.tsx is becoming a second caller.
+function isSafeNext(value: string | null): value is string {
+  return !!value && value.startsWith('/') && !value.startsWith('//');
+}
+
 const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
   super_admin: '/admin/dashboard',
   verification_staff: '/verification',
@@ -56,7 +67,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const role = data.user?.app_metadata?.role as string | undefined;
-      const target = next || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
+      const target = (isSafeNext(next) ? next : null) || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
       response.headers.set('location', `${origin}${target}`);
       return response;
     }

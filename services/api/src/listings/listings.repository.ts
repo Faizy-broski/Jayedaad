@@ -61,6 +61,12 @@ export interface MyListingsFilters {
   areaUnit?: 'marla' | 'kanal' | 'sqyd' | 'sqft' | 'sqm' | 'acre';
   listedDateFrom?: string;
   listedDateTo?: string;
+  // Agency Admin-only (mirrors LeadsRepository.list's identical filter) —
+  // widens "my listings" from "just my own" to "every associate's listings
+  // in my agency". Silently ignored (falls back to own-agent scope) for a
+  // non-admin agent or any other role, same "ignored, not rejected"
+  // discipline as the rest of this filter set.
+  scope?: 'own' | 'agency';
   page?: number;
   pageSize?: number;
 }
@@ -784,7 +790,15 @@ export class ListingsRepository {
     if (scope.role === 'owner') {
       query = query.eq('owner_id', scope.userId);
     } else if (scope.role === 'agent') {
-      query = query.eq('agent_id', scope.agentId);
+      // Agency-wide scope only kicks in when both the caller is actually
+      // an agency admin AND the request explicitly asked for it — same
+      // "silently ignored otherwise" discipline as LeadsRepository.list.
+      const agencyStaffIds = filters.scope === 'agency' ? await this.getSameAgencyAgentIds(scope.agentId) : null;
+      if (agencyStaffIds) {
+        query = query.in('agent_id', agencyStaffIds);
+      } else {
+        query = query.eq('agent_id', scope.agentId);
+      }
     } else if (scope.role === 'verification_staff') {
       // verification_staff has no ownership concept here (they're not the
       // agent/owner) — same "no ownership filter, staff can view any
@@ -838,13 +852,21 @@ export class ListingsRepository {
 
   // Backs the status tab badges ("Active (0)", "Pending (0)", etc.) seen on
   // the real Profolio "My Listings" page — computed at query time, never stored.
-  async getStatusCounts(scope: MyListingsScope): Promise<Record<string, number>> {
+  async getStatusCounts(scope: MyListingsScope, filters: { scope?: 'own' | 'agency' } = {}): Promise<Record<string, number>> {
     let query = this.supabase.client.from('listings').select('status');
 
     if (scope.role === 'owner') {
       query = query.eq('owner_id', scope.userId);
     } else if (scope.role === 'agent') {
-      query = query.eq('agent_id', scope.agentId);
+      // Same agency-wide widening as findMine() above — kept in sync so the
+      // status tab badges match whatever result set "My Listings" is
+      // actually showing.
+      const agencyStaffIds = filters.scope === 'agency' ? await this.getSameAgencyAgentIds(scope.agentId) : null;
+      if (agencyStaffIds) {
+        query = query.in('agent_id', agencyStaffIds);
+      } else {
+        query = query.eq('agent_id', scope.agentId);
+      }
     }
 
     const { data, error } = await query;
@@ -856,6 +878,130 @@ export class ListingsRepository {
       counts[status] = (counts[status] ?? 0) + 1;
     }
     return counts;
+  }
+
+  // Returns every agent_profiles.id sharing callerAgentId's agency, or null
+  // if the caller isn't an agency admin (or has no agency) — mirrors
+  // LeadsRepository.getSameAgencyAgentIds exactly (copied rather than
+  // shared, to avoid a cross-module dependency for one small lookup; keep
+  // both in sync if the agency-admin resolution rule ever changes).
+  private async getSameAgencyAgentIds(callerAgentId?: string): Promise<string[] | null> {
+    if (!callerAgentId) return null;
+    const { data: caller, error: callerError } = await this.supabase.client
+      .from('agent_profiles')
+      .select('agency_id, is_agency_admin')
+      .eq('id', callerAgentId)
+      .single();
+    if (callerError) throw callerError;
+    if (!caller.is_agency_admin || !caller.agency_id) return null;
+
+    const { data: staff, error: staffError } = await this.supabase.client
+      .from('agent_profiles')
+      .select('id')
+      .eq('agency_id', caller.agency_id);
+    if (staffError) throw staffError;
+    return (staff ?? []).map((row: any) => row.id);
+  }
+
+  // Auth gate for the per-listing analytics endpoints below — caller must be
+  // the listing's own agent, that listing's agency admin (via the same
+  // agency-staff-id resolution as findMine's agency scope), or super_admin.
+  // Public so ListingsController can call it before running the analytics
+  // query itself, same "check ownership in the controller before touching
+  // the repository's data method" split as assertOwnListing there.
+  async assertCanAccessListingAnalytics(scope: MyListingsScope, listingId: string): Promise<void> {
+    if (scope.role === 'super_admin') return;
+
+    const { agentId: listingAgentId } = await this.getOwnership(listingId);
+    if (scope.role === 'agent' && listingAgentId === scope.agentId) return;
+
+    if (scope.role === 'agent') {
+      const agencyStaffIds = await this.getSameAgencyAgentIds(scope.agentId);
+      if (agencyStaffIds && listingAgentId && agencyStaffIds.includes(listingAgentId)) return;
+    }
+
+    throw new ForbiddenException('You do not have access to this listing analytics.');
+  }
+
+  // Per-listing Views/Clicks/Calls/WhatsApp/SMS/Emails + Leads — same
+  // listing_engagement_events/leads sources as AgentsRepository.getAnalytics,
+  // just scoped to one listing_id instead of an agent's whole inventory (no
+  // listing_ids pre-lookup needed, so no early-return-on-empty case here).
+  async getAnalytics(listingId: string, filters: { since?: Date } = {}) {
+    const since = filters.since ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [{ data: eventRows, error: eventsError }, { count: leadsCount, error: leadsError }] = await Promise.all([
+      this.supabase.client
+        .from('listing_engagement_events')
+        .select('type')
+        .eq('listing_id', listingId)
+        .gte('created_at', since.toISOString()),
+      this.supabase.client
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('listing_id', listingId)
+        .gte('created_at', since.toISOString()),
+    ]);
+    if (eventsError) throw eventsError;
+    if (leadsError) throw leadsError;
+
+    const counts = { views: 0, clicks: 0, calls: 0, whatsapp: 0, sms: 0, emails: 0 };
+    for (const row of eventRows ?? []) {
+      const type = (row as any).type as 'view' | 'click' | 'call' | 'whatsapp' | 'sms' | 'email';
+      if (type === 'view') counts.views++;
+      else if (type === 'click') counts.clicks++;
+      else if (type === 'call') counts.calls++;
+      else if (type === 'whatsapp') counts.whatsapp++;
+      else if (type === 'sms') counts.sms++;
+      else if (type === 'email') counts.emails++;
+    }
+
+    return { ...counts, leads: leadsCount ?? 0 };
+  }
+
+  // Same real listing_engagement_events ("view" rows) + leads rows as
+  // getAnalytics above, grouped by calendar day instead of summed into one
+  // total — mirrors AgentsRepository.getDailyAnalytics exactly, just scoped
+  // to a single listing. Days with no activity still appear with 0s.
+  async getDailyAnalytics(listingId: string, days = 7): Promise<{ date: string; views: number; leads: number }[]> {
+    const since = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
+    since.setHours(0, 0, 0, 0);
+
+    const byDate = new Map<string, { views: number; leads: number }>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(since);
+      d.setDate(d.getDate() + i);
+      byDate.set(d.toISOString().slice(0, 10), { views: 0, leads: 0 });
+    }
+
+    const [{ data: eventRows, error: eventsError }, { data: leadRows, error: leadsError }] = await Promise.all([
+      this.supabase.client
+        .from('listing_engagement_events')
+        .select('type, created_at')
+        .eq('listing_id', listingId)
+        .eq('type', 'view')
+        .gte('created_at', since.toISOString()),
+      this.supabase.client
+        .from('leads')
+        .select('created_at')
+        .eq('listing_id', listingId)
+        .gte('created_at', since.toISOString()),
+    ]);
+    if (eventsError) throw eventsError;
+    if (leadsError) throw leadsError;
+
+    for (const row of eventRows ?? []) {
+      const date = (row as any).created_at.slice(0, 10);
+      const bucket = byDate.get(date);
+      if (bucket) bucket.views++;
+    }
+    for (const row of leadRows ?? []) {
+      const date = (row as any).created_at.slice(0, 10);
+      const bucket = byDate.get(date);
+      if (bucket) bucket.leads++;
+    }
+
+    return Array.from(byDate, ([date, counts]) => ({ date, ...counts }));
   }
 
   // Backs VerificationRepository.listQueue() — same PUBLIC_LISTING_COLUMNS

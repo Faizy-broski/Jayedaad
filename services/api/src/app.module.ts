@@ -32,6 +32,9 @@ import { RemindersModule } from './reminders/reminders.module';
 import { TasksModule } from './tasks/tasks.module';
 import { SupportModule } from './support/support.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
+import { DealsModule } from './deals/deals.module';
+import { OpportunitiesModule } from './opportunities/opportunities.module';
+import { ActivityModule } from './activity/activity.module';
 
 @Module({
   imports: [
@@ -72,6 +75,9 @@ import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
     TasksModule,
     SupportModule,
     ExchangeRatesModule,
+    DealsModule,
+    OpportunitiesModule,
+    ActivityModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: PerUserThrottlerGuard }],

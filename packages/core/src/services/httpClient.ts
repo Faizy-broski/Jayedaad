@@ -11,10 +11,25 @@ import axios, { AxiosInstance } from 'axios';
 export const httpClient: AxiosInstance = axios.create({ timeout: 15_000 });
 
 let getToken: () => string | undefined = () => undefined;
+// Fires on a real 401 (JwtAuthGuard rejected the token outright — missing,
+// malformed, or expired) as opposed to a 403 (a valid token that's just not
+// allowed to do this one thing, e.g. a buyer hitting an agent-only route —
+// not a staleness bug, must NOT force a sign-out). Each app wires this to a
+// real sign-out + redirect-to-login: closes the gap where a role change
+// server-side (users.repository.ts's updateRole(), which now also revokes
+// the account's refresh tokens) previously left the client silently
+// rendering its old cached role/session indefinitely instead of forcing a
+// clean re-login once that session actually stops working.
+let onUnauthorized: (() => void) | undefined;
 
-export function configureHttpClient(options: { baseURL: string; getToken: () => string | undefined }) {
+export function configureHttpClient(options: {
+  baseURL: string;
+  getToken: () => string | undefined;
+  onUnauthorized?: () => void;
+}) {
   httpClient.defaults.baseURL = options.baseURL;
   getToken = options.getToken;
+  onUnauthorized = options.onUnauthorized;
 }
 
 httpClient.interceptors.request.use((config) => {
@@ -38,6 +53,9 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
+    if (status === 401) {
+      onUnauthorized?.();
+    }
     // NestJS's ValidationPipe returns `message` as a string[] of every
     // failed constraint (e.g. ["password must be longer than or equal to 8
     // characters"]), not a single string — left un-joined, this ends up
