@@ -7,7 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PAKISTAN_CITIES, useInfiniteListingSearchViewModel } from '@jayedaad/core';
 import { PickerField, refreshControlProps, Spinner, theme } from '@jayedaad/ui-native';
 import { AllPropertiesFilterSheet } from '../components/AllPropertiesFilterSheet';
-import { PropertyListCard } from '../components/PropertyListCard';
+import { PropertyListRow } from '../components/PropertyListRow';
 import { RangeFilterField } from '../components/RangeFilterField';
 import { AREA_UNITS, SORT_OPTIONS } from '../lib/searchFilters';
 import { AllPropertiesFilterState, DEFAULT_ALL_PROPERTIES_FILTERS, toAllPropertiesSearchFilters } from '../lib/allPropertiesFilters';
@@ -124,11 +124,12 @@ export function AllPropertiesScreen() {
           !isLoading && !error ? <Text style={styles.empty}>No properties match your filters.</Text> : null
         }
         renderItem={({ item }) => (
-          <PropertyListCard
+          <PropertyListRow
             listing={item}
             onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
           />
         )}
+        ItemSeparatorComponent={() => <View style={{ height: theme.spacing.sm }} />}
         onEndReachedThreshold={0.4}
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   filtersButtonText: { fontSize: 13, fontWeight: '700', color: theme.colors.bg },
   filterPill: { minWidth: 110 },
   loading: { textAlign: 'center', color: theme.colors.muted, marginTop: theme.spacing.md },
-  list: { padding: theme.spacing.lg, gap: theme.spacing.md },
+  list: { padding: theme.spacing.lg },
   empty: { color: theme.colors.muted, textAlign: 'center', marginTop: theme.spacing.lg },
   error: { color: theme.colors.danger, textAlign: 'center', marginTop: theme.spacing.lg },
   footerLoader: { marginVertical: theme.spacing.lg },

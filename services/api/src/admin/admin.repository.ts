@@ -70,7 +70,7 @@ export class AdminRepository {
     let agentsQuery = this.supabase.client
       .from('agent_profiles')
       .select(
-        'id, display_name, phone, city, verification_status, is_agency_admin, agencies (id, name, slug), subscriptions (status, current_period_end, subscription_tiers (name))',
+        'id, user_id, display_name, phone, city, verification_status, is_agency_admin, agencies (id, name, slug), subscriptions (status, current_period_end, subscription_tiers (name))',
         pagination ? { count: 'exact' } : undefined,
       )
       .order('created_at', { ascending: false });
@@ -115,9 +115,34 @@ export class AdminRepository {
               listingCountsByAgent.set(agentId, entry);
             }
 
-            return (agents ?? []).map((agent: any) => ({
+            // display_name can be NULL (a real signup-path gap — see
+            // 0055_default_signup_role_agent.sql) — every consumer of this
+            // roster (CRM's agent picker/reassign dropdown, attribution
+            // labels) previously fell back to the raw agent_profiles.id
+            // when it was, showing a bare UUID in the UI instead of
+            // anything human-readable. email is always present (every
+            // signup path uses email/password or an OAuth email), so it's
+            // a real fallback source — packages/core's resolveDisplayName
+            // helper is what actually applies the fallback order.
+            const userIds = (agents ?? []).map((a: any) => a.user_id).filter(Boolean);
+            const { data: profileRows, error: profilesError } =
+              userIds.length === 0
+                ? { data: [] as any[], error: null }
+                : await this.supabase.client.from('profiles').select('id, email, role').in('id', userIds);
+            if (profilesError) throw profilesError;
+            const emailByUserId = new Map((profileRows ?? []).map((row: any) => [row.id, row.email as string]));
+            // A super_admin can carry a leftover agent_profiles row (e.g. from
+            // before being promoted) — exclude them from every agent roster
+            // consumer (CRM picker, reassign dropdown, Agents admin table) so
+            // the platform owner never shows up as a selectable "agent".
+            const roleByUserId = new Map((profileRows ?? []).map((row: any) => [row.id, row.role as string]));
+
+            return (agents ?? [])
+              .filter((agent: any) => roleByUserId.get(agent.user_id) !== 'super_admin')
+              .map((agent: any) => ({
               id: agent.id,
               displayName: agent.display_name,
+              email: emailByUserId.get(agent.user_id) ?? null,
               phone: agent.phone,
               city: agent.city,
               verificationStatus: agent.verification_status,
@@ -146,15 +171,23 @@ export class AdminRepository {
   // one created via self-service signup) never showed up there at all —
   // "0 registered agencies" even while its staff appeared correctly on the
   // Agents roster above.
+  // Dual-mode, same convention as listAgentsOverview above: called with no
+  // page/pageSize, returns the full unpaginated array (needed by the CRM
+  // agent/agency picker's unbounded "every agency" list — previously this
+  // method always paginated and hard-capped at MAX_PAGE_SIZE=100, which
+  // would have silently truncated that list past 100 agencies). Called
+  // with page and/or pageSize (the Agencies admin table), it paginates as
+  // before.
   async listAgenciesOverview(
     filters: PaginationParams & { search?: string; verificationStatus?: string } = {},
   ) {
-    const pagination = resolvePagination(filters);
+    const paginated = filters.page != null || filters.pageSize != null;
+
     let query = this.supabase.client
       .from('agencies')
       .select(
-        'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count',
-        { count: 'exact' },
+        'id, name, slug, logo_url, description, phone, email, city, address, business_hours, verification_status, sales_associate_count, default_commission_rate',
+        paginated ? { count: 'exact' } : undefined,
       )
       .order('name', { ascending: true });
 
@@ -163,8 +196,15 @@ export class AdminRepository {
       const term = sanitizeKeyword(filters.search);
       if (term) query = query.or(`name.ilike.%${term}%,city.ilike.%${term}%`);
     }
-    query = query.range(pagination.from, pagination.to);
 
+    if (!paginated) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    }
+
+    const pagination = resolvePagination(filters);
+    query = query.range(pagination.from, pagination.to);
     return paginate(query, pagination);
   }
 }

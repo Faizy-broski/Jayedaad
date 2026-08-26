@@ -1,9 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ScopeGuard } from '../common/guards/scope.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRepository } from './admin.repository';
 import { RevenueRepository } from './revenue.repository';
 import { ROLE_ACCESS_DESCRIPTIONS } from './role-access-descriptions';
+import { DealsRepository, RevenuePeriod } from '../deals/deals.repository';
 
 // Super Admin-only platform rollup — everything else this session is scoped
 // to a single agent/agency; nothing until now gives a whole-platform view.
@@ -14,6 +15,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminRepository,
     private readonly revenue: RevenueRepository,
+    private readonly deals: DealsRepository,
   ) {}
 
   @Get('stats')
@@ -63,6 +65,18 @@ export class AdminController {
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });
+  }
+
+  // Real commission revenue for one agency, aggregated across every one of
+  // its staff members directly by agency_id — closes the gap where the
+  // only existing revenue route (GET /agents/:id/revenue?scope=agency) is
+  // anchored to one agent's id, awkward for a Super Admin who has picked an
+  // agency, not a specific staff member, to view. Super Admin-only (class
+  // guard above), no per-row ownership check needed the way
+  // assertCanViewAgentRevenue enforces for the agent-facing route.
+  @Get('agencies/:id/revenue')
+  getAgencyRevenue(@Param('id') id: string, @Query('period') period?: RevenuePeriod) {
+    return this.deals.getAgencyRevenue(id, { period: period ?? 'month' });
   }
 
   // "Which role gets what dashboard access" reference for the team

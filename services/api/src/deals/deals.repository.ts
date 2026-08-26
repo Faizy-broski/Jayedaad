@@ -275,10 +275,32 @@ export class DealsRepository {
     const agencyStaffIds = filters.scope === 'agency' ? await this.getSameAgencyAgentIds(agentId) : null;
     const agentIds = agencyStaffIds ?? [agentId];
 
-    const { data: rows, error } = await this.supabase.client
-      .from('deals')
-      .select('agent_id, commission_amount, closed_at')
-      .in('agent_id', agentIds);
+    return this.aggregateRevenue(agentIds, filters.period, !!agencyStaffIds);
+  }
+
+  // Super Admin-only (enforced at the controller — no per-row ownership
+  // check needed here, unlike getRevenue above, since this route isn't
+  // exposed to agent/agency-admin roles at all). Closes the "agency
+  // revenue needs an anchor agentId" gap: resolves the agency's own staff
+  // directly by agency_id instead of requiring the caller to already know
+  // one of its agent ids and pass scope='agency' against it.
+  async getAgencyRevenue(agencyId: string, filters: RevenueFilters) {
+    const { data: staff, error } = await this.supabase.client.from('agent_profiles').select('id').eq('agency_id', agencyId);
+    if (error) throw error;
+    const agentIds = (staff ?? []).map((row: any) => row.id as string);
+
+    return this.aggregateRevenue(agentIds, filters.period, true);
+  }
+
+  // Shared aggregation behind getRevenue/getAgencyRevenue — mirrors
+  // AgentsRepository.getAnalytics/getListingsAnalytics's own style
+  // (aggregated in-memory over the matching rows; supabase-js has no
+  // native GROUP BY), summing money instead of counting engagement rows.
+  private async aggregateRevenue(agentIds: string[], period: RevenuePeriod, includeByAgent: boolean) {
+    const { data: rows, error } =
+      agentIds.length === 0
+        ? { data: [] as any[], error: null }
+        : await this.supabase.client.from('deals').select('agent_id, commission_amount, closed_at').in('agent_id', agentIds);
     if (error) throw error;
 
     const byPeriod = new Map<string, { revenue: number; dealCount: number }>();
@@ -288,16 +310,16 @@ export class DealsRepository {
 
     for (const row of rows ?? []) {
       const amount = Number((row as any).commission_amount);
-      const period = bucketPeriod((row as any).closed_at, filters.period);
+      const bucketedPeriod = bucketPeriod((row as any).closed_at, period);
       const rowAgentId = (row as any).agent_id as string;
 
       totalRevenue += amount;
       dealCount++;
 
-      const periodBucket = byPeriod.get(period) ?? { revenue: 0, dealCount: 0 };
+      const periodBucket = byPeriod.get(bucketedPeriod) ?? { revenue: 0, dealCount: 0 };
       periodBucket.revenue += amount;
       periodBucket.dealCount++;
-      byPeriod.set(period, periodBucket);
+      byPeriod.set(bucketedPeriod, periodBucket);
 
       const agentBucket = byAgent.get(rowAgentId) ?? { revenue: 0, dealCount: 0 };
       agentBucket.revenue += amount;
@@ -313,12 +335,14 @@ export class DealsRepository {
     } = {
       totalRevenue,
       dealCount,
-      byPeriod: Array.from(byPeriod, ([period, v]) => ({ period, ...v })).sort((a, b) => a.period.localeCompare(b.period)),
+      byPeriod: Array.from(byPeriod, ([bucketedPeriod, v]) => ({ period: bucketedPeriod, ...v })).sort((a, b) =>
+        a.period.localeCompare(b.period),
+      ),
     };
 
-    if (agencyStaffIds) {
-      const displayNames = await this.getStaffDisplayNames(agencyStaffIds);
-      result.byAgent = agencyStaffIds.map((id) => ({
+    if (includeByAgent) {
+      const displayNames = await this.getStaffDisplayNames(agentIds);
+      result.byAgent = agentIds.map((id) => ({
         agentId: id,
         displayName: displayNames.get(id) ?? null,
         revenue: byAgent.get(id)?.revenue ?? 0,

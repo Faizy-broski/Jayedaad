@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getDisplayName, useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
+import { agenciesRepository, getDisplayName, OnboardingDocumentType, useAgentProfileViewModel, useAuthViewModel, useOwnerVerificationViewModel } from '@jayedaad/core';
 import {
   LayoutGrid,
   PlusCircle,
@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Wallet,
   Kanban,
+  Clock,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
@@ -50,7 +51,7 @@ const NAV_ITEMS = [
   { href: '/property-management', label: 'Property Management', icon: Building2, roles: ['agent', 'super_admin'] },
   { href: '/projects', label: 'Projects', icon: Landmark, roles: ['agent', 'super_admin'] },
   { href: '/crm', label: 'Inbox', icon: Inbox, roles: ['agent', 'super_admin'] },
-  { href: '/pipeline', label: 'Pipeline', icon: Kanban, roles: ['agent', 'super_admin'] },
+  { href: '/pipeline', label: 'Opportunities', icon: Kanban, roles: ['agent', 'super_admin'] },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, roles: ['agent', 'super_admin'] },
   { href: '/revenue', label: 'Revenue', icon: Wallet, roles: ['agent', 'super_admin'] },
   { href: '/agency-staff', label: 'Agency Staff', icon: Users, roles: ['agent', 'super_admin'], agencyAdminOnly: true },
@@ -58,6 +59,39 @@ const NAV_ITEMS = [
   { href: '/agent-settings', label: 'Settings', icon: Settings, roles: ['agent', 'super_admin'] },
   { href: '/help', label: 'Help / Support', icon: HelpCircle, roles: ['agent', 'super_admin'] },
 ];
+
+// Copied rather than shared from become-an-agent/page.tsx's identical
+// constants (same "copied rather than shared" convention used elsewhere in
+// this codebase for one small lookup) — needed here so the banner below can
+// tell "documents not uploaded yet" apart from "documents uploaded,
+// pending our team's review", which `verificationStatus: 'pending'` alone
+// can't distinguish (both collapse to the same enum value).
+const REQUIRED_AGENCY_DOCUMENT_TYPES: OnboardingDocumentType[] = ['owner_id_card', 'company_registration'];
+const REQUIRED_IDENTITY_DOCUMENT_TYPES = ['cnic_front', 'cnic_back', 'selfie'] as const;
+
+// Fetches an agency's uploaded document types once (not React Query —
+// mirrors become-an-agent/page.tsx's own plain useEffect/useState fetch for
+// this exact same data) to compute whether the required set is already
+// complete.
+function useAgencyDocumentsComplete(agencyId: string | undefined): boolean {
+  const [uploadedTypes, setUploadedTypes] = useState<Set<OnboardingDocumentType>>(new Set());
+
+  useEffect(() => {
+    if (!agencyId) return;
+    let cancelled = false;
+    agenciesRepository
+      .listDocuments(agencyId)
+      .then((docs) => {
+        if (!cancelled) setUploadedTypes(new Set(docs.map((d) => d.documentType)));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [agencyId]);
+
+  return REQUIRED_AGENCY_DOCUMENT_TYPES.every((type) => uploadedTypes.has(type));
+}
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -67,6 +101,14 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const { profile } = useAgentProfileViewModel();
+  // Independent-agent case (no agency): reuses the same identity-document
+  // query the become-an-agent flow itself runs — enabled: role === 'agent'
+  // internally, so this is a no-op for every other role.
+  const { verification: ownerVerification } = useOwnerVerificationViewModel();
+  const agencyDocumentsComplete = useAgencyDocumentsComplete(profile?.agency?.id);
+  const identityDocumentsComplete = REQUIRED_IDENTITY_DOCUMENT_TYPES.every((type) =>
+    (ownerVerification?.documents ?? []).some((d) => d.documentType === type),
+  );
   const displayName = profile?.displayName || getDisplayName(user, 'Agent');
   const photoUrl = profile?.photoUrl;
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -383,24 +425,63 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
               required documents" (setVerificationStatus's non-agency
               branch) had no visible way back to the upload page. Mirrors
               AuthGateProvider's needsAgencyDocuments condition on mobile's
-              SideDrawer. */}
-          {profile && (profile.agency ? profile.agency.verificationStatus !== 'verified' : profile.verificationStatus !== 'verified') && (
-            <Link
-              href="/become-an-agent"
-              className="group mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
-            >
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span className="flex-1">
-                {profile.agency
-                  ? 'Your agency verification is incomplete — upload the required documents to continue.'
-                  : 'Your verification is incomplete — upload the required documents to continue.'}
-              </span>
-              <span className="flex shrink-0 items-center gap-0.5 font-semibold underline underline-offset-2">
-                Complete verification
-                <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-          )}
+              SideDrawer. Two real states get two different banners now —
+              previously both showed the same "upload the required
+              documents" wording even once every document was already
+              uploaded and just sitting in review, which read as if nothing
+              had been submitted at all. `verificationStatus: 'pending'`
+              alone can't tell the two apart (same enum value either way),
+              so documentsComplete (computed above from the actual uploaded
+              document set) is what distinguishes them; 'rejected' always
+              gets the urgent wording regardless, since that always needs a
+              real re-upload action. */}
+          {profile &&
+            (() => {
+              const status = profile.agency ? profile.agency.verificationStatus : profile.verificationStatus;
+              if (status === 'verified') return null;
+              const documentsComplete = profile.agency ? agencyDocumentsComplete : identityDocumentsComplete;
+              const rejectionReason = profile.agency ? profile.agency.rejectionReason : profile.rejectionReason;
+
+              if (status !== 'rejected' && documentsComplete) {
+                return (
+                  <Link
+                    href="/become-an-agent"
+                    className="group mb-4 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-400 dark:hover:bg-sky-900"
+                  >
+                    <Clock className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">
+                      {profile.agency
+                        ? "Your agency's documents have been submitted and are being reviewed by our team."
+                        : 'Your documents have been submitted and are being reviewed by our team.'}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-0.5 font-semibold underline underline-offset-2">
+                      Edit documents
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </Link>
+                );
+              }
+
+              return (
+                <Link
+                  href="/become-an-agent"
+                  className="group mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">
+                    {status === 'rejected'
+                      ? `Your ${profile.agency ? 'agency ' : ''}verification was rejected${rejectionReason ? `: ${rejectionReason}` : ''} — please review and resubmit.`
+                      : profile.agency
+                        ? 'Your agency verification is incomplete — upload the required documents to continue.'
+                        : 'Your verification is incomplete — upload the required documents to continue.'}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-0.5 font-semibold underline underline-offset-2">
+                    Complete verification
+                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              );
+            })()}
           {children}
         </main>
       </div>

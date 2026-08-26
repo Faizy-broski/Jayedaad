@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Deal,
@@ -12,7 +13,7 @@ import {
   useFormattedPrice,
   useRevenueViewModel,
 } from '@jayedaad/core';
-import { Card, CardContent, Tabs, theme } from '@jayedaad/ui-native';
+import { Card, CardContent, theme } from '@jayedaad/ui-native';
 import { BarChart } from '../components/BarChart';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -33,11 +34,17 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function initials(name: string | null): string {
+  if (!name) return '?';
+  return name.trim().slice(0, 2).toUpperCase();
+}
+
 // Backs the Profile-menu "Revenue" entry — commission revenue off the deals
 // table (Mark Sold/Mark Rented), same data useRevenueViewModel/
-// useDealsViewModel already serve on web's (agent)/revenue page. Mirrors
-// AgencyAnalyticsScreen's isAgencyAdmin gating for the agency-wide toggle
-// and per-agent breakdown.
+// useDealsViewModel already serve on web's (agent)/revenue page. Redesigned
+// around a brand-gradient hero (theme.gradients.primary — same token
+// PlanScreen's CTA uses) instead of a plain white header, so the headline
+// revenue figure and period switcher read as the primary focus.
 export function RevenueScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { agentId } = useAuthViewModel();
@@ -53,42 +60,67 @@ export function RevenueScreen() {
   const avgDealValue = revenue && revenue.dealCount > 0 ? revenue.totalRevenue / revenue.dealCount : 0;
   const chartData = (revenue?.byPeriod ?? []).map((p) => ({ label: p.period, value: p.revenue }));
   const sortedByAgent = [...(revenue?.byAgent ?? [])].sort((a, b) => b.revenue - a.revenue);
+  const activePeriodLabel = PERIOD_TABS.find((t) => t.id === period)!.label;
 
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Tabs
-          tabs={PERIOD_TABS.map((t) => ({ id: t.id, label: t.label }))}
-          activeId={period}
-          onChange={(id) => setPeriod(id as Period)}
-        />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <LinearGradient
+          colors={theme.gradients.primary.colors}
+          start={theme.gradients.primary.start}
+          end={theme.gradients.primary.end}
+          style={styles.hero}
+        >
+          <View style={styles.heroTopRow}>
+            <Text style={styles.heroLabel}>Total Revenue · {activePeriodLabel}</Text>
+            {profile?.isAgencyAdmin && (
+              <Pressable style={styles.scopeChip} onPress={() => setAgencyScope((v) => !v)}>
+                <Ionicons name={agencyScope ? 'business' : 'business-outline'} size={13} color="#ffffff" />
+                <Text style={styles.scopeChipText}>{agencyScope ? 'Agency' : 'My revenue'}</Text>
+              </Pressable>
+            )}
+          </View>
 
-        {profile?.isAgencyAdmin && (
-          <Pressable style={styles.scopeToggle} onPress={() => setAgencyScope((v) => !v)}>
-            <Ionicons
-              name={agencyScope ? 'business' : 'business-outline'}
-              size={16}
-              color={agencyScope ? theme.colors.primary : theme.colors.muted}
-            />
-            <Text style={[styles.scopeToggleText, agencyScope && styles.scopeToggleTextActive]}>
-              {agencyScope ? 'Showing agency-wide revenue' : 'Show agency-wide revenue'}
-            </Text>
-          </Pressable>
-        )}
+          <Text style={styles.heroValue} numberOfLines={1} adjustsFontSizeToFit>
+            {isRevenueLoading ? '···' : formatPrice(revenue?.totalRevenue ?? 0)}
+          </Text>
+
+          <View style={styles.periodRow}>
+            {PERIOD_TABS.map((tab) => {
+              const active = tab.id === period;
+              return (
+                <Pressable
+                  key={tab.id}
+                  onPress={() => setPeriod(tab.id)}
+                  style={[styles.periodPill, active && styles.periodPillActive]}
+                >
+                  <Text style={[styles.periodPillText, active && styles.periodPillTextActive]}>{tab.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </LinearGradient>
 
         <View style={styles.kpiGrid}>
-          <KpiTile label="Total Revenue" value={formatPrice(revenue?.totalRevenue ?? 0)} />
-          <KpiTile label="Deals Closed" value={String(revenue?.dealCount ?? 0)} />
-          <KpiTile label="Avg. Deal Value" value={formatPrice(avgDealValue)} />
+          <KpiTile icon="briefcase-outline" iconBg="#E3F2ED" iconColor={theme.colors.primary} label="Deals Closed" value={String(revenue?.dealCount ?? 0)} />
+          <KpiTile icon="trending-up-outline" iconBg="#FFF4E0" iconColor="#B8790B" label="Avg. Deal Value" value={formatPrice(avgDealValue)} />
         </View>
 
         <Card style={styles.cardSpacious}>
           <CardContent style={styles.cardContentSpacious}>
-            <Text style={styles.sectionTitle}>Revenue trend</Text>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIcon, { backgroundColor: '#E3F2ED' }]}>
+                <Ionicons name="stats-chart-outline" size={14} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.sectionTitle}>Revenue trend</Text>
+            </View>
             {isRevenueLoading ? (
               <Text style={styles.centeredMuted}>Loading…</Text>
             ) : chartData.length === 0 ? (
-              <Text style={styles.centeredMuted}>No deals closed yet</Text>
+              <View style={styles.emptyBlock}>
+                <Ionicons name="bar-chart-outline" size={22} color={theme.colors.mutedLight} />
+                <Text style={styles.centeredMuted}>No deals closed yet</Text>
+              </View>
             ) : (
               <View style={styles.chartWrap}>
                 <BarChart data={chartData} />
@@ -99,7 +131,12 @@ export function RevenueScreen() {
 
         {profile?.isAgencyAdmin && agencyScope && (
           <View style={styles.sectionSpacing}>
-            <Text style={styles.sectionTitle}>By associate</Text>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIcon, { backgroundColor: '#FFF4E0' }]}>
+                <Ionicons name="people-outline" size={14} color="#B8790B" />
+              </View>
+              <Text style={styles.sectionTitle}>By associate</Text>
+            </View>
             <Card>
               <CardContent style={styles.listContent}>
                 {sortedByAgent.length === 0 ? (
@@ -107,12 +144,16 @@ export function RevenueScreen() {
                 ) : (
                   sortedByAgent.map((a, i) => (
                     <View key={a.agentId} style={[styles.associateRow, i > 0 && styles.associateRowBorder]}>
-                      <Text style={styles.associateName} numberOfLines={1}>
-                        {a.displayName ?? 'Unnamed'}
-                      </Text>
-                      <Text style={styles.associateStat}>
-                        {formatPrice(a.revenue)} · {a.dealCount} deals
-                      </Text>
+                      <View style={styles.associateAvatar}>
+                        <Text style={styles.associateAvatarText}>{initials(a.displayName)}</Text>
+                      </View>
+                      <View style={styles.associateInfo}>
+                        <Text style={styles.associateName} numberOfLines={1}>
+                          {a.displayName ?? 'Unnamed'}
+                        </Text>
+                        <Text style={styles.associateStat}>{a.dealCount} deals</Text>
+                      </View>
+                      <Text style={styles.associateRevenue}>{formatPrice(a.revenue)}</Text>
                     </View>
                   ))
                 )}
@@ -122,13 +163,21 @@ export function RevenueScreen() {
         )}
 
         <View style={styles.sectionSpacing}>
-          <Text style={styles.sectionTitle}>Deals</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={[styles.sectionIcon, { backgroundColor: theme.colors.surfaceAlt }]}>
+              <Ionicons name="receipt-outline" size={14} color={theme.colors.text} />
+            </View>
+            <Text style={styles.sectionTitle}>Deals</Text>
+          </View>
           {isDealsLoading ? (
             <Text style={styles.centeredMuted}>Loading…</Text>
           ) : deals.length === 0 ? (
             <Card>
               <CardContent style={styles.listContent}>
-                <Text style={styles.centeredMuted}>No deals closed yet</Text>
+                <View style={styles.emptyBlock}>
+                  <Ionicons name="document-text-outline" size={22} color={theme.colors.mutedLight} />
+                  <Text style={styles.centeredMuted}>No deals closed yet</Text>
+                </View>
               </CardContent>
             </Card>
           ) : (
@@ -169,9 +218,24 @@ export function RevenueScreen() {
   );
 }
 
-function KpiTile({ label, value }: { label: string; value: string }) {
+function KpiTile({
+  icon,
+  iconBg,
+  iconColor,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconBg: string;
+  iconColor: string;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.kpiTile}>
+      <View style={[styles.kpiIcon, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={16} color={iconColor} />
+      </View>
       <Text style={styles.kpiLabel}>{label}</Text>
       <Text style={styles.kpiValue} numberOfLines={1} adjustsFontSizeToFit>
         {value}
@@ -184,21 +248,54 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.bg },
   content: { padding: theme.spacing.lg, gap: theme.spacing.md },
   sectionSpacing: { marginTop: theme.spacing.md },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.sm },
-  centeredMuted: { fontSize: 13, color: theme.colors.muted, textAlign: 'center', paddingVertical: theme.spacing.md },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  sectionIcon: { width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
+  centeredMuted: { fontSize: 13, color: theme.colors.muted, textAlign: 'center' },
+  emptyBlock: { alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: theme.spacing.md },
 
-  scopeToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: theme.spacing.xs },
-  scopeToggleText: { fontSize: 13, fontWeight: '600', color: theme.colors.muted },
-  scopeToggleTextActive: { color: theme.colors.primary },
+  hero: {
+    borderRadius: 24,
+    padding: theme.spacing.xl,
+    gap: theme.spacing.sm,
+  },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroLabel: { fontSize: 12.5, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
+  heroValue: { fontSize: 34, fontWeight: '800', color: '#ffffff' },
+  scopeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  scopeChipText: { fontSize: 11.5, fontWeight: '700', color: '#ffffff' },
+
+  periodRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 999,
+    padding: 3,
+    marginTop: theme.spacing.xs,
+  },
+  periodPill: { flex: 1, borderRadius: 999, paddingVertical: 7, alignItems: 'center' },
+  periodPillActive: { backgroundColor: '#ffffff' },
+  periodPillText: { fontSize: 12.5, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  periodPillTextActive: { color: theme.colors.primary },
 
   kpiGrid: { flexDirection: 'row', gap: theme.spacing.sm },
   kpiTile: {
     flex: 1,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.bg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     gap: 4,
   },
+  kpiIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
   kpiLabel: { fontSize: 11, color: theme.colors.muted, fontWeight: '600' },
   kpiValue: { fontSize: 17, fontWeight: '800', color: theme.colors.text },
 
@@ -207,10 +304,21 @@ const styles = StyleSheet.create({
   chartWrap: { marginTop: theme.spacing.sm },
 
   listContent: { paddingVertical: theme.spacing.sm },
-  associateRow: { paddingVertical: theme.spacing.sm },
+  associateRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingVertical: theme.spacing.sm },
   associateRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+  associateAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E3F2ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  associateAvatarText: { fontSize: 12, fontWeight: '700', color: theme.colors.primary },
+  associateInfo: { flex: 1, minWidth: 0 },
   associateName: { fontSize: 13, fontWeight: '700', color: theme.colors.text },
-  associateStat: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
+  associateStat: { fontSize: 11.5, color: theme.colors.muted, marginTop: 1 },
+  associateRevenue: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
 
   dealsList: { gap: theme.spacing.sm },
   dealCard: {

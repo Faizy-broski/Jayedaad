@@ -65,29 +65,23 @@ export function PropertyCard({ listing, onPress, footer }: PropertyCardProps) {
         <View style={styles.propertyImageTextBlock}>
           <Text style={styles.propertyImageTitle} numberOfLines={1}>{listing.title}</Text>
           <Text style={styles.propertyImageLocation} numberOfLines={1}>{listing.area}, {listing.city}</Text>
+          <Text style={styles.propertyPrice}>{formatPrice(Number(listing.price))}</Text>
+          <Text style={styles.propertyStatsLine}>
+            {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths · {formatArea(Number(listing.areaValue), listing.areaUnit)}
+          </Text>
+          {footer}
         </View>
-      </View>
-
-      <View style={styles.propertyBody}>
-        <Text style={styles.propertyPrice}>{formatPrice(Number(listing.price))}</Text>
-        <Text style={styles.propertyStatsLine}>
-          {listing.bedrooms ?? '–'} Beds · {listing.bathrooms ?? '–'} Baths · {formatArea(Number(listing.areaValue), listing.areaUnit)}
-        </Text>
-        {footer}
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  // Figma frame: corner radius 21.73, fill #FFFFFF @ 100%, drop shadow —
-  // was 20 (close but not exact); theme.colors.bg is already #ffffff.
   propertyCard: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: theme.colors.bg,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
@@ -150,7 +144,6 @@ const styles = StyleSheet.create({
   },
   propertyImageTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.bg },
   propertyImageLocation: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-  propertyBody: { padding: theme.spacing.md, gap: theme.spacing.xs },
-  propertyPrice: { fontWeight: '700', color: theme.colors.text, fontSize: 18 },
-  propertyStatsLine: { fontSize: 13, color: theme.colors.muted },
+  propertyPrice: { fontWeight: '700', color: theme.colors.bg, fontSize: 18, marginTop: 6 },
+  propertyStatsLine: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
 });

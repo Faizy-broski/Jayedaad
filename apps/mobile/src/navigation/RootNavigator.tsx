@@ -131,7 +131,7 @@ function MainStack() {
       <Stack.Screen name="Contact" component={ContactScreen} options={{ title: 'Contact' }} />
       <Stack.Screen name="AgentCRM" component={AgentCRMScreen} options={{ title: 'Inquiry Inbox' }} />
       <Stack.Screen name="LeadDetail" component={LeadDetailScreen} options={{ title: 'Lead' }} />
-      <Stack.Screen name="Pipeline" component={PipelineScreen} options={{ title: 'Pipeline' }} />
+      <Stack.Screen name="Pipeline" component={PipelineScreen} options={{ title: 'Opportunities' }} />
       <Stack.Screen name="OpportunityDetail" component={OpportunityDetailScreen} options={{ title: 'Opportunity' }} />
       <Stack.Screen name="AgentDashboard" component={AgentDashboardScreen} options={{ title: 'Dashboard' }} />
       <Stack.Screen name="ListingPerformance" component={ListingPerformanceScreen} options={{ title: 'Performance' }} />

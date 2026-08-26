@@ -157,7 +157,7 @@ export default function RevenuePage() {
             <h1 className="text-2xl font-bold text-foreground">Deals &amp; Revenue</h1>
             <p className="mt-1 text-sm text-muted-foreground">Track closed deals and commission revenue over time.</p>
             <Link href="/pipeline/analytics" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-              View open pipeline & forecast <TrendingUp className="h-3 w-3" />
+              View open opportunities & forecast <TrendingUp className="h-3 w-3" />
             </Link>
           </div>
           {profile?.isAgencyAdmin && (

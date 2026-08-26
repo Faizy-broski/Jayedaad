@@ -173,9 +173,9 @@ function PipelineBoard() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
             <Kanban className="h-5 w-5 text-primary" />
-            Pipeline
+            Opportunities
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Drag a card to move it through your pipeline.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Drag a card to move it to the next stage.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link

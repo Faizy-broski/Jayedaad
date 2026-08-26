@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient';
 import { mapAgencyRow } from './agenciesRepository';
-import { Agency, AgentOverview, PlatformStats, RevenueStats, RoleAccessDescription } from '../models';
+import { Agency, AgentOverview, PlatformStats, RevenueStats, RevenueSummary, RoleAccessDescription } from '../models';
 
 export interface AdminPageFilters {
   page?: number;
@@ -57,15 +57,26 @@ export const adminRepository = {
 
   // Admin-scoped agency roster — every verification status, unlike
   // agenciesRepository.list() (GET /agencies, @Public()) which only ever
-  // returns verified agencies for the buyer-facing directory. See
-  // admin.repository.ts::listAgenciesOverview for why the Super Admin
-  // Agencies page needs this instead. Always paginated (no other consumer
-  // needs the unbounded shape).
+  // returns verified agencies for the buyer-facing directory. Dual-mode,
+  // same convention as listAgentsOverview above: called with no
+  // page/pageSize (the CRM agent/agency picker's unbounded "every agency"
+  // list), resolves to Agency[]; called with either (the Agencies admin
+  // table), resolves to a Page shape.
   listAgenciesOverview: async (
     filters: AdminPageFilters & { search?: string; verificationStatus?: string } = {},
-  ): Promise<AdminPaginatedAgencies> => {
+  ): Promise<Agency[] | AdminPaginatedAgencies> => {
     const { data } = await httpClient.get('/admin/agencies', { params: filters });
+    if (Array.isArray(data)) return (data as any[]).map(mapAgencyRow);
     return { ...data, items: (data.items as any[]).map(mapAgencyRow) };
+  },
+
+  // One agency's commission revenue, aggregated across every one of its
+  // staff members directly by agency_id — no anchor agentId needed, unlike
+  // agentsRepository.getRevenue's scope='agency' (which needs a known
+  // staff member's id). Already camelCase off the backend.
+  getAgencyRevenue: async (agencyId: string, params: { period: 'month' | 'quarter' | 'year' }): Promise<RevenueSummary> => {
+    const { data } = await httpClient.get(`/admin/agencies/${agencyId}/revenue`, { params });
+    return data;
   },
 
   listRoles: async (): Promise<RoleAccessDescription[]> => {

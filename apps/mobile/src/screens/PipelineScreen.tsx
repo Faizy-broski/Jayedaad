@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, SafeAreaView, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -11,7 +12,7 @@ import {
   useOpportunityFunnelViewModel,
   useOpportunityPipelineViewModel,
 } from '@jayedaad/core';
-import { Button, KpiTile, refreshControlProps, theme } from '@jayedaad/ui-native';
+import { Button, refreshControlProps, theme } from '@jayedaad/ui-native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
 // True cross-column drag-and-drop doesn't work on a single-column phone
@@ -31,6 +32,12 @@ const STAGE_TABS: { value: OpportunityStage; label: string; icon: keyof typeof I
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+}
+
+function probabilityStyle(probability: number): { bg: string; text: string } {
+  if (probability >= 66) return { bg: '#E3F2ED', text: theme.colors.primary };
+  if (probability >= 33) return { bg: '#FFF4E0', text: '#B8790B' };
+  return { bg: theme.colors.surfaceAlt, text: theme.colors.muted };
 }
 
 export function PipelineScreen() {
@@ -65,17 +72,38 @@ export function PipelineScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {funnel && (
-        <View style={styles.summaryRow}>
-          <KpiTile icon="wallet-outline" label="Open Value" value={formatPrice(funnel.openPipelineValue)} sub={`${funnel.openPipelineCount} open`} style={styles.summaryTile} />
-          <KpiTile icon="trending-up-outline" label="Forecast" value={formatPrice(funnel.forecastedRevenue)} style={styles.summaryTile} />
-          <KpiTile
-            icon="stats-chart-outline"
-            label="Win/Loss"
-            value={funnel.winLossRatio != null ? funnel.winLossRatio.toFixed(2) : '—'}
-            sub={`${funnel.won}W · ${funnel.lost}L`}
-            style={styles.summaryTile}
-          />
-        </View>
+        <LinearGradient
+          colors={theme.gradients.primary.colors}
+          start={theme.gradients.primary.start}
+          end={theme.gradients.primary.end}
+          style={styles.hero}
+        >
+          <Text style={styles.heroLabel}>Open Pipeline Value</Text>
+          <Text style={styles.heroValue} numberOfLines={1} adjustsFontSizeToFit>
+            {formatPrice(funnel.openPipelineValue)}
+          </Text>
+          <Text style={styles.heroSub}>{funnel.openPipelineCount} open opportunit{funnel.openPipelineCount === 1 ? 'y' : 'ies'}</Text>
+
+          <View style={styles.heroStatsRow}>
+            <View style={styles.heroStat}>
+              <Ionicons name="trending-up-outline" size={14} color="#ffffff" />
+              <View>
+                <Text style={styles.heroStatLabel}>Forecast</Text>
+                <Text style={styles.heroStatValue}>{formatPrice(funnel.forecastedRevenue)}</Text>
+              </View>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStat}>
+              <Ionicons name="stats-chart-outline" size={14} color="#ffffff" />
+              <View>
+                <Text style={styles.heroStatLabel}>Win/Loss</Text>
+                <Text style={styles.heroStatValue}>
+                  {funnel.winLossRatio != null ? funnel.winLossRatio.toFixed(2) : '—'} · {funnel.won}W {funnel.lost}L
+                </Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
       )}
 
       <FlatList
@@ -107,14 +135,14 @@ export function PipelineScreen() {
 
       {isLoading && (
         <View style={styles.loadingState}>
-          <Text style={styles.loading}>Loading your pipeline…</Text>
+          <Text style={styles.loading}>Loading your opportunities…</Text>
         </View>
       )}
 
       {!isLoading && isError && (
         <View style={styles.errorState}>
           <Ionicons name="alert-circle-outline" size={32} color={theme.colors.danger} />
-          <Text style={styles.errorText}>Couldn&apos;t load your pipeline.</Text>
+          <Text style={styles.errorText}>Couldn&apos;t load your opportunities.</Text>
           <Button label="Retry" variant="secondary" size="sm" onPress={() => refetch()} />
         </View>
       )}
@@ -127,31 +155,39 @@ export function PipelineScreen() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="grid-outline" size={30} color={theme.colors.muted} />
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="grid-outline" size={26} color={theme.colors.primary} />
+              </View>
               <Text style={styles.emptyTitle}>No opportunities here</Text>
-              <Text style={styles.emptyText}>Convert a lead to an opportunity from its detail screen to see it in your pipeline.</Text>
+              <Text style={styles.emptyText}>Convert a lead to an opportunity from its detail screen to see it here.</Text>
             </View>
           }
-          renderItem={({ item }: { item: Opportunity }) => (
-            <Pressable
-              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-              onPress={() => navigation.navigate('OpportunityDetail', { opportunityId: item.id })}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <View style={styles.probabilityBadge}>
-                  <Text style={styles.probabilityBadgeText}>{item.probability}%</Text>
+          renderItem={({ item }: { item: Opportunity }) => {
+            const probStyle = probabilityStyle(item.probability);
+            return (
+              <Pressable
+                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+                onPress={() => navigation.navigate('OpportunityDetail', { opportunityId: item.id })}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIcon}>
+                    <Ionicons name="briefcase-outline" size={15} color={theme.colors.primary} />
+                  </View>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <View style={[styles.probabilityBadge, { backgroundColor: probStyle.bg }]}>
+                    <Text style={[styles.probabilityBadgeText, { color: probStyle.text }]}>{item.probability}%</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.cardValue}>{formatPrice(item.value)}</Text>
-              <View style={styles.cardMetaRow}>
-                <Ionicons name="calendar-outline" size={12} color={theme.colors.muted} />
-                <Text style={styles.cardMeta}>Expected close {formatDate(item.expectedCloseDate)}</Text>
-              </View>
-            </Pressable>
-          )}
+                <Text style={styles.cardValue}>{formatPrice(item.value)}</Text>
+                <View style={styles.cardMetaRow}>
+                  <Ionicons name="calendar-outline" size={12} color={theme.colors.muted} />
+                  <Text style={styles.cardMeta}>Expected close {formatDate(item.expectedCloseDate)}</Text>
+                </View>
+              </Pressable>
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -160,9 +196,30 @@ export function PipelineScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.bg },
-  summaryRow: { flexDirection: 'row', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.md },
-  summaryTile: { flex: 1 },
-  filterRowScroll: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },
+
+  hero: {
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    borderRadius: 24,
+    padding: theme.spacing.xl,
+  },
+  heroLabel: { fontSize: 12.5, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
+  heroValue: { marginTop: 4, fontSize: 30, fontWeight: '800', color: '#ffffff' },
+  heroSub: { marginTop: 2, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+  heroStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.25)',
+  },
+  heroStat: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroStatDivider: { width: StyleSheet.hairlineWidth, height: 28, backgroundColor: 'rgba(255,255,255,0.25)', marginHorizontal: theme.spacing.sm },
+  heroStatLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.75)', fontWeight: '600' },
+  heroStatValue: { fontSize: 12.5, color: '#ffffff', fontWeight: '700', marginTop: 1 },
+
+  filterRowScroll: { flexGrow: 0, marginTop: theme.spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },
   filterRow: { paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.sm, gap: theme.spacing.xs },
   filterChip: {
     flexDirection: 'row',
@@ -183,20 +240,39 @@ const styles = StyleSheet.create({
   errorText: { color: theme.colors.muted },
   listContent: { padding: theme.spacing.lg, gap: theme.spacing.sm },
   emptyState: { alignItems: 'center', gap: theme.spacing.xs, paddingVertical: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl },
+  emptyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E3F2ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.text, marginTop: theme.spacing.xs },
   emptyText: { fontSize: 12, color: theme.colors.muted, textAlign: 'center' },
   card: {
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.bg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
   cardPressed: { opacity: 0.7 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  cardIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: '#E3F2ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardName: { flex: 1, fontSize: 14, fontWeight: '700', color: theme.colors.text },
-  probabilityBadge: { backgroundColor: theme.colors.bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  probabilityBadgeText: { fontSize: 11, fontWeight: '600', color: theme.colors.muted },
-  cardValue: { marginTop: 4, fontSize: 15, fontWeight: '700', color: theme.colors.primary },
+  probabilityBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  probabilityBadgeText: { fontSize: 11, fontWeight: '700' },
+  cardValue: { marginTop: 8, fontSize: 16, fontWeight: '800', color: theme.colors.primary },
   cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   cardMeta: { fontSize: 11, color: theme.colors.muted },
 });

@@ -839,6 +839,11 @@ export interface RevenueStats {
 export interface AgentOverview {
   id: string;
   displayName: string | null;
+  // Always present (every signup path uses email/password or an OAuth
+  // email) — the real fallback source when displayName is null, see
+  // resolveDisplayName in utils/displayName.ts. Never fall back to `id`
+  // (a raw UUID) anywhere this type is rendered.
+  email: string | null;
   phone: string | null;
   city: string | null;
   verificationStatus: string;

@@ -50,8 +50,8 @@ export default function PipelineAnalyticsPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Pipeline Analytics</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Funnel conversion, open pipeline value, and forecasted revenue.</p>
+          <h1 className="text-2xl font-bold text-foreground">Opportunity Analytics</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Funnel conversion, open opportunity value, and forecasted revenue.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {profile?.isAgencyAdmin && (
@@ -82,7 +82,7 @@ export default function PipelineAnalyticsPage() {
       {!isLoading && isError && (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 py-12 text-center">
           <AlertTriangle className="h-8 w-8 text-destructive" />
-          <p className="text-sm font-semibold text-foreground">Couldn&apos;t load your pipeline analytics</p>
+          <p className="text-sm font-semibold text-foreground">Couldn&apos;t load your opportunity analytics</p>
           <button type="button" onClick={() => refetch()} className="text-xs font-medium text-primary hover:underline">
             Retry
           </button>
@@ -92,7 +92,7 @@ export default function PipelineAnalyticsPage() {
       {!isLoading && !isError && funnel && (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <KpiCard index={0} icon={Wallet} label="Open Pipeline Value" value={formatPrice(funnel.openPipelineValue)} sub={`${funnel.openPipelineCount} open`} />
+            <KpiCard index={0} icon={Wallet} label="Open Value" value={formatPrice(funnel.openPipelineValue)} sub={`${funnel.openPipelineCount} open`} />
             <KpiCard index={1} icon={TrendingUp} label="Forecasted Revenue" value={formatPrice(funnel.forecastedRevenue)} sub="Probability-weighted" />
             <KpiCard
               index={2}

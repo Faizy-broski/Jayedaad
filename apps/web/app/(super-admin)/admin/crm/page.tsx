@@ -3,13 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import toast from 'react-hot-toast';
-import { Lead, LeadStatus, useAdminAgentsViewModel, useAdminCrmStatsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
+import { Lead, LeadStatus, resolveAgentDisplayName, useAdminAgentsViewModel, useAdminCrmStatsViewModel, useAdminCrmViewModel } from '@jayedaad/core';
 import { Button, cn, Input, Pagination } from '@jayedaad/ui-web';
 import {
   AlertTriangle,
   Building2,
-  ChevronDown,
   Clock,
   ExternalLink,
   Globe,
@@ -21,14 +19,14 @@ import {
   Phone,
   PhoneCall,
   Search,
-  Send,
-  Trash2,
   UserCog,
   Users,
   UserX,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { SetReminderPopover } from '@/components/crm/SetReminderPopover';
+import { AgentAgencyPicker, PickerSelection } from '@/components/crm/AgentAgencyPicker';
+import { EntityDetailPanel } from '@/components/crm/EntityDetailPanel';
 
 const PAGE_SIZE = 20;
 
@@ -76,14 +74,16 @@ function whatsappHref(phone: string, name: string): string {
 // on since rows are no longer implicitly scoped to one agent.
 export default function AdminCrmPage() {
   const { agents } = useAdminAgentsViewModel();
-  const [agentFilter, setAgentFilter] = useState('');
+  const [pickerSelection, setPickerSelection] = useState<PickerSelection>(null);
+  // Agency selections open the details panel only (per product decision) —
+  // the lead list stays unfiltered unless an individual agent is picked.
+  const agentFilter = pickerSelection?.type === 'agent' ? pickerSelection.id : '';
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [openNoteFor, setOpenNoteFor] = useState<string | null>(null);
-  const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
 
-  const { leads, total, isLoading, isError, refetch, updateStatus, addNote, assign, remove } = useAdminCrmViewModel({
+  const { leads, total, isLoading, isError, refetch } = useAdminCrmViewModel({
     agentId: agentFilter || undefined,
     status: statusFilter === 'all' ? undefined : statusFilter,
     search: search.trim() || undefined,
@@ -93,7 +93,7 @@ export default function AdminCrmPage() {
   const stats = useAdminCrmStatsViewModel(agentFilter || undefined);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const agentName = (id: string | null) => (id ? (agents.find((a) => a.id === id)?.displayName ?? id) : 'Unassigned');
+  const agentName = (id: string | null) => (id ? resolveAgentDisplayName(agents.find((a) => a.id === id)) : 'Unassigned');
 
   function handleTabChange(next: LeadStatus | 'all') {
     setStatusFilter(next);
@@ -103,51 +103,6 @@ export default function AdminCrmPage() {
   function handleSearchChange(value: string) {
     setSearch(value);
     setPage(1);
-  }
-
-  function changeStatus(leadId: string, status: LeadStatus) {
-    updateStatus.mutate(
-      { leadId, status },
-      {
-        onSuccess: () => toast.success(`Lead marked as ${status}.`),
-        onError: (err: any) => toast.error(err?.response?.data?.message || 'Something went wrong — please try again.'),
-      },
-    );
-  }
-
-  function handleReassign(leadId: string, agentId: string) {
-    if (!agentId) return;
-    assign.mutate(
-      { leadId, agentId },
-      {
-        onSuccess: () => toast.success('Lead reassigned.'),
-        onError: () => toast.error('Something went wrong — please try again.'),
-      },
-    );
-  }
-
-  function handleDelete(leadId: string, name: string) {
-    if (!confirm(`Delete the lead from "${name}"? This cannot be undone.`)) return;
-    remove.mutate(leadId, {
-      onSuccess: () => toast.success('Lead deleted.'),
-      onError: () => toast.error('Something went wrong — please try again.'),
-    });
-  }
-
-  function submitNote(leadId: string) {
-    const body = draftNotes[leadId]?.trim();
-    if (!body) return;
-    addNote.mutate(
-      { leadId, body },
-      {
-        onSuccess: () => {
-          toast.success('Note added.');
-          setDraftNotes((prev) => ({ ...prev, [leadId]: '' }));
-          setOpenNoteFor(null);
-        },
-        onError: () => toast.error('Something went wrong — please try again.'),
-      },
-    );
   }
 
   return (
@@ -166,26 +121,23 @@ export default function AdminCrmPage() {
             </p>
           </div>
 
-          <div className="relative w-full max-w-xs">
-            <select
-              value={agentFilter}
-              onChange={(e) => {
-                setAgentFilter(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 w-full appearance-none rounded-full border border-input bg-background px-4 pr-9 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">All agents</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.displayName ?? a.id}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
+          <AgentAgencyPicker
+            value={pickerSelection}
+            onSelect={(selection) => {
+              setPickerSelection(selection);
+              setPage(1);
+            }}
+          />
         </div>
       </Reveal>
+
+      <EntityDetailPanel
+        selection={pickerSelection}
+        onClose={() => {
+          setPickerSelection(null);
+          setPage(1);
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stats.isLoading ? (
@@ -316,53 +268,6 @@ export default function AdminCrmPage() {
                           </div>
                         </div>
                       </div>
-
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <div className="relative">
-                          <select
-                            value={lead.status}
-                            onChange={(e) => changeStatus(lead.id, e.target.value as LeadStatus)}
-                            disabled={updateStatus.isPending}
-                            className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium capitalize text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                          >
-                            {STATUS_FILTERS.filter((f) => f.id !== 'all').map((f) => (
-                              <option key={f.id} value={f.id}>
-                                {f.label}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                        </div>
-
-                        <div className="relative">
-                          <select
-                            value=""
-                            onChange={(e) => handleReassign(lead.id, e.target.value)}
-                            disabled={assign.isPending}
-                            className="appearance-none rounded-full border border-input bg-background py-1.5 pl-3 pr-8 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                          >
-                            <option value="">Reassign to…</option>
-                            {agents
-                              .filter((a) => a.id !== lead.agentId)
-                              .map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.displayName ?? a.id}
-                                </option>
-                              ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                        </div>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive"
-                          disabled={remove.isPending}
-                          onClick={() => handleDelete(lead.id, lead.name)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
                     </div>
 
                     {lead.message && <p className="mt-3 text-sm leading-relaxed text-foreground/90">{lead.message}</p>}
@@ -422,7 +327,7 @@ export default function AdminCrmPage() {
                           className="overflow-hidden"
                         >
                           <div className="mt-3 space-y-2 border-t border-border pt-3">
-                            {lead.notes.length > 0 && (
+                            {lead.notes.length > 0 ? (
                               <ul className="space-y-1.5">
                                 {lead.notes.map((note) => (
                                   <li key={note.id} className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-foreground/90">
@@ -431,21 +336,9 @@ export default function AdminCrmPage() {
                                   </li>
                                 ))}
                               </ul>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">No notes on this lead yet.</p>
                             )}
-                            <div className="flex items-center gap-2">
-                              <input
-                                autoFocus
-                                type="text"
-                                value={draftNotes[lead.id] ?? ''}
-                                onChange={(e) => setDraftNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
-                                onKeyDown={(e) => e.key === 'Enter' && submitNote(lead.id)}
-                                placeholder="Add a note…"
-                                className="h-9 flex-1 rounded-full border border-input bg-background px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              />
-                              <Button size="sm" disabled={!draftNotes[lead.id]?.trim() || addNote.isPending} onClick={() => submitNote(lead.id)}>
-                                <Send className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
                           </div>
                         </motion.div>
                       )}

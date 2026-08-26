@@ -37,6 +37,10 @@ import type { BottomTabParamList } from '../navigation/BottomTabNavigator';
 // designed for a light background and read as near-invisible against this
 // header's dark photo/gradient.
 import heroLogoImage from '../../assets/images/logo.png';
+// Real Figma card background — replaces the hand-approximated 3-blob radial
+// gradient (propertyCategoryBlob1/2/3) previously used behind each "Browse
+// by category" tile's icon, which didn't match the design closely enough.
+import categoryCardBackground from '../../assets/images/Link.png';
 import heroBannerImage from '../../assets/images/home-banner.webp';
 import lahoreImage from '../../assets/images/lahore.webp';
 import karachiImage from '../../assets/images/karachi.webp';
@@ -499,15 +503,11 @@ function PropertyCategoryCard({
 }) {
   return (
     <Pressable style={styles.propertyCategoryCard} onPress={onPress}>
-      <View style={styles.propertyCategoryBlobContainer}>
-        <View style={styles.propertyCategoryBlob1} />
-        <View style={styles.propertyCategoryBlob2} />
-        <View style={styles.propertyCategoryBlob3} />
-      </View>
+      <Image source={categoryCardBackground} style={styles.propertyCategoryBackground} contentFit="cover" />
 
       <View style={styles.propertyCategoryIconStack}>
         <View style={styles.propertyCategoryIconCircle}>
-          <Ionicons name={category.icon} size={22} color={theme.colors.primary} />
+          <Ionicons name={category.icon} size={18} color={theme.colors.primary} />
         </View>
       </View>
 
@@ -818,55 +818,23 @@ const styles = StyleSheet.create({
   propertyCategoryCard: {
     width: '31%',
     alignItems: 'center',
-    backgroundColor: theme.colors.bg,
     borderRadius: 20,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
     marginBottom: theme.spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
-  propertyCategoryBlobContainer: {
+  propertyCategoryBackground: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 20,
-    overflow: 'hidden',
-    alignItems: 'center',
-  },
-  propertyCategoryBlob1: {
-    position: 'absolute',
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    top: -55,
-    backgroundColor: 'rgba(13,99,75,0.025)',
-  },
-  propertyCategoryBlob2: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    top: -30,
-    backgroundColor: 'rgba(13,99,75,0.035)',
-  },
-  propertyCategoryBlob3: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    top: -10,
-    backgroundColor: 'rgba(13,99,75,0.05)',
   },
   propertyCategoryIconStack: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: 4,
     marginTop: 2,
   },
   propertyCategoryIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: theme.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -876,8 +844,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  propertyCategoryTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
-  propertyCategoryCount: { fontSize: 11, color: theme.colors.muted, marginTop: 2 },
+  // Figma: Plus Jakarta Sans, Bold, 10.03px, line-height 15, letter-spacing 0%, fill #034B37, centered.
+  propertyCategoryTitle: { fontSize: 10, fontWeight: '700', lineHeight: 15, letterSpacing: 0, textAlign: 'center', color: '#034B37' },
+  propertyCategoryCount: { fontSize: 11, color: theme.colors.muted, marginTop: -2 },
   cityList: { gap: theme.spacing.md, paddingRight: theme.spacing.lg },
   blogTitle: { fontSize: 22, fontWeight: '700', color: theme.colors.text },
   blogList: { gap: theme.spacing.md, marginTop: theme.spacing.sm },

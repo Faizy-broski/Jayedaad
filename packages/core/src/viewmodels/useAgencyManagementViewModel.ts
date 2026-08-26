@@ -1,7 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { agenciesRepository } from '../services/agenciesRepository';
-import { adminRepository } from '../services/adminRepository';
-import { CreateAgencyInput, SetAgencyTierInput, SetAgencyVerificationStatusInput, UpdateAgencyInput } from '../models';
+import { adminRepository, AdminPaginatedAgencies } from '../services/adminRepository';
+import { Agency, CreateAgencyInput, SetAgencyTierInput, SetAgencyVerificationStatusInput, UpdateAgencyInput } from '../models';
+
+// listAgenciesOverview is dual-mode (see admin.repository.ts's comment) —
+// this hook always passes page/pageSize so the paginated shape is what it
+// gets at runtime, but the return type is a union since other callers
+// (the CRM agent/agency picker) call it unpaginated. Same
+// normalize-to-one-shape pattern useUserManagementViewModel's
+// normalizeUsersResult already uses for the identical situation.
+function normalizeAgenciesResult(
+  data: Agency[] | AdminPaginatedAgencies | undefined,
+  filters: { page?: number; pageSize?: number },
+): AdminPaginatedAgencies {
+  if (!data) return { items: [], total: 0, page: filters.page ?? 1, pageSize: filters.pageSize ?? 20 };
+  if (Array.isArray(data)) return { items: data, total: data.length, page: 1, pageSize: data.length || 1 };
+  return data;
+}
 
 // Super Admin agency management — full CRUD + verification decision. Rosters
 // via GET /admin/agencies (every verification status), not
@@ -18,7 +33,7 @@ export function useAgencyManagementViewModel(
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      const result = await adminRepository.listAgenciesOverview(filters);
+      const result = normalizeAgenciesResult(await adminRepository.listAgenciesOverview(filters), filters);
       // city has no server-side filter (a pre-existing, unused prop — no
       // caller currently passes it) — kept as a client-side narrowing over
       // the current page for backward compatibility, not a full-set filter.

@@ -44,7 +44,7 @@ const SELLING_ITEMS: ListAction[] = [
   { label: 'Realtor Dashboard', icon: 'stats-chart-outline', route: 'AgentDashboard', agentOnly: true },
   { label: 'My Projects', icon: 'business-outline', route: 'MyProjects', agentOnly: true },
   { label: 'Inbox', icon: 'mail-unread-outline', route: 'AgentCRM', agentOnly: true },
-  { label: 'Pipeline', icon: 'grid-outline', route: 'Pipeline', agentOnly: true },
+  { label: 'Opportunities', icon: 'grid-outline', route: 'Pipeline', agentOnly: true },
   { label: 'Revenue', icon: 'wallet-outline', route: 'Revenue', agentOnly: true },
   { label: 'Agency Staff', icon: 'people-outline', route: 'AgencyStaff', agentOnly: true, agencyAdminOnly: true },
   { label: 'Agency Settings', icon: 'business-outline', route: 'AgencySettings', agentOnly: true, agencyAdminOnly: true },

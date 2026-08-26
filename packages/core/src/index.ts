@@ -1,6 +1,7 @@
 export * from './models';
 export * from './utils/formatPrice';
 export * from './utils/getDisplayName';
+export * from './utils/resolveAgentDisplayName';
 export * from './utils/slugify';
 export * from './utils/listingMediaCategories';
 export * from './utils/convertPrice';
@@ -76,6 +77,9 @@ export * from './viewmodels/useAdminRevenueViewModel';
 export * from './viewmodels/useAdminStatsViewModel';
 export * from './viewmodels/useAgencyManagementViewModel';
 export * from './viewmodels/useAdminAgentsViewModel';
+export * from './viewmodels/useAdminAgenciesViewModel';
+export * from './viewmodels/useAgentAgencyPickerViewModel';
+export * from './viewmodels/useAgencyRevenueViewModel';
 export * from './viewmodels/useOwnerVerificationViewModel';
 export * from './viewmodels/useAdminOwnersViewModel';
 export * from './viewmodels/usePlanManagementViewModel';

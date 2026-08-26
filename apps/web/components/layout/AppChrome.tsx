@@ -17,6 +17,7 @@ const APP_SHELL_PREFIXES = [
   '/property-management',
   '/projects',
   '/crm',
+  '/pipeline',
   '/calendar',
   '/revenue',
   '/agent-settings',
