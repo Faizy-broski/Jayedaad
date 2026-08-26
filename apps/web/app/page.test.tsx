@@ -14,14 +14,14 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('HomePage', () => {
-  // Hero.tsx has no text heading (h1/role="heading") any more — it's a
-  // wordmark image + tagline paragraph, and it renders BOTH a desktop and a
-  // mobile variant unconditionally (Tailwind's `hidden`/`lg:block` never
-  // actually hides anything in jsdom, since no stylesheet is applied), so
-  // this asserts on "at least one" wordmark image rather than a unique node.
-  it('renders the hero wordmark', () => {
+  // Hero.tsx renders a background photo + h1/tagline overlay (no wordmark
+  // image any more), and renders BOTH a desktop and a mobile variant
+  // unconditionally (Tailwind's `hidden`/`lg:block` never actually hides
+  // anything in jsdom, since no stylesheet is applied), so this asserts on
+  // "at least one" heading rather than a unique node.
+  it('renders the hero heading', () => {
     renderWithProviders(<HomePage />);
 
-    expect(screen.getAllByAltText('Jayedaad').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('heading', { name: /find your perfect/i }).length).toBeGreaterThan(0);
   });
 });
