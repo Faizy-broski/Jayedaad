@@ -34,7 +34,7 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
           .trackEngagement(project.id, { type: 'click', platform: 'web', viewerSessionId: getViewerSessionId() })
           .catch(() => {})
       }
-      className="block w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg"
+      className="block w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         <Image src={project.coverImageUrl} alt={project.name} fill sizes="288px" className="object-cover" />
@@ -69,15 +69,15 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
 
       <div className="flex flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-semibold text-slate-900">{project.name}</h3>
+          <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">{project.name}</h3>
         </div>
 
-        <p className="flex items-center gap-1 truncate text-xs text-slate-500">
+        <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
           <MapPin className="h-3.5 w-3.5 shrink-0" />
           {project.area}, {project.city}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Layers className="h-3.5 w-3.5" />
             {project.unitTypeCount} unit type{project.unitTypeCount === 1 ? '' : 's'}
@@ -85,7 +85,7 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
            <span className="text-sm font-semibold text-primary">{formatPrice(project.priceRangeMin)}+</span>
         </div>
 
-        <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">
+        <div className="flex gap-3 border-t border-border pt-3 text-xs">
           {/* Not its own <Link> — the whole card is already one (see the
               outer element), and nested <a> tags are invalid HTML/React.
               Kept as visible affordance text only. */}

@@ -57,7 +57,7 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
         aria-label="Breadcrumb"
-        className="mb-5 flex items-center gap-1.5 text-xs text-slate-500"
+        className="mb-5 flex items-center gap-1.5 text-xs text-muted-foreground"
       >
         <Link href="/developments" className="hover:text-primary">
           Projects
@@ -65,7 +65,7 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
         <ChevronRight className="h-3 w-3" />
         <span>{project.city}</span>
         <ChevronRight className="h-3 w-3" />
-        <span className="text-slate-700">{project.name}</span>
+        <span className="text-foreground">{project.name}</span>
       </motion.nav>
 
       <ProjectGallery
@@ -86,17 +86,17 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
                   Verified
                 </span>
               )}
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                 {STATUS_LABEL[project.status]}
               </span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                 {project.developer.name}
               </span>
             </div>
 
-            <h1 className="heading-1 mt-3 text-slate-900">{project.name}</h1>
+            <h1 className="heading-1 mt-3 text-foreground">{project.name}</h1>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
                 {project.area}, {project.city}
@@ -124,7 +124,7 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
               <button
                 type="button"
                 onClick={() => setSaved((v) => !v)}
-                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300"
+                className="flex items-center gap-1.5 rounded-full border border-border px-5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40"
               >
                 <Heart className={`h-4 w-4 ${saved ? 'fill-primary text-primary' : ''}`} />
                 Save project
@@ -138,7 +138,7 @@ export function ProjectDetail({ project, similar }: ProjectDetailProps) {
 
           <Reveal delay={0.1}>
             <h2 className="heading-2 text-heading-gradient">Description</h2>
-            <p className={`body-text mt-3 text-slate-600 ${descriptionExpanded ? '' : 'line-clamp-3'}`}>
+            <p className={`body-text mt-3 text-muted-foreground ${descriptionExpanded ? '' : 'line-clamp-3'}`}>
               {project.description}
             </p>
             <button

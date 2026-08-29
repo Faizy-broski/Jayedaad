@@ -177,13 +177,13 @@ export function ListingsBrowser({ initialFilters, purpose, agencySlug }: Listing
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 p-1">
+              <div className="inline-flex items-center gap-1 rounded-full border border-border p-1">
                 <button
                   type="button"
                   onClick={() => setView('grid')}
                   aria-pressed={view === 'grid'}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                    view === 'grid' ? 'bg-heading-gradient text-primary-foreground' : 'text-slate-600'
+                    view === 'grid' ? 'bg-heading-gradient text-primary-foreground' : 'text-muted-foreground'
                   }`}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
@@ -194,7 +194,7 @@ export function ListingsBrowser({ initialFilters, purpose, agencySlug }: Listing
                   onClick={() => setView('map')}
                   aria-pressed={view === 'map'}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                    view === 'map' ? 'bg-heading-gradient text-primary-foreground' : 'text-slate-600'
+                    view === 'map' ? 'bg-heading-gradient text-primary-foreground' : 'text-muted-foreground'
                   }`}
                 >
                   <MapIcon className="h-3.5 w-3.5" />
@@ -221,7 +221,7 @@ export function ListingsBrowser({ initialFilters, purpose, agencySlug }: Listing
 
           <div className="mt-6">
             {isLoading ? (
-              <p className="py-16 text-center text-sm text-slate-500">Loading properties…</p>
+              <p className="py-16 text-center text-sm text-muted-foreground">Loading properties…</p>
             ) : view === 'grid' ? (
               <>
                  <PropertyGrid properties={displayed} />

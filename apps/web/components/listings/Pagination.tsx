@@ -36,14 +36,14 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
         aria-label="Previous page"
         onClick={() => onPageChange(Math.max(1, page - 1))}
         disabled={page === 1}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
 
       {getPageItems(page, pageCount).map((item, index) =>
         item === 'ellipsis' ? (
-          <span key={`ellipsis-${index}`} className="px-1.5 text-sm text-slate-400">
+          <span key={`ellipsis-${index}`} className="px-1.5 text-sm text-muted-foreground">
             …
           </span>
         ) : (
@@ -53,7 +53,7 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
             aria-current={item === page ? 'page' : undefined}
             onClick={() => onPageChange(item)}
             className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${
-              item === page ? 'bg-heading-gradient text-primary-foreground' : 'text-slate-600 hover:bg-slate-100'
+              item === page ? 'bg-heading-gradient text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
             }`}
           >
             {item}
@@ -66,7 +66,7 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
         aria-label="Next page"
         onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         disabled={page === pageCount}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

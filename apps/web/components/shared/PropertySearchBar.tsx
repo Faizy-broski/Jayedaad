@@ -54,7 +54,7 @@ const FIELD_BUTTON =
   'flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left sm:px-5';
 
 function optionClass(active: boolean) {
-  return `w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${active ? 'bg-primary/10 font-medium text-primary' : 'text-slate-600 hover:bg-slate-50'
+  return `w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${active ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted'
     }`;
 }
 
@@ -91,14 +91,14 @@ function FilterField({
   return (
     <div
       ref={ref}
-      className={`relative ${wrapperClassName} border-b border-slate-100 sm:border-b-0 sm:border-r sm:border-slate-100 ${last ? 'sm:border-r-0' : ''}`}
+      className={`relative ${wrapperClassName} border-b border-border sm:border-b-0 sm:border-r sm:border-border ${last ? 'sm:border-r-0' : ''}`}
     >
       <button type="button" onClick={() => onToggle(!open)} className={FIELD_BUTTON}>
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
           <Icon className="h-3.5 w-3.5 text-primary" />
           {label}
         </span>
-        <span className={`truncate text-sm ${valueLabel ? 'font-medium text-primary' : 'text-slate-400'}`}>
+        <span className={`truncate text-sm ${valueLabel ? 'font-medium text-primary' : 'text-muted-foreground'}`}>
           {valueLabel || placeholder}
         </span>
       </button>
@@ -110,7 +110,7 @@ function FilterField({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className={`absolute top-full z-30 mt-2 max-w-[90vw] rounded-2xl border border-slate-100 bg-white p-4 text-slate-800 shadow-2xl ${last ? 'right-0' : 'left-0'
+            className={`absolute top-full z-30 mt-2 max-w-[90vw] rounded-2xl border border-border bg-card p-4 text-foreground shadow-2xl ${last ? 'right-0' : 'left-0'
               } ${panelClassName}`}
           >
             {children}
@@ -143,11 +143,11 @@ export function RangeDropdown({
     <div className="w-full">
       {unit && (
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unit</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unit</span>
           <select
             value={unit.value}
             onChange={(e) => unit.onChange(e.target.value as AreaUnit)}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-primary focus:outline-none"
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground focus:border-primary focus:outline-none"
           >
             {AREA_UNITS.map((u) => (
               <option key={u} value={u}>
@@ -164,16 +164,16 @@ export function RangeDropdown({
           placeholder="0"
           value={minValue}
           onChange={(e) => onChangeMin(e.target.value ? Number(e.target.value) : '')}
-          className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm focus:border-primary focus:outline-none"
+          className="w-full rounded-lg border border-border px-2.5 py-2 text-sm focus:border-primary focus:outline-none"
         />
-        <span className="shrink-0 text-xs text-slate-400">To</span>
+        <span className="shrink-0 text-xs text-muted-foreground">To</span>
         <input
           type="number"
           min={0}
           placeholder="Any"
           value={maxValue}
           onChange={(e) => onChangeMax(e.target.value ? Number(e.target.value) : '')}
-          className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm focus:border-primary focus:outline-none"
+          className="w-full rounded-lg border border-border px-2.5 py-2 text-sm focus:border-primary focus:outline-none"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -345,8 +345,8 @@ export function PropertySearchBar({
         </div>
       )}
 
-      <div className="relative w-full rounded-3xl bg-white p-3 shadow-2xl sm:rounded-[28px]">
-        <div className="flex flex-col divide-y divide-slate-100 sm:flex-row sm:items-stretch sm:divide-y-0">
+      <div className="relative w-full rounded-3xl bg-card p-3 shadow-2xl sm:rounded-[28px]">
+        <div className="flex flex-col divide-y divide-border sm:flex-row sm:items-stretch sm:divide-y-0">
           <FilterField
             icon={MapPin}
             label="City"
@@ -361,7 +361,7 @@ export function PropertySearchBar({
               onChange={(e) => setCitySearch(e.target.value)}
               placeholder="Search city…"
               autoFocus
-              className="mb-2 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none"
+              className="mb-2 w-full rounded-lg border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none"
             />
             <div className="max-h-52 space-y-0.5 overflow-y-auto pr-1">
               <button
@@ -375,7 +375,7 @@ export function PropertySearchBar({
                 All Cities
               </button>
               {filteredCities.length === 0 ? (
-                <p className="px-2.5 py-1.5 text-xs text-slate-400">No cities found.</p>
+                <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No cities found.</p>
               ) : (
                 filteredCities.map((c) => (
                   <button
@@ -398,8 +398,8 @@ export function PropertySearchBar({
               own suggestion dropdown), not a click-to-open panel like the
               other fields — typing should work immediately without an extra
               click first. */}
-          <div className="flex flex-[2] flex-col items-start gap-0.5 border-b border-slate-100 px-4 py-2.5 sm:border-b-0 sm:border-r-0 sm:px-5">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+          <div className="flex flex-[2] flex-col items-start gap-0.5 border-b border-border px-4 py-2.5 sm:border-b-0 sm:border-r-0 sm:px-5">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               <Locate className="h-3.5 w-3.5 text-primary" />
               Area
             </span>
@@ -407,7 +407,7 @@ export function PropertySearchBar({
               value={area}
               onChange={setArea}
               placeholder="e.g. Bahria Town, DHA"
-              className="h-auto w-full border-none bg-transparent p-0 text-sm font-medium text-primary placeholder:font-normal placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-auto w-full border-none bg-transparent p-0 text-sm font-medium text-primary placeholder:font-normal placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
 
@@ -448,9 +448,9 @@ export function PropertySearchBar({
               // card there grows upward, so real content growth here used to
               // read as the whole search bar jumping up instead of the panel
               // dropping down.
-              className="absolute inset-x-0 top-full z-20 mt-2 rounded-2xl border border-slate-100 bg-white shadow-2xl"
+              className="absolute inset-x-0 top-full z-20 mt-2 rounded-2xl border border-border bg-card shadow-2xl"
             >
-              <div className="flex flex-col divide-y divide-slate-100 sm:flex-row sm:items-stretch sm:divide-y-0">
+              <div className="flex flex-col divide-y divide-border sm:flex-row sm:items-stretch sm:divide-y-0">
                 <FilterField
                   icon={Home}
                   label="Property Type"
@@ -460,7 +460,7 @@ export function PropertySearchBar({
                   onToggle={() => toggleField('type')}
                   panelClassName="w-80"
                 >
-                  <div className="mb-3 flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+                  <div className="mb-3 flex items-center justify-between gap-4 border-b border-border pb-2">
                     <div className="flex gap-3 overflow-x-auto">
                       {categories.map((c) => (
                         <button
@@ -470,7 +470,7 @@ export function PropertySearchBar({
                             setCategorySlug(c.slug);
                             setPropertyTypeSlug('');
                           }}
-                          className={`shrink-0 whitespace-nowrap pb-1.5 text-sm font-medium transition-colors ${c.slug === activeCategoryTab ? 'border-b-2 border-primary text-primary' : 'text-slate-500'
+                          className={`shrink-0 whitespace-nowrap pb-1.5 text-sm font-medium transition-colors ${c.slug === activeCategoryTab ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'
                             }`}
                         >
                           {c.label}
@@ -497,7 +497,7 @@ export function PropertySearchBar({
                           setPropertyTypeSlug(t.slug);
                           setOpenField(null);
                         }}
-                        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-sm transition-colors ${propertyTypeSlug === t.slug ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-sm transition-colors ${propertyTypeSlug === t.slug ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted'
                           }`}
                       >
                         <Home className="h-3.5 w-3.5 shrink-0" />
@@ -549,9 +549,9 @@ export function PropertySearchBar({
               </div>
 
               {variant === 'projects' && (
-                <div className="grid grid-cols-1 gap-4 border-t border-slate-100 p-3 pt-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 border-t border-border p-3 pt-4 sm:grid-cols-2">
                   <div className="relative">
-                    <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                    <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-foreground">
                       <Building2 className="h-3.5 w-3.5 text-primary" />
                       Project Title
                     </label>
@@ -560,14 +560,14 @@ export function PropertySearchBar({
                       onChange={(e) => setKeyword(e.target.value)}
                       onFocus={() => setOpenField('project')}
                       placeholder="Select Projects"
-                      className="w-full rounded-lg border-b border-slate-200 px-1 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                      className="w-full rounded-lg border-b border-border bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                     />
                     {openField === 'project' && keyword.trim().length >= 2 && (
-                      <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl">
+                      <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-2xl">
                         {projectSuggestQuery.isLoading ? (
-                          <p className="px-2 py-1.5 text-xs text-slate-400">Searching…</p>
+                          <p className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</p>
                         ) : (projectSuggestQuery.data?.items.length ?? 0) === 0 ? (
-                          <p className="px-2 py-1.5 text-xs text-slate-400">No projects found.</p>
+                          <p className="px-2 py-1.5 text-xs text-muted-foreground">No projects found.</p>
                         ) : (
                           projectSuggestQuery.data!.items.map((p) => (
                             <button
@@ -577,11 +577,11 @@ export function PropertySearchBar({
                                 setOpenField(null);
                                 router.push(`/developments/${p.slug}`);
                               }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
                             >
-                              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                              <span className="shrink-0 text-xs text-slate-400">{p.city}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">{p.city}</span>
                             </button>
                           ))
                         )}
@@ -590,7 +590,7 @@ export function PropertySearchBar({
                   </div>
 
                   <div className="relative">
-                    <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                    <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-foreground">
                       <User2 className="h-3.5 w-3.5 text-primary" />
                       Developer Title
                     </label>
@@ -603,7 +603,7 @@ export function PropertySearchBar({
                         }}
                         onFocus={() => setOpenField('developer')}
                         placeholder="Select Developers"
-                        className="w-full rounded-lg border-b border-slate-200 px-1 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                        className="w-full rounded-lg border-b border-border bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                       />
                       {developerSlug && (
                         <button
@@ -613,7 +613,7 @@ export function PropertySearchBar({
                             setDeveloperInput('');
                           }}
                           aria-label="Clear developer"
-                          className="shrink-0 text-slate-400 hover:text-slate-600"
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -621,9 +621,9 @@ export function PropertySearchBar({
                       {developerSlug && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
                     </div>
                     {openField === 'developer' && developerInput.trim().length >= 1 && (
-                      <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl">
+                      <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-2xl">
                         {developerMatches.length === 0 ? (
-                          <p className="px-2 py-1.5 text-xs text-slate-400">No developers found.</p>
+                          <p className="px-2 py-1.5 text-xs text-muted-foreground">No developers found.</p>
                         ) : (
                           developerMatches.map((d) => (
                             <button
@@ -634,9 +634,9 @@ export function PropertySearchBar({
                                 setDeveloperInput(d.name);
                                 setOpenField(null);
                               }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
                             >
-                              <User2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <User2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               <span className="min-w-0 flex-1 truncate">{d.name}</span>
                             </button>
                           ))

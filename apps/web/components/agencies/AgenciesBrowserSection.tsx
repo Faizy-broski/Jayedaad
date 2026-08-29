@@ -44,10 +44,10 @@ export function AgenciesBrowserSection() {
   if (!isLoading && isAllEmpty) {
     return (
       <section className="mx-auto max-w-6xl px-4 py-16">
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 py-16 text-center">
-          <Building2 className="h-10 w-10 text-slate-300" />
-          <p className="text-sm font-medium text-slate-700">No agencies to show yet</p>
-          <p className="max-w-sm text-sm text-slate-500">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-16 text-center">
+          <Building2 className="h-10 w-10 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">No agencies to show yet</p>
+          <p className="max-w-sm text-sm text-muted-foreground">
             We&apos;re still onboarding agencies. Check back soon, or browse listings in the meantime.
           </p>
         </div>

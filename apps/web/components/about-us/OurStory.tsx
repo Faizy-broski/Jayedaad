@@ -24,7 +24,7 @@ export function OurStory() {
           {STATS.map((stat) => (
             <div key={stat.id} className="flex flex-col gap-1">
               <span className="text-primary text-3xl font-bold sm:text-4xl">{stat.value}</span>
-              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{stat.label}</span>
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</span>
             </div>
           ))}
         </Reveal>

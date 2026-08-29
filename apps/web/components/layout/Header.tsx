@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
 import { PreferencesMenu } from './PreferencesMenu';
+import { DarkModeToggle } from './DarkModeToggle';
 
 const LIST_A_HOME_CLASSES =
   'rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md active:translate-y-0 active:scale-95';
@@ -60,20 +61,19 @@ function useIsLinkActive() {
 // mount fade-in, and an inline style always wins over Tailwind's transform
 // utility class, which silently drops the centering translate.
 //
-// Bg is a hardcoded bg-white (not the --background/--card tokens) so the bar
-// always reads the same regardless of the site's light/dark theme. Every
-// text/border color in this file is hardcoded neutral slate for the same
-// reason — the theme-following `text-foreground`/`border-border` tokens flip
-// to near-white in dark mode, which would go invisible against a bar that
-// never itself goes dark.
+// Themed via the --background/--card tokens (not a hardcoded bg-white) —
+// dark mode is now a single site-wide preference (see ThemeProvider.tsx),
+// so this bar is meant to flip with the rest of the page. Every text/border
+// color in this file uses the matching `text-foreground`/`text-muted-foreground`/
+// `border-border` tokens for the same reason.
 // rounded-full only while closed — once the mobile dropdown expands the
 // bar's height, a full pill radius balloons into a lens/blob shape that
 // clips the menu content, so it drops to a fixed rounded-3xl instead.
 const FLOATING_CLASSES =
-  'absolute inset-x-4 top-4 z-50 mx-auto max-w-6xl border border-slate-200 bg-white shadow-lg sm:top-6';
+  'absolute inset-x-4 top-4 z-50 mx-auto max-w-6xl border border-border bg-background shadow-lg sm:top-6';
 const ATTACHED_CLASSES =
-  'fixed inset-x-0 top-0 z-50 w-full rounded-none border-b border-slate-200 bg-white shadow-sm';
-const STATIC_CLASSES = 'sticky top-0 z-50 w-full rounded-none border-b border-slate-200 bg-white';
+  'fixed inset-x-0 top-0 z-50 w-full rounded-none border-b border-border bg-background shadow-sm';
+const STATIC_CLASSES = 'sticky top-0 z-50 w-full rounded-none border-b border-border bg-background';
 
 // Tailwind's lg breakpoint (1024px) — kept in sync with the lg: prefixes
 // used elsewhere in this file for the nav/menu switch.
@@ -196,13 +196,24 @@ function HeaderInner() {
         }`}
       >
         <Link href="/" className="flex shrink-0 items-center">
+          {/* Dark mode swaps to the white variant Footer.tsx already uses on
+              its own dark background — the colored logo reads as barely
+              visible once the header itself goes dark. */}
           <Image
             src="/images/jayedaad-logo.png"
             alt="Jayedaad"
             width={160}
             height={45}
             priority
-            className="h-10 w-auto sm:h-14"
+            className="h-10 w-auto dark:hidden sm:h-14"
+          />
+          <Image
+            src="/images/jayedaad-white-logo.svg"
+            alt="Jayedaad"
+            width={160}
+            height={45}
+            priority
+            className="hidden h-10 w-auto dark:block sm:h-14"
           />
         </Link>
 
@@ -214,8 +225,8 @@ function HeaderInner() {
                 key={link.label}
                 href={link.href}
                 aria-current={active ? 'page' : undefined}
-                className={`group relative py-1 text-sm font-medium transition-colors duration-200 hover:text-slate-900 ${
-                  active ? 'text-heading-gradient font-semibold' : 'text-slate-600'
+                className={`group relative py-1 text-sm font-medium transition-colors duration-200 hover:text-foreground ${
+                  active ? 'text-heading-gradient font-semibold' : 'text-muted-foreground'
                 }`}
               >
                 {link.label}
@@ -230,6 +241,7 @@ function HeaderInner() {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
+          <DarkModeToggle />
           {isAuthenticated && <PreferencesMenu />}
           {isAuthenticated ? (
             <div ref={userMenuRef} className="relative">
@@ -249,13 +261,13 @@ function HeaderInner() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.96 }}
                     transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute right-0 top-full z-10 mt-2 w-56 origin-top-right overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+                    className="absolute right-0 top-full z-10 mt-2 w-56 origin-top-right overflow-hidden rounded-lg border border-border bg-card p-1.5 shadow-lg"
                   >
-                    <p className="truncate px-3 py-2 text-sm font-medium text-slate-900">{displayName}</p>
+                    <p className="truncate px-3 py-2 text-sm font-medium text-foreground">{displayName}</p>
                     <Link
                       href={dashboardHref}
                       onClick={() => setUserMenuOpen(false)}
-                      className="block rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       Dashboard
                     </Link>
@@ -272,7 +284,7 @@ function HeaderInner() {
               </AnimatePresence>
             </div>
           ) : (
-            <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900">
+            <Link href="/login" className="text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground">
               Sign in
             </Link>
           )}
@@ -286,7 +298,7 @@ function HeaderInner() {
           aria-label="Toggle menu"
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((open) => !open)}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-slate-700 transition-colors duration-200 hover:bg-slate-100 lg:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-muted lg:hidden"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-6 w-6">
             {mobileOpen ? (
@@ -306,8 +318,14 @@ function HeaderInner() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col gap-1 overflow-hidden border-t border-slate-200 px-4 py-3 lg:hidden"
+            className="flex flex-col gap-1 overflow-hidden border-t border-border px-4 py-3 lg:hidden"
           >
+            {/* Rendered regardless of auth state (unlike PreferencesMenu
+                below) — theme is a local preference, not an account
+                setting. */}
+            <div className="flex items-center justify-end pb-1">
+              <DarkModeToggle />
+            </div>
             {NAV_LINKS.map((link, index) => {
               const active = isLinkActive(link.href);
               return (
@@ -322,7 +340,7 @@ function HeaderInner() {
                     onClick={() => setMobileOpen(false)}
                     aria-current={active ? 'page' : undefined}
                     className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors duration-200 ${
-                      active ? 'bg-primary/10 text-heading-gradient font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      active ? 'bg-primary/10 text-heading-gradient font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
                   >
                     {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-heading-gradient" />}
@@ -332,12 +350,12 @@ function HeaderInner() {
               );
             })}
             {isAuthenticated ? (
-              <div className="mt-2 space-y-1 border-t border-slate-200 px-2 pt-3">
-                <p className="truncate px-0 py-1 text-sm font-medium text-slate-900">{displayName}</p>
+              <div className="mt-2 space-y-1 border-t border-border px-2 pt-3">
+                <p className="truncate px-0 py-1 text-sm font-medium text-foreground">{displayName}</p>
                 <Link
                   href={dashboardHref}
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-md px-0 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+                  className="block rounded-md px-0 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
                   Dashboard
                 </Link>
@@ -348,14 +366,14 @@ function HeaderInner() {
                 <Link
                   href="/account/saved?tab=favorites"
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-md px-0 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+                  className="block rounded-md px-0 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
                   Favourites
                 </Link>
                 <Link
                   href="/account/saved?tab=saved"
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-md px-0 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+                  className="block rounded-md px-0 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
                   Saved Searches
                 </Link>
@@ -377,8 +395,8 @@ function HeaderInner() {
                 </div>
               </div>
             ) : (
-              <div className="mt-2 flex items-center gap-3 border-t border-slate-200 px-2 pt-3">
-                <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900" onClick={() => setMobileOpen(false)}>
+              <div className="mt-2 flex items-center gap-3 border-t border-border px-2 pt-3">
+                <Link href="/login" className="text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground" onClick={() => setMobileOpen(false)}>
                   Sign in
                 </Link>
                 <Link

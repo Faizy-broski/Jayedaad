@@ -28,6 +28,19 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${plusJakartaSans.variable} ${outfit.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Blocking (not deferred) — runs before first paint so a stored
+            dark-mode preference applies immediately instead of flashing
+            light-then-dark once ThemeProvider's own effect catches up.
+            Kept to this one inline script rather than next-themes or a
+            new dependency; must stay in sync with ThemeProvider.tsx's
+            STORAGE_KEY ('jayedaad-theme'). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('jayedaad-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`,
+          }}
+        />
+      </head>
       {/* overflow-x-clip guards against the classic `w-screen`/`100vw`
           full-bleed bug (see OfficeShowCase.tsx) — 100vw includes the
           scrollbar's own width on browsers with a classic (non-overlay)

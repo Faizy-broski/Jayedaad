@@ -8,19 +8,15 @@ const STORAGE_KEY = 'jayedaad-theme';
 
 const ThemeContext = createContext<{ theme: Theme; toggleTheme: () => void } | null>(null);
 
-// Dark mode is dashboard-only (Super Admin/Agent/Account/Verification
-// shells) — it never applies to the public marketing site (homepage,
-// /listings, /developments, etc). Deliberately does NOT touch
-// document.documentElement: toggling a class on <html> would make the
-// choice global (it's the root of every route, public pages included), and
-// since this is an SPA-style app router, that class survives client-side
-// navigation away from the dashboard — a dashboard toggle used to leak dark
-// mode onto every public page until the next full reload. Each dashboard
-// layout instead reads `theme` here and applies the `dark` class to its own
-// top-level wrapper div, so Tailwind's `dark:` variants and the
-// `:root.dark` CSS variables only take effect inside that subtree; it
-// unmounts (and the class with it) the moment the user navigates to a
-// public route.
+// Dark mode is a single site-wide preference — dashboards and the public
+// marketing site (homepage, /listings, /developments, etc.) share the same
+// `theme` and toggle. The `dark` class is applied straight to
+// document.documentElement below, so it's live for every route the moment
+// it's set and survives client-side navigation between public and dashboard
+// routes, same as any other global preference. globals.css's `.dark { ... }`
+// block is deliberately written bare (not `:root.dark`) so it matches
+// whatever ancestor happens to carry the class — <html> included — which is
+// exactly the ancestor used here.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
@@ -28,6 +24,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     setTheme(stored === 'dark' ? 'dark' : 'light');
   }, []);
+
+  // Mirrors the inline blocking script in app/layout.tsx's <head> (which
+  // avoids a light-mode flash on first paint) — this effect is what keeps
+  // <html>'s class in sync on every subsequent toggle.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   function toggleTheme() {
     setTheme((prev) => {

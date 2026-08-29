@@ -38,7 +38,7 @@ export function TitaniumAgenciesSection() {
         <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-[86px] w-[280px] shrink-0 animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
+                <div key={i} className="h-[86px] w-[280px] shrink-0 animate-pulse rounded-xl border border-border bg-muted" />
               ))
             : items.map((agency) => (
                 <div key={agency.id} className="shrink-0">
@@ -52,7 +52,7 @@ export function TitaniumAgenciesSection() {
             type="button"
             onClick={scrollByCard}
             aria-label="Scroll for more agencies"
-            className="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-lg transition-colors hover:text-primary sm:flex"
+            className="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg transition-colors hover:text-primary sm:flex"
           >
             <ArrowRight className="h-4 w-4" />
           </button>

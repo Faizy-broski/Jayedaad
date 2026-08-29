@@ -32,7 +32,6 @@ import { NotificationBell } from '@/components/layout/NotificationBell';
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
-import { useTheme } from '@/components/ThemeProvider';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
 // separate from apps/web/app/(agent)/layout.tsx (the agent Profolio shell)
@@ -73,9 +72,6 @@ const NAV_ITEMS = [
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // Scoped to this dashboard shell's own wrapper div below, not
-  // document.documentElement — see ThemeProvider.tsx for why.
-  const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const displayName = getDisplayName(user, 'Admin');
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -123,7 +119,18 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       <div className={`flex h-16 shrink-0 items-center gap-2 border-b border-border px-5 ${collapsed ? 'justify-center px-0' : 'justify-between'}`}>
         {!collapsed && (
           <Link href={isSuperAdmin ? '/admin/dashboard' : '/verification'} className="flex min-w-0 items-center gap-2 overflow-hidden">
-            <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={120} height={34} priority className="h-9 w-auto object-contain" />
+            {/* Dark mode swaps to the white variant Footer.tsx/Header.tsx
+                already use on a dark background — the colored logo goes
+                barely visible once the sidebar itself goes dark. */}
+            <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={120} height={34} priority className="h-9 w-auto object-contain dark:hidden" />
+            <Image
+              src="/images/jayedaad-white-logo.svg"
+              alt="Jayedaad"
+              width={120}
+              height={34}
+              priority
+              className="hidden h-9 w-auto object-contain dark:block"
+            />
             <span className="truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               Admin
             </span>
@@ -284,16 +291,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   return (
     <RequireEmailVerified>
-    {/* bg-muted, not bg-muted/30 — this div's own background needs to be
-        opaque now that dark mode is scoped here instead of on <body> (see
-        ThemeProvider.tsx). Every card/pill/table row inside uses its own
-        translucent bg-x/NN utility (bg-muted/40, bg-white/10, etc.)
-        expecting a solid dark backdrop behind it; a transparent wrapper
-        here would let those blend against the always-light <body> behind
-        it instead, washing everything out. Opaque bg-muted is close enough
-        to invisible against light-mode's white body that light mode looks
-        unchanged. */}
-    <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
+    {/* bg-muted, not bg-muted/30 — opaque so descendants' own translucent
+        bg-x/NN utilities (bg-muted/40, bg-white/10, etc.) blend against a
+        solid backdrop instead of bleeding into whatever's behind this div.
+        Opaque bg-muted is close enough to invisible against light mode's
+        white body that light mode looks unchanged either way. */}
+    <div className="flex min-h-screen bg-muted">
       <AnimatePresence>
         {mobileOpen && (
           <motion.div

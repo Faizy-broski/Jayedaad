@@ -24,7 +24,7 @@ export function SimilarProperties({ properties }: SimilarPropertiesProps) {
               type="button"
               aria-label="Scroll left"
               onClick={() => scrollBy(-320)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -32,7 +32,7 @@ export function SimilarProperties({ properties }: SimilarPropertiesProps) {
               type="button"
               aria-label="Scroll right"
               onClick={() => scrollBy(320)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -41,7 +41,7 @@ export function SimilarProperties({ properties }: SimilarPropertiesProps) {
       </div>
 
       {properties.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500">
+        <p className="mt-5 rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
           No similar properties found.
         </p>
       ) : (

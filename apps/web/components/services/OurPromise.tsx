@@ -65,11 +65,11 @@ export function OurPromise() {
             className="flex min-h-[220px] flex-col justify-between rounded-2xl bg-transparent p-5 shadow-sm ring-1 ring-black/5 lg:col-span-3"
           >
             <div className="flex items-start justify-between">
-              <CardEyebrow className="text-slate-400">03</CardEyebrow>
+              <CardEyebrow className="text-muted-foreground">03</CardEyebrow>
               <Image src="/svg/balance.svg" alt="" width={24} height={24} className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-lg font-semibold text-slate-900">Legal Compliance</span>
+              <span className="text-lg font-semibold text-foreground">Legal Compliance</span>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Contracts and titles handled by our in-house counsel.
               </p>
@@ -90,13 +90,13 @@ export function OurPromise() {
 
           <Reveal
             delay={0.06}
-            className="flex min-h-[160px] flex-col justify-between rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 lg:col-span-3"
+            className="flex min-h-[160px] flex-col justify-between rounded-2xl bg-card p-5 shadow-sm ring-1 ring-black/5 lg:col-span-3"
           >
             <div className="flex flex-col gap-3">
               <Image src="/svg/wallet.svg" alt="" width={24} height={24} className="h-6 w-6" />
-              <CardEyebrow className="text-slate-400">05</CardEyebrow>
+              <CardEyebrow className="text-muted-foreground">05</CardEyebrow>
             </div>
-            <span className="text-sm font-semibold text-slate-900">Mortgage Guidance</span>
+            <span className="text-sm font-semibold text-foreground">Mortgage Guidance</span>
           </Reveal>
 
           <Reveal
@@ -113,28 +113,28 @@ export function OurPromise() {
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
           <div className="flex gap-4 lg:col-span-6">
-            <Reveal className="flex h-full w-[48%] shrink-0 flex-col justify-between rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+            <Reveal className="flex h-full w-[48%] shrink-0 flex-col justify-between rounded-2xl bg-card p-5 shadow-sm ring-1 ring-black/5">
               <Image src="/svg/key.svg" alt="" width={23} height={23} className="h-6 w-6" />
-              <span className="text-[11px] font-medium text-slate-600">Property Management</span>
+              <span className="text-[11px] font-medium text-muted-foreground">Property Management</span>
             </Reveal>
             <Reveal
               delay={0.06}
-              className="flex h-full w-[48%] shrink-0 flex-col justify-between rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5"
+              className="flex h-full w-[48%] shrink-0 flex-col justify-between rounded-2xl bg-card p-5 shadow-sm ring-1 ring-black/5"
             >
               <Image src="/svg/headphone.svg" alt="" width={18} height={18} className="h-6 w-6" />
-              <span className="text-[11px] font-medium text-slate-600">Customer Support</span>
+              <span className="text-[11px] font-medium text-muted-foreground">Customer Support</span>
             </Reveal>
           </div>
 
           <Reveal
             delay={0.12}
-            className="flex flex-1 flex-col justify-center gap-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 lg:col-span-6"
+            className="flex flex-1 flex-col justify-center gap-2 rounded-2xl bg-card p-6 shadow-sm ring-1 ring-black/5 lg:col-span-6"
           >
             <p className="text-sm italic leading-relaxed text-muted-foreground">
               &ldquo;We measure ourselves not by transactions closed, but by relationships that stay meaningful a
               decade later.&rdquo;
             </p>
-            <CardEyebrow className="text-slate-400">Founding Partner</CardEyebrow>
+            <CardEyebrow className="text-muted-foreground">Founding Partner</CardEyebrow>
           </Reveal>
         </div>
       </div>

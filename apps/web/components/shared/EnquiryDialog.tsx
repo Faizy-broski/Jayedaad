@@ -84,8 +84,8 @@ export function EnquiryDialog({ target, intent }: EnquiryDialogProps) {
   // directly in the page flow wherever the caller places <EnquiryDialog>;
   // callers space it via their own flex/grid gap, not a margin here.
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-base font-semibold text-slate-900">{intent === 'visit' ? 'Book a Visit' : 'Send Enquiry'}</h3>
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h3 className="mb-4 text-base font-semibold text-foreground">{intent === 'visit' ? 'Book a Visit' : 'Send Enquiry'}</h3>
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label>Name*</Label>

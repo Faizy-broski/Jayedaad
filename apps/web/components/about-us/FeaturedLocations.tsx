@@ -20,7 +20,7 @@ export function FeaturedLocations({ cities, embedded = false }: FeaturedLocation
       </Reveal>
 
       {cities.length === 0 ? (
-        <p className="mt-10 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+        <p className="mt-10 rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
           No locations available right now.
         </p>
       ) : (

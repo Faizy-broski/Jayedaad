@@ -53,7 +53,7 @@ export function AgenciesSearchResults({ city, location, propertyTypeSlug, search
           {(city || location || propertyTypeSlug || search) && (
             <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
               {[city, location, search].filter(Boolean).join(' · ') || 'Filtered results'}
-              <Link href="/agents" className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700">
+              <Link href="/agents" className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
                 <X className="h-3 w-3" />
                 Clear
               </Link>
@@ -66,11 +66,11 @@ export function AgenciesSearchResults({ city, location, propertyTypeSlug, search
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[86px] animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
+              <div key={i} className="h-[86px] animate-pulse rounded-xl border border-border bg-muted" />
             ))}
           </div>
         ) : items.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+          <p className="rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
             No agencies match your filters. Try widening your search.
           </p>
         ) : (

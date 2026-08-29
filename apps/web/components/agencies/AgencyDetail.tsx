@@ -43,10 +43,10 @@ function StatTile({ label, value, href }: { label: string; value: number; href: 
   return (
     <Link
       href={href}
-      className="flex min-w-[84px] flex-1 flex-col items-center rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 text-center transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="flex min-w-[84px] flex-1 flex-col items-center rounded-lg border border-border bg-muted px-3 py-2.5 text-center transition-colors hover:border-primary/40 hover:bg-primary/5"
     >
-      <span className="text-lg font-bold text-slate-900">{value}</span>
-      <span className="mt-0.5 text-[11px] text-slate-500">{label}</span>
+      <span className="text-lg font-bold text-foreground">{value}</span>
+      <span className="mt-0.5 text-[11px] text-muted-foreground">{label}</span>
     </Link>
   );
 }
@@ -73,7 +73,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
         aria-label="Breadcrumb"
-        className="mb-5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"
+        className="mb-5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
       >
         <Link href="/" className="hover:text-primary">
           Home
@@ -91,13 +91,13 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
           </>
         )}
         <ChevronRight className="h-3 w-3" />
-        <span className="text-slate-700">{agency.name}</span>
+        <span className="text-foreground">{agency.name}</span>
       </motion.nav>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-10">
           {/* Header card */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-primary">
                 {agency.logoUrl ? (
@@ -108,19 +108,19 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">{agency.name}</h1>
+                  <h1 className="text-xl font-bold text-foreground sm:text-2xl">{agency.name}</h1>
                   {agency.tier !== 'basic' && (
                     <span className="rounded-full bg-heading-gradient px-2.5 py-1 text-[10px] font-bold tracking-wide text-primary-foreground">
                       {TIER_LABEL[agency.tier]}
                     </span>
                   )}
                 </div>
-                <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
+                <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   {agency.city ? `${agency.city}, Pakistan` : 'Pakistan'}
                 </p>
                 {!isStatsLoading && stats && (
-                  <p className="mt-1.5 flex items-center gap-3 text-xs font-medium text-slate-600">
+                  <p className="mt-1.5 flex items-center gap-3 text-xs font-medium text-muted-foreground">
                     <Link href={agencyListingsHref(agency, 'sale')} className="flex items-center gap-1 hover:text-primary">
                       <Building2 className="h-3.5 w-3.5 text-primary" />
                       {stats.forSaleCount} for Sale
@@ -137,7 +137,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
             <button
               type="button"
               onClick={() => handleShare(agency.name)}
-              className="flex shrink-0 items-center gap-1.5 self-start rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 sm:self-center"
+              className="flex shrink-0 items-center gap-1.5 self-start rounded-full border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 sm:self-center"
             >
               <Share2 className="h-3.5 w-3.5" />
               Share
@@ -151,7 +151,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
             <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                     <Building2 className="h-4 w-4 text-primary" />
                     {stats?.forSaleCount ?? 0} Properties for Sale
                   </p>
@@ -160,7 +160,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
                   </Link>
                 </div>
                 {forSaleTypes.length === 0 ? (
-                  <p className="text-xs text-slate-400">No properties for sale yet.</p>
+                  <p className="text-xs text-muted-foreground">No properties for sale yet.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {forSaleTypes.map((t) => (
@@ -177,7 +177,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
 
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                     <Building2 className="h-4 w-4 text-primary" />
                     {stats?.forRentCount ?? 0} Properties for Rent
                   </p>
@@ -186,7 +186,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
                   </Link>
                 </div>
                 {forRentTypes.length === 0 ? (
-                  <p className="text-xs text-slate-400">No properties for rent yet.</p>
+                  <p className="text-xs text-muted-foreground">No properties for rent yet.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {forRentTypes.map((t) => (
@@ -219,7 +219,7 @@ export function AgencyDetail({ agency, stats, isStatsLoading }: AgencyDetailProp
           {agency.description && (
             <div>
               <h2 className="text-lg font-bold text-heading-gradient">About {agency.name}</h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-600">{agency.description}</p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{agency.description}</p>
             </div>
           )}
         </div>

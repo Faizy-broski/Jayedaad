@@ -10,7 +10,7 @@ interface BrowseByCategoryProps {
 
 export function BrowseByCategory({ categories }: BrowseByCategoryProps) {
   return (
-<section className="relative overflow-hidden bg-white py-12">
+<section className="relative overflow-hidden bg-secondary py-12">
       {/* Faint building silhouette bleeding in from the right, behind the
           heading/cards — matches the reference screenshot's watermark bg. */}
       <div className="pointer-events-none absolute inset-y-0 right-0 -bottom-20 w-full max-w-3xl">
@@ -29,7 +29,7 @@ export function BrowseByCategory({ categories }: BrowseByCategoryProps) {
         </Reveal>
 
         {categories.length === 0 ? (
-          <p className="mt-8 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-muted-foreground">
+          <p className="mt-8 rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
             No categories available right now.
           </p>
         ) : (

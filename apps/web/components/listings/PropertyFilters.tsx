@@ -158,7 +158,7 @@ function Chip({
       className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? 'border-primary bg-primary/10 text-primary'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+          : 'border-border bg-background text-muted-foreground hover:border-primary/40'
       }`}
     >
       {children}
@@ -170,7 +170,7 @@ function Chip({
 // below — this only adds the divider line, not extra top padding, so
 // sections aren't double-spaced (gap + padding stacking on top of each other).
 function Section({ children, first }: { children: React.ReactNode; first?: boolean }) {
-  return <div className={first ? '' : 'border-t border-slate-100 pt-4'}>{children}</div>;
+  return <div className={first ? '' : 'border-t border-border pt-4'}>{children}</div>;
 }
 
 // Checkbox-list dropdown used for Property Type & Amenities — same
@@ -216,7 +216,7 @@ function MultiSelectDropdown({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-10 w-full items-center justify-between gap-2 rounded-full border border-slate-200 bg-background px-4 py-2 text-left text-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-full border border-border bg-background px-4 py-2 text-left text-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span className={cn('truncate', selected.length === 0 && 'text-muted-foreground')}>{summary}</span>
         <ChevronIcon open={open} />
@@ -372,7 +372,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
     // scrolls inside it while Reset/Apply stay pinned at the bottom,
     // visible without scrolling. Plain in-flow on mobile, where the panel
     // is stacked above the results rather than side-by-side.
-    <aside className="flex w-full flex-col rounded-3xl border border-slate-100 bg-white shadow-sm lg:sticky lg:top-24">
+    <aside className="flex w-full flex-col rounded-3xl border border-border bg-card shadow-sm lg:sticky lg:top-24">
       {/* max-height (not height) lives on THIS scrollable content div, not
           the outer <aside> — capping it here only ever bounds the content,
           it never forces the card to grow past what its content actually
@@ -384,8 +384,8 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
       {/* Price Range — dual min/max slider */}
       <Section first>
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Price Range (PKR)</h3>
-          <span className="text-xs font-medium text-slate-600">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Price Range (PKR)</h3>
+          <span className="text-xs font-medium text-muted-foreground">
             {filters.minPrice ? priceOptionLabel(Number(filters.minPrice)) : 'No Min'}
             {' – '}
             {filters.maxPrice ? priceOptionLabel(Number(filters.maxPrice)) : 'Any'}
@@ -394,7 +394,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
         <div className="relative mt-5 h-4">
           {/* base track */}
-          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-200" />
+          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
           {/* selected range fill */}
           <div
             className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-heading-gradient"
@@ -423,7 +423,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           />
         </div>
 
-        <div className="mt-2 flex justify-between text-[11px] text-slate-400">
+        <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
           <span>{priceOptionLabel(PRICE_OPTIONS[0])}</span>
           <span>{priceOptionLabel(PRICE_OPTIONS[priceMaxIndex])}+</span>
         </div>
@@ -432,11 +432,11 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
       {/* Area Range — dual min/max slider, same pattern as Price Range */}
       <Section>
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area Range</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Area Range</h3>
           <Select
             value={filters.areaUnit}
             onChange={(e) => handleAreaUnitChange(e.target.value as AreaUnit)}
-            className="w-24 shrink-0 rounded-full border-slate-200 px-3 py-1.5 text-xs"
+            className="w-24 shrink-0 rounded-full border-border px-3 py-1.5 text-xs"
           >
             {AREA_UNITS.map((unit) => (
               <option key={unit} value={unit}>
@@ -446,14 +446,14 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           </Select>
         </div>
 
-        <div className="mt-1 text-xs font-medium text-slate-600">
+        <div className="mt-1 text-xs font-medium text-muted-foreground">
           {filters.minAreaValue ? `${filters.minAreaValue} ${areaUnitLabel(filters.areaUnit)}` : 'No Min'}
           {' – '}
           {filters.maxAreaValue ? `${filters.maxAreaValue} ${areaUnitLabel(filters.areaUnit)}` : 'Any'}
         </div>
 
         <div className="relative mt-4 h-4">
-          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-200" />
+          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
           <div
             className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-heading-gradient"
             style={{ left: `${minAreaPercent}%`, right: `${100 - maxAreaPercent}%` }}
@@ -481,7 +481,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           />
         </div>
 
-        <div className="mt-2 flex justify-between text-[11px] text-slate-400">
+        <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
           <span>{areaOptions[0]}</span>
           <span>{areaOptions[areaMaxIndex]}+</span>
         </div>
@@ -492,7 +492,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           to go back to Any City. Both read/write the same `city` field, so
           they're always in sync with each other. */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">City</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">City</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {QUICK_CITIES.map((city) => (
             <Chip key={city} active={filters.city === city} onClick={() => set('city', filters.city === city ? '' : city)}>
@@ -503,7 +503,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
         <Select
           value={filters.city}
           onChange={(e) => set('city', e.target.value)}
-          className="mt-2 w-full rounded-full border-slate-200 px-4 py-2 text-sm"
+          className="mt-2 w-full rounded-full border-border px-4 py-2 text-sm"
         >
           <option value="">Any City</option>
           {PAKISTAN_CITIES.map((c) => (
@@ -516,12 +516,12 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {/* Area / Location */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area / Location</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Area / Location</h3>
         <PlacesAutocompleteInput
           value={filters.area}
           onChange={(v) => set('area', v)}
           placeholder="e.g. Bahria Town, DHA"
-          className="mt-3 rounded-full border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-primary"
+          className="mt-3 rounded-full border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
         />
       </Section>
 
@@ -532,7 +532,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           same categorySlug/propertyTypeSlugs fields, so picking either way
           shows up in both. */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Property Type</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {QUICK_PROPERTY_TYPES.map((type) => (
             <Chip key={type.key} active={quickPropertyType === type.key} onClick={() => selectQuickPropertyType(type)}>
@@ -547,7 +547,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           possible sub-type up front. */}
       {quickPropertyType === 'commercial' && (
         <Section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Commercial Type</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commercial Type</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {COMMERCIAL_SUBTYPES.map((sub) => (
               <Chip
@@ -567,7 +567,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           convention as Bedrooms/Bathrooms below. */}
       {(quickPropertyType === 'houses' || quickPropertyType === 'plots') && (
         <Section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Size</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Size</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {sizeOptions.map(({ value, label }) => (
               <Chip
@@ -583,11 +583,11 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
       )}
 
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category</h3>
         <Select
           value={filters.categorySlug}
           onChange={(e) => onChange({ ...filters, categorySlug: e.target.value, propertyTypeSlugs: [], amenities: [] })}
-          className="mt-3 w-full rounded-full border-slate-200 px-4 py-2 text-sm"
+          className="mt-3 w-full rounded-full border-border px-4 py-2 text-sm"
         >
           <option value="">Any Category</option>
           {categories.map((c) => (
@@ -600,7 +600,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {/* Property Type — checkbox dropdown, for exact/multi sub-type picks */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type (exact)</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Property Type (exact)</h3>
         <MultiSelectDropdown
           options={typesInSelectedCategory.map((type) => ({ key: type.slug, value: type.slug, label: type.label }))}
           selected={filters.propertyTypeSlugs}
@@ -614,7 +614,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
           count doesn't apply. */}
       {showBedBath && (
         <Section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bedrooms</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bedrooms</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {BEDROOM_OPTIONS.map((n) => (
               <Chip
@@ -631,7 +631,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {showBedBath && (
         <Section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bathrooms</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bathrooms</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {BATHROOM_OPTIONS.map((n) => (
               <Chip
@@ -648,7 +648,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {/* Posted by — Owner / Agent / Agency */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Posted By</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Posted By</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {POSTER_TYPE_OPTIONS.map(({ value, label }) => (
             <Chip
@@ -664,17 +664,17 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {/* Preferences */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preferences</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preferences</h3>
         <div className="mt-3 flex flex-col gap-3">
           {PREFERENCE_TOGGLES.map(({ key, label }) => (
-            <label key={key} className="flex cursor-pointer items-center justify-between text-sm text-slate-700">
+            <label key={key} className="flex cursor-pointer items-center justify-between text-sm text-foreground">
               {label}
               <span
                 role="switch"
                 aria-checked={filters[key]}
                 onClick={() => set(key, !filters[key])}
                 className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                  filters[key] ? 'bg-heading-gradient' : 'bg-slate-200'
+                  filters[key] ? 'bg-heading-gradient' : 'bg-muted'
                 }`}
               >
                 <span
@@ -690,7 +690,7 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {/* Amenities — checkbox dropdown */}
       <Section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amenities</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amenities</h3>
         <MultiSelectDropdown
           options={amenities.map((amenity) => ({ key: amenity.slug, value: amenity.label, label: amenity.label }))}
           selected={filters.amenities}
@@ -703,11 +703,11 @@ export function PropertyFilters({ filters, onChange, onApply, onReset }: Propert
 
       {/* Actions — outside the scroll area so it's always visible, not
           something you have to scroll the whole filter list to reach. */}
-      <div className="flex shrink-0 gap-2 border-t border-slate-100 p-5">
+      <div className="flex shrink-0 gap-2 border-t border-border p-5">
         <button
           type="button"
           onClick={onReset}
-          className="flex-1 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300"
+          className="flex-1 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40"
         >
           Reset
         </button>

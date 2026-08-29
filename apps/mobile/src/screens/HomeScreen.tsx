@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, PanResponder, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
+import { Animated, FlatList, PanResponder, RefreshControl, ScrollView, Text, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +25,7 @@ import { useAuthGate } from '../auth/AuthGateContext';
 import { ProjectFavoriteButton } from '../components/ListingContactActions';
 import { PremiumPromoCard } from '../components/PremiumPromoCard';
 import { PropertyCard } from '../components/PropertyCard';
-import { SideDrawer } from '../components/SideDrawer';
+import { DRAWER_WIDTH, SideDrawer } from '../components/SideDrawer';
 import { SearchFilterSheet } from '../components/SearchFilterSheet';
 import { CityPickerModal } from '../components/CityPickerModal';
 import { DEFAULT_SEARCH_FILTERS, SearchFilterState } from '../lib/searchFilters';
@@ -97,6 +97,35 @@ export const HomeScreen = memo(function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & BottomTabParamList>>();
 
+  // Shared with SideDrawer (see its own prop comment) so both the edge-swipe
+  // gesture below and the normal tap-to-open/close tween drive the exact
+  // same value, instead of the drawer only snapping into its own separate
+  // animation once the finger lifts — that mismatch is what made a swipe
+  // feel like it took two motions instead of one continuous drag-to-open.
+  const drawerTranslateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  // True for the duration of an in-progress drag — guards the tap-open/close
+  // effect below from also firing (and fighting the live gesture) for the
+  // same `drawerVisible` flip that the gesture handlers themselves cause.
+  const isDraggingDrawer = useRef(false);
+
+  function animateDrawerTo(open: boolean, velocity = 0) {
+    Animated.spring(drawerTranslateX, {
+      toValue: open ? 0 : -DRAWER_WIDTH,
+      velocity,
+      bounciness: 4,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  // Tap-to-open (hamburger icon) / tap-backdrop / tap-a-nav-row-to-close —
+  // anything that flips `drawerVisible` without going through the gesture
+  // handlers below. Skipped mid-drag (see isDraggingDrawer) since those
+  // handlers already drive drawerTranslateX themselves in that case.
+  useEffect(() => {
+    if (isDraggingDrawer.current) return;
+    animateDrawerTo(drawerVisible);
+  }, [drawerVisible]);
+
   // Swipe-from-left-edge to open the drawer, same gesture users expect from
   // SideDrawer's hamburger icon. Built on RN core's PanResponder rather than
   // react-native-gesture-handler — SideDrawer.tsx already deliberately
@@ -104,12 +133,43 @@ export const HomeScreen = memo(function HomeScreen() {
   // Capture-phase + a left-edge start + mostly-horizontal movement means it
   // only steals the gesture from the ScrollView for this specific swipe,
   // not normal vertical scrolling.
+  //
+  // Previously this only decided open-or-not on release, with no visual
+  // feedback at all during the drag itself (the drawer would just snap into
+  // its own 220ms tween afterward) — this now moves drawerTranslateX live
+  // with the finger via onPanResponderMove, so opening genuinely tracks a
+  // single continuous swipe instead of "drag, then wait, then it animates".
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
         evt.nativeEvent.pageX < 24 && gestureState.dx > 12 && Math.abs(gestureState.dy) < 20,
+      onPanResponderGrant: () => {
+        isDraggingDrawer.current = true;
+        setDrawerVisible(true);
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        const next = Math.min(0, Math.max(-DRAWER_WIDTH, -DRAWER_WIDTH + gestureState.dx));
+        drawerTranslateX.setValue(next);
+      },
       onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureState.dx > 60) setDrawerVisible(true);
+        isDraggingDrawer.current = false;
+        const shouldOpen = gestureState.dx > DRAWER_WIDTH / 3 || gestureState.vx > 0.5;
+        if (shouldOpen) {
+          // `drawerVisible` is already true (set in onPanResponderGrant), so
+          // the tap-open effect above won't re-fire for this — finish the
+          // animation here, carrying the release velocity into the spring.
+          animateDrawerTo(true, gestureState.vx);
+        } else {
+          // Flips `drawerVisible` false, which the effect above picks up
+          // (isDraggingDrawer is already false by now) to animate the close
+          // — kept there rather than duplicated here so there's exactly one
+          // place driving the close tween.
+          setDrawerVisible(false);
+        }
+      },
+      onPanResponderTerminate: () => {
+        isDraggingDrawer.current = false;
+        setDrawerVisible(false);
       },
     }),
   ).current;
@@ -165,7 +225,7 @@ export const HomeScreen = memo(function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right']} {...panResponder.panHandlers}>
-      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} translateX={drawerTranslateX} />
       <ScrollView
         style={styles.scrollBody}
         contentContainerStyle={styles.scrollContent}
@@ -503,11 +563,16 @@ function PropertyCategoryCard({
 }) {
   return (
     <Pressable style={styles.propertyCategoryCard} onPress={onPress}>
-      <Image source={categoryCardBackground} style={styles.propertyCategoryBackground} contentFit="cover" />
-
-      <View style={styles.propertyCategoryIconStack}>
+      {/* Fixed-height header zone, not a percentage-height image absolutely
+          filling propertyCategoryCard directly — that card has no explicit
+          height of its own (it's sized by its content/padding), and RN/Yoga
+          can't resolve a percentage height against an auto-height parent,
+          so the image ended up stretching to cover the whole card again
+          instead of just an accent band behind the icon. */}
+      <View style={styles.propertyCategoryIconArea}>
+        <Image source={categoryCardBackground} style={styles.propertyCategoryBackground} contentFit="cover" />
         <View style={styles.propertyCategoryIconCircle}>
-          <Ionicons name={category.icon} size={18} color={theme.colors.primary} />
+          <Ionicons name={category.icon} size={26} color={theme.colors.primary} />
         </View>
       </View>
 
@@ -819,22 +884,47 @@ const styles = StyleSheet.create({
     width: '31%',
     alignItems: 'center',
     borderRadius: 20,
-    paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.sm,
     marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.bg,
+    overflow: 'hidden',
   },
+  // Fixed height, not a percentage — propertyCategoryCard itself has no
+  // explicit height (it's sized by its content/padding), and RN/Yoga can't
+  // resolve a percentage height against an auto-height parent, so an image
+  // meant to cover only this band kept stretching to fill the whole card
+  // instead. Owns the top padding above the icon itself (moved off the
+  // card) so this is the only place that spacing needs to change.
+  // Clips its own corners directly (overflow:hidden + matching radius on
+  // this View, not just relying on propertyCategoryCard's), because
+  // expo-image doesn't reliably honor a per-corner borderTopLeftRadius /
+  // borderTopRightRadius on the Image itself — without this the image
+  // rendered as a plain square rectangle poking past the card's rounded
+  // top corners, reading as the top of the card being flat/cut instead of
+  // rounded like the bottom (which has no image over it, just the card's
+  // own clip, and rounds correctly).
+  propertyCategoryIconArea: {
+    width: '100%',
+    height: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+    overflow: 'hidden',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  // Link.png's blob pattern is a decorative accent behind the icon, not a
+  // texture across the whole tile — confined to propertyCategoryIconArea's
+  // fixed height above, clipped by that View's own overflow:hidden, so the
+  // title/count below still sit on a plain white background.
   propertyCategoryBackground: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-  },
-  propertyCategoryIconStack: {
-    marginBottom: 4,
-    marginTop: 2,
   },
   propertyCategoryIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: theme.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',

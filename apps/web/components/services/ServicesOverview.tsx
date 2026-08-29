@@ -37,7 +37,7 @@ export function ServicesOverview() {
                 <span className="text-primary text-xl font-bold sm:text-3xl lg:text-4xl">
                   {stat.value}
                 </span>
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {stat.label}
                 </span>
               </Reveal>

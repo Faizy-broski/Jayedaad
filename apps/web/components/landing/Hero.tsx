@@ -23,7 +23,7 @@ const textItem = {
 // breakpoint never leak into the other.
 export function Hero() {
   return (
-    <section className="relative bg-white">
+    <section className="relative bg-background">
       {/* Desktop (lg+) */}
       <div className="relative hidden lg:block">
         <div className="pt-16 sm:pt-[68px] lg:pt-0">
@@ -46,8 +46,13 @@ export function Hero() {
 
             {/* Left-to-right scrim so the heading stays legible over the
                 photo without hiding it, same intent as SearchHero's gradient
-                but lighter since this photo is airy, not dark. */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/40 to-transparent" />
+                but lighter since this photo is airy, not dark. The photo
+                itself doesn't change with the site theme, so this scrim and
+                the text on it use explicit dark: variants (not the page's
+                --background/--foreground tokens) to flip independently —
+                a light scrim + dark text in light mode, a dark scrim +
+                white text in dark mode. */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/40 to-transparent dark:from-black/70 dark:via-black/40" />
 
             <motion.div
               variants={textGroup}
@@ -55,11 +60,11 @@ export function Hero() {
               animate="show"
               className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col justify-center px-6 pb-24"
             >
-              <motion.h1 variants={textItem} className="max-w-xl text-4xl font-bold leading-tight text-slate-900 md:text-5xl">
+              <motion.h1 variants={textItem} className="max-w-xl text-4xl font-bold leading-tight text-slate-900 dark:text-white md:text-5xl">
                 Find your perfect{" "}
                 <span className="text-heading-gradient">property in Pakistan</span>
               </motion.h1>
-              <motion.p variants={textItem} className="mt-4 max-w-md text-base leading-relaxed text-slate-600">
+              <motion.p variants={textItem} className="mt-4 max-w-md text-base leading-relaxed text-slate-600 dark:text-white/70">
                 Simple search. Verified listings. Smart decisions.
               </motion.p>
             </motion.div>
@@ -96,7 +101,7 @@ export function Hero() {
               />
             </motion.div>
 
-            <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/60 to-white/90" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/60 to-white/90 dark:from-black/30 dark:via-black/60 dark:to-black/90" />
 
             <motion.div
               variants={textGroup}
@@ -104,11 +109,11 @@ export function Hero() {
               animate="show"
               className="pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col justify-end px-5 pb-10"
             >
-              <motion.h1 variants={textItem} className="text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">
+              <motion.h1 variants={textItem} className="text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl">
                 Find your perfect{" "}
                 <span className="text-heading-gradient">property in Pakistan</span>
               </motion.h1>
-              <motion.p variants={textItem} className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600 sm:text-base">
+              <motion.p variants={textItem} className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600 dark:text-white/70 sm:text-base">
                 Simple search. Verified listings. Smart decisions.
               </motion.p>
             </motion.div>

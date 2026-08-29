@@ -99,9 +99,9 @@ export function ProjectsBrowser({ initialFilters }: ProjectsBrowserProps) {
 
           <div className="mt-6">
             {isLoading ? (
-              <p className="py-16 text-center text-sm text-slate-500">Loading projects…</p>
+              <p className="py-16 text-center text-sm text-muted-foreground">Loading projects…</p>
             ) : displayed.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+              <p className="rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
                 No projects match your filters. Try widening your search.
               </p>
             ) : (

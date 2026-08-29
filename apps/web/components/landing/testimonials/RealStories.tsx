@@ -58,7 +58,7 @@ export function RealStories({ testimonials, embedded = false }: RealStoriesProps
             onClick={() => scrollByCard('prev')}
             disabled={!canScrollPrev}
             aria-label="Previous testimonials"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-200 hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-600"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-all duration-200 hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-border disabled:hover:text-muted-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -67,7 +67,7 @@ export function RealStories({ testimonials, embedded = false }: RealStoriesProps
             onClick={() => scrollByCard('next')}
             disabled={!canScrollNext}
             aria-label="Next testimonials"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-200 hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-600"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-all duration-200 hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-border disabled:hover:text-muted-foreground"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -91,9 +91,12 @@ export function RealStories({ testimonials, embedded = false }: RealStoriesProps
           ))}
         </div>
 
-        {/* Fade edges to hint more content, matches embedded/section bg */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent sm:hidden" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent sm:hidden" />
+        {/* Fade edges to hint more content, matches embedded/section bg —
+            dark: variant needed since from-white is a real page-surface
+            color here, not photo-overlay chrome, and would fade to a
+            visibly wrong white sliver against a dark section. */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent dark:from-background sm:hidden" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent dark:from-background sm:hidden" />
       </div>
     </div>
   );
@@ -102,5 +105,5 @@ export function RealStories({ testimonials, embedded = false }: RealStoriesProps
     return <div className="mt-16 sm:mt-20">{content}</div>;
   }
 
-  return <section className="py-16 sm:py-20 bg-[#F3F5F966]">{content}</section>;
+  return <section className="py-16 sm:py-20 bg-secondary">{content}</section>;
 }

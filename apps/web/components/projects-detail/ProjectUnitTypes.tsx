@@ -16,7 +16,7 @@ export function ProjectUnitTypes({ unitTypes }: ProjectUnitTypesProps) {
 
   if (unitTypes.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500">
+      <p className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
         No unit types available yet.
       </p>
     );
@@ -25,11 +25,11 @@ export function ProjectUnitTypes({ unitTypes }: ProjectUnitTypesProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {unitTypes.map((unit) => (
-        <div key={unit.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-5">
+        <div key={unit.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-semibold text-slate-900">{unit.label}</p>
-              <p className="text-xs text-slate-500">{unit.propertyType}</p>
+              <p className="text-sm font-semibold text-foreground">{unit.label}</p>
+              <p className="text-xs text-muted-foreground">{unit.propertyType}</p>
             </div>
             <span className="shrink-0 text-sm font-semibold text-primary">
               {unit.priceMax !== unit.priceMin
@@ -38,7 +38,7 @@ export function ProjectUnitTypes({ unitTypes }: ProjectUnitTypesProps) {
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
+          <div className="flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Bed className="h-3.5 w-3.5" />
               {unit.bedrooms} Bed

@@ -24,50 +24,50 @@ export function MortgageCalculator({ priceValue }: MortgageCalculatorProps) {
   }, [loanAmount, interestRate, years]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border p-4 sm:flex-row">
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Loan Amount (PKR)</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Loan Amount (PKR)</span>
           <input
             type="number"
             min={0}
             value={loanAmount}
             onChange={(e) => setLoanAmount(Number(e.target.value))}
-            className="w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
+            className="w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Down Payment (PKR)</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Down Payment (PKR)</span>
           <input
             type="number"
             min={0}
             value={downPayment}
             onChange={(e) => setDownPayment(Number(e.target.value))}
-            className="w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
+            className="w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Interest Rate (%)</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Interest Rate (%)</span>
           <input
             type="number"
             min={0}
             step={0.1}
             value={interestRate}
             onChange={(e) => setInterestRate(Number(e.target.value))}
-            className="w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
+            className="w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Years</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Years</span>
           <input
             type="number"
             min={1}
             value={years}
             onChange={(e) => setYears(Number(e.target.value))}
-            className="w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
+            className="w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
           />
         </label>
       </div>

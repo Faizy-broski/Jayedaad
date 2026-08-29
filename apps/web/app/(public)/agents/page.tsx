@@ -15,7 +15,7 @@ export default function AgentsPage() {
       {/* AgenciesBrowserSection reads ?city=/?location=/?propertyTypeSlug=/
           ?search=/?tier= via useSearchParams(), which requires a Suspense
           boundary in the app router. */}
-      <Suspense fallback={<div className="py-20 text-center text-sm text-slate-500">Loading agencies…</div>}>
+      <Suspense fallback={<div className="py-20 text-center text-sm text-muted-foreground">Loading agencies…</div>}>
         <AgenciesBrowserSection />
       </Suspense>
     </main>

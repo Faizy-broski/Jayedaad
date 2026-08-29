@@ -174,20 +174,20 @@ export function HowCanWeHelp() {
               ) : (
                 <Link
                   href={href}
-                  className="group flex h-full min-h-[220px] flex-col justify-between rounded-2xl bg-[#F3F4F6] p-5 transition-colors hover:bg-[#F3F4F6]/50"
+                  className="group flex h-full min-h-[220px] flex-col justify-between rounded-2xl bg-secondary p-5 transition-colors hover:bg-muted"
                 >
                   <div className="flex items-start justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background text-primary shadow-sm">
                       <Icon className="h-4 w-4" />
                     </span>
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm transition-colors group-hover:text-primary">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm transition-colors group-hover:text-primary">
                       <ArrowUpRight className="h-4 w-4" />
                     </span>
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{eyebrow}</span>
-                    <span className="text-lg font-semibold text-slate-900">{title}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{eyebrow}</span>
+                    <span className="text-lg font-semibold text-foreground">{title}</span>
                     <span className="text-xs text-muted-foreground">{description}</span>
                   </div>
                 </Link>

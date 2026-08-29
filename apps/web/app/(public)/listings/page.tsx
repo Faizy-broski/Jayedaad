@@ -23,7 +23,7 @@ export default function ListingsPage({ searchParams }: ListingsPageProps) {
       {/* ListingsBrowserSection reads ?propertyTypeCategory=/?city= via
           useSearchParams(), which requires a Suspense boundary in the app
           router. */}
-      <Suspense fallback={<div className="py-20 text-center text-sm text-slate-500">Loading listings…</div>}>
+      <Suspense fallback={<div className="py-20 text-center text-sm text-muted-foreground">Loading listings…</div>}>
         <ListingsBrowserSection />
       </Suspense>
     </main>

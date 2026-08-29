@@ -11,7 +11,6 @@ import { NotificationBell } from '@/components/layout/NotificationBell';
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
-import { useTheme } from '@/components/ThemeProvider';
 
 // Shell for the buyer account area (Favorites & Saved Searches, and later
 // Notifications/Profile) — same one-layout.tsx-per-persistent-chrome-section
@@ -25,9 +24,6 @@ const NAV_ITEMS = [{ href: '/account/saved', label: 'Favorites & Saved Searches'
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // Scoped to this dashboard shell's own wrapper div below, not
-  // document.documentElement — see ThemeProvider.tsx for why.
-  const { theme } = useTheme();
   const { user, signOut } = useAuthViewModel();
   const displayName = getDisplayName(user, 'Account');
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -60,7 +56,17 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     <>
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-5">
         <Link href="/account/saved" className="flex min-w-0 items-center overflow-hidden">
-          <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={140} height={40} priority className="h-14 w-auto object-contain" />
+          {/* Dark mode swaps to the white variant Footer.tsx/Header.tsx
+              already use on a dark background. */}
+          <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={140} height={40} priority className="h-14 w-auto object-contain dark:hidden" />
+          <Image
+            src="/images/jayedaad-white-logo.svg"
+            alt="Jayedaad"
+            width={140}
+            height={40}
+            priority
+            className="hidden h-14 w-auto object-contain dark:block"
+          />
         </Link>
         <button
           type="button"
@@ -152,9 +158,9 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   return (
     <RequireEmailVerified>
       {/* bg-muted, not bg-muted/30 — opaque so descendants' translucent
-          bg-x/NN utilities blend against this dark backdrop, not the
-          always-light <body> behind it. See (super-admin)/layout.tsx. */}
-      <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
+          bg-x/NN utilities blend against a solid backdrop instead of
+          bleeding into whatever's behind this div. See (super-admin)/layout.tsx. */}
+      <div className="flex min-h-screen bg-muted">
         <AnimatePresence>
           {mobileOpen && (
             <motion.div

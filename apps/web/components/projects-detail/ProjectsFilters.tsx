@@ -72,9 +72,9 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
   });
 
   return (
-    <aside className="flex w-full flex-col gap-6 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+    <aside className="flex w-full flex-col gap-6 rounded-3xl border border-border bg-card p-5 shadow-sm">
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">City</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">City</h3>
         <Select value={filters.city} onChange={(e) => set('city', e.target.value)} className="mt-3">
           <option value="">Any City</option>
           {PAKISTAN_CITIES.map((c) => (
@@ -86,17 +86,17 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area / Location</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Area / Location</h3>
         <PlacesAutocompleteInput
           value={filters.area}
           onChange={(v) => set('area', v)}
           placeholder="e.g. Bahria Town, DHA"
-          className="mt-3 rounded-xl border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-primary"
+          className="mt-3 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
         />
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property Type</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Property Type</h3>
         <Select value={filters.propertyTypeSlug} onChange={(e) => set('propertyTypeSlug', e.target.value)} className="mt-3">
           <option value="">Any Type</option>
           {(categoriesQuery.data ?? []).map((c) => (
@@ -108,7 +108,7 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</h3>
         <div className="mt-3 grid grid-cols-1 gap-2">
           {STATUS_OPTIONS.map(({ value, label }) => {
             const active = filters.status === value;
@@ -120,7 +120,7 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
                 className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition-colors ${
                   active
                     ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                    : 'border-border text-muted-foreground hover:border-primary/40'
                 }`}
               >
                 {label}
@@ -131,7 +131,7 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Price Range (PKR)</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Price Range (PKR)</h3>
         <div className="mt-3 flex items-center gap-2">
           <input
             type="number"
@@ -139,22 +139,22 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
             placeholder="Min"
             value={filters.minPrice}
             onChange={(e) => set('minPrice', e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           />
-          <span className="shrink-0 text-slate-300">–</span>
+          <span className="shrink-0 text-muted-foreground">–</span>
           <input
             type="number"
             min={0}
             placeholder="Max"
             value={filters.maxPrice}
             onChange={(e) => set('maxPrice', e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           />
         </div>
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Area Range</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Area Range</h3>
         <div className="mt-3 flex items-center gap-2">
           <input
             type="number"
@@ -162,16 +162,16 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
             placeholder="Min"
             value={filters.minAreaValue}
             onChange={(e) => set('minAreaValue', e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           />
-          <span className="shrink-0 text-slate-300">–</span>
+          <span className="shrink-0 text-muted-foreground">–</span>
           <input
             type="number"
             min={0}
             placeholder="Max"
             value={filters.maxAreaValue}
             onChange={(e) => set('maxAreaValue', e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           />
           <Select value={filters.areaUnit} onChange={(e) => set('areaUnit', e.target.value as AreaUnit)} className="w-28 shrink-0">
             {AREA_UNITS.map((unit) => (
@@ -184,7 +184,7 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Developer</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Developer</h3>
         <Select value={filters.developerSlug} onChange={(e) => set('developerSlug', e.target.value)} className="mt-3">
           <option value="">Any Developer</option>
           {(developersQuery.data ?? []).map((d) => (
@@ -196,20 +196,20 @@ export function ProjectsFilters({ filters, onChange, onApply, onReset }: Project
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Keyword</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Keyword</h3>
         <input
           value={filters.keyword}
           onChange={(e) => set('keyword', e.target.value)}
           placeholder="e.g. Skyline"
-          className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+          className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className="flex gap-2 border-t border-slate-100 pt-4">
+      <div className="flex gap-2 border-t border-border pt-4">
         <button
           type="button"
           onClick={onReset}
-          className="flex-1 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300"
+          className="flex-1 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40"
         >
           Reset
         </button>

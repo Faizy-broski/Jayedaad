@@ -10,7 +10,6 @@ import { LayoutGrid, Home, UserCheck, ShieldCheck, Settings, LogOut, ChevronsUpD
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
-import { useTheme } from '@/components/ThemeProvider';
 
 // verification_staff's real shell — previously this role's only two pages
 // (/verification, /agent-verification) lived in a route group with no
@@ -31,9 +30,6 @@ const NAV_ITEMS = [
 
 export default function VerificationLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // Scoped to this dashboard shell's own wrapper div below, not
-  // document.documentElement — see ThemeProvider.tsx for why.
-  const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const { profile } = useAccountProfileViewModel();
   const { current: roleAccess } = useRoleAccessViewModel(role);
@@ -66,7 +62,17 @@ export default function VerificationLayout({ children }: { children: React.React
     <>
       <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border px-5">
         <Link href="/verification" className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={120} height={34} priority className="h-9 w-auto object-contain" />
+          {/* Dark mode swaps to the white variant Footer.tsx/Header.tsx
+              already use on a dark background. */}
+          <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={120} height={34} priority className="h-9 w-auto object-contain dark:hidden" />
+          <Image
+            src="/images/jayedaad-white-logo.svg"
+            alt="Jayedaad"
+            width={120}
+            height={34}
+            priority
+            className="hidden h-9 w-auto object-contain dark:block"
+          />
           <span className="truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
             Review
           </span>
@@ -175,9 +181,9 @@ export default function VerificationLayout({ children }: { children: React.React
   return (
     <RequireEmailVerified>
       {/* bg-muted, not bg-muted/30 — opaque so descendants' translucent
-          bg-x/NN utilities blend against this dark backdrop, not the
-          always-light <body> behind it. See (super-admin)/layout.tsx. */}
-      <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
+          bg-x/NN utilities blend against a solid backdrop instead of
+          bleeding into whatever's behind this div. See (super-admin)/layout.tsx. */}
+      <div className="flex min-h-screen bg-muted">
         <AnimatePresence>
           {mobileOpen && (
             <motion.div

@@ -230,7 +230,11 @@ export class ListingsRepository {
     if (filters.area) query = query.eq('area', filters.area);
     if (filters.propertyTypeSlug) query = query.eq('property_types.slug', filters.propertyTypeSlug);
     if (filters.purpose) query = query.eq('purpose', filters.purpose);
-    if (filters.bedrooms) query = query.eq('bedrooms', filters.bedrooms);
+    // "N+" everywhere it's rendered (web's PropertyFilters/HeroSearchCard
+    // chips) — an exact .eq() here silently hid every listing with MORE
+    // bedrooms than the picked count, the opposite of what "3+" promises.
+    // minBathrooms below already used .gte(); this just matches it.
+    if (filters.bedrooms) query = query.gte('bedrooms', filters.bedrooms);
     if (filters.minBathrooms) query = query.gte('bathrooms', filters.minBathrooms);
     // areaUnit is only meaningful alongside an actual area range — clients
     // (web/mobile search filter state) always carry a default unit

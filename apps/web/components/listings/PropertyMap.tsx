@@ -49,10 +49,10 @@ export function PropertyMap({ properties }: PropertyMapProps) {
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
-      <div className="flex h-[520px] w-full items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-        <p className="max-w-sm text-sm text-slate-500">
+      <div className="flex h-[520px] w-full items-center justify-center rounded-3xl border border-dashed border-border bg-muted p-8 text-center">
+        <p className="max-w-sm text-sm text-muted-foreground">
           Map view needs a Google Maps API key. Set{' '}
-          <code className="rounded bg-slate-200 px-1 py-0.5 text-xs">NEXT_PUBLIC_GOOGLE_PLACES_API_KEY</code> in your
+          <code className="rounded bg-background px-1 py-0.5 text-xs">NEXT_PUBLIC_GOOGLE_PLACES_API_KEY</code> in your
           environment to enable it.
         </p>
       </div>
@@ -61,18 +61,18 @@ export function PropertyMap({ properties }: PropertyMapProps) {
 
   if (loadError) {
     return (
-      <div className="flex h-[520px] w-full items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-        <p className="text-sm text-slate-500">Couldn&apos;t load Google Maps. Please try again later.</p>
+      <div className="flex h-[520px] w-full items-center justify-center rounded-3xl border border-dashed border-border bg-muted p-8 text-center">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load Google Maps. Please try again later.</p>
       </div>
     );
   }
 
   if (!isLoaded) {
-    return <div className="h-[520px] w-full animate-pulse rounded-3xl bg-slate-100" />;
+    return <div className="h-[520px] w-full animate-pulse rounded-3xl bg-muted" />;
   }
 
   return (
-    <div className="h-[520px] w-full overflow-hidden rounded-3xl border border-slate-100 shadow-sm">
+    <div className="h-[520px] w-full overflow-hidden rounded-3xl border border-border shadow-sm">
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER_STYLE}
         center={properties.length === 1 ? { lat: properties[0].lat, lng: properties[0].lng } : center}

@@ -20,7 +20,7 @@ export function FAQAccordion({ faqs }: FAQAccordionProps) {
   };
 
   return (
-    <div className="divide-y divide-slate-200 border-t border-slate-200">
+    <div className="divide-y divide-border border-t border-border">
       {faqs.map((faq, index) => {
         const isOpen = openId === faq.id;
 
@@ -38,8 +38,8 @@ export function FAQAccordion({ faqs }: FAQAccordionProps) {
               aria-expanded={isOpen}
               className="flex w-full items-center justify-between gap-4 py-5 text-left"
             >
-              <span className="text-base font-semibold text-slate-900">{faq.question}</span>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors">
+              <span className="text-base font-semibold text-foreground">{faq.question}</span>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors">
                 {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               </span>
             </button>
@@ -53,7 +53,7 @@ export function FAQAccordion({ faqs }: FAQAccordionProps) {
               }`}
             >
               <div className="overflow-hidden">
-                <p className="max-w-2xl pb-5 text-sm leading-relaxed text-slate-500">{faq.answer}</p>
+                <p className="max-w-2xl pb-5 text-sm leading-relaxed text-muted-foreground">{faq.answer}</p>
               </div>
             </div>
           </motion.div>

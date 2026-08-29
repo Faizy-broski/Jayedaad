@@ -46,6 +46,10 @@ export function ListingsBrowserSection() {
     minAreaValue: searchParams.get('minAreaValue') ?? '',
     maxAreaValue: searchParams.get('maxAreaValue') ?? '',
     areaUnit: (searchParams.get('areaUnit') as AreaUnit) || DEFAULT_LISTING_FILTERS.areaUnit,
+    // Wasn't seeded at all before — HeroSearchCard's bedroom quick-chips
+    // (and PropertySearchBar, if it ever grows the same) would build a
+    // ?minBedrooms=N URL that silently did nothing once landed here.
+    minBedrooms: searchParams.get('minBedrooms') ? Number(searchParams.get('minBedrooms')) : DEFAULT_LISTING_FILTERS.minBedrooms,
     posterType: posterType ?? DEFAULT_LISTING_FILTERS.posterType,
   };
 
@@ -61,7 +65,7 @@ export function ListingsBrowserSection() {
           <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
             Showing {agencyName ? `listings from ${agencyName}` : city || propertyTypeLabel || categoryLabel || propertyTypeCategory}
           </span>
-          <Link href={clearHref} className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700">
+          <Link href={clearHref} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
             <X className="h-3 w-3" />
             Clear
           </Link>

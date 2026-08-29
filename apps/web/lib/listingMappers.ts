@@ -66,7 +66,12 @@ export function listingToListingProperty(listing: Listing): ListingProperty {
     agent: {
       name: listing.posterType === 'owner' ? 'Property Owner' : listing.agent?.displayName ?? 'Jayedaad Team',
       role: listing.agent?.agency?.name ?? (listing.posterType === 'owner' ? 'Owner' : 'Agent'),
-      avatar: listing.agent?.photoUrl ?? '/images/agents/ahmed-raza.jpg',
+      // No fake fallback photo — that pointed at a file that was never
+      // actually added to public/images/agents/, so it rendered as a
+      // broken-image icon for every owner-posted listing (agent is always
+      // null there) and any agent without a real photoUrl. AgentCard.tsx
+      // shows an icon placeholder instead when this is null.
+      avatar: listing.agent?.photoUrl ?? null,
       phone: contact ? `${contact.countryCode}${contact.number}` : '',
       subscriptionTierName: listing.agent?.subscriptionTierName ?? null,
       email: listing.agent?.email ?? null,

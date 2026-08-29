@@ -50,6 +50,14 @@
    tokens flip fully, staying in the same warm/forest hue family rather than
    jumping to a cool neutral. */
 :root {
+  /* Tells the browser which native UI (scrollbar track/thumb, form-control
+     chrome, etc.) to draw — this is separate from our custom `.dark` class
+     and the CSS variables below, which only ever affect elements we style
+     ourselves. Without this, native scrollbars keep rendering light even
+     inside a `.dark`-scoped scrollable panel, showing up as a stray white
+     block at the bottom of otherwise-dark dropdown lists. */
+  color-scheme: light;
+
   --background: 0 0% 100%;
   --foreground: 164 45% 8%;
 
@@ -104,14 +112,15 @@
   --radius: 0.75rem;
 }
 
-/* Not scoped to :root — dark mode is dashboard-only, applied via a `dark`
-   class on each dashboard layout's own wrapper div (see ThemeProvider.tsx),
-   never on <html>. Custom properties inherit down the DOM tree regardless
-   of which element they're redeclared on, so `.dark` here (rather than
-   `:root.dark`, which only ever matches <html>) is what lets that scoped
-   wrapper actually override --background/--foreground/etc. for its
-   subtree. */
+/* Not scoped to :root — dark mode is a single site-wide preference applied
+   as a `dark` class on <html> (see ThemeProvider.tsx). Written as a bare
+   `.dark` selector (rather than `:root.dark`) purely so it'd also work if
+   anything ever needs to re-scope the class to a narrower wrapper again —
+   custom properties inherit down the DOM regardless of which element
+   redeclares them. */
 .dark {
+  color-scheme: dark;
+
   --background: 164 35% 6%;
   --foreground: 40 20% 95%;
 

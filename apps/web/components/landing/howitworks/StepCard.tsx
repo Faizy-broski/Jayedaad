@@ -4,9 +4,9 @@ export function StepCard({ step }: { step: HowItWorksStep }) {
   const { number, title, description, icon: Icon } = step;
 
   return (
-    <div className="relative flex h-full min-h-[180px] sm:min-h-[150px] w-full sm:w-[200px] flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+    <div className="relative flex h-full min-h-[180px] sm:min-h-[150px] w-full sm:w-[200px] flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       {/* Background Number */}
-      <span className="pointer-events-none absolute right-4 top-2 text-6xl font-bold text-slate-100 sm:text-5xl">
+      <span className="pointer-events-none absolute right-4 top-2 text-6xl font-bold text-muted sm:text-5xl">
         {number}
       </span>
 
@@ -17,11 +17,11 @@ export function StepCard({ step }: { step: HowItWorksStep }) {
 
       {/* Content */}
       <div className="relative z-10 mt-6">
-        <h3 className="text-base sm:text-sm  font-semibold text-slate-900">
+        <h3 className="text-base sm:text-sm  font-semibold text-foreground">
           {title}
         </h3>
 
-        <p className="mt-2 text-sm sm:text-xs leading-6 text-slate-500">
+        <p className="mt-2 text-sm sm:text-xs leading-6 text-muted-foreground">
           {description}
         </p>
       </div>

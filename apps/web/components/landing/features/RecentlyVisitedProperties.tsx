@@ -74,7 +74,7 @@ export function RecentlyVisitedProperties({ properties }: RecentlyVisitedPropert
         <div className="hidden shrink-0 items-center gap-3 sm:flex">
           <Link
             href="/listings"
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             Show all listings
             <ArrowRight className="h-3.5 w-3.5" />
@@ -85,7 +85,7 @@ export function RecentlyVisitedProperties({ properties }: RecentlyVisitedPropert
               aria-label="Previous properties"
               onClick={scrollPrev}
               disabled={!canScrollPrev}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -94,7 +94,7 @@ export function RecentlyVisitedProperties({ properties }: RecentlyVisitedPropert
               aria-label="Next properties"
               onClick={scrollNext}
               disabled={!canScrollNext}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -125,7 +125,7 @@ export function RecentlyVisitedProperties({ properties }: RecentlyVisitedPropert
             aria-label={`Go to slide ${index + 1}`}
             onClick={() => scrollTo(index)}
             className={`h-1.5 rounded-full transition-all ${
-              index === selectedIndex ? 'w-5 bg-primary' : 'w-1.5 bg-slate-200'
+              index === selectedIndex ? 'w-5 bg-primary' : 'w-1.5 bg-muted'
             }`}
           />
         ))}
@@ -134,7 +134,7 @@ export function RecentlyVisitedProperties({ properties }: RecentlyVisitedPropert
       <div className="mt-6 flex justify-center sm:hidden">
         <Link
           href="/listings"
-          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-5 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-5 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
         >
           Show all listings
           <ArrowRight className="h-3.5 w-3.5" />

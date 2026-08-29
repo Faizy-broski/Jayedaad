@@ -9,9 +9,9 @@ export function ArticleCard({ post }: { post: BlogPost }) {
   return (
     <Link
       href={`/blog/${slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
         {coverImageUrl ? (
           <Image
             src={coverImageUrl}
@@ -21,7 +21,7 @@ export function ArticleCard({ post }: { post: BlogPost }) {
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-300">
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             <Newspaper className="h-8 w-8" />
           </div>
         )}
@@ -29,8 +29,8 @@ export function ArticleCard({ post }: { post: BlogPost }) {
 
       <div className="flex flex-col gap-2 p-5">
         {category && <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">{category.name}</span>}
-        <h3 className="text-base font-semibold leading-snug text-slate-900">{title}</h3>
-        {readTime && <span className="text-xs text-slate-400">{readTime}</span>}
+        <h3 className="text-base font-semibold leading-snug text-foreground">{title}</h3>
+        {readTime && <span className="text-xs text-muted-foreground">{readTime}</span>}
       </div>
     </Link>
   );

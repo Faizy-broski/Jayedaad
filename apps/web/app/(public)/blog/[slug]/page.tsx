@@ -22,11 +22,11 @@ export default function BlogDetailPage() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-3xl px-4 pb-8 pt-24 sm:pb-10 sm:pt-28 lg:pt-32">
-        <div className="h-4 w-40 animate-pulse rounded-full bg-slate-100" />
-        <div className="mt-6 h-3 w-24 animate-pulse rounded-full bg-slate-100" />
-        <div className="mt-3 h-9 w-full animate-pulse rounded-full bg-slate-100" />
-        <div className="mt-2 h-9 w-2/3 animate-pulse rounded-full bg-slate-100" />
-        <div className="mt-8 aspect-video w-full animate-pulse rounded-2xl bg-slate-100" />
+        <div className="h-4 w-40 animate-pulse rounded-full bg-muted" />
+        <div className="mt-6 h-3 w-24 animate-pulse rounded-full bg-muted" />
+        <div className="mt-3 h-9 w-full animate-pulse rounded-full bg-muted" />
+        <div className="mt-2 h-9 w-2/3 animate-pulse rounded-full bg-muted" />
+        <div className="mt-8 aspect-video w-full animate-pulse rounded-2xl bg-muted" />
       </div>
     );
   }
@@ -34,9 +34,9 @@ export default function BlogDetailPage() {
   if (!post) {
     return (
       <div className="mx-auto flex max-w-3xl flex-col items-center px-4 pb-16 pt-24 text-center sm:pt-28 lg:pt-32">
-        <Newspaper className="mb-3 h-10 w-10 text-slate-300" />
-        <h1 className="text-lg font-semibold text-slate-900">Article not found</h1>
-        <p className="mt-1 text-sm text-slate-500">This article may have been unpublished or moved.</p>
+        <Newspaper className="mb-3 h-10 w-10 text-muted-foreground" />
+        <h1 className="text-lg font-semibold text-foreground">Article not found</h1>
+        <p className="mt-1 text-sm text-muted-foreground">This article may have been unpublished or moved.</p>
         <Link
           href="/blog"
           className="mt-5 flex items-center gap-1.5 rounded-full bg-heading-gradient px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
@@ -54,7 +54,7 @@ export default function BlogDetailPage() {
     // isHeroRoute() in components/layout/Header.tsx.
     <div className="pb-16 pt-24 sm:pb-20 sm:pt-28 lg:pt-32">
       <article className="mx-auto max-w-3xl px-4">
-        <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+        <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <Link href="/blog" className="hover:text-primary">
             Blog
           </Link>
@@ -65,15 +65,15 @@ export default function BlogDetailPage() {
             </>
           )}
           <ChevronRight className="h-3 w-3" />
-          <span className="line-clamp-1 text-slate-700">{post.title}</span>
+          <span className="line-clamp-1 text-foreground">{post.title}</span>
         </nav>
 
         <Reveal>
           {post.category && (
             <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">{post.category.name}</span>
           )}
-          <h1 className="heading-1 mt-2 text-slate-900">{post.title}</h1>
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+          <h1 className="heading-1 mt-2 text-foreground">{post.title}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             {post.publishedAt && (
               <span className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
@@ -91,7 +91,7 @@ export default function BlogDetailPage() {
 
         {post.coverImageUrl && (
           <Reveal delay={0.05}>
-            <div className="relative mt-8 aspect-video w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm">
+            <div className="relative mt-8 aspect-video w-full overflow-hidden rounded-2xl bg-muted shadow-sm">
               <Image
                 src={post.coverImageUrl}
                 alt={post.title}
@@ -114,7 +114,7 @@ export default function BlogDetailPage() {
           />
         </Reveal>
 
-        <Reveal delay={0.1} className="mt-12 flex items-center justify-between gap-4 border-t border-slate-100 pt-6">
+        <Reveal delay={0.1} className="mt-12 flex items-center justify-between gap-4 border-t border-border pt-6">
           <Link href="/blog" className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to Blog

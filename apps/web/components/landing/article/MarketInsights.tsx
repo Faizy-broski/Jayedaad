@@ -33,11 +33,11 @@ export function MarketInsights() {
         {isLoading ? (
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100" />
+              <div key={i} className="h-72 animate-pulse rounded-2xl bg-muted" />
             ))}
           </div>
         ) : posts.length === 0 ? (
-          <p className="mt-8 rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+          <p className="mt-8 rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
             No articles published yet.
           </p>
         ) : (

@@ -14,7 +14,7 @@ export default function DevelopmentsPage() {
 
       {/* ProjectsBrowserSection reads ?city= via useSearchParams(), which
           requires a Suspense boundary in the app router. */}
-      <Suspense fallback={<div className="py-20 text-center text-sm text-slate-500">Loading projects…</div>}>
+      <Suspense fallback={<div className="py-20 text-center text-sm text-muted-foreground">Loading projects…</div>}>
         <ProjectsBrowserSection />
       </Suspense>
     </main>

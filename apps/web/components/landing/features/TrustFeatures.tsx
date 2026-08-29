@@ -18,7 +18,7 @@ const FEATURES = [
 export function TrustFeatures() {
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-4 pt-20 pb-8 md:py-18">
-      <div className="grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-5 md:gap-8 lg:divide-x lg:divide-slate-200">
+      <div className="grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-5 md:gap-8 lg:divide-x lg:divide-border">
         {FEATURES.map(({ label, icon: Icon }, index) => (
           <Reveal
             key={label}
@@ -32,7 +32,7 @@ export function TrustFeatures() {
               />
             </span>
 
-            <span className="text-sm font-medium leading-snug text-slate-600 transition-colors duration-300 group-hover:text-primary">
+            <span className="text-sm font-medium leading-snug text-muted-foreground transition-colors duration-300 group-hover:text-primary">
               {label}
             </span>
           </Reveal>

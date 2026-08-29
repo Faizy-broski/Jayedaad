@@ -61,7 +61,7 @@ export function PropertyCard({ property }: { property: Property }) {
           .trackEngagement(id, { type: "click", platform: "web", viewerSessionId: getViewerSessionId() })
           .catch(() => {})
       }
-      className="block w-full overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-lg"
+      className="block w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         <Image
@@ -124,25 +124,25 @@ export function PropertyCard({ property }: { property: Property }) {
 
       <div className="flex flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-semibold text-slate-900">{title}</h3>
+          <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">{title}</h3>
           <span className="shrink-0 text-sm font-semibold text-primary">
             {formatPrice(priceValue)}
           </span>
         </div>
 
-        <p className="flex items-center gap-2 truncate text-xs text-slate-500">
+        <p className="flex items-center gap-2 truncate text-xs text-muted-foreground">
           <span className="flex min-w-0 items-center gap-1 truncate">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
             {location}
           </span>
           {posterTypeLabel && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               {posterType === "agency" ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
               {posterTypeLabel}
             </span>
           )}
         </p>
-        <div className="flex gap-3 text-xs text-slate-500">
+        <div className="flex gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Bed className="h-3.5 w-3.5" />
             {beds}
@@ -157,7 +157,7 @@ export function PropertyCard({ property }: { property: Property }) {
           </span>
         </div>
 
-        <div className="flex gap-3 border-t border-slate-200 pt-3 text-xs">
+        <div className="flex gap-3 border-t border-border pt-3 text-xs">
           {/* Not its own <Link> — the whole card is already one (see the
               outer element), and nested <a> tags are invalid HTML/React.
               Kept as visible affordance text only. */}

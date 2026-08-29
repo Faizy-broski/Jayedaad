@@ -57,28 +57,56 @@ export function AuthSheet({
   // Swipe-to-dismiss — the sheet is full-height (see the comment on
   // `sheet` below), so once it's open there's no backdrop left exposed to
   // tap-to-close, and there was no gesture at all otherwise, just the X
-  // button. Attached only to the drag handle row below (a sibling of the
-  // ScrollView-based auth screens, not wrapping them) so dragging never
-  // fights the form's own scroll gesture. Plain core-RN PanResponder, not
-  // react-native-gesture-handler — this app doesn't depend on that
-  // library elsewhere and the existing entrance/exit animation here
-  // already uses the plain Animated API, so this stays consistent with it.
-  const panResponder = useRef(
+  // button. Plain core-RN PanResponder, not react-native-gesture-handler —
+  // this app doesn't depend on that library elsewhere and the existing
+  // entrance/exit animation here already uses the plain Animated API, so
+  // this stays consistent with it.
+  //
+  // Two separate responders, not one shared across the whole sheet:
+  //  - dragHandlePanResponder (bubble phase) on the logo/title zone only —
+  //    that area has no scrollable/tappable content of its own, so it can
+  //    claim any vertical drag immediately, same as before.
+  //  - fullSheetPanResponder (CAPTURE phase) on the sheet as a whole,
+  //    including the ScrollView-based form below the handle — previously
+  //    a swipe started there never reached this code at all, since a
+  //    plain (bubble-phase) responder never gets offered the gesture once
+  //    ScrollView's own pan responder claims it first. Capture handlers run
+  //    top-down, before any child gets a look, so a decisive-enough
+  //    downward drag steals the gesture from the ScrollView before it can
+  //    treat it as a scroll/bounce. Gated on a larger threshold and a
+  //    mostly-vertical direction (not just `dy > 6` like the handle zone)
+  //    specifically so an ordinary scroll or a tap-and-drag on a button
+  //    doesn't get misread as "close the sheet".
+  const createDismissHandlers = () => ({
+    onPanResponderMove: (_: unknown, gesture: { dy: number }) => {
+      if (gesture.dy > 0) translateY.setValue(gesture.dy);
+    },
+    onPanResponderRelease: (_: unknown, gesture: { dy: number; vy: number }) => {
+      // Dragged more than a third of the way, or flicked down fast —
+      // either way finish the dismiss instead of snapping back.
+      if (gesture.dy > 140 || gesture.vy > 0.8) {
+        handleClose();
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+      }
+    },
+    onPanResponderTerminationRequest: () => false,
+  });
+
+  const dragHandlePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 6,
-      onPanResponderMove: (_, gesture) => {
-        if (gesture.dy > 0) translateY.setValue(gesture.dy);
-      },
-      onPanResponderRelease: (_, gesture) => {
-        // Dragged more than a third of the way, or flicked down fast —
-        // either way finish the dismiss instead of snapping back.
-        if (gesture.dy > 140 || gesture.vy > 0.8) {
-          handleClose();
-        } else {
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
-        }
-      },
+      ...createDismissHandlers(),
+    }),
+  ).current;
+
+  const fullSheetPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponderCapture: (_, gesture) =>
+        gesture.dy > 16 && gesture.dy > Math.abs(gesture.dx) * 1.5,
+      ...createDismissHandlers(),
     }),
   ).current;
 
@@ -89,7 +117,7 @@ export function AuthSheet({
       <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
         <Pressable style={StyleSheet.absoluteFillObject} onPress={handleClose} />
       </Animated.View>
-      <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+      <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...fullSheetPanResponder.panHandlers}>
         {/* Covers the whole non-interactive header band (brand logo/title/
             subtitle — see AuthBrandHeader), not just the thin pill, so a
             swipe started anywhere up there closes the sheet, not only a
@@ -99,7 +127,7 @@ export function AuthSheet({
             visually overlaps despite coming first in JSX (paint order),
             so it actually receives the touch instead of the header
             painting over it and swallowing the gesture. */}
-        <View style={[styles.dragHandleZone, { top: insets.top }]} {...panResponder.panHandlers}>
+        <View style={[styles.dragHandleZone, { top: insets.top }]} {...dragHandlePanResponder.panHandlers}>
           <View style={styles.dragHandle} />
         </View>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>

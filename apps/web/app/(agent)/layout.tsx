@@ -35,7 +35,6 @@ import { NotificationBell } from '@/components/layout/NotificationBell';
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
-import { useTheme } from '@/components/ThemeProvider';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
 // sidebar + topbar, matches every other route group's convention of one
@@ -96,9 +95,6 @@ function useAgencyDocumentsComplete(agencyId: string | undefined): boolean {
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  // Scoped to this dashboard shell's own wrapper div below, not
-  // document.documentElement — see ThemeProvider.tsx for why.
-  const { theme } = useTheme();
   const { user, role, signOut } = useAuthViewModel();
   const { profile } = useAgentProfileViewModel();
   // Independent-agent case (no agency): reuses the same identity-document
@@ -174,7 +170,17 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
       <div className={`flex h-16 shrink-0 items-center gap-2 border-b border-border px-5 ${collapsed ? 'justify-center px-0' : 'justify-between'}`}>
         {!collapsed && (
           <Link href="/dashboard" className="flex min-w-0 items-center overflow-hidden">
-            <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={140} height={40} priority className="h-14 w-auto object-contain" />
+            {/* Dark mode swaps to the white variant Footer.tsx/Header.tsx
+                already use on a dark background. */}
+            <Image src="/images/jayedaad-logo.png" alt="Jayedaad" width={140} height={40} priority className="h-14 w-auto object-contain dark:hidden" />
+            <Image
+              src="/images/jayedaad-white-logo.svg"
+              alt="Jayedaad"
+              width={140}
+              height={40}
+              priority
+              className="hidden h-14 w-auto object-contain dark:block"
+            />
           </Link>
         )}
         {collapsed && (
@@ -317,9 +323,9 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   return (
     <RequireEmailVerified>
     {/* bg-muted, not bg-muted/30 — opaque so descendants' translucent
-        bg-x/NN utilities blend against this dark backdrop, not the
-        always-light <body> behind it. See (super-admin)/layout.tsx. */}
-    <div className={`flex min-h-screen bg-muted ${theme === 'dark' ? 'dark' : ''}`}>
+        bg-x/NN utilities blend against a solid backdrop instead of
+        bleeding into whatever's behind this div. See (super-admin)/layout.tsx. */}
+    <div className="flex min-h-screen bg-muted">
       <AnimatePresence>
         {mobileOpen && (
           <motion.div

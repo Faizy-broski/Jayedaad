@@ -78,7 +78,10 @@ export interface ListingProperty extends Property {
   agent: {
     name: string;
     role: string;
-    avatar: string;
+    // Null when no real photo exists (always true for a 'Property Owner'
+    // card, and for any agent who never uploaded one) — AgentCard.tsx
+    // renders an icon placeholder instead of trying to load a missing file.
+    avatar: string | null;
     phone: string;
     // The agent's active plan name (e.g. "Titanium"), rendered as a badge —
     // real Zameen listing pages show this on the agency card sidebar.

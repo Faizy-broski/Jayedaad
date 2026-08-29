@@ -9,7 +9,7 @@ export function AgencyCard({ agency }: { agency: AgencyWithStats }) {
   return (
     <Link
       href={`/agents/${agency.slug}`}
-      className="flex w-full min-w-[260px] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
+      className="flex w-full min-w-[260px] items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
     >
       <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 text-primary">
         {agency.logoUrl ? (
@@ -20,8 +20,8 @@ export function AgencyCard({ agency }: { agency: AgencyWithStats }) {
         )}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-slate-900">{agency.name}</p>
-        <p className="mt-0.5 truncate text-xs text-slate-500">
+        <p className="truncate text-sm font-semibold text-foreground">{agency.name}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
           {agency.forSaleCount} for Sale | {agency.forRentCount} for Rent
         </p>
         <p className="mt-1 flex items-center gap-1 truncate text-xs font-medium text-primary">

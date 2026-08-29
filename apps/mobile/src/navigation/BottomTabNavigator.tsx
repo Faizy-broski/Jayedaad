@@ -62,26 +62,30 @@ export function BottomTabNavigator() {
       <Tab.Screen
         name="Favorites"
         component={FavoritesScreen}
-        listeners={{
+        listeners={({ navigation: tabNavigation }) => ({
           tabPress: (e) => {
             if (!isSatisfied) {
               e.preventDefault();
-              requireAuth();
+              // Without this, the tab switch stays blocked forever — the
+              // sheet closes on successful auth but nothing ever lands the
+              // user on the tab they actually tapped, so they're just left
+              // wherever they already were (Home).
+              requireAuth(() => tabNavigation.navigate('Favorites'));
             }
           },
-        }}
+        })}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        listeners={{
+        listeners={({ navigation: tabNavigation }) => ({
           tabPress: (e) => {
             if (!isSatisfied) {
               e.preventDefault();
-              requireAuth();
+              requireAuth(() => tabNavigation.navigate('Profile'));
             }
           },
-        }}
+        })}
       />
     </Tab.Navigator>
   );

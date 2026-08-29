@@ -265,7 +265,12 @@ export default function AdminListingDetailPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.25 }}
-              className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-border bg-muted"
+              // Admin-only cap — this page's wide content column let the
+              // plain aspect-ratio box grow far taller than the public
+              // listing detail page's own hero ever does; capped here only,
+              // not touching that page's markup. 420px still read as too
+              // large next to the compact details/thumbnails below it.
+              className="aspect-[16/9] max-h-[280px] w-full overflow-hidden rounded-xl border border-border bg-muted"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={currentImage?.compressedUrl ?? currentImage?.url} alt={listing.title} className="h-full w-full object-cover" />
@@ -290,7 +295,7 @@ export default function AdminListingDetailPage() {
             )}
           </div>
         ) : (
-          <div className="flex aspect-[16/9] w-full flex-col items-center justify-center rounded-xl border border-dashed border-border text-center">
+          <div className="flex aspect-[16/9] max-h-[280px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-border text-center">
             <ImageOff className="mb-2 h-8 w-8 text-muted-foreground/40" />
             <p className="text-xs text-muted-foreground">No photos uploaded.</p>
           </div>

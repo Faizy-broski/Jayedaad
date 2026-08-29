@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { getUserEmailVerified, useAuthStore, useAuthViewModel } from '@jayedaad/core';
-import { Button, Checkbox, TextInput, theme } from '@jayedaad/ui-native';
+import { Button, Checkbox, TextInput, theme, useToast } from '@jayedaad/ui-native';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { useAppleSignIn } from '../../hooks/useAppleSignIn';
 import { GoogleIcon, AppleIcon } from '../../components/SocialIcons';
@@ -62,6 +62,7 @@ export function LoginScreen() {
   const { signIn, sendOtp } = useAuthViewModel();
   const { signInWithGoogle, isPending: isGooglePending } = useGoogleSignIn();
   const { signInWithApple, isPending: isApplePending } = useAppleSignIn();
+  const { showToast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,7 +89,15 @@ export function LoginScreen() {
     // this render) reads the session onAuthStateChange just updated after
     // sign-in resolved — a synchronous JWT-claim read, no round trip,
     // unlike the old GET /auth/otp/status query this used to await here.
-    if (getUserEmailVerified(useAuthStore.getState().user)) return;
+    if (getUserEmailVerified(useAuthStore.getState().user)) {
+      // Only here, not right after signIn/social sign-in resolves — an
+      // unverified account still has VerifyEmail ahead of it, so "signed
+      // in" would be premature. This is the actual completion point:
+      // AuthGateProvider's effect closes the sheet and returns the user to
+      // wherever they tried to go right after this.
+      showToast('Signed in successfully.');
+      return;
+    }
     let otpSendFailed = false;
     try {
       await sendOtp.mutateAsync();

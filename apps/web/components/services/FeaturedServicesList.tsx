@@ -6,17 +6,17 @@ import { DETAILED_SERVICES } from '@/data/servicesDetailed';
 
 export function FeaturedServicesList() {
   return (
-    <section className="mx-auto border-t border-slate-200 max-w-6xl px-4 py-16 sm:py-16">
+    <section className="mx-auto border-t border-border max-w-6xl px-4 py-16 sm:py-16">
       <Reveal className='flex items-center justify-between'>
         <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">
           02 — Featured Services
         </span>
-        <span className='text-xs font-semibold uppercase tracking-widest text-slate-500'>
+        <span className='text-xs font-semibold uppercase tracking-widest text-muted-foreground'>
           08 Practices
         </span>
       </Reveal>
 
-      <div className="mt-10 flex flex-col divide-y divide-slate-200">
+      <div className="mt-10 flex flex-col divide-y divide-border">
         {DETAILED_SERVICES.map((service, index) => {
           const imageFirst = index % 2 === 0;
 
@@ -59,7 +59,7 @@ export function FeaturedServicesList() {
                     {service.cta}
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                   </span>
-                  <span className="h-px w-full bg-slate-300 transition-colors group-hover:bg-primary" />
+                  <span className="h-px w-full bg-border transition-colors group-hover:bg-primary" />
                 </Link>
               </div>
             </Reveal>

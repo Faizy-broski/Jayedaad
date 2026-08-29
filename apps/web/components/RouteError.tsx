@@ -49,7 +49,10 @@ export function RouteError({ error, reset }: { error: Error & { digest?: string 
             <AlertTriangle className="h-6 w-6" />
           </motion.span>
 
-          <h2 className="text-xl font-bold text-brand-dark">Something went wrong</h2>
+          {/* text-foreground, not text-brand-dark — see not-found.tsx's
+              identical fix: --brand-dark stays near-black in dark mode too,
+              which would make this heading invisible against bg-background. */}
+          <h2 className="text-xl font-bold text-foreground">Something went wrong</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             {error.message || 'An unexpected error occurred while loading this page.'}
           </p>
@@ -65,7 +68,7 @@ export function RouteError({ error, reset }: { error: Error & { digest?: string 
             </button>
             <Link
               href="/"
-              className="flex items-center gap-2 rounded-full border border-slate-200 px-6 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+              className="flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
             >
               <Home className="h-4 w-4" />
               Back to homepage

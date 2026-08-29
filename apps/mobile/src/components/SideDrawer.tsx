@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { Alert, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +12,7 @@ import { useAuthGate } from '../auth/AuthGateContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList & BottomTabParamList>;
 
-const DRAWER_WIDTH = Math.min(320, Dimensions.get('window').width * 0.84);
+export const DRAWER_WIDTH = Math.min(320, Dimensions.get('window').width * 0.84);
 
 // No destructive/error token exists in ui-native's theme yet — matches the
 // convention already established in ProfileScreen.tsx.
@@ -26,13 +25,21 @@ const APP_VERSION = '0.1.0';
 export interface SideDrawerProps {
   visible: boolean;
   onClose: () => void;
+  // Owned by the caller (HomeScreen), not created here — shared with its
+  // edge-swipe PanResponder (see that comment) so a swipe-to-open drag
+  // animates this exact same Animated.Value in real time, and the normal
+  // open/close tween (tap the hamburger icon, tap the backdrop, tap a nav
+  // row) animates it too, both ending up driving one continuous value
+  // instead of the drawer snapping into a second, independent animation
+  // once a drag's already been moving it.
+  translateX: Animated.Value;
 }
 
 // Hand-rolled slide-out drawer (Modal + Animated), not @react-navigation/drawer
 // — avoids adding that package's native peers (react-native-gesture-handler,
 // react-native-reanimated), the kind of new native dependency that already
 // caused real version-mismatch breakage earlier this session.
-export function SideDrawer({ visible, onClose }: SideDrawerProps) {
+export function SideDrawer({ visible, onClose, translateX }: SideDrawerProps) {
   const navigation = useNavigation<Nav>();
   const { user, role, signOut } = useAuthViewModel();
   const isAgent = role === 'agent' || role === 'super_admin';
@@ -54,15 +61,16 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
       ? agentProfile.agency.verificationStatus !== 'verified'
       : agentProfile.verificationStatus !== 'verified'
     : false;
-  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
-
-  useEffect(() => {
-    Animated.timing(translateX, {
-      toValue: visible ? 0 : -DRAWER_WIDTH,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, translateX]);
+  // Follows the same translateX the swipe-open gesture drives live, so the
+  // backdrop fades in with the drag instead of snapping to full opacity the
+  // instant the Modal mounts (which is how a tap-open still works too —
+  // translateX jumps straight from -DRAWER_WIDTH to animating toward 0, so
+  // this interpolation covers both without needing a separate code path).
+  const backdropOpacity = translateX.interpolate({
+    inputRange: [-DRAWER_WIDTH, 0],
+    outputRange: [0, 0.4],
+    extrapolate: 'clamp',
+  });
 
   const displayName = getDisplayName(user);
 
@@ -88,6 +96,7 @@ export function SideDrawer({ visible, onClose }: SideDrawerProps) {
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.overlay}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.backdropColor, { opacity: backdropOpacity }]} />
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]}>
           <ScrollView contentContainerStyle={styles.content}>
@@ -183,7 +192,8 @@ function NavRow({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(15,23,42,0.4)' },
+  overlay: { flex: 1, flexDirection: 'row' },
+  backdropColor: { backgroundColor: '#0f172a' },
   panel: {
     position: 'absolute',
     left: 0,

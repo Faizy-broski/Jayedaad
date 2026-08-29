@@ -55,7 +55,7 @@ export function Table<T>({ columns, rows, rowKey, isLoading, emptyMessage = 'No 
             rows.map((row) => (
               <tr key={rowKey(row)} className="align-middle transition-colors hover:bg-muted/30">
                 {columns.map((col) => (
-                  <td key={col.key} className={cn('whitespace-nowrap py-3.5 pr-6', col.className)}>
+                  <td key={col.key} className={cn('whitespace-nowrap py-3.5 pr-6 text-foreground', col.className)}>
                     {col.render(row)}
                   </td>
                 ))}

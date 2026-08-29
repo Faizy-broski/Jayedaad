@@ -65,7 +65,7 @@ export function NewlyStaged({ properties }: NewlyStagedProps) {
               aria-label="Previous properties"
               onClick={scrollPrev}
               disabled={!canScrollPrev}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 shadow-sm transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -74,7 +74,7 @@ export function NewlyStaged({ properties }: NewlyStagedProps) {
               aria-label="Next properties"
               onClick={scrollNext}
               disabled={!canScrollNext}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 shadow-sm transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

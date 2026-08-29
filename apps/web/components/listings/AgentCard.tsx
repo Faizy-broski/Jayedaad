@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BadgeCheck, Mail, MessageSquare, PhoneCall } from 'lucide-react';
+import { BadgeCheck, Mail, MessageSquare, PhoneCall, User } from 'lucide-react';
 import { listingsRepository } from '@jayedaad/core';
 import { Badge } from '@jayedaad/ui-web';
 import { EnquiryDialog } from '@/components/shared/EnquiryDialog';
@@ -42,14 +42,18 @@ export function AgentCard({ agent, posterType, listingId, listingTitle, referenc
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-slate-100">
-          <Image src={agent.avatar} alt={agent.name} fill sizes="44px" className="object-cover" />
+        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+          {agent.avatar ? (
+            <Image src={agent.avatar} alt={agent.name} fill sizes="44px" className="object-cover" />
+          ) : (
+            <User className="h-5 w-5 text-muted-foreground" />
+          )}
         </div>
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-semibold text-slate-900">{agent.name}</span>
-          <span className="truncate text-xs text-slate-500">{agent.role}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{agent.name}</span>
+          <span className="truncate text-xs text-muted-foreground">{agent.role}</span>
         </div>
       </div>
 
@@ -110,7 +114,7 @@ export function AgentCard({ agent, posterType, listingId, listingTitle, referenc
         </div>
       </div>
 
-      <p className="text-center text-[11px] leading-relaxed text-slate-400">
+      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
         Prefer a callback? Share a time and our concierge desk will reach out within the hour.
       </p>
     </div>

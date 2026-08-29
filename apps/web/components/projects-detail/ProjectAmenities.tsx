@@ -16,7 +16,7 @@ interface ProjectAmenitiesProps {
 export function ProjectAmenities({ amenities }: ProjectAmenitiesProps) {
   if (amenities.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500">
+      <p className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
         No amenities listed yet.
       </p>
     );
@@ -29,7 +29,7 @@ export function ProjectAmenities({ amenities }: ProjectAmenitiesProps) {
         return (
           <div
             key={amenity}
-            className="flex items-center gap-2.5 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700"
+            className="flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground"
           >
             <Icon className="h-4 w-4 shrink-0 text-primary" />
             {amenity}

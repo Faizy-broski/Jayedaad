@@ -25,16 +25,16 @@ export function OurProcess() {
             <Reveal key={step.id} delay={index * 0.08} className="relative flex flex-col gap-3">
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-[#259F56]" />
-                <span className="text-xs font-medium text-slate-400">
+                <span className="text-xs font-medium text-muted-foreground">
                   {String(index + 1).padStart(2, '0')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 {index < ABOUT_PROCESS_STEPS.length - 1 && (
-                  <span className="hidden h-px flex-1 bg-slate-200 sm:block" />
+                  <span className="hidden h-px flex-1 bg-border sm:block" />
                 )}
               </div>
-              <span className="text-lg font-semibold text-slate-900">{step.title}</span>
+              <span className="text-lg font-semibold text-foreground">{step.title}</span>
               <p className="text-xs leading-relaxed text-muted-foreground">{step.description}</p>
             </Reveal>
           ))}

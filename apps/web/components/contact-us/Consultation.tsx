@@ -58,16 +58,16 @@ function SelectField({
   return (
     <div ref={ref} className="relative flex flex-col gap-2">
       <input type="hidden" name={name} value={value} required={required} />
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-        {label} {optional && <span className="normal-case text-slate-300">(optional)</span>}
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label} {optional && <span className="normal-case text-muted-foreground/70">(optional)</span>}
       </span>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between gap-2 border-b border-slate-200 bg-transparent pb-2 text-left text-sm font-medium focus:border-primary focus:outline-none"
+        className="flex items-center justify-between gap-2 border-b border-border bg-transparent pb-2 text-left text-sm font-medium focus:border-primary focus:outline-none"
       >
         <span className="text-primary">{value || placeholder}</span>
-        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -77,7 +77,7 @@ function SelectField({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full z-30 mt-2 w-full min-w-[10rem] rounded-2xl border border-slate-100 bg-white p-1.5 text-slate-800 shadow-2xl"
+            className="absolute left-0 top-full z-30 mt-2 w-full min-w-[10rem] rounded-2xl border border-border bg-card p-1.5 text-foreground shadow-2xl"
           >
             {options.map((option) => (
               <button
@@ -87,7 +87,7 @@ function SelectField({
                   onChange(option);
                   setOpen(false);
                 }}
-                className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${option === value ? 'bg-primary/10 font-medium text-primary' : 'text-slate-600 hover:bg-slate-50'
+                className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${option === value ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted'
                   }`}
               >
                 {option}
@@ -144,7 +144,7 @@ export function ConsultationSection() {
           className="flex flex-col"
         >
           <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">
-            01 <span className="text-slate-300">—</span> Book a consultation
+            01 <span className="text-muted-foreground">—</span> Book a consultation
           </span>
 
           <h2 className="mt-4 text-3xl font-bold leading-tight text-heading-gradient sm:text-4xl md:text-[2.75rem]">
@@ -160,14 +160,14 @@ export function ConsultationSection() {
 
           <ul className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
             {LOCATION_FEATURES.map((feature) => (
-              <li key={feature} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 sm:text-sm">
+              <li key={feature} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#00A24F]" />
                 {feature}
               </li>
             ))}
           </ul>
 
-          <div className="relative mt-8 aspect-[4/3] w-full overflow-hidden rounded-3xl border border-slate-200 shadow-sm sm:aspect-[16/10] lg:aspect-auto lg:flex-1 lg:min-h-[280px]">
+          <div className="relative mt-8 aspect-[4/3] w-full overflow-hidden rounded-3xl border border-border shadow-sm sm:aspect-[16/10] lg:aspect-auto lg:flex-1 lg:min-h-[280px]">
             <iframe
               src={MAP_EMBED_SRC}
               title="Jayedaad office location — Gulberg III, Lahore"
@@ -185,7 +185,7 @@ export function ConsultationSection() {
           viewport={{ once: true, amount: 0.3 }}
           variants={fadeUp}
           transition={{ delay: 0.1 }}
-          className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8 md:p-10"
+          className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8 md:p-10"
         >
           {/* Watermark logo — sits behind the fields, faint, centered across
               the whole card so it reads at a glance rather than hiding as a
@@ -203,32 +203,32 @@ export function ConsultationSection() {
           <form className="relative z-10 flex h-full flex-col gap-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Full name</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Full name</span>
                 <input
                   name="fullName"
                   placeholder="Your full name"
-                  className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                  className="border-b border-border bg-transparent pb-2 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
               </label>
 
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Email</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Email</span>
                 <input
                   type="email"
                   name="email"
                   placeholder="you@email.com"
-                  className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                  className="border-b border-border bg-transparent pb-2 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
               </label>
 
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Phone</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Phone</span>
                 <input
                   type="tel"
                   name="phone"
                   required
                   placeholder="+92 300 000 0000"
-                  className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                  className="border-b border-border bg-transparent pb-2 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
               </label>
 
@@ -250,24 +250,24 @@ export function ConsultationSection() {
               />
 
               <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Budget <span className="normal-case text-slate-300">(optional)</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Budget <span className="normal-case text-muted-foreground/70">(optional)</span>
                 </span>
                 <input
                   name="budget"
                   placeholder="PKR"
-                  className="border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                  className="border-b border-border bg-transparent pb-2 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
               </label>
             </div>
 
             <label className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Message</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Message</span>
               <textarea
                 name="message"
                 rows={2}
                 placeholder="Tell us about what you're looking for..."
-                className="resize-none border-b border-slate-200 bg-transparent pb-2 text-sm font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                className="resize-none border-b border-border bg-transparent pb-2 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
             </label>
             <div className="mt-auto">
@@ -291,7 +291,7 @@ export function ConsultationSection() {
                 )}
               </button>
 
-              <p className="text-center text-[11px] leading-relaxed mt-4 text-slate-400">
+              <p className="text-center text-[11px] leading-relaxed mt-4 text-muted-foreground">
                 By submitting, you agree to Jayedaad&apos;s private consultation policy.
               </p>
             </div>

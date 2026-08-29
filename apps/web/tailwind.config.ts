@@ -35,6 +35,15 @@ const config: Config = {
       colors: {
         background: 'hsl(var(--background) / <alpha-value>)',
         foreground: 'hsl(var(--foreground) / <alpha-value>)',
+        // --card/--card-foreground existed in globals.css but were never
+        // wired up here, so bg-card/text-card-foreground silently compiled
+        // to nothing anywhere they were used — added so elevated surfaces
+        // (dropdown panels, floating cards) can actually use the "sits on
+        // top of the page" token instead of reusing bg-background.
+        card: {
+          DEFAULT: 'hsl(var(--card) / <alpha-value>)',
+          foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
+        },
         primary: {
           DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
           foreground: 'hsl(var(--primary-foreground) / <alpha-value>)',

@@ -41,13 +41,13 @@ export function ServiceCard({ service }: { service: Service }) {
   return (
     <Link
       href={href}
-      className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
+      className="group flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-300 ease-out group-hover:bg-primary group-hover:text-white group-hover:scale-110">
         <Icon className="h-4 w-4" />
       </span>
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-semibold text-slate-900 transition-colors duration-300 group-hover:text-primary">{title}</span>
+        <span className="text-sm font-semibold text-foreground transition-colors duration-300 group-hover:text-primary">{title}</span>
         <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>
       </div>
       <span className="mt-auto flex items-center gap-1 text-xs font-medium text-primary">

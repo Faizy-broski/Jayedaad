@@ -33,13 +33,13 @@ export function ProjectDetailSection({ slug }: ProjectDetailSectionProps) {
   });
 
   if (isLoading || (project && developerQuery.isLoading)) {
-    return <div className="py-32 text-center text-sm text-slate-500">Loading project…</div>;
+    return <div className="py-32 text-center text-sm text-muted-foreground">Loading project…</div>;
   }
 
   if (error || !project || !developerQuery.data) {
     return (
       <div className="flex flex-col items-center gap-3 py-32 text-center">
-        <p className="text-sm text-slate-500">This project couldn&apos;t be found — it may have been removed.</p>
+        <p className="text-sm text-muted-foreground">This project couldn&apos;t be found — it may have been removed.</p>
         <Link href="/developments" className="text-sm font-medium text-primary hover:underline">
           Back to all projects
         </Link>

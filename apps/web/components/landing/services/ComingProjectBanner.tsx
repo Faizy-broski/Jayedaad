@@ -24,7 +24,17 @@ export function ComingProjectBanner({ project }: { project: ComingProject }) {
     // with the price badge/mini-map, so it flows as a normal block below the
     // image instead of overlaying it. From sm up there's enough width for
     // everything to fit in one row, so it reverts to the absolute overlay.
-    <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm sm:aspect-[16/9] sm:rounded-3xl sm:shadow-none">
+    // bg-card, not bg-white — from sm up this is fully covered by the
+    // absolute-positioned image below and never shows, but below sm the
+    // "Bottom content" block flows in normal document order underneath
+    // the image, so this IS the visible page-surface background behind it
+    // there. Every badge/panel overlaid directly on the photo itself
+    // (price badge, bookmark, mini-map, the location/agent panels) stays
+    // hardcoded light on purpose — same "glass chrome over a photo reads
+    // the same regardless of theme" treatment as PropertyCard's badges,
+    // since their text is tuned for a light backing, not the page's
+    // --foreground.
+    <div className="relative overflow-hidden rounded-2xl bg-card shadow-sm sm:aspect-[16/9] sm:rounded-3xl sm:shadow-none">
       <div className="relative aspect-[4/3] w-full sm:absolute sm:inset-0 sm:aspect-auto">
         <Image
           src={image}

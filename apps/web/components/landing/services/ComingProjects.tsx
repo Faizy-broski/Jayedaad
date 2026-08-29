@@ -25,7 +25,7 @@ export function ComingProjects({ projects }: ComingProjectsProps) {
           </Reveal>
           <Link
             href="/developments"
-            className="whitespace-nowrap border-b border-slate-300 pb-0.5 text-xs font-medium text-slate-500 transition-colors hover:border-primary hover:text-primary"
+            className="whitespace-nowrap border-b border-border pb-0.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             View all
           </Link>

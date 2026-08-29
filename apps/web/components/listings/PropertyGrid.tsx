@@ -8,7 +8,7 @@ interface PropertyGridProps {
 export function PropertyGrid({ properties }: PropertyGridProps) {
   if (properties.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+      <p className="rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
         No properties match your filters. Try widening your search.
       </p>
     );

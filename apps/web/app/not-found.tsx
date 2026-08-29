@@ -24,7 +24,7 @@ const item = {
 // awkwardly nested in it.
 export default function NotFound() {
   return (
-    <main className="fixed inset-0 z-[999] flex items-center justify-center overflow-hidden bg-white px-4">
+    <main className="fixed inset-0 z-[999] flex items-center justify-center overflow-hidden bg-background px-4">
       {/* Faint building watermark, same treatment used across the site's
           light sections, so a 404 still reads as unmistakably "Jayedaad". */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.06]">
@@ -64,7 +64,11 @@ export default function NotFound() {
           404
         </motion.h1>
 
-        <motion.h2 variants={item} className="text-2xl font-bold leading-tight text-brand-dark sm:text-3xl">
+        {/* text-foreground, not text-brand-dark — --brand-dark is a fixed
+            near-black used for deliberate dark sections/banners and stays
+            near-black in dark mode too (see globals.css), which would make
+            this heading invisible against a dark page background. */}
+        <motion.h2 variants={item} className="text-2xl font-bold leading-tight text-foreground sm:text-3xl">
           This address doesn&apos;t exist.
         </motion.h2>
 
@@ -83,7 +87,7 @@ export default function NotFound() {
           </Link>
           <Link
             href="/listings"
-            className="flex items-center gap-2 rounded-full border border-slate-200 px-6 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+            className="flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             <Search className="h-4 w-4" />
             Browse properties

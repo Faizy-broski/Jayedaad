@@ -169,7 +169,7 @@ export function ProjectGallery({ images, title, floorPlanUrls = [], videoUrl, br
             className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
               activeTab === id
                 ? 'border-primary bg-primary/10 text-primary'
-                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                : 'border-border text-muted-foreground hover:border-primary/40'
             }`}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -181,7 +181,7 @@ export function ProjectGallery({ images, title, floorPlanUrls = [], videoUrl, br
             href={brochureUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300"
+            className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40"
           >
             <FileText className="h-3.5 w-3.5" />
             Brochure

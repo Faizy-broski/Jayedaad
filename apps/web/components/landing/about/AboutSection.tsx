@@ -33,16 +33,16 @@ export function AboutSection() {
           {/* Floating testimonial card — pinned to the bottom-left corner,
               overlapping the image edge. Width is capped relative to the
               container so it never overflows on narrow screens. */}
-          <div className="absolute -bottom-6 left-3 w-[calc(100%-2rem)] max-w-64 rounded-xl bg-white p-3 shadow-xl sm:-bottom-8 sm:left-6 sm:w-64 sm:rounded-2xl sm:p-4">
+          <div className="absolute -bottom-6 left-3 w-[calc(100%-2rem)] max-w-64 rounded-xl bg-card p-3 shadow-xl sm:-bottom-8 sm:left-6 sm:w-64 sm:rounded-2xl sm:p-4">
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
-                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-slate-200 sm:h-6 sm:w-6" />
-                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-slate-300 sm:h-6 sm:w-6" />
-                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-slate-400 sm:h-6 sm:w-6" />
+                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-card bg-slate-200 sm:h-6 sm:w-6" />
+                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-card bg-slate-300 sm:h-6 sm:w-6" />
+                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-card bg-slate-400 sm:h-6 sm:w-6" />
               </div>
-              <span className="text-[11px] font-semibold text-slate-800 sm:text-xs">50K+ happy owners</span>
+              <span className="text-[11px] font-semibold text-foreground sm:text-xs">50K+ happy owners</span>
             </div>
-            <p className="mt-2 text-[11px] italic leading-relaxed text-slate-500 sm:text-xs">
+            <p className="mt-2 text-[11px] italic leading-relaxed text-muted-foreground sm:text-xs">
               &ldquo;Jayedaad made our first home purchase feel effortless.&rdquo;
             </p>
           </div>

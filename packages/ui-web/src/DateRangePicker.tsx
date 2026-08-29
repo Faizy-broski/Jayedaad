@@ -100,7 +100,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
       <button
         type="button"
         onClick={openPanel}
-        className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-left transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-left text-foreground transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span aria-hidden className="shrink-0 text-muted-foreground">
           📅
@@ -110,7 +110,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
 
       <div
         className={cn(
-          'absolute left-0 right-0 top-full z-20 mt-1 flex max-h-[80vh] origin-top-right flex-col overflow-auto rounded-md border border-border bg-background shadow-lg transition-all duration-150 ease-out sm:left-auto sm:w-[420px] sm:flex-row',
+          'absolute left-0 right-0 top-full z-20 mt-1 flex max-h-[80vh] origin-top-right flex-col overflow-auto rounded-md border border-border bg-background text-foreground shadow-lg transition-all duration-150 ease-out sm:left-auto sm:w-[420px] sm:flex-row',
           open ? 'visible translate-y-0 scale-100 opacity-100' : 'invisible -translate-y-1 scale-95 opacity-0',
         )}
       >
