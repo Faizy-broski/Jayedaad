@@ -10,6 +10,7 @@ import { LayoutGrid, Home, UserCheck, ShieldCheck, Settings, LogOut, ChevronsUpD
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useLogout } from '@/lib/hooks/useLogout';
 
 // verification_staff's real shell — previously this role's only two pages
 // (/verification, /agent-verification) lived in a route group with no
@@ -30,7 +31,8 @@ const NAV_ITEMS = [
 
 export default function VerificationLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, role, signOut } = useAuthViewModel();
+  const { user, role } = useAuthViewModel();
+  const { logout, isPending: signOutPending } = useLogout();
   const { profile } = useAccountProfileViewModel();
   const { current: roleAccess } = useRoleAccessViewModel(role);
   const displayName = getDisplayName(user, 'Verification');
@@ -50,11 +52,10 @@ export default function VerificationLayout({ children }: { children: React.React
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
-  function handleLogout() {
-    // Hard redirect, not router.push — same bfcache-avoidance reasoning as
-    // (super-admin)/layout.tsx's handleLogout.
-    signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/login') });
-  }
+  // Hard redirect, not router.push, including on a failed sign-out — same
+  // bfcache-avoidance reasoning as (super-admin)/layout.tsx's handleLogout;
+  // see useLogout.ts for why onError also redirects.
+  const handleLogout = logout;
 
   const activeItem = NAV_ITEMS.find(({ href }) => pathname === href || (href !== '/verification' && pathname.startsWith(href)));
 
@@ -143,11 +144,11 @@ export default function VerificationLayout({ children }: { children: React.React
               <button
                 type="button"
                 onClick={handleLogout}
-                disabled={signOut.isPending}
+                disabled={signOutPending}
                 className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >
                 <LogOut className="h-4 w-4 shrink-0" />
-                {signOut.isPending ? 'Logging out…' : 'Log Out'}
+                {signOutPending ? 'Logging out…' : 'Log Out'}
               </button>
             </motion.div>
           )}

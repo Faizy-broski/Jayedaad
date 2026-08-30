@@ -453,7 +453,10 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
                     }`}
                   >
                     <BedDouble className="h-5 w-5" />
-                    <span className="truncate">{minBedrooms !== '' ? `${minBedrooms}+ Beds` : 'Beds'}</span>
+                    <span className="flex items-center gap-0.5">
+                      <span className="truncate">{minBedrooms !== '' ? `${minBedrooms}+ Beds` : 'Beds'}</span>
+                      <ChevronDown className="h-3 w-3 shrink-0" />
+                    </span>
                   </button>
 
                   {bedsMenuOpen && (

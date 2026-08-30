@@ -73,36 +73,36 @@ function ValueCard({ value }: { value: AboutValue }) {
 
   if (size === 'wide-light') {
     return (
-      <div className="flex aspect-[16/9] w-full flex-col gap-2 rounded-[26px] border border-[#E6E8EA] bg-white p-6 sm:aspect-[504/207] sm:p-9">
-        <span className="text-xs font-medium uppercase tracking-[0.19em] text-[#212730]/80">{label}</span>
-        <p className="text-base font-medium leading-snug text-[#212730] sm:text-lg sm:leading-snug">{title}</p>
+      <div className="flex aspect-[16/9] w-full flex-col gap-2 rounded-[26px] border border-border bg-card p-6 sm:aspect-[504/207] sm:p-9">
+        <span className="text-xs font-medium uppercase tracking-[0.19em] text-muted-foreground">{label}</span>
+        <p className="text-base font-medium leading-snug text-foreground sm:text-lg sm:leading-snug">{title}</p>
       </div>
     );
   }
 
   if (size === 'md-light') {
     return (
-      <div className="flex aspect-[16/9] w-full flex-col gap-3 rounded-[26px] bg-white p-5 sm:aspect-[398/207] sm:p-7">
-        <span className="text-xs font-medium uppercase tracking-[0.19em] text-[#212730]/80">{label}</span>
-        <p className="text-sm font-medium leading-snug text-[#212730] sm:text-base sm:leading-snug">{title}</p>
+      <div className="flex aspect-[16/9] w-full flex-col gap-3 rounded-[26px] bg-card p-5 sm:aspect-[398/207] sm:p-7">
+        <span className="text-xs font-medium uppercase tracking-[0.19em] text-muted-foreground">{label}</span>
+        <p className="text-sm font-medium leading-snug text-foreground sm:text-base sm:leading-snug">{title}</p>
       </div>
     );
   }
 
   if (size === 'sm-light') {
     return (
-      <div className="flex aspect-[4/3] w-full flex-col gap-3 rounded-[26px] border border-[#E6E8EA] bg-white p-5 sm:aspect-[398/332] sm:p-7">
-        <span className="text-xs font-medium uppercase tracking-[0.19em] text-[#212730]/80">{label}</span>
-        <p className="text-sm font-medium leading-snug text-[#212730] sm:text-base sm:leading-snug">{title}</p>
-        {description && <p className="text-xs font-light leading-snug text-[#212730]/60">{description}</p>}
+      <div className="flex aspect-[4/3] w-full flex-col gap-3 rounded-[26px] border border-border bg-card p-5 sm:aspect-[398/332] sm:p-7">
+        <span className="text-xs font-medium uppercase tracking-[0.19em] text-muted-foreground">{label}</span>
+        <p className="text-sm font-medium leading-snug text-foreground sm:text-base sm:leading-snug">{title}</p>
+        {description && <p className="text-xs font-light leading-snug text-muted-foreground">{description}</p>}
       </div>
     );
   }
 
   return (
-    <div className="flex aspect-[16/9] w-full flex-col justify-center gap-6 rounded-[26px] border border-[#212730]/15 p-5 sm:aspect-[293/207] sm:p-7">
-      <span className="text-xs font-medium uppercase tracking-[0.19em] text-[#212730]/80">{label}</span>
-      <p className="text-sm font-medium leading-snug text-[#212730] sm:text-base sm:leading-snug">{title}</p>
+    <div className="flex aspect-[16/9] w-full flex-col justify-center gap-6 rounded-[26px] border border-border p-5 sm:aspect-[293/207] sm:p-7">
+      <span className="text-xs font-medium uppercase tracking-[0.19em] text-muted-foreground">{label}</span>
+      <p className="text-sm font-medium leading-snug text-foreground sm:text-base sm:leading-snug">{title}</p>
     </div>
   );
 }
@@ -113,7 +113,7 @@ export function OurValues() {
   const row3 = rest.slice(3, 6);
 
   return (
-    <section className="bg-[#F2F3F5] py-16 sm:py-20">
+    <section className="bg-secondary py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-4">
         <Reveal>
           <span className="text-xs font-semibold uppercase tracking-widest text-eyebrow-gradient">

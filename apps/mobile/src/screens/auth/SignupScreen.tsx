@@ -119,7 +119,16 @@ export function SignupScreen() {
       // returns that exact wording for a genuinely different agency owning
       // the requested name too, and swallowing that case would silently
       // skip agency creation while telling the user signup succeeded.
-      const alreadyHasAgency = resumedUser?.app_metadata?.role === 'agent' && !!resumedUser?.app_metadata?.agent_id;
+      //
+      // Keys off agency_id specifically, NOT agent_id — since
+      // 0072_default_signup_role_agent_again.sql, every signup (agency
+      // intent included) already gets a bare agent_profiles row and
+      // agent_id claim from handle_new_user() before this code ever runs,
+      // so agent_id alone is true unconditionally now and would skip
+      // registerAgency on every single Agency signup, not just a resumed
+      // retry. agency_id is only ever set by a genuinely completed
+      // registerSelfService call (see agencies.repository.ts).
+      const alreadyHasAgency = resumedUser?.app_metadata?.role === 'agent' && !!resumedUser?.app_metadata?.agency_id;
       if (accountType === 'agency' && !alreadyHasAgency) {
         await registerAgency.mutateAsync({
           agencyName,

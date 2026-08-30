@@ -90,6 +90,18 @@ export async function middleware(request: NextRequest) {
   const match = PROTECTED_ROUTES.find((route) => request.nextUrl.pathname.startsWith(route.prefix));
   if (!match) return response;
 
+  // Next.js tags a link-hover prefetch (warming the RSC cache, not a real
+  // navigation) with this header — skip the Supabase round-trip for those.
+  // Every prefetch was independently calling getUser() below, which can
+  // perform a just-in-time token refresh; with no cross-instance
+  // coordination between this per-request server client and the browser's
+  // own auto-refreshing client (see providers.tsx), two refreshes racing to
+  // redeem the same single-use refresh token is exactly what produced the
+  // intermittent "refresh_token 400" → wrongly-redirected-to-/login bug.
+  // Skipping prefetches doesn't expose protected data — the real navigation
+  // still gets the full check below.
+  if (request.headers.get('Next-Router-Prefetch')) return response;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   // Not configured (e.g. a fresh checkout before .env is filled in) — don't

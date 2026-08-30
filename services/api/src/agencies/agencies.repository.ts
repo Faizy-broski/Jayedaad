@@ -692,8 +692,16 @@ export class AgenciesRepository {
       const { data: existingUser, error: getError } = await this.supabase.client.auth.admin.getUserById(userId);
       if (getError) throw getError;
 
+      // agency_id in app_metadata (not just agent_id) — since
+      // 0072_default_signup_role_agent_again.sql, every signup already gets
+      // a bare agent_profiles row and agent_id claim from handle_new_user(),
+      // so agent_id alone no longer distinguishes "went through agency
+      // registration" from "just signed up." signup/page.tsx's
+      // alreadyHasAgency retry-resume check (and its mobile equivalent) key
+      // off this claim specifically for that reason — keep them in sync if
+      // this claim's name/shape ever changes.
       const { error: metadataError } = await this.supabase.client.auth.admin.updateUserById(userId, {
-        app_metadata: { ...existingUser.user.app_metadata, role: 'agent', agent_id: agentProfileId },
+        app_metadata: { ...existingUser.user.app_metadata, role: 'agent', agent_id: agentProfileId, agency_id: agency.id },
       });
       if (metadataError) throw metadataError;
 

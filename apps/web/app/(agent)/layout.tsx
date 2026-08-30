@@ -35,6 +35,7 @@ import { NotificationBell } from '@/components/layout/NotificationBell';
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useLogout } from '@/lib/hooks/useLogout';
 
 // Shell for every agent-portal screen (Zameen "Profolio" reference) —
 // sidebar + topbar, matches every other route group's convention of one
@@ -95,7 +96,8 @@ function useAgencyDocumentsComplete(agencyId: string | undefined): boolean {
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, role, signOut } = useAuthViewModel();
+  const { user, role } = useAuthViewModel();
+  const { logout, isPending: signOutPending } = useLogout();
   const { profile } = useAgentProfileViewModel();
   // Independent-agent case (no agency): reuses the same identity-document
   // query the become-an-agent flow itself runs — enabled: role === 'agent'
@@ -137,14 +139,13 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
-  function handleLogout() {
-    // Hard redirect (not router.push) — forces a real page unload so the
-    // browser can't bfcache this protected page. Without it, pressing Back
-    // after logout could restore a frozen pre-logout snapshot instead of
-    // hitting middleware.ts's auth check again (see next.config.js's
-    // matching no-store headers() for the other half of this fix).
-    signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/login') });
-  }
+  // Hard redirect (not router.push), including on a failed sign-out — forces
+  // a real page unload so the browser can't bfcache this protected page.
+  // Without it, pressing Back after logout could restore a frozen
+  // pre-logout snapshot instead of hitting middleware.ts's auth check again
+  // (see next.config.js's matching no-store headers() for the other half of
+  // this fix). See useLogout.ts for why onError also redirects.
+  const handleLogout = logout;
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -281,11 +282,11 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
               <button
                 type="button"
                 onClick={handleLogout}
-                disabled={signOut.isPending}
+                disabled={signOutPending}
                 className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >
                 <LogOut className="h-4 w-4 shrink-0" />
-                {signOut.isPending ? 'Logging out…' : 'Log Out'}
+                {signOutPending ? 'Logging out…' : 'Log Out'}
               </button>
             </motion.div>
           )}

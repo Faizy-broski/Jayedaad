@@ -101,7 +101,16 @@ function LoginForm() {
       }
       const redirectTo = searchParams.get('redirectTo');
       const role = user?.app_metadata?.role as string | undefined;
-      router.push(redirectTo || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/');
+      // Hard navigation (not router.push) — the OAuth callback route already
+      // does a hard redirect after sign-in; this path didn't, which left a
+      // window where middleware.ts's very next getUser() check could race
+      // the freshly-set session cookie against this same tab's still-live
+      // Supabase client (its background refresh timer/in-flight promise
+      // doesn't die on a soft client-side navigation) — most visible when
+      // signing into a *different* account right after signing out of one in
+      // the same tab. A full page load starts every check from a completely
+      // fresh client instance and cookie round-trip.
+      window.location.href = redirectTo || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
     } catch {
       setRedirecting(false);
     }

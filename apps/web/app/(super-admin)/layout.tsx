@@ -32,6 +32,7 @@ import { NotificationBell } from '@/components/layout/NotificationBell';
 import { PreferencesMenu } from '@/components/layout/PreferencesMenu';
 import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { RequireEmailVerified } from '@/components/auth/RequireEmailVerified';
+import { useLogout } from '@/lib/hooks/useLogout';
 
 // Distinct shell for the Super Admin "god mode" dashboard — deliberately
 // separate from apps/web/app/(agent)/layout.tsx (the agent Profolio shell)
@@ -72,7 +73,8 @@ const NAV_ITEMS = [
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, role, signOut } = useAuthViewModel();
+  const { user, role } = useAuthViewModel();
+  const { logout, isPending: signOutPending } = useLogout();
   const displayName = getDisplayName(user, 'Admin');
   const initials = displayName.slice(0, 2).toUpperCase();
   // The full nav below and every "Super Admin" label only ever made sense
@@ -101,14 +103,13 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
-  function handleLogout() {
-    // Hard redirect (not router.push) — forces a real page unload so the
-    // browser can't bfcache this protected page. Without it, pressing Back
-    // after logout could restore a frozen pre-logout snapshot instead of
-    // hitting middleware.ts's auth check again (see next.config.js's
-    // matching no-store headers() for the other half of this fix).
-    signOut.mutate(undefined, { onSuccess: () => (window.location.href = '/login') });
-  }
+  // Hard redirect (not router.push), including on a failed sign-out — forces
+  // a real page unload so the browser can't bfcache this protected page.
+  // Without it, pressing Back after logout could restore a frozen
+  // pre-logout snapshot instead of hitting middleware.ts's auth check again
+  // (see next.config.js's matching no-store headers() for the other half of
+  // this fix). See useLogout.ts for why onError also redirects.
+  const handleLogout = logout;
 
   const activeItem = isSuperAdmin
     ? NAV_ITEMS.find(({ href }) => pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href)))
@@ -250,11 +251,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               <button
                 type="button"
                 onClick={handleLogout}
-                disabled={signOut.isPending}
+                disabled={signOutPending}
                 className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >
                 <LogOut className="h-4 w-4 shrink-0" />
-                {signOut.isPending ? 'Logging out…' : 'Log Out'}
+                {signOutPending ? 'Logging out…' : 'Log Out'}
               </button>
             </motion.div>
           )}
