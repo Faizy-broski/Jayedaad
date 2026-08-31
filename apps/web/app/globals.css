@@ -37,12 +37,16 @@
    (StatItem, "Jayedaad Housing" style numbers) and as the far end of the
    `.text-gradient-*` heading utilities defined below.
 
-   Dark mode follows tailwind.config.ts's `darkMode: 'class'` — a `.dark`
-   class applied by each dashboard layout (Super Admin/Agent/Account/
-   Verification) to its own top-level wrapper div, never to <html>, so the
-   public marketing site never goes dark; state comes from
+   Dark mode follows tailwind.config.ts's `darkMode: 'class'` — a single
+   site-wide `.dark` class applied straight to <html> by
    components/ThemeProvider.tsx (defaults to light; persisted to
-   localStorage). Brand hues
+   localStorage), shared by every route — dashboards AND the public
+   marketing site (homepage, /listings, /developments, etc.) alike; see that
+   file's own comment. (This block used to claim the class never reached
+   <html> and the public site never went dark — that stopped being true once
+   ThemeProvider switched to a single site-wide toggle, and the
+   .text-heading-gradient dark-mode override below exists specifically
+   because storefront headings needed to adapt too.) Brand hues
    (primary/brand-dark/brand-emerald/highlight) stay the same family across
    light/dark; --primary's lightness is bumped up in dark mode purely for
    contrast against the dark background (18% on 11% would be nearly
@@ -184,6 +188,27 @@
     color: transparent;
     line-height: 1.25;
     padding-bottom: 0.08em;
+  }
+
+  /* This gradient's stops are fixed dark-green hex, not the --primary/
+     --foreground CSS vars that flip per-theme — every storefront section
+     heading (Featured properties, Browse by category, New Projects, etc.)
+     went near-invisible once dark mode started applying site-wide (see the
+     :root comment above). Same "flat two-stop gradient" trick as the light
+     mode rule above, just pointed at --foreground (already an off-white in
+     dark mode) so it reads as solid white.
+
+     `background-image`, not the `background` shorthand — the shorthand
+     implicitly resets every sub-property it doesn't mention (background-
+     clip included) back to its initial value (border-box), and at this
+     rule's higher specificity that silently beat the base rule's explicit
+     `background-clip: text`. Result: the gradient stopped being clipped to
+     the text glyphs and painted as a solid rectangle instead, with the
+     actual (color: transparent) text invisible on top of it — every
+     heading looked like a blank box. `background-image` only ever sets
+     the image layer, leaving background-clip alone. */
+  .dark .text-heading-gradient {
+    background-image: linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(var(--foreground)) 100%);
   }
 
   /* Same stops as .text-heading-gradient, applied as an actual background
