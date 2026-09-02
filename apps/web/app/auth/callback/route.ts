@@ -1,6 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { resolveDefaultLandingRoute } from '@jayedaad/core';
 import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 
 // Only accept a same-app internal path as `next` — rejects a
@@ -12,6 +11,29 @@ import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 // closing properly now that signup/page.tsx is becoming a second caller.
 function isSafeNext(value: string | null): value is string {
   return !!value && value.startsWith('/') && !value.startsWith('//');
+}
+
+// Deliberately NOT imported from @jayedaad/core's resolveDefaultLandingRoute
+// (packages/core/src/constants/landingRoutes.ts), even though every other
+// call site uses it — a route.ts handler has no 'use client' escape hatch,
+// and importing anything from that package's barrel (src/index.ts) pulls in
+// its entire transitive export graph, including client-only hooks like
+// useChatbotViewModel's useState. That broke the production build
+// ("needs useState... none of its parents are marked with 'use client'").
+// middleware.ts already avoids importing @jayedaad/core for the same
+// reason (see its own local isRefreshTokenAlreadyUsedError helper) — this
+// mirrors that, same duplication convention the original code here already
+// used before consolidation, kept local specifically for this one file.
+const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
+  super_admin: '/admin/dashboard',
+  verification_staff: '/verification',
+  agent: '/dashboard',
+  owner: '/submit',
+  buyer: '/account/saved',
+};
+
+function resolveDefaultLandingRoute(role: string | undefined): string {
+  return DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
 }
 
 // PKCE code exchange after Google (or any future Supabase OAuth provider)
