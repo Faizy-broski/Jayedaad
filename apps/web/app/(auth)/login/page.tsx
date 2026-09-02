@@ -3,21 +3,10 @@
 import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { getUserEmailVerified, useAuthViewModel } from '@jayedaad/core';
+import { getUserEmailVerified, resolveDefaultLandingRoute, useAuthViewModel } from '@jayedaad/core';
 import { Button, Checkbox, Input, Label } from '@jayedaad/ui-web';
 import { makeSessionOnlyIfNotRemembered } from '@/lib/rememberMe';
 import { AuthShell } from '@/components/auth/AuthShell';
-
-// Where a successfully-authenticated user lands when they didn't arrive via
-// a redirect from a protected route (see middleware.ts's redirectTo param).
-// Mirrors the same role set enforced there.
-const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
-  super_admin: '/admin/dashboard',
-  verification_staff: '/verification',
-  agent: '/dashboard',
-  owner: '/submit',
-  buyer: '/account/saved',
-};
 
 // Supabase's real ban rejection (confirmed empirically against this
 // project: AuthApiError, code "user_banned", message "User is banned") —
@@ -110,7 +99,7 @@ function LoginForm() {
       // signing into a *different* account right after signing out of one in
       // the same tab. A full page load starts every check from a completely
       // fresh client instance and cookie round-trip.
-      window.location.href = redirectTo || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
+      window.location.href = redirectTo || resolveDefaultLandingRoute(role);
     } catch {
       setRedirecting(false);
     }

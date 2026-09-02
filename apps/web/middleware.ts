@@ -2,6 +2,16 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseCookieOptions } from './lib/supabaseCookieOptions';
 
+// `@supabase/supabase-js` (which exports the real `AuthApiError` class/
+// `isAuthApiError` guard) isn't a declared dependency of apps/web — only
+// `@supabase/ssr` is — so importing it directly here risks either a build
+// break or, worse, a cross-instance mismatch if pnpm resolves a different
+// copy than the one `@supabase/ssr` uses internally to construct the error.
+// Duck-typing the one field this needs sidesteps both risks entirely.
+function isRefreshTokenAlreadyUsedError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'refresh_token_already_used';
+}
+
 // Route-group access control — role gates for the (verification)/(agent)/
 // (owner) route groups (see app/(verification)/verification, app/(agent)/crm,
 // app/(owner)/submit). Route GROUPS don't appear in the actual URL (only
@@ -99,7 +109,10 @@ export async function middleware(request: NextRequest) {
   // redeem the same single-use refresh token is exactly what produced the
   // intermittent "refresh_token 400" → wrongly-redirected-to-/login bug.
   // Skipping prefetches doesn't expose protected data — the real navigation
-  // still gets the full check below.
+  // still gets the full check below, which now also handles this same race
+  // for real navigations (see the retry right after getUser() below) —
+  // prefetches stay skipped too since there's still no reason to pay the
+  // round-trip for a request that isn't a real navigation.
   if (request.headers.get('Next-Router-Prefetch')) return response;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -124,10 +137,25 @@ export async function middleware(request: NextRequest) {
   // getUser() (not getSession()) — revalidates the token against Supabase
   // rather than trusting an unverified cookie, the documented-safe way to
   // check auth in middleware.
-  const {
+  let {
     data: { user },
     error: getUserError,
   } = await supabase.auth.getUser();
+
+  // The exact race described above, for a real navigation this time (the
+  // prefetch skip above only avoids it for prefetches). If THIS client lost
+  // the race to redeem an already-consumed refresh token, the browser's own
+  // client almost certainly already has (or is about to have) the rotated
+  // session — retrying once, rather than immediately redirecting to
+  // /login, gives that a chance to land before treating this as a real
+  // logged-out state. One retry, no backoff: this is a redirect-vs-render
+  // decision, not worth retry infrastructure.
+  if (!user && isRefreshTokenAlreadyUsedError(getUserError)) {
+    ({
+      data: { user },
+      error: getUserError,
+    } = await supabase.auth.getUser());
+  }
 
   if (!user) {
     // A confirmed "no session" and a transient Supabase Auth failure both

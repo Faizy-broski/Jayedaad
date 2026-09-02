@@ -1,15 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { resolveDefaultLandingRoute } from '@jayedaad/core';
 import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 
-// Mirrors apps/web/app/(auth)/login/page.tsx's DEFAULT_LANDING_BY_ROLE
-// (same duplication convention already used there and in
-// verify-email/page.tsx). Needed here too because Google's OAuth round-trip
-// leaves the app entirely before the user's role is known — a fresh Google
-// sign-in with no explicit ?next= can only be routed once the session
-// exists, i.e. after exchangeCodeForSession below. Password sign-in doesn't
-// have this problem (role is already known synchronously after signIn
-// resolves, same page), which is why this only lives here.
 // Only accept a same-app internal path as `next` — rejects a
 // protocol-relative '//host' (browsers treat that as an off-site redirect)
 // or anything not starting with a single '/'. `next` previously flowed
@@ -20,14 +13,6 @@ import { getSupabaseCookieOptions } from '@/lib/supabaseCookieOptions';
 function isSafeNext(value: string | null): value is string {
   return !!value && value.startsWith('/') && !value.startsWith('//');
 }
-
-const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
-  super_admin: '/admin/dashboard',
-  verification_staff: '/verification',
-  agent: '/dashboard',
-  owner: '/submit',
-  buyer: '/account/saved',
-};
 
 // PKCE code exchange after Google (or any future Supabase OAuth provider)
 // redirects back here. Uses @supabase/ssr directly (not authService.ts) —
@@ -66,8 +51,22 @@ export async function GET(request: NextRequest) {
     );
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const role = data.user?.app_metadata?.role as string | undefined;
-      const target = (isSafeNext(next) ? next : null) || DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
+      let role = data.user?.app_metadata?.role as string | undefined;
+      // handle_new_user()'s trigger writes profiles.role and auth.users'
+      // own app_metadata.role in the same transaction as the account
+      // insert — but the JWT claims exchangeCodeForSession just returned
+      // were built from the row as it existed when the exchange started,
+      // which can be a moment before that write lands. A falsy role here
+      // is exactly what that race looks like (verify-email/page.tsx's
+      // password-signup path doesn't hit this because its verifyOtp
+      // mutation already calls refreshSession() for the same reason) — one
+      // refresh, no loop, before falling back to '/' for what would
+      // otherwise look like a roleless account.
+      if (!role) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        role = refreshed.user?.app_metadata?.role as string | undefined;
+      }
+      const target = (isSafeNext(next) ? next : null) || resolveDefaultLandingRoute(role);
       response.headers.set('location', `${origin}${target}`);
       return response;
     }

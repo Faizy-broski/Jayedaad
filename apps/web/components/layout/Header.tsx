@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getDisplayName, useAuthViewModel } from '@jayedaad/core';
+import { DEFAULT_LANDING_BY_ROLE, getDisplayName, useAuthViewModel } from '@jayedaad/core';
 import { PreferencesMenu } from './PreferencesMenu';
 import { DarkModeToggle } from './DarkModeToggle';
 
@@ -106,18 +106,6 @@ export function Header() {
     </Suspense>
   );
 }
-
-// Mirrors apps/web/app/(auth)/login/page.tsx's DEFAULT_LANDING_BY_ROLE —
-// same duplication convention already used there, in
-// verify-email/page.tsx, and in auth/callback/route.ts. Used here for the
-// signed-in user menu's "Dashboard" link.
-const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
-  super_admin: '/admin/dashboard',
-  verification_staff: '/verification',
-  agent: '/dashboard',
-  owner: '/submit',
-  buyer: '/account/saved',
-};
 
 function HeaderInner() {
   const { isAuthenticated, user, role, isEmailVerified, isEmailVerifiedLoading, signOut } = useAuthViewModel();

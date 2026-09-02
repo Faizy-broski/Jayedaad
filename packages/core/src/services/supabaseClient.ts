@@ -45,7 +45,17 @@ export function configureSupabaseClient(options: ConfigureSupabaseClientOptions)
     useAuthStore.getState().setSession(data.session);
     useAuthStore.getState().setInitializing(false);
   });
-  client.auth.onAuthStateChange((_event, session) => {
+  client.auth.onAuthStateChange((event, session) => {
+    // Was `_event` — discarded, so every event (a real SIGNED_OUT, a
+    // routine TOKEN_REFRESHED, or a transient failed-refresh null session
+    // from e.g. the web browser/middleware dual-client refresh-token race,
+    // see apps/web/middleware.ts) looked identical in logs, making a real
+    // "why did this session die" incident undiagnosable after the fact.
+    // Diagnostic only — no behavior change.
+    if (event !== 'INITIAL_SESSION') {
+      // eslint-disable-next-line no-console
+      console.info(`[supabaseClient] onAuthStateChange: ${event}, session=${session ? 'present' : 'null'}`);
+    }
     currentAccessToken = session?.access_token;
     useAuthStore.getState().setSession(session);
   });

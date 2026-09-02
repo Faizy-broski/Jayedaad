@@ -15,11 +15,12 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
-import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken } from '@jayedaad/core';
+import { createQueryClient, configureHttpClient, configureSupabaseClient, getCurrentAccessToken, signOut } from '@jayedaad/core';
 import { ToastProvider, Toast, applyGlobalFontFamily } from '@jayedaad/ui-native';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthGateProvider } from './src/auth/AuthGateProvider';
 import { rememberMeStorage } from './src/lib/rememberMeStorage';
+import { startSupabaseAppStateSync } from './src/lib/supabaseAppStateSync';
 
 // Must run at module scope, as early as possible, so it's registered before
 // any OAuth browser session completes (Google sign-in via WebBrowser.openAuthSessionAsync).
@@ -40,7 +41,7 @@ if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
   Sentry.init({ dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, environment: __DEV__ ? 'development' : 'production' });
 }
 
-configureSupabaseClient({
+const supabaseClient = configureSupabaseClient({
   url: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
   anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   // Default supabase-js falls back to `localStorage`, which doesn't exist in
@@ -67,9 +68,26 @@ configureSupabaseClient({
     }),
 });
 
+// autoRefreshToken alone isn't enough on React Native — auth-js's own
+// GoTrueClient "assumes always foreground" for non-browser platforms (no
+// visibilitychange equivalent exists here), so without this a session left
+// backgrounded for a while can come back stale with nothing attempting
+// recovery. See src/lib/supabaseAppStateSync.ts for the full explanation.
+if (supabaseClient) startSupabaseAppStateSync(supabaseClient);
+
 configureHttpClient({
   baseURL: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3001',
   getToken: getCurrentAccessToken,
+  // A 401 means JwtAuthGuard rejected the token outright (missing,
+  // malformed, or expired) — same rationale as apps/web/app/providers.tsx's
+  // identical handler, previously missing here entirely, which left a dead
+  // session just failing every request silently instead of cleanly signing
+  // out. RootNavigator isn't root-auth-gated (auth is enforced per-action via
+  // AuthGateProvider's sheet), so signOut() alone is enough — every consumer
+  // reacts to useAuthStore automatically, no manual navigation needed.
+  onUnauthorized: () => {
+    signOut().catch(() => {});
+  },
 });
 
 function App() {

@@ -265,7 +265,19 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
             key={p}
             type="button"
             onClick={() => setPurpose(p)}
-            className="relative rounded-full px-5 py-2 text-sm font-medium transition-transform duration-150 ease-out active:scale-90"
+            // The active background used to come ONLY from the motion.span
+            // below — a layoutId shared-element animation, which needs
+            // client-side JS to hydrate and measure layout before it paints
+            // anything. Until then (a real, sometimes-noticeable gap on a
+            // heavy first load) the active tab showed as plain unstyled
+            // text with no green pill at all. This plain conditional class
+            // makes the correct state render immediately from first
+            // paint — no JS required — and the motion.span layers on top
+            // once hydrated to animate the slide between Buy/Rent; same
+            // color/shape on both, so there's no visible handoff.
+            className={`relative rounded-full px-5 py-2 text-sm font-medium transition-transform duration-150 ease-out active:scale-90 ${
+              purpose === p ? 'bg-heading-gradient shadow-sm' : ''
+            }`}
           >
             {purpose === p && (
               <motion.span

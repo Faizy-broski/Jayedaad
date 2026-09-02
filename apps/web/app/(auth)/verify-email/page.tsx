@@ -3,17 +3,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
-import { useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
+import { resolveDefaultLandingRoute, useAgentProfileViewModel, useAuthViewModel } from '@jayedaad/core';
 import { Button, Input, Label } from '@jayedaad/ui-web';
 import { AuthShell } from '@/components/auth/AuthShell';
-
-const DEFAULT_LANDING_BY_ROLE: Record<string, string> = {
-  super_admin: '/admin/dashboard',
-  verification_staff: '/verification',
-  agent: '/crm',
-  owner: '/submit',
-  buyer: '/account/saved',
-};
 
 // Same split-screen, no-scroll shell as /login and /signup (see those files
 // for the centering rationale) — AppChrome omits Header/Footer on this
@@ -39,7 +31,7 @@ export default function VerifyEmailPage() {
       const stillPending = !profile || profile.verificationStatus !== 'verified' || (profile.agency && profile.agency.verificationStatus !== 'verified');
       if (stillPending) return '/become-an-agent';
     }
-    return DEFAULT_LANDING_BY_ROLE[role ?? ''] || '/';
+    return resolveDefaultLandingRoute(role);
   }
 
   useEffect(() => {

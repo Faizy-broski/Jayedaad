@@ -8,6 +8,7 @@ export * from './utils/convertPrice';
 export * from './utils/convertArea';
 export * from './constants/pakistanCities';
 export * from './constants/countries';
+export * from './constants/landingRoutes';
 export * from './constants/currencies';
 export * from './services/httpClient';
 export * from './services/listingsRepository';
