@@ -56,31 +56,45 @@ interface SizePreset {
 // Real Pakistani real-estate size conventions (Marla/Kanal for residential,
 // Sq. Ft for commercial — same units lib/areaOptions.ts's AREA_UNIT_OPTIONS
 // already scales for), one preset list per type that actually uses size as
-// its primary spec. "N+" (open-ended: sets only minAreaValue, no max) rather
-// than a narrow band — a homepage quick-pick should widen the result set,
-// not accidentally exclude anything just above the picked number, and it
-// keeps the same "at least N" mental model as the bedroom chips below.
+// its primary spec. Each preset is open-ended (sets only minAreaValue, no
+// max) rather than a narrow band — a homepage quick-pick should widen the
+// result set, not accidentally exclude anything just above the picked
+// number — same "at least N" semantics the bedroom chips below use. Labels
+// themselves stay plain ("5 Marla", not "5 Marla+") per product decision —
+// the "+" read as unnecessary clutter even though the filter is still
+// open-ended underneath.
 const HOUSE_SIZE_PRESETS: SizePreset[] = [
-  { label: '5 Marla+', value: 5, unit: 'marla' },
-  { label: '10 Marla+', value: 10, unit: 'marla' },
-  { label: '1 Kanal+', value: 1, unit: 'kanal' },
-  { label: '2 Kanal+', value: 2, unit: 'kanal' },
+  { label: '5 Marla', value: 5, unit: 'marla' },
+  { label: '10 Marla', value: 10, unit: 'marla' },
+  { label: '1 Kanal', value: 1, unit: 'kanal' },
+  { label: '2 Kanal', value: 2, unit: 'kanal' },
 ];
 
 const PLOT_SIZE_PRESETS: SizePreset[] = [
-  { label: '5 Marla+', value: 5, unit: 'marla' },
-  { label: '10 Marla+', value: 10, unit: 'marla' },
-  { label: '1 Kanal+', value: 1, unit: 'kanal' },
-  { label: '4 Kanal+', value: 4, unit: 'kanal' },
-  { label: '8 Kanal+', value: 8, unit: 'kanal' },
+  { label: '5 Marla', value: 5, unit: 'marla' },
+  { label: '10 Marla', value: 10, unit: 'marla' },
+  { label: '1 Kanal', value: 1, unit: 'kanal' },
+  { label: '4 Kanal', value: 4, unit: 'kanal' },
+  { label: '8 Kanal', value: 8, unit: 'kanal' },
 ];
 
 const COMMERCIAL_SIZE_PRESETS: SizePreset[] = [
-  { label: '500 Sq Ft+', value: 500, unit: 'sqft' },
-  { label: '1000 Sq Ft+', value: 1000, unit: 'sqft' },
-  { label: '2000 Sq Ft+', value: 2000, unit: 'sqft' },
-  { label: '5000 Sq Ft+', value: 5000, unit: 'sqft' },
+  { label: '500 Sq Ft', value: 500, unit: 'sqft' },
+  { label: '1000 Sq Ft', value: 1000, unit: 'sqft' },
+  { label: '2000 Sq Ft', value: 2000, unit: 'sqft' },
+  { label: '5000 Sq Ft', value: 5000, unit: 'sqft' },
 ];
+
+// Homes/Plot default to Marla (the smaller, more common band); Commercial
+// defaults to Sq. Ft — matches each category's own size presets above.
+// Applied whenever the active category changes (handleCategoryClick) so
+// "More Filters" → Area Range shows the right unit even if the user opens
+// it without ever clicking a size chip first.
+const CATEGORY_DEFAULT_UNIT: Record<string, AreaUnit> = {
+  residential: 'marla',
+  plot: 'marla',
+  commercial: 'sqft',
+};
 
 // Matches PropertyFilters.tsx's own BEDROOM_OPTIONS "N+" chips (1–6) —
 // trimmed to 5 here since this is a quick-pick shortcut, not the full
@@ -195,6 +209,13 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
   const [minBedrooms, setMinBedrooms] = useState<number | ''>('');
   const [bedsMenuOpen, setBedsMenuOpen] = useState(false);
   const bedsMenuRef = useRef<HTMLDivElement>(null);
+  // A bedroom count beyond the 1–5 presets (e.g. a large farmhouse) — a
+  // plain number input inside the Beds popover rather than a range, same
+  // single-value "at least N" semantics minBedrooms already has.
+  const [showCustomBeds, setShowCustomBeds] = useState(false);
+  const [customBedsInput, setCustomBedsInput] = useState('');
+  const [customSizeOpen, setCustomSizeOpen] = useState(false);
+  const customSizeMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!bedsMenuOpen) return;
@@ -206,6 +227,15 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
   }, [bedsMenuOpen]);
 
   useEffect(() => {
+    if (!customSizeOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (customSizeMenuRef.current && !customSizeMenuRef.current.contains(e.target as Node)) setCustomSizeOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [customSizeOpen]);
+
+  useEffect(() => {
     if (!openCategoryMenu) return;
     function handleClickOutside(e: MouseEvent) {
       if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node)) setOpenCategoryMenu(null);
@@ -215,6 +245,12 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
   }, [openCategoryMenu]);
 
   const activeCategory = PROPERTY_CATEGORIES.find((c) => c.slug === selectedCategory)!;
+  // "Custom" reads as active whenever a real area value is set that isn't
+  // exactly one of the preset chips — otherwise clicking a preset (5
+  // Marla, say) would leave both it AND Custom looking selected.
+  const isCustomSizeActive =
+    (minArea !== '' || maxArea !== '') &&
+    !activeCategory.sizePresets?.some((preset) => preset.value === minArea && maxArea === '' && preset.unit === areaUnit);
 
   // Clicking the already-selected category's button just opens/closes its
   // own dropdown (so re-picking a different sub-type doesn't wipe the
@@ -230,7 +266,11 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
       setMinBedrooms('');
       setMinArea('');
       setMaxArea('');
+      setAreaUnit(CATEGORY_DEFAULT_UNIT[slug] ?? 'marla');
       setBedsMenuOpen(false);
+      setCustomSizeOpen(false);
+      setShowCustomBeds(false);
+      setCustomBedsInput('');
     }
     setOpenCategoryMenu((cur) => (cur === slug ? null : slug));
   }
@@ -239,6 +279,11 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
     setSelectedCategory(slug);
     setSelectedSubtypeSlug(subtypeSlug);
     setOpenCategoryMenu(null);
+    // Apartment is shopped for by bedroom count first — pop the Beds
+    // picker open immediately instead of making that a second click.
+    // Closes it for any other sub-type so switching away doesn't leave a
+    // stale popover open.
+    setBedsMenuOpen(subtypeSlug === 'flat');
   }
 
   function handleSearch() {
@@ -466,7 +511,7 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
                   >
                     <BedDouble className="h-5 w-5" />
                     <span className="flex items-center gap-0.5">
-                      <span className="truncate">{minBedrooms !== '' ? `${minBedrooms}+ Beds` : 'Beds'}</span>
+                      <span className="truncate">{minBedrooms !== '' ? `${minBedrooms} Beds` : 'Beds'}</span>
                       <ChevronDown className="h-3 w-3 shrink-0" />
                     </span>
                   </button>
@@ -481,6 +526,7 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
                             type="button"
                             onClick={() => {
                               setMinBedrooms((cur) => (cur === n ? '' : n));
+                              setShowCustomBeds(false);
                               setBedsMenuOpen(false);
                             }}
                             className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
@@ -489,14 +535,54 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
                                 : 'border-border text-muted-foreground hover:bg-muted'
                             }`}
                           >
-                            {n}+
+                            {n}
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomBedsInput(minBedrooms !== '' && !BEDROOM_PRESETS.includes(minBedrooms) ? String(minBedrooms) : '');
+                            setShowCustomBeds((v) => !v);
+                          }}
+                          className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            showCustomBeds || (minBedrooms !== '' && !BEDROOM_PRESETS.includes(minBedrooms))
+                              ? 'border-primary bg-primary/5 text-primary'
+                              : 'border-border text-muted-foreground hover:bg-muted'
+                          }`}
+                        >
+                          Custom
+                        </button>
                       </div>
+
+                      {showCustomBeds && (
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={1}
+                            autoFocus
+                            value={customBedsInput}
+                            onChange={(e) => setCustomBedsInput(e.target.value)}
+                            placeholder="e.g. 7"
+                            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const n = Number(customBedsInput);
+                              if (customBedsInput.trim() && n > 0) setMinBedrooms(n);
+                              setBedsMenuOpen(false);
+                            }}
+                            className="h-9 shrink-0 rounded-lg bg-heading-gradient px-3 text-xs font-medium text-primary-foreground"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setBedsMenuOpen(false)}
-                        className="mt-2.5 w-full rounded-lg bg-heading-gradient px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                        className="mt-2.5 w-full rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
                       >
                         Close
                       </button>
@@ -552,6 +638,44 @@ export function HeroSearchCard({ className = '' }: { className?: string }) {
                           </button>
                         );
                       })}
+
+                    {activeCategory.quickFilters.includes('size') && (
+                      <div ref={customSizeMenuRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setCustomSizeOpen((v) => !v)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            isCustomSizeActive
+                              ? 'border-primary bg-primary/5 text-primary'
+                              : 'border-border text-muted-foreground hover:bg-muted'
+                          }`}
+                        >
+                          Custom
+                        </button>
+
+                        {customSizeOpen && (
+                          <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-xl border border-border bg-card p-3 shadow-lg">
+                            <p className="mb-2 text-xs font-semibold text-foreground">Custom size</p>
+                            <RangeDropdown
+                              minValue={minArea}
+                              maxValue={maxArea}
+                              options={AREA_UNIT_OPTIONS[areaUnit]}
+                              formatOption={(v) => String(v)}
+                              onChangeMin={setMinArea}
+                              onChangeMax={setMaxArea}
+                              unit={{ value: areaUnit, onChange: setAreaUnit }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setCustomSizeOpen(false)}
+                              className="mt-2.5 w-full rounded-lg bg-heading-gradient px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
